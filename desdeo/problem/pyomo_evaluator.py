@@ -54,6 +54,7 @@ class PyomoEvaluator:
         # Add constraints, if any
         if problem.constraints is not None:
             model = self.init_constraints(problem, model)
+            model.dual = pyomo.Suffix(direction=pyomo.Suffix.IMPORT)
 
         # Add scalarization functions, if any
         if problem.scalarization_funcs is not None:
@@ -109,8 +110,12 @@ class PyomoEvaluator:
         for var in problem.variables:
             if isinstance(var, Variable):
                 # handle regular variables
-                lowerbound = var.lowerbound if var.lowerbound is not None else float("-inf")
-                upperbound = var.upperbound if var.upperbound is not None else float("inf")
+                lowerbound = (
+                    var.lowerbound if var.lowerbound is not None else float("-inf")
+                )
+                upperbound = (
+                    var.upperbound if var.upperbound is not None else float("inf")
+                )
 
                 # figure out the variable type
                 match (lowerbound >= 0, upperbound >= 0, var.variable_type):
@@ -164,7 +169,10 @@ class PyomoEvaluator:
                     )
 
                 pyomo_var = pyomo.Var(
-                    name=var.name, initialize=initial_value, bounds=(var.lowerbound, var.upperbound), domain=domain
+                    name=var.name,
+                    initialize=initial_value,
+                    bounds=(var.lowerbound, var.upperbound),
+                    domain=domain,
                 )
 
             elif isinstance(var, TensorVariable):
@@ -185,7 +193,9 @@ class PyomoEvaluator:
                     *index_sets,
                     name=var.name,
                     initialize=self._init_rule(var.get_initial_values()),
-                    bounds=self._bounds_rule(var.get_lowerbound_values(), var.get_upperbound_values()),
+                    bounds=self._bounds_rule(
+                        var.get_lowerbound_values(), var.get_upperbound_values()
+                    ),
                     domain=domain,
                 )
 
@@ -216,7 +226,11 @@ class PyomoEvaluator:
             # Handle regular constnants
             if isinstance(con, Constant):
                 # figure out the domain of the constant
-                match (isinstance(con.value, int), isinstance(con.value, float), con.value >= 0):
+                match (
+                    isinstance(con.value, int),
+                    isinstance(con.value, float),
+                    con.value >= 0,
+                ):
                     case (True, False, True):
                         # positive integer
                         domain = pyomo.NonNegativeIntegers
@@ -234,7 +248,9 @@ class PyomoEvaluator:
                         msg = f"Failed to figure out the domain for the constant {con.symbol}."
                         raise PyomoEvaluatorError(msg)
 
-                pyomo_param = pyomo.Param(name=con.name, default=con.value, domain=domain)
+                pyomo_param = pyomo.Param(
+                    name=con.name, default=con.value, domain=domain
+                )
 
             elif isinstance(con, TensorConstant):
                 # handle TensorConstants, like vectors
@@ -297,7 +313,11 @@ class PyomoEvaluator:
             setattr(model, obj.symbol, pyomo_expr)
 
             # the obj.symbol_min objectives are used when optimizing and building scalarizations etc...
-            setattr(model, f"{obj.symbol}_min", (-1) * pyomo_expr if obj.maximize else pyomo_expr)
+            setattr(
+                model,
+                f"{obj.symbol}_min",
+                (-1) * pyomo_expr if obj.maximize else pyomo_expr,
+            )
 
         return model
 
@@ -316,7 +336,6 @@ class PyomoEvaluator:
         """
         for cons in problem.constraints:
             pyomo_expr = self.parse(cons.func, model)
-
             match con_type := cons.cons_type:
                 case ConstraintTypeEnum.LTE:
                     # constraints in DESDEO are defined such that they must be less than zero
@@ -371,7 +390,11 @@ class PyomoEvaluator:
                 found in xs.
         """
         res = []
-        n_samples = len(next(iter(xs.values()))) if isinstance(next(iter(xs.values())), list) else 1
+        n_samples = (
+            len(next(iter(xs.values())))
+            if isinstance(next(iter(xs.values())), list)
+            else 1
+        )
         for i in range(n_samples):
             for var in self.problem.variables:
                 x = xs[var.symbol][i]
@@ -380,7 +403,9 @@ class PyomoEvaluator:
                     setattr(self.model, var.symbol, x)
                 else:
                     # tensor variable
-                    indices = itertools.product(*[range(1, dim + 1) for dim in var.shape])  # 1-based indexing
+                    indices = itertools.product(
+                        *[range(1, dim + 1) for dim in var.shape]
+                    )  # 1-based indexing
                     for idx in indices:
                         elem = x
                         for j in idx:
@@ -417,20 +442,28 @@ class PyomoEvaluator:
         if self.problem.constants is not None:
             for con in self.problem.constants:
                 if isinstance(con, Constant):
-                    result_dict[con.symbol] = pyomo.value(getattr(self.model, con.symbol))
+                    result_dict[con.symbol] = pyomo.value(
+                        getattr(self.model, con.symbol)
+                    )
                 elif isinstance(con, TensorConstant):
-                    result_dict[con.symbol] = getattr(self.model, con.symbol).extract_values()
+                    result_dict[con.symbol] = getattr(
+                        self.model, con.symbol
+                    ).extract_values()
                 else:
                     msg = f"Unsupported variable type {type(var)} encountered."
                     raise PyomoEvaluatorError(msg)
 
         if self.problem.extra_funcs is not None:
             for extra in self.problem.extra_funcs:
-                result_dict[extra.symbol] = pyomo.value(getattr(self.model, extra.symbol))
+                result_dict[extra.symbol] = pyomo.value(
+                    getattr(self.model, extra.symbol)
+                )
 
         if self.problem.constraints is not None:
             for const in self.problem.constraints:
-                result_dict[const.symbol] = pyomo.value(getattr(self.model, const.symbol))
+                result_dict[const.symbol] = pyomo.value(
+                    getattr(self.model, const.symbol)
+                )
 
         if self.problem.scalarization_funcs is not None:
             for scal in self.problem.scalarization_funcs:
