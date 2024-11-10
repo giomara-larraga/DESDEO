@@ -9,7 +9,14 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
+from desdeo.api.schema import (
+    Methods,
+    ObjectiveKind,
+    ProblemKind,
+    Solvers,
+    UserPrivileges,
+    UserRole,
+)
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import (
     binh_and_korn,
@@ -18,6 +25,7 @@ from desdeo.problem.testproblems import (
     river_pollution_problem,
     river_pollution_problem_discrete,
 )
+
 from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
@@ -92,7 +100,7 @@ problem_in_db = db_models.Problem(
 
 db.add(problem_in_db)
 
-problem = river_pollution_problem()
+problem = river_pollution_problem(five_objective_variant=False)
 
 problem_in_db = db_models.Problem(
     owner=user.id,
@@ -122,7 +130,7 @@ problem_in_db = db_models.Problem(
     name="Test 5",
     kind=ProblemKind.CONTINUOUS,
     obj_kind=ObjectiveKind.ANALYTICAL,
-    solver=Solvers.GUROBIPY,
+    solver=Solvers.PYOMO_IPOPT,
     value=problem.model_dump(mode="json"),
 )
 db.add(problem_in_db)
@@ -143,6 +151,7 @@ map_info = db_models.Utopia(
 )
 db.add(map_info)
 
+
 # I guess we need to have methods in the database as well
 nimbus = db_models.Method(
     kind=Methods.NIMBUS,
@@ -150,6 +159,14 @@ nimbus = db_models.Method(
     name="NIMBUS",
 )
 db.add(nimbus)
+
+rpm = db_models.Method(
+    kind=Methods.RPM,
+    properties=[],
+    name="RPM",
+)
+db.add(rpm)
+
 db.commit()
 
 db.close()

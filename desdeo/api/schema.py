@@ -49,6 +49,7 @@ class Methods(Enum):
     NAUTILUSII = "nautilusII"
     RVEA = "RVEA"
     NSGAIII = "NSGAIII"
+    RPM = "Reference point method"
 
 
 class MethodProperties(Enum):
@@ -73,8 +74,12 @@ class User(BaseModel):
     )
     password_hash: str = Field(description="SHA256 Hash of the user's password.")
     role: UserRole = Field(description="Role of the user.")
-    privilages: list[UserPrivileges] = Field(description="List of privileges the user has.")
-    user_group: str = Field(description="User group of the user. Used for group decision making.")
+    privilages: list[UserPrivileges] = Field(
+        description="List of privileges the user has."
+    )
+    user_group: str = Field(
+        description="User group of the user. Used for group decision making."
+    )
     # To allows for User to be initialized from database instead of just dicts.
     model_config = ConfigDict(from_attributes=True)
 

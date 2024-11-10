@@ -139,7 +139,7 @@ def init_nimbus(
     init_request.method_id = get_nimbus_method_id(db)
     method_id = init_request.method_id
 
-    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
+    problem= read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     # See if there are previous solutions in the database for this problem
     solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
@@ -149,7 +149,7 @@ def init_nimbus(
 
     # If there are no solutions, generate a starting point for NIMBUS
     if not solutions:
-        start_result = generate_starting_point(problem=problem, solver=available_solvers[solver] if solver else None)
+        start_result = generate_starting_point(problem=problem, solver=None)
         save_results_to_db(
             db=db, user_id=user.index, request=init_request, results=[start_result], previous_solutions=solutions
         )
@@ -195,7 +195,7 @@ def iterate(
     request.method_id = get_nimbus_method_id(db)
     method_id = request.method_id
 
-    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
+    problem = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
@@ -213,7 +213,7 @@ def iterate(
         ),
         reference_point=dict(zip([obj.symbol for obj in problem.objectives], request.preference, strict=True)),
         num_desired=request.num_solutions,
-        solver=available_solvers[solver] if solver else None,
+        solver= None,
         scalarization_options={"rho": 0.001, "delta": 0.001},
     )
 
@@ -260,7 +260,7 @@ def intermediate(
     request.method_id = get_nimbus_method_id(db)
     method_id = request.method_id
 
-    problem, solver = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
+    problem = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
@@ -276,7 +276,7 @@ def intermediate(
         solution_1=dict(zip(problem.objectives, request.reference_solution_1, strict=True)),
         solution_2=dict(zip(problem.objectives, request.reference_solution_2, strict=True)),
         num_desired=request.num_solutions,
-        solver=available_solvers[solver] if solver else None,
+        solver=None,
     )
 
     # Do database stuff again.
@@ -614,12 +614,15 @@ def read_problem_from_db(db: Session, problem_id: int, user_id: int) -> tuple[Pr
         raise HTTPException(status_code=404, detail="Problem not found.")
     if problem.owner != user_id and problem.owner is not None:
         raise HTTPException(status_code=403, detail="Unauthorized to access chosen problem.")
+    if problem.value is None:
+        raise HTTPException(status_code=500, detail="Problem not found.")
     try:
-        solver = problem.solver.value
         problem = Problem.model_validate(problem.value)
+        #solver = problem.solver.value
+
     except ValidationError:
         raise HTTPException(status_code=500, detail="Error in parsing the problem.") from ValidationError
-    return problem, solver
+    return problem
 
 
 def read_solutions_from_db(db: Session, problem_id: int, user_id: int, method_id: int) -> list[SolutionArchive]:

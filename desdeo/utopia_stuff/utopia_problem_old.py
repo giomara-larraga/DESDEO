@@ -20,7 +20,9 @@ from desdeo.problem.schema import (
 from desdeo.tools.utils import available_solvers, payoff_table_method
 
 
-def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -> tuple[Problem, dict]:
+def utopia_problem_old(
+    problem_name: str = "Forest problem", holding: int = 1
+) -> tuple[Problem, dict]:
     r"""Defines a test forest problem that has TensorConstants and TensorVariables.
 
     The problem has TensorConstants V, W and P as vectors taking values from a data file and
@@ -66,16 +68,24 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         (1 - 0.01 * discounting_factor) ** 13,
     ]
 
-    df = pl.read_csv(Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64})
-    df_key = pl.read_csv(Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64})
+    df = pl.read_csv(
+        Path("tests/data/alternatives_290124.csv"), dtypes={"unit": pl.Float64}
+    )
+    df_key = pl.read_csv(
+        Path("tests/data/alternatives_key_290124.csv"), dtypes={"unit": pl.Float64}
+    )
 
     selected_df_v = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", f"npv_{discounting_factor}_percent"]
     )
-    unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")
+    unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column(
+        "unit"
+    )
     selected_df_v.group_by(["unit", "schedule"])
     rows_by_key = selected_df_v.rows_by_key(key=["unit", "schedule"])
-    v_array = np.zeros((selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique()))
+    v_array = np.zeros(
+        (selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique())
+    )
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
             if (unique_units[i], j) in rows_by_key:
@@ -85,27 +95,38 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
     # if compared, the stock values are calculated by substacting the value after 2025 period from
     # the value after the 2035 period (in other words, last value - first value)
     if comparing:
-        selected_df_w = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "stock_2025", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select(
+            ["unit", "schedule", "stock_2025", "stock_2035"]
+        )
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
         selected_df_key_w.group_by(["unit", "schedule"])
         rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
-        w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
+        w_array = np.zeros(
+            (selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique())
+        )
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
                 if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1] - rows_by_key[(unique_units[i], j)][0][0]
+                    w_array[i][j] = (
+                        rows_by_key[(unique_units[i], j)][0][1]
+                        - rows_by_key[(unique_units[i], j)][0][0]
+                    )
     else:
-        selected_df_w = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select(
+            ["unit", "schedule", "stock_2035"]
+        )
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
         selected_df_key_w.group_by(["unit", "schedule"])
         rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
-        w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
+        w_array = np.zeros(
+            (selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique())
+        )
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
@@ -130,28 +151,40 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
                 v_array[i][j] += p_array[i][j]
     """
 
-    selected_df_p1 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2025"])
+    selected_df_p1 = df.filter(pl.col("holding") == holding).select(
+        ["unit", "schedule", "harvest_value_period_2025"]
+    )
     selected_df_p1.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p1.rows_by_key(key=["unit", "schedule"])
-    p1_array = np.zeros((selected_df_p1["unit"].n_unique(), selected_df_p1["schedule"].n_unique()))
+    p1_array = np.zeros(
+        (selected_df_p1["unit"].n_unique(), selected_df_p1["schedule"].n_unique())
+    )
     for i in range(np.shape(p1_array)[0]):
         for j in range(np.shape(p1_array)[1]):
             if (unique_units[i], j) in rows_by_key:
                 p1_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
 
-    selected_df_p2 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2030"])
+    selected_df_p2 = df.filter(pl.col("holding") == holding).select(
+        ["unit", "schedule", "harvest_value_period_2030"]
+    )
     selected_df_p2.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p2.rows_by_key(key=["unit", "schedule"])
-    p2_array = np.zeros((selected_df_p2["unit"].n_unique(), selected_df_p2["schedule"].n_unique()))
+    p2_array = np.zeros(
+        (selected_df_p2["unit"].n_unique(), selected_df_p2["schedule"].n_unique())
+    )
     for i in range(np.shape(p2_array)[0]):
         for j in range(np.shape(p2_array)[1]):
             if (unique_units[i], j) in rows_by_key:
                 p2_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
 
-    selected_df_p3 = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "harvest_value_period_2035"])
+    selected_df_p3 = df.filter(pl.col("holding") == holding).select(
+        ["unit", "schedule", "harvest_value_period_2035"]
+    )
     selected_df_p3.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p3.rows_by_key(key=["unit", "schedule"])
-    p3_array = np.zeros((selected_df_p3["unit"].n_unique(), selected_df_p3["schedule"].n_unique()))
+    p3_array = np.zeros(
+        (selected_df_p3["unit"].n_unique(), selected_df_p3["schedule"].n_unique())
+    )
     for i in range(np.shape(p3_array)[0]):
         for j in range(np.shape(p3_array)[1]):
             if (unique_units[i], j) in rows_by_key:
@@ -171,21 +204,27 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         v = TensorConstant(
             name=f"V_{i+1}",
             symbol=f"V_{i+1}",
-            shape=[np.shape(v_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(v_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=v_array[i].tolist(),
         )
         constants.append(v)
         w = TensorConstant(
             name=f"W_{i+1}",
             symbol=f"W_{i+1}",
-            shape=[np.shape(w_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(w_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=w_array[i].tolist(),
         )
         constants.append(w)
         p1 = TensorConstant(
             name=f"P1_{i+1}",
             symbol=f"P1_{i+1}",
-            shape=[np.shape(p1_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(p1_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=p1_array[i].tolist(),
         )
         constants.append(p1)
@@ -193,7 +232,9 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         p2 = TensorConstant(
             name=f"P2_{i+1}",
             symbol=f"P2_{i+1}",
-            shape=[np.shape(p2_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(p2_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=p2_array[i].tolist(),
         )
         constants.append(p2)
@@ -201,7 +242,9 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         p3 = TensorConstant(
             name=f"P3_{i+1}",
             symbol=f"P3_{i+1}",
-            shape=[np.shape(p3_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(p3_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=p3_array[i].tolist(),
         )
         constants.append(p3)
@@ -211,7 +254,9 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
             name=f"X_{i+1}",
             symbol=f"X_{i+1}",
             variable_type=VariableTypeEnum.binary,
-            shape=[np.shape(v_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(v_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             lowerbounds=np.shape(v_array)[1] * [0],
             upperbounds=np.shape(v_array)[1] * [1],
             initial_values=np.shape(v_array)[1] * [0],
@@ -220,11 +265,15 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
 
         # Fill out the dict with information about treatments associated with X_{i+1}
         treatment_list = (
-            df_key.filter((pl.col("holding") == holding) & (pl.col("unit") == unique_units[i]))
+            df_key.filter(
+                (pl.col("holding") == holding) & (pl.col("unit") == unique_units[i])
+            )
             .get_column("treatment")
             .to_list()
         )
-        schedule_dict[f"X_{i+1}"] = dict(zip(range(len(treatment_list)), treatment_list, strict=True))
+        schedule_dict[f"X_{i+1}"] = dict(
+            zip(range(len(treatment_list)), treatment_list, strict=True)
+        )
         schedule_dict[f"X_{i+1}"]["unit"] = unique_units[i]
 
         # Constraints
@@ -254,10 +303,17 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         p3_func.append(exprs)
 
     for i in range(1, 4):
-        pvar = Variable(name=f"P_{i}", symbol=f"P_{i}", variable_type=VariableTypeEnum.real, lowerbound=0)
+        pvar = Variable(
+            name=f"P_{i}",
+            symbol=f"P_{i}",
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0,
+        )
         variables.append(pvar)
 
-    vvar = Variable(name="V_end", symbol="V_end", variable_type=VariableTypeEnum.real, lowerbound=0)
+    vvar = Variable(
+        name="V_end", symbol="V_end", variable_type=VariableTypeEnum.real, lowerbound=0
+    )
     variables.append(vvar)
 
     # get the remainder value of the forest into decision variable V_end
@@ -309,7 +365,9 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
 
     # form the objective function sums
     f_2_func = " + ".join(f_2_func)
-    f_3_func = f"{discounting[0]} * P_1 + {discounting[1]} * P_2 + {discounting[2]} * P_3"
+    f_3_func = (
+        f"{discounting[0]} * P_1 + {discounting[1]} * P_2 + {discounting[2]} * P_3"
+    )
     f_1_func = "V_end + " + f_3_func
 
     # print(f_1_func)
@@ -404,12 +462,15 @@ def utopia_problem_old(problem_name: str = "Forest problem", holding: int = 1) -
         is_twice_differentiable=True,
     )
 
-    return Problem(
-        name=problem_name,
-        description="A test forest problem.",
-        constants=constants,
-        variables=variables,
-        objectives=[f_1, f_2, f_3],
-        constraints=constraints,
-        is_twice_differentiable=True,
-    ), schedule_dict
+    return (
+        Problem(
+            name=problem_name,
+            description="A test forest problem.",
+            constants=constants,
+            variables=variables,
+            objectives=[f_1, f_2, f_3],
+            constraints=constraints,
+            is_twice_differentiable=True,
+        ),
+        schedule_dict,
+    )
