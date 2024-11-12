@@ -3,6 +3,7 @@
 import json
 from typing import Annotated, Any
 
+from desdeo.mcdm.nimbus import generate_starting_point
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
 from pydantic import BaseModel, Field, ValidationError
@@ -90,26 +91,24 @@ def init_nimbus(
     init_request: InitRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> RPMResponse:
-    """Initialize the RPM algorithm.
+) -> RPMResponse | FakeRPMResponse:
+    """Initialize the NIMBUS algorithm.
 
     Args:
-        init_request (InitRequest): The request to initialize the RPM.
+        init_request (InitRequest): The request to initialize the NIMBUS.
         user (Annotated[User, Depends(get_current_user)]): The current user.
         db (Annotated[Session, Depends(get_db)]): The database session.
 
     Returns:
-        The response from the RPM algorithm.
+        The response from the NIMBUS algorithm.
     """
     # Do database stuff here.
     problem_id = init_request.problem_id
     # The request is supposed to contain method id, but I don't want to deal with frontend code
-    init_request.method_id = get_rpm_method_id(db)
+    init_request.method_id = 2
     method_id = init_request.method_id
 
-    problem, solver = read_problem_from_db(
-        db=db, problem_id=problem_id, user_id=user.index
-    )
+    problem = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     # See if there are previous solutions in the database for this problem
     solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
@@ -117,6 +116,22 @@ def init_nimbus(
     # Calculate bounds here, just to make sure that they have been properly defined in the problem
     lower_bounds, upper_bounds = calculate_bounds(problem)
 
+    # If there are no solutions, generate a starting point for NIMBUS
+    if not solutions:
+        start_result = generate_starting_point(problem=problem, solver=None)
+        save_results_to_db(
+            db=db,
+            user_id=user.index,
+            request=init_request,
+            results=[start_result],
+            previous_solutions=solutions,
+        )
+        solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
+
+    # If there is a solution marked as current, use that. Otherwise just use the first solution in the db
+    current_solution = next((sol for sol in solutions if sol.current), solutions[0])
+
+    # return FakeNIMBUSResponse(message="NIMBUS initialized.")
     return RPMResponse(
         objective_symbols=[obj.symbol for obj in problem.objectives],
         objective_long_names=[obj.name for obj in problem.objectives],
@@ -124,8 +139,8 @@ def init_nimbus(
         is_maximized=[obj.maximize for obj in problem.objectives],
         lower_bounds=lower_bounds,
         upper_bounds=upper_bounds,
-        previous_preference=None,
-        current_solutions=None,
+        previous_preference=current_solution.objectives,
+        current_solutions=[current_solution.objectives],
         saved_solutions=[sol.objectives for sol in solutions if sol.saved],
         all_solutions=[sol.objectives for sol in solutions],
     )
@@ -153,12 +168,14 @@ def iterate(
     request.method_id = get_rpm_method_id(db)
     method_id = request.method_id
 
-    problem, solver = read_problem_from_db(
-        db=db, problem_id=problem_id, user_id=user.index
-    )
+    problem = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
     previous_solutions = read_solutions_from_db(db, problem_id, user.index, method_id)
 
+    if not previous_solutions:
+        raise HTTPException(
+            status_code=404, detail="Problem not found in the database."
+        )
     # Calculate bounds here, just to make sure that they have been properly defined in the problem
     lower_bounds, upper_bounds = calculate_bounds(problem)
 
