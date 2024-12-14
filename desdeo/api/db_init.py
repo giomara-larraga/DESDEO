@@ -112,16 +112,16 @@ problem_in_db = db_models.Problem(
 )
 db.add(problem_in_db)
 
-problem = river_pollution_problem_discrete()
-problem_in_db = db_models.Problem(
-    owner=user.id,
-    name="River Pollution Problem (Discrete)",
-    kind=ProblemKind.DISCRETE,
-    obj_kind=ObjectiveKind.DATABASED,
-    value=problem.model_dump(mode="json"),
-    role_permission=[UserRole.GUEST],
-)
-db.add(problem_in_db)
+# problem = river_pollution_problem_discrete()
+# problem_in_db = db_models.Problem(
+# owner=user.id,
+# name="River Pollution Problem (Discrete)",
+# kind=ProblemKind.DISCRETE,
+# obj_kind=ObjectiveKind.DATABASED,
+# value=problem.model_dump(mode="json"),
+# role_permission=[UserRole.GUEST],
+# )
+# db.add(problem_in_db)
 db.commit()
 
 problem, schedule_dict = utopia_problem_old(holding=1)
