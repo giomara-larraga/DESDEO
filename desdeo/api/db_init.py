@@ -122,7 +122,7 @@ db.add(problem_in_db)
 # role_permission=[UserRole.GUEST],
 # )
 # db.add(problem_in_db)
-db.commit()
+# db.commit()
 
 problem, schedule_dict = utopia_problem_old(holding=1)
 problem_in_db = db_models.Problem(

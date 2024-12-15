@@ -88,8 +88,15 @@ def utopia_problem_old(
     )
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
-            if (unique_units[i], j) in rows_by_key:
-                v_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+            key = (unique_units[i], j)
+            if key in rows_by_key:
+                value = rows_by_key[key][0]
+                # Handle case where value is a tuple
+                if isinstance(value, tuple):
+                    value = value[0]  # Extract the first element if it's a tuple
+                v_array[i][j] = float(value)  # Ensure it's converted to float
+            else:
+                v_array[i][j] = 0  # Default value for missing keys
 
     # determine whether the results are to be compared to those from the rahti app (for testing purposes)
     # if compared, the stock values are calculated by substacting the value after 2025 period from
