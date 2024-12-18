@@ -1,6 +1,2 @@
 #!/bin/bash
-set -e
-
-# Ensure the environment is set up
-echo "Starting FastAPI application..."
-exec uvicorn desdeo.api.app:app --host 0.0.0.0 --port 8080
+exec gunicorn ${APP_MODULE} ${GUNICORN_CMD_ARGS}
