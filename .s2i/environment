@@ -2,8 +2,3 @@ UPGRADE_PIP_TO_LATEST=1
 APP_MODULE=desdeo.api.app:app
 GUNICORN_CMD_ARGS=--bind=0.0.0.0:8080 --workers=2 --access-logfile=- --worker-class uvicorn.workers.UvicornWorker
 DESDEO_INSTALL=.[standard,api,server]
-POSTGRES_USER=glarraga
-POSTGRES_PASSWORD=12345
-POSTGRES_PORT=5432
-POSTGRES_DB=db_desdeo2
-POSTGRES_HOST=128.214.255.254
