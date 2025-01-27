@@ -9,7 +9,14 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 from desdeo.api import db_models
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
+from desdeo.api.schema import (
+    Methods,
+    ObjectiveKind,
+    ProblemKind,
+    Solvers,
+    UserPrivileges,
+    UserRole,
+)
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import (
     binh_and_korn,
@@ -143,32 +150,6 @@ problem_in_db = db_models.Problem(
 db.add(problem_in_db)
 db.commit()
 
-problem, schedule_dict = utopia_problem_old(holding=1)
-problem_in_db = db_models.Problem(
-    owner=user.id,
-    name="Test 5",
-    kind=ProblemKind.CONTINUOUS,
-    obj_kind=ObjectiveKind.ANALYTICAL,
-    solver=Solvers.GUROBIPY,
-    value=problem.model_dump(mode="json"),
-)
-db.add(problem_in_db)
-db.commit()
-
-# CAUTION: DO NOT PUT ANY CODE IN BETWEEN THE PREVIOUS AND FOLLOWING BLOCKS OF CODE.
-# UTOPIA MAPS WILL BREAK IF YOU DO.
-
-# The info about the map and decision alternatives now goes into the database
-with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
-    forest_map = f.read()
-map_info = db_models.Utopia(
-    problem=problem_in_db.id,
-    map_json=forest_map,
-    schedule_dict=schedule_dict,
-    years=["2025", "2030", "2035"],
-    stand_id_field="standnumbe",
-)
-db.add(map_info)
 
 # I guess we need to have methods in the database as well
 nimbus = db_models.Method(

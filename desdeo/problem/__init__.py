@@ -7,6 +7,7 @@ __all__ = [
     "ConstraintTypeEnum",
     "DiscreteRepresentation",
     "ExtraFunction",
+    "energy_problem",
     "forest_problem",
     "FormatEnum",
     "GurobipyEvaluator",
@@ -87,6 +88,7 @@ from .sympy_evaluator import SympyEvaluator
 from .testproblems import (
     binh_and_korn,
     dtlz2,
+    energy_problem,
     forest_problem,
     momip_ti2,
     momip_ti7,

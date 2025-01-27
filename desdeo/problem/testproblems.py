@@ -45,10 +45,20 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
     constant_2 = Constant(name="Five", symbol="c_2", value=5)
 
     variable_1 = Variable(
-        name="The first variable", symbol="x_1", variable_type="real", lowerbound=0, upperbound=5, initial_value=2.5
+        name="The first variable",
+        symbol="x_1",
+        variable_type="real",
+        lowerbound=0,
+        upperbound=5,
+        initial_value=2.5,
     )
     variable_2 = Variable(
-        name="The second variable", symbol="x_2", variable_type="real", lowerbound=0, upperbound=3, initial_value=1.5
+        name="The second variable",
+        symbol="x_2",
+        variable_type="real",
+        lowerbound=0,
+        upperbound=3,
+        initial_value=1.5,
     )
 
     objective_1 = Objective(
@@ -90,7 +100,12 @@ def binh_and_korn(maximize: tuple[bool] = (False, False)) -> Problem:
         name="Constraint 2",
         symbol="g_2",
         cons_type="<=",
-        func=["Add", ["Negate", ["Square", ["Subtract", "x_1", 8]]], ["Negate", ["Square", ["Add", "x_2", 3]]], 7.7],
+        func=[
+            "Add",
+            ["Negate", ["Square", ["Subtract", "x_1", 8]]],
+            ["Negate", ["Square", ["Add", "x_2", 3]]],
+            7.7,
+        ],
         is_linear=False,
         is_convex=True,
         is_twice_differentiable=True,
@@ -147,10 +162,20 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
             Heidelberg, 1997.
     """
     variable_1 = Variable(
-        name="BOD", symbol="x_1", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="BOD",
+        symbol="x_1",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
     variable_2 = Variable(
-        name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="DO",
+        symbol="x_2",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
 
     f_1 = "4.07 + 2.27 * x_1"
@@ -259,7 +284,12 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     """
     filename = "datasets/river_poll_4_objs.csv"
     trueVarNames = {"x_1": "BOD", "x_2": "DO"}
-    trueObjNames = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
+    trueObjNames = {
+        "f1": "DO city",
+        "f2": "DO municipality",
+        "f3": "ROI fishery",
+        "f4": "ROI city",
+    }
     if five_objective_variant:
         filename = "datasets/river_poll_5_objs.csv"
         trueObjNames["f5"] = "BOD deviation"
@@ -279,8 +309,14 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
         for varName in trueVarNames
     ]
     maximize = {"f1": True, "f2": True, "f3": True, "f4": True, "f5": False}
-    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in trueObjNames}
-    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in trueObjNames}
+    ideal = {
+        objName: (data[objName].max() if maximize[objName] else data[objName].min())
+        for objName in trueObjNames
+    }
+    nadir = {
+        objName: (data[objName].min() if maximize[objName] else data[objName].max())
+        for objName in trueObjNames
+    }
     units = {"f1": "mg/L", "f2": "mg/L", "f3": "%", "f4": "%", "f5": "mg/L"}
 
     objectives = [
@@ -314,8 +350,22 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
 def simple_test_problem() -> Problem:
     """Defines a simple problem suitable for testing purposes."""
     variables = [
-        Variable(name="x_1", symbol="x_1", variable_type="real", lowerbound=0, upperbound=10, initial_value=5),
-        Variable(name="x_2", symbol="x_2", variable_type="real", lowerbound=0, upperbound=10, initial_value=5),
+        Variable(
+            name="x_1",
+            symbol="x_1",
+            variable_type="real",
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
+        Variable(
+            name="x_2",
+            symbol="x_2",
+            variable_type="real",
+            lowerbound=0,
+            upperbound=10,
+            initial_value=5,
+        ),
     ]
 
     constants = [Constant(name="c", symbol="c", value=4.2)]
@@ -381,13 +431,24 @@ def zdt1(number_of_variables: int) -> Problem:
     f2_expr = f"{g_symbol} * {h_symbol}"
 
     variables = [
-        Variable(name=f"x_{i}", symbol=f"x_{i}", variable_type="real", lowerbound=0, upperbound=1, initial_value=0.5)
+        Variable(
+            name=f"x_{i}",
+            symbol=f"x_{i}",
+            variable_type="real",
+            lowerbound=0,
+            upperbound=1,
+            initial_value=0.5,
+        )
         for i in range(1, n + 1)
     ]
 
     objectives = [
-        Objective(name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1),
-        Objective(name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1),
+        Objective(
+            name="f_1", symbol=f1_symbol, func=f1_expr, maximize=False, ideal=0, nadir=1
+        ),
+        Objective(
+            name="f_2", symbol=f2_symbol, func=f2_expr, maximize=False, ideal=0, nadir=1
+        ),
     ]
 
     extras = [
@@ -436,17 +497,37 @@ def simple_data_problem() -> Problem:
         for i in range(1, n_objectives + 1)
     ]
 
-    constraints = [Constraint(name="cons 1", symbol="c_1", cons_type=ConstraintTypeEnum.EQ, func="y_1 + y_2 - c")]
+    constraints = [
+        Constraint(
+            name="cons 1",
+            symbol="c_1",
+            cons_type=ConstraintTypeEnum.EQ,
+            func="y_1 + y_2 - c",
+        )
+    ]
 
     data_len = 10
-    var_data = {f"y_{i}": [i * 0.5 + j for j in range(data_len)] for i in range(1, n_var + 1)}
+    var_data = {
+        f"y_{i}": [i * 0.5 + j for j in range(data_len)] for i in range(1, n_var + 1)
+    }
     obj_data = {
-        "g_1": [sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) ** 2 for i in range(data_len)],
-        "g_2": [max(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) for i in range(data_len)],
-        "g_3": [-sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) for i in range(data_len)],
+        "g_1": [
+            sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1)) ** 2
+            for i in range(data_len)
+        ],
+        "g_2": [
+            max(var_data[f"y_{j}"][i] for j in range(1, n_var + 1))
+            for i in range(data_len)
+        ],
+        "g_3": [
+            -sum(var_data[f"y_{j}"][i] for j in range(1, n_var + 1))
+            for i in range(data_len)
+        ],
     }
 
-    discrete_def = DiscreteRepresentation(variable_values=var_data, objective_values=obj_data)
+    discrete_def = DiscreteRepresentation(
+        variable_values=var_data, objective_values=obj_data
+    )
 
     return Problem(
         name="Simple data problem",
@@ -553,9 +634,27 @@ def momip_ti7() -> Problem:
     x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real)
     x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real)
     x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real)
-    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
-    x_5 = Variable(name="x_5", symbol="x_5", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
-    x_6 = Variable(name="x_6", symbol="x_6", variable_type=VariableTypeEnum.integer, lowerbound=-1, upperbound=1)
+    x_4 = Variable(
+        name="x_4",
+        symbol="x_4",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=-1,
+        upperbound=1,
+    )
+    x_5 = Variable(
+        name="x_5",
+        symbol="x_5",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=-1,
+        upperbound=1,
+    )
+    x_6 = Variable(
+        name="x_6",
+        symbol="x_6",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=-1,
+        upperbound=1,
+    )
 
     f_1 = Objective(
         name="f_1",
@@ -647,8 +746,20 @@ def pareto_navigator_test_problem() -> Problem:
             navigator for interactive nonlinear multiobjective optimization. OR
             Spectrum, 32(1), 211-227.
     """
-    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=4)
-    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=6)
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=4,
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=6,
+    )
 
     f_1 = Objective(
         name="f_1",
@@ -678,9 +789,24 @@ def pareto_navigator_test_problem() -> Problem:
         maximize=False,
     )
 
-    con_1 = Constraint(name="g_1", symbol="g_1", func="3*x_1 + x_2 - 12", cons_type=ConstraintTypeEnum.LTE)
-    con_2 = Constraint(name="g_2", symbol="g_2", func="2*x_1 + x_2 - 9", cons_type=ConstraintTypeEnum.LTE)
-    con_3 = Constraint(name="g_3", symbol="g_3", func="x_1 + 2*x_2 - 12", cons_type=ConstraintTypeEnum.LTE)
+    con_1 = Constraint(
+        name="g_1",
+        symbol="g_1",
+        func="3*x_1 + x_2 - 12",
+        cons_type=ConstraintTypeEnum.LTE,
+    )
+    con_2 = Constraint(
+        name="g_2",
+        symbol="g_2",
+        func="2*x_1 + x_2 - 9",
+        cons_type=ConstraintTypeEnum.LTE,
+    )
+    con_3 = Constraint(
+        name="g_3",
+        symbol="g_3",
+        func="x_1 + 2*x_2 - 12",
+        cons_type=ConstraintTypeEnum.LTE,
+    )
 
     representation = DiscreteRepresentation(
         variable_values={"x_1": [0, 0, 0, 0, 0, 0, 0], "x_2": [0, 0, 0, 0, 0, 0, 0]},
@@ -705,8 +831,22 @@ def pareto_navigator_test_problem() -> Problem:
 def simple_linear_test_problem() -> Problem:
     """Defines a simple single objective linear problem suitable for testing purposes."""
     variables = [
-        Variable(name="x_1", symbol="x_1", variable_type="real", lowerbound=-10, upperbound=10, initial_value=5),
-        Variable(name="x_2", symbol="x_2", variable_type="real", lowerbound=-10, upperbound=10, initial_value=5),
+        Variable(
+            name="x_1",
+            symbol="x_1",
+            variable_type="real",
+            lowerbound=-10,
+            upperbound=10,
+            initial_value=5,
+        ),
+        Variable(
+            name="x_2",
+            symbol="x_2",
+            variable_type="real",
+            lowerbound=-10,
+            upperbound=10,
+            initial_value=5,
+        ),
     ]
 
     constants = [Constant(name="c", symbol="c", value=4.2)]
@@ -717,8 +857,12 @@ def simple_linear_test_problem() -> Problem:
         Objective(name="f_1", symbol="f_1", func=f_1, maximize=False),  # min!
     ]
 
-    con_1 = Constraint(name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="c - x_1")
-    con_2 = Constraint(name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="0.5*x_1 - x_2")
+    con_1 = Constraint(
+        name="g_1", symbol="g_1", cons_type=ConstraintTypeEnum.LTE, func="c - x_1"
+    )
+    con_2 = Constraint(
+        name="g_2", symbol="g_2", cons_type=ConstraintTypeEnum.LTE, func="0.5*x_1 - x_2"
+    )
 
     return Problem(
         name="Simple linear test problem.",
@@ -770,17 +914,23 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
     """
     # function g
     g_symbol = "g"
-    g_expr = " + ".join([f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)])
+    g_expr = " + ".join(
+        [f"(x_{i} - 0.5)**2" for i in range(n_objectives, n_variables + 1)]
+    )
     g_expr = "1 + " + g_expr
 
     objectives = []
     for m in range(1, n_objectives + 1):
         # function f_m
-        prod_expr = " * ".join([f"Cos(0.5 * {np.pi} * x_{i})" for i in range(1, n_objectives - m + 1)])
+        prod_expr = " * ".join(
+            [f"Cos(0.5 * {np.pi} * x_{i})" for i in range(1, n_objectives - m + 1)]
+        )
         if m > 1:
             prod_expr += f"{' * ' if prod_expr != "" else ""}Sin(0.5 * {np.pi} * x_{n_objectives - m + 1})"
         if prod_expr == "":
-            prod_expr = "1"  # When m == n_objectives, the product is empty, implying f_M = g.
+            prod_expr = (
+                "1"  # When m == n_objectives, the product is empty, implying f_M = g.
+            )
         f_m_expr = f"({g_symbol}) * ({prod_expr})"
 
         objectives.append(
@@ -811,7 +961,12 @@ def dtlz2(n_variables: int, n_objectives: int) -> Problem:
 
     extras = [
         ExtraFunction(
-            name="g", symbol=g_symbol, func=g_expr, is_convex=False, is_linear=False, is_twice_differentiable=True
+            name="g",
+            symbol=g_symbol,
+            func=g_expr,
+            is_convex=False,
+            is_linear=False,
+            is_twice_differentiable=True,
         ),
     ]
 
@@ -1207,7 +1362,9 @@ def simple_scenario_test_problem():
     )
 
 
-def re21(f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0) -> Problem:
+def re21(
+    f: float = 10.0, sigma: float = 10.0, e: float = 2.0 * 1e5, l: float = 200.0
+) -> Problem:
     r"""Defines the four bar truss design problem.
 
     The objective functions and constraints for the four bar truss design problem are defined as follows:
@@ -1332,10 +1489,20 @@ def re22() -> Problem:
         Problem: an instance of the reinforced concrete beam design problem.
     """
     x_2 = Variable(
-        name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=20, initial_value=10
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=20,
+        initial_value=10,
     )
     x_3 = Variable(
-        name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real, lowerbound=0, upperbound=40, initial_value=20
+        name="x_3",
+        symbol="x_3",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0,
+        upperbound=40,
+        initial_value=20,
     )
 
     # x_1 pre-defined discrete values
@@ -1426,7 +1593,11 @@ def re22() -> Problem:
     x_1_eprs = []
     for i in range(len(feasible_values)):
         x = Variable(
-            name=f"x_1_{i}", symbol=f"x_1_{i}", variable_type=VariableTypeEnum.binary, lowerbound=0, upperbound=1
+            name=f"x_1_{i}",
+            symbol=f"x_1_{i}",
+            variable_type=VariableTypeEnum.binary,
+            lowerbound=0,
+            upperbound=1,
         )
         variables.append(x)
         expr = f"x_1_{i} * {feasible_values[i]}"
@@ -1437,7 +1608,11 @@ def re22() -> Problem:
     sum_expr = " + ".join(sum_expr) + " - 1"
 
     x_1_con = Constraint(
-        name="x_1_con", symbol="x_1_con", cons_type=ConstraintTypeEnum.EQ, func=sum_expr, is_linear=True
+        name="x_1_con",
+        symbol="x_1_con",
+        cons_type=ConstraintTypeEnum.EQ,
+        func=sum_expr,
+        is_linear=True,
     )
 
     g_1 = Constraint(
@@ -1512,10 +1687,34 @@ def re23() -> Problem:
     Returns:
         Problem: an instance of the pressure vessel design problem.
     """
-    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.integer, lowerbound=1, upperbound=100)
-    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.integer, lowerbound=1, upperbound=100)
-    x_3 = Variable(name="x_3", symbol="x_3", variable_type=VariableTypeEnum.real, lowerbound=10, upperbound=200)
-    x_4 = Variable(name="x_4", symbol="x_4", variable_type=VariableTypeEnum.real, lowerbound=10, upperbound=240)
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=1,
+        upperbound=100,
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.integer,
+        lowerbound=1,
+        upperbound=100,
+    )
+    x_3 = Variable(
+        name="x_3",
+        symbol="x_3",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=10,
+        upperbound=200,
+    )
+    x_4 = Variable(
+        name="x_4",
+        symbol="x_4",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=10,
+        upperbound=240,
+    )
 
     # variables x_1 and x_2 are integer multiples of 0.0625
     x_1_exprs = "(0.0625 * x_1)"
@@ -1608,8 +1807,20 @@ def re24() -> Problem:
     Returns:
         Problem: an instance of the hatch cover design problem.
     """
-    x_1 = Variable(name="x_1", symbol="x_1", variable_type=VariableTypeEnum.real, lowerbound=0.5, upperbound=4)
-    x_2 = Variable(name="x_2", symbol="x_2", variable_type=VariableTypeEnum.real, lowerbound=4, upperbound=50)
+    x_1 = Variable(
+        name="x_1",
+        symbol="x_1",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=0.5,
+        upperbound=4,
+    )
+    x_2 = Variable(
+        name="x_2",
+        symbol="x_2",
+        variable_type=VariableTypeEnum.real,
+        lowerbound=4,
+        upperbound=50,
+    )
 
     sigma_b = "(4500 / (x_1 * x_2))"
     sigma_k = "((700000 * x_1**2) / 100)"
@@ -1689,10 +1900,20 @@ def simple_knapsack_vectors():
 
     max_weight = Constant(name="Maximum weights", symbol="w_max", value=5)
 
-    weights = TensorConstant(name="Weights of the items", symbol="W", shape=[len(weight_values)], values=weight_values)
-    profits = TensorConstant(name="Profits", symbol="P", shape=[len(profit_values)], values=profit_values)
+    weights = TensorConstant(
+        name="Weights of the items",
+        symbol="W",
+        shape=[len(weight_values)],
+        values=weight_values,
+    )
+    profits = TensorConstant(
+        name="Profits", symbol="P", shape=[len(profit_values)], values=profit_values
+    )
     efficiencies = TensorConstant(
-        name="Efficiencies", symbol="E", shape=[len(efficiency_values)], values=efficiency_values
+        name="Efficiencies",
+        symbol="E",
+        shape=[len(efficiency_values)],
+        values=efficiency_values,
     )
 
     choices = TensorVariable(
@@ -1749,7 +1970,12 @@ def simple_knapsack_vectors():
     )
 
 
-def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1, comparing: bool = False) -> Problem:
+def forest_problem(
+    simulation_results: str,
+    treatment_key: str,
+    holding: int = 1,
+    comparing: bool = False,
+) -> Problem:
     r"""Defines a test forest problem that has TensorConstants and TensorVariables.
 
     The problem has TensorConstants V, W and P as vectors taking values from a data file and
@@ -1787,11 +2013,17 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     df = pl.read_csv(simulation_results, dtypes={"unit": pl.Float64})
     df_key = pl.read_csv(treatment_key, dtypes={"unit": pl.Float64})
 
-    selected_df_v = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "npv_5_percent"])
-    unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column("unit")
+    selected_df_v = df.filter(pl.col("holding") == holding).select(
+        ["unit", "schedule", "npv_5_percent"]
+    )
+    unique_units = selected_df_v.unique(["unit"], maintain_order=True).get_column(
+        "unit"
+    )
     selected_df_v.group_by(["unit", "schedule"])
     rows_by_key = selected_df_v.rows_by_key(key=["unit", "schedule"])
-    v_array = np.zeros((selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique()))
+    v_array = np.zeros(
+        (selected_df_v["unit"].n_unique(), selected_df_v["schedule"].n_unique())
+    )
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
             if (unique_units[i], j) in rows_by_key:
@@ -1801,27 +2033,38 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
     # if compared, the stock values are calculated by substacting the value after 2025 period from
     # the value after the 2035 period (in other words, last value - first value)
     if comparing:
-        selected_df_w = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "stock_2025", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select(
+            ["unit", "schedule", "stock_2025", "stock_2035"]
+        )
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
         selected_df_key_w.group_by(["unit", "schedule"])
         rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
-        w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
+        w_array = np.zeros(
+            (selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique())
+        )
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
                 if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][1] - rows_by_key[(unique_units[i], j)][0][0]
+                    w_array[i][j] = (
+                        rows_by_key[(unique_units[i], j)][0][1]
+                        - rows_by_key[(unique_units[i], j)][0][0]
+                    )
     else:
-        selected_df_w = df.filter(pl.col("holding") == holding).select(["unit", "schedule", "stock_2035"])
+        selected_df_w = df.filter(pl.col("holding") == holding).select(
+            ["unit", "schedule", "stock_2035"]
+        )
         selected_df_w.group_by(["unit", "schedule"])
         rows_by_key = selected_df_w.rows_by_key(key=["unit", "schedule"])
         selected_df_key_w = df_key.select(["unit", "schedule", "treatment"])
         selected_df_key_w.group_by(["unit", "schedule"])
         rows_by_key_df_key = selected_df_key_w.rows_by_key(key=["unit", "schedule"])
-        w_array = np.zeros((selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique()))
+        w_array = np.zeros(
+            (selected_df_w["unit"].n_unique(), selected_df_w["schedule"].n_unique())
+        )
         for i in range(np.shape(w_array)[0]):
             for j in range(np.shape(w_array)[1]):
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
@@ -1830,11 +2073,19 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
                     w_array[i][j] = rows_by_key[(unique_units[i], j)][0]
 
     selected_df_p = df.filter(pl.col("holding") == holding).select(
-        ["unit", "schedule", "harvest_value_period_2025", "harvest_value_period_2030", "harvest_value_period_2035"]
+        [
+            "unit",
+            "schedule",
+            "harvest_value_period_2025",
+            "harvest_value_period_2030",
+            "harvest_value_period_2035",
+        ]
     )
     selected_df_p.group_by(["unit", "schedule"])
     rows_by_key = selected_df_p.rows_by_key(key=["unit", "schedule"])
-    p_array = np.zeros((selected_df_p["unit"].n_unique(), selected_df_p["schedule"].n_unique()))
+    p_array = np.zeros(
+        (selected_df_p["unit"].n_unique(), selected_df_p["schedule"].n_unique())
+    )
     for i in range(np.shape(p_array)[0]):
         for j in range(np.shape(p_array)[1]):
             if (unique_units[i], j) in rows_by_key:
@@ -1852,21 +2103,27 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
         v = TensorConstant(
             name=f"V_{i+1}",
             symbol=f"V_{i+1}",
-            shape=[np.shape(v_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(v_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=v_array[i].tolist(),
         )
         constants.append(v)
         w = TensorConstant(
             name=f"W_{i+1}",
             symbol=f"W_{i+1}",
-            shape=[np.shape(w_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(w_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=w_array[i].tolist(),
         )
         constants.append(w)
         p = TensorConstant(
             name=f"P_{i+1}",
             symbol=f"P_{i+1}",
-            shape=[np.shape(p_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(p_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             values=p_array[i].tolist(),
         )
 
@@ -1876,7 +2133,9 @@ def forest_problem(simulation_results: str, treatment_key: str, holding: int = 1
             name=f"X_{i+1}",
             symbol=f"X_{i+1}",
             variable_type=VariableTypeEnum.binary,
-            shape=[np.shape(v_array)[1]],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
+            shape=[
+                np.shape(v_array)[1]
+            ],  # NOTE: vectors have to be of form [2] instead of [2,1] or [1,2]
             lowerbounds=np.shape(v_array)[1] * [0],
             upperbounds=np.shape(v_array)[1] * [1],
             initial_values=np.shape(v_array)[1] * [0],
@@ -2159,14 +2418,18 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the social indicator",
         symbol="beta_social",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "social_linear").row(0)[1:]
+        ),
     )
 
     social_quadratic = TensorConstant(
         name="Quadratic coefficients for the social indicator",
         symbol="gamma_social",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "social_quadratic").row(0)[1:]
+        ),
     )
 
     social_cubic = TensorConstant(
@@ -2184,7 +2447,9 @@ def spanish_sustainability_problem():
     )
 
     social_c = Constant(
-        name="Constant coefficient for the social indicator", symbol="cte_social", value=social_cte_value
+        name="Constant coefficient for the social indicator",
+        symbol="cte_social",
+        value=social_cte_value,
     )
 
     ## For the economical indicator
@@ -2192,32 +2457,42 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the economical indicator",
         symbol="beta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_linear").row(0)[1:]
+        ),
     )
 
     economical_quadratic = TensorConstant(
         name="Quadratic coefficients for the economical indicator",
         symbol="gamma_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_quadratic").row(0)[1:]
+        ),
     )
 
     economical_cubic = TensorConstant(
         name="Cubic coefficients for the economical indicator",
         symbol="delta_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_cubic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_cubic").row(0)[1:]
+        ),
     )
 
     economical_log = TensorConstant(
         name="Logarithmic coefficients for the economical indicator",
         symbol="omega_economical",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "economical_log").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "economical_log").row(0)[1:]
+        ),
     )
 
     economical_c = Constant(
-        name="Constant coefficient for the economical indicator", symbol="cte_economical", value=economical_cte_value
+        name="Constant coefficient for the economical indicator",
+        symbol="cte_economical",
+        value=economical_cte_value,
     )
 
     ## For the environmental indicator
@@ -2225,14 +2500,18 @@ def spanish_sustainability_problem():
         name="Linear coefficients for the environmental indicator",
         symbol="beta_enviro",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "enviro_linear").row(0)[1:]
+        ),
     )
 
     enviro_quadratic = TensorConstant(
         name="Quadratic coefficients for the environmental indicator",
         symbol="gamma_enviro",
         shape=[n_variables],
-        values=list(coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]),
+        values=list(
+            coefficients.filter(pl.col("column") == "enviro_quadratic").row(0)[1:]
+        ),
     )
 
     enviro_cubic = TensorConstant(
@@ -2250,7 +2529,9 @@ def spanish_sustainability_problem():
     )
 
     enviro_c = Constant(
-        name="Constant coefficient for the environmental indicator", symbol="cte_enviro", value=enviro_cte_value
+        name="Constant coefficient for the environmental indicator",
+        symbol="cte_enviro",
+        value=enviro_cte_value,
     )
 
     constants = [
@@ -2277,8 +2558,12 @@ def spanish_sustainability_problem():
         symbol="X",
         variable_type=VariableTypeEnum.real,
         shape=[n_variables],
-        lowerbounds=list(coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]),
-        upperbounds=list(coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]),
+        lowerbounds=list(
+            coefficients.filter(pl.col("column") == "lower_bounds").row(0)[1:]
+        ),
+        upperbounds=list(
+            coefficients.filter(pl.col("column") == "upper_bounds").row(0)[1:]
+        ),
         initial_values=1.0,
     )
 
@@ -2321,7 +2606,10 @@ def spanish_sustainability_problem():
     )
 
     ## Environmental
-    f3_expr = "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) " "+ omega_enviro @ Ln(X)"
+    f3_expr = (
+        "cte_enviro + beta_enviro @ X + gamma_enviro @ (X**2) + delta_enviro @ (X**3) "
+        "+ omega_enviro @ Ln(X)"
+    )
 
     f3 = Objective(
         name="Environmental indicator",
@@ -2897,7 +3185,11 @@ def forest_problem_discrete() -> Problem:
     var_name = "index"
 
     data = pl.read_csv(
-        path, has_header=True, columns=["stock", "harvest_value", "npv"], separator=";", decimal_comma=True
+        path,
+        has_header=True,
+        columns=["stock", "harvest_value", "npv"],
+        separator=";",
+        decimal_comma=True,
     )
 
     variables = [
@@ -2931,6 +3223,110 @@ def forest_problem_discrete() -> Problem:
     return Problem(
         name="Finnish Forest Problem (Discrete)",
         description="Defines a forest problem with three objectives: stock, harvest value, and net present value.",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
+    )
+
+
+def energy_problem() -> Problem:
+    # The front of this problem is not open source
+    filename = "HRI/energy.csv"
+    trueVarNames = {
+        "Photovoltaics.alphaModule": "alpha_PV",
+        "Photovoltaics.betaModule": "beta_PV",
+        "Photovoltaics.PPeak": "P_PV",
+        "BatteryStorage.EBattNominal": "C_B",
+        "BatteryStorage.SOCMax": "b_SOC_max",
+        "BatteryStorage.SOCMin": "b_SOC_min",
+        "batteryControllerDT1.lowerLimit": "P_charge",
+        "batteryControllerDT1.upperLimit": "P_discharge",
+        "HeatingAndCooling.HeatGeneration.HeatStorage.VStorage": "V_C",
+    }
+
+    trueObjNames = {
+        "Investment costs": "I_invest",
+        "Yearly total costs": "C_annual",
+        "Yearly CO2 emissions": "G_total",
+        "Resilience": "R",
+        "Mean battery state of charge": "B_SOC",
+        "Yearly energy discharged from battery": "E_batt_discharge",
+        "Maximum power peak": "P_peak_supply",
+        "SOC Time proportion": "T_m",
+        "Yearly energy fed into the grid": "E_feed",
+        "Maximum feed-in power peak": "P_peak_feed",
+    }
+    path = Path(__file__).parent.parent.parent / filename
+    data = pl.read_csv(path, has_header=True)
+
+    variables = [
+        Variable(
+            name=trueVarNames[varName],
+            symbol=varName,
+            variable_type=VariableTypeEnum.real,
+            lowerbound=0.0,
+            upperbound=1.0,
+            initial_value=0.5,
+        )
+        for varName in trueVarNames
+    ]
+    maximize = {
+        "Investment costs": False,
+        "Yearly total costs": False,
+        "Yearly CO2 emissions": False,
+        "Resilience": False,
+        "Mean battery state of charge": False,
+        "Yearly energy discharged from battery": False,
+        "Maximum power peak": False,
+        "SOC Time proportion": False,
+        "Yearly energy fed into the grid": False,
+        "Maximum feed-in power peak": False,
+    }
+
+    units = {
+        "Investment costs": "Euro",
+        "Yearly total costs": "Euro",
+        "Yearly CO2 emissions": "s",
+        "Resilience": "t",
+        "Mean battery state of charge": "-",
+        "Yearly energy discharged from battery": "kWh",
+        "Maximum power peak": "kW",
+        "SOC Time proportion": "-",
+        "Yearly energy fed into the grid": "kWh",
+        "Maximum feed-in power peak": "kW",
+    }
+
+    ideal = {
+        objName: (data[objName].max() if maximize[objName] else data[objName].min())
+        for objName in trueObjNames
+    }
+    nadir = {
+        objName: (data[objName].min() if maximize[objName] else data[objName].max())
+        for objName in trueObjNames
+    }
+
+    objectives = [
+        Objective(
+            name=trueObjNames[objName],
+            symbol=objName,
+            func=None,
+            unit=units[objName],
+            objective_type=ObjectiveTypeEnum.data_based,
+            maximize=maximize[objName],
+            ideal=ideal[objName],
+            nadir=nadir[objName],
+        )
+        for objName in trueObjNames
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values=data[list(trueVarNames.keys())].to_dict(),
+        objective_values=data[list(trueObjNames.keys())].to_dict(),
+    )
+
+    return Problem(
+        name="Energy Management Problem",
+        description="Selection of a set of reasonable configurations for achieving effective energy management.",
         variables=variables,
         objectives=objectives,
         discrete_representation=discrete_def,
