@@ -71,7 +71,11 @@ def variable_dimension_enumerate(problem: Problem) -> VariableDimensionEnum:
     enum = VariableDimensionEnum.scalar
     for var in problem.variables:
         if isinstance(var, TensorVariable):
-            if len(var.shape) == 1 or len(var.shape) == 2 and not (var.shape[0] > 1 and var.shape[1] > 1):  # noqa: PLR2004
+            if (
+                len(var.shape) == 1
+                or len(var.shape) == 2
+                and not (var.shape[0] > 1 and var.shape[1] > 1)
+            ):  # noqa: PLR2004
                 enum = VariableDimensionEnum.vector
             else:
                 return VariableDimensionEnum.tensor
@@ -107,7 +111,11 @@ class PolarsEvaluator:
     #    and scalarization function valeus).
     # 6. End.
 
-    def __init__(self, problem: Problem, evaluator_mode: PolarsEvaluatorModesEnum = PolarsEvaluatorModesEnum.variables):
+    def __init__(
+        self,
+        problem: Problem,
+        evaluator_mode: PolarsEvaluatorModesEnum = PolarsEvaluatorModesEnum.variables,
+    ):
         """Create a Polars-based evaluator for a multiobjective optimization problem.
 
         By default, the evaluator expects a set of decision variables to
@@ -139,7 +147,10 @@ class PolarsEvaluator:
         # Gather the objective functions
         if evaluator_mode == PolarsEvaluatorModesEnum.mixed:
             self.problem_objectives = list(
-                filter(lambda x: x.objective_type == ObjectiveTypeEnum.analytical, problem.objectives)
+                filter(
+                    lambda x: x.objective_type == ObjectiveTypeEnum.analytical,
+                    problem.objectives,
+                )
             )
         else:
             self.problem_objectives = problem.objectives
@@ -178,9 +189,7 @@ class PolarsEvaluator:
         elif self.evaluator_mode == PolarsEvaluatorModesEnum.discrete:
             self.evaluate = self._from_discrete_data
         else:
-            msg = (
-                f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {PolarsEvaluatorModesEnum}."
-            )
+            msg = f"Provided 'evaluator_mode' {evaluator_mode} not supported. Must be one of {PolarsEvaluatorModesEnum}."
 
     def _polars_init(self):  # noqa: C901, PLR0912
         """Initialization of the evaluator for parser type 'polars'."""
@@ -264,20 +273,30 @@ class PolarsEvaluator:
                     self.tensor_constants[c.symbol] = np.array(c.get_values())
         else:
             # no constants defined, just collect all expressions as they are
-            parsed_obj_funcs = {f"{objective.symbol}": objective.func for objective in self.problem_objectives}
+            parsed_obj_funcs = {
+                f"{objective.symbol}": objective.func
+                for objective in self.problem_objectives
+            }
 
             if self.problem_constraints is not None:
-                parsed_cons_funcs = {f"{constraint.symbol}": constraint.func for constraint in self.problem_constraints}
+                parsed_cons_funcs = {
+                    f"{constraint.symbol}": constraint.func
+                    for constraint in self.problem_constraints
+                }
             else:
                 parsed_cons_funcs = None
 
             if self.problem_extra is not None:
-                parsed_extra_funcs = {f"{extra.symbol}": extra.func for extra in self.problem_extra}
+                parsed_extra_funcs = {
+                    f"{extra.symbol}": extra.func for extra in self.problem_extra
+                }
             else:
                 parsed_extra_funcs = None
 
             if self.problem_scalarization is not None:
-                parsed_scal_funcs = {f"{scal.symbol}": scal.func for scal in self.problem_scalarization}
+                parsed_scal_funcs = {
+                    f"{scal.symbol}": scal.func for scal in self.problem_scalarization
+                }
             else:
                 parsed_scal_funcs = None
 
@@ -285,7 +304,11 @@ class PolarsEvaluator:
         # parse objectives
         # If no expression is given (data-based objective, then the expression is set to be 'None')
         self.objective_expressions = [
-            (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+            (
+                (symbol, self.parser.parse(expression))
+                if expression is not None
+                else (symbol, None)
+            )
             for symbol, expression in parsed_obj_funcs.items()
         ]
 
@@ -293,7 +316,11 @@ class PolarsEvaluator:
         # if a constraint is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_cons_funcs is not None:
             self.constraint_expressions = [
-                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                (
+                    (symbol, self.parser.parse(expression))
+                    if expression is not None
+                    else (symbol, None)
+                )
                 for symbol, expression in parsed_cons_funcs.items()
             ]
         else:
@@ -303,7 +330,11 @@ class PolarsEvaluator:
         # if an extra function is simulator or surrogate based (expression is None), set the "parsed" expression as None
         if parsed_extra_funcs is not None:
             self.extra_expressions = [
-                (symbol, self.parser.parse(expression)) if expression is not None else (symbol, None)
+                (
+                    (symbol, self.parser.parse(expression))
+                    if expression is not None
+                    else (symbol, None)
+                )
                 for symbol, expression in parsed_extra_funcs.items()
             ]
         else:
@@ -312,20 +343,25 @@ class PolarsEvaluator:
         # parse scalarization functions, if any
         if parsed_scal_funcs is not None:
             self.scalarization_expressions = [
-                (symbol, self.parser.parse(expression)) for symbol, expression in parsed_scal_funcs.items()
+                (symbol, self.parser.parse(expression))
+                for symbol, expression in parsed_scal_funcs.items()
             ]
         else:
             self.scalarization_expressions = None
 
         # store the symbol and min or max multiplier as well (symbol, min/max multiplier [1 | -1])
         self.objective_mix_max_mult = [
-            (objective.symbol, -1 if objective.maximize else 1) for objective in self.problem_objectives
+            (objective.symbol, -1 if objective.maximize else 1)
+            for objective in self.problem_objectives
         ]
 
         # create dataframe with the discrete representation, if any exists
         if self.discrete_representation is not None:
             self.discrete_df = pl.DataFrame(
-                {**self.discrete_representation.variable_values, **self.discrete_representation.objective_values}
+                {
+                    **self.discrete_representation.variable_values,
+                    **self.discrete_representation.objective_values,
+                }
             )
         else:
             self.discrete_df = None
@@ -356,7 +392,9 @@ class PolarsEvaluator:
         if self.tensor_constants is not None:
             for tc_symbol in self.tensor_constants:
                 agg_df = agg_df.with_columns(
-                    pl.Series(np.array(agg_df.height * [self.tensor_constants[tc_symbol]])).alias(tc_symbol)
+                    pl.Series(
+                        np.array(agg_df.height * [self.tensor_constants[tc_symbol]])
+                    ).alias(tc_symbol)
                 )
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
@@ -380,7 +418,9 @@ class PolarsEvaluator:
             elif self.evaluator_mode != PolarsEvaluatorModesEnum.mixed:
                 # expr is None and there are no no simulator or surrogate based objectives,
                 # therefore we must get the objective function's value somehow else, usually from data
-                obj_col = find_closest_points(agg_df, self.discrete_df, self.problem_variable_symbols, symbol)
+                obj_col = find_closest_points(
+                    agg_df, self.discrete_df, self.problem_variable_symbols, symbol
+                )
                 agg_df = agg_df.hstack(obj_col)
 
         # Evaluate the minimization form of the objective functions
@@ -405,7 +445,9 @@ class PolarsEvaluator:
 
         # Evaluate any scalarization functions and put the result in the aggregate dataframe
         if self.scalarization_expressions is not None:
-            scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
+            scal_columns = agg_df.select(
+                *[expr.alias(symbol) for symbol, expr in self.scalarization_expressions]
+            )
             agg_df = agg_df.hstack(scal_columns)
 
         # return the dataframe and let the solver figure it out
@@ -452,7 +494,9 @@ class PolarsEvaluator:
                 tmp = np.ones((n_samples, *var.shape)) * np.nan
 
                 for index in indices:
-                    tmp[:, *(index)] = xs[f"{var.symbol}_{"_".join(str(x+1) for x in index)}"]
+                    tmp[:, *(index)] = xs[
+                        f"{var.symbol}_{"_".join(str(x+1) for x in index)}"
+                    ]
 
                 fat_xs[var.symbol] = tmp.tolist()
 
@@ -477,7 +521,9 @@ class PolarsEvaluator:
 
         # Evaluate any extra functions and put the results in the aggregate dataframe.
         if self.extra_expressions is not None:
-            extra_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.extra_expressions])
+            extra_columns = agg_df.select(
+                *[expr.alias(symbol) for symbol, expr in self.extra_expressions]
+            )
             agg_df = agg_df.hstack(extra_columns)
 
         # Evaluate the minimization form of the objective functions
@@ -491,15 +537,21 @@ class PolarsEvaluator:
         )
 
         agg_df = agg_df.hstack(min_obj_columns)
-
+        print(agg_df)
         # Evaluate any constraints and put the results in the aggregate dataframe
         if self.constraint_expressions is not None:
-            cons_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
+            print(self.constraint_expressions)
+            print(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
+            cons_columns = agg_df.select(
+                *[expr.alias(symbol) for symbol, expr in self.constraint_expressions]
+            )
             agg_df = agg_df.hstack(cons_columns)
 
         # Evaluate any scalarization functions and put the result in the aggregate dataframe
         if self.scalarization_expressions is not None:
-            scal_columns = agg_df.select(*[expr.alias(symbol) for symbol, expr in self.scalarization_expressions])
+            scal_columns = agg_df.select(
+                *[expr.alias(symbol) for symbol, expr in self.scalarization_expressions]
+            )
             agg_df = agg_df.hstack(scal_columns)
 
         # no more processing needed, it is assumed a solver will handle the rest
@@ -507,7 +559,10 @@ class PolarsEvaluator:
 
 
 def find_closest_points(
-    xs: pl.DataFrame, discrete_df: pl.DataFrame, variable_symbols: list[str], objective_symbol: list[str]
+    xs: pl.DataFrame,
+    discrete_df: pl.DataFrame,
+    variable_symbols: list[str],
+    objective_symbol: list[str],
 ) -> pl.DataFrame:
     """Finds the closest points between the variable columns in xs and discrete_df.
 
@@ -539,7 +594,12 @@ def find_closest_points(
     for row in xs_vars_only.rows(named=True):
         print(row)
         distance_expr = (
-            sum((pl.col(var_symbol) - row[var_symbol]) ** 2 for var_symbol in variable_symbols).sqrt().alias("distance")
+            sum(
+                (pl.col(var_symbol) - row[var_symbol]) ** 2
+                for var_symbol in variable_symbols
+            )
+            .sqrt()
+            .alias("distance")
         )
 
         combined_df = discrete_df.with_columns(distance_expr)

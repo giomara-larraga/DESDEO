@@ -79,7 +79,9 @@ class Op:
     RATIONAL = "Rational"
 
 
-def objective_dict_has_all_symbols(problem: Problem, obj_dict: dict[str, float]) -> bool:
+def objective_dict_has_all_symbols(
+    problem: Problem, obj_dict: dict[str, float]
+) -> bool:
     """Check that a dict has all the objective function symbols of a problem as its keys.
 
     Args:
@@ -161,7 +163,9 @@ def add_asf_nondiff(  # noqa: PLR0913
     # check if minimizing or maximizing and adjust ideal and nadir values correspondingly
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
 
-    if any(value is None for value in ideal_point.values()) or any(value is None for value in nadir_point.values()):
+    if any(value is None for value in ideal_point.values()) or any(
+        value is None for value in nadir_point.values()
+    ):
         msg = f"There are undefined values in either the ideal ({ideal_point}) or the nadir point ({nadir_point})."
         raise ScalarizationError(msg)
 
@@ -207,7 +211,11 @@ def add_asf_nondiff(  # noqa: PLR0913
 
 
 def add_group_asf(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    delta: float = 1e-6,
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the achievement scalarizing function for multiple decision makers.
 
@@ -244,7 +252,10 @@ def add_group_asf(
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
 
     # form the max and augmentation terms
     max_terms = []
@@ -252,9 +263,16 @@ def add_group_asf(
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         for obj in problem.objectives:
-            max_terms.append(f"({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})")
+            max_terms.append(
+                f"({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})"
+            )
 
-        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     max_terms = ", ".join(max_terms)
     aug_exprs = " + ".join(aug_exprs)
@@ -273,7 +291,11 @@ def add_group_asf(
 
 
 def add_group_asf_diff(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], delta: float = 1e-6, rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    delta: float = 1e-6,
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Add the differentiable variant of the achievement scalarizing function for multiple decision makers.
 
@@ -321,7 +343,10 @@ def add_group_asf_diff(
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
 
     # form the constaint and augmentation expressions
     # constraint expressions are formed into a list of lists
@@ -331,9 +356,16 @@ def add_group_asf_diff(
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})) - _alpha"
+            rp[obj.symbol] = (
+                f"(({weights[obj.symbol]}) * ({obj.symbol}_min - {corrected_rp[obj.symbol]})) - _alpha"
+            )
         con_terms.append(rp)
-        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -433,7 +465,9 @@ def add_asf_generic_diff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     # check augmentation term reference point
-    if reference_point_aug is not None and not objective_dict_has_all_symbols(problem, reference_point_aug):
+    if reference_point_aug is not None and not objective_dict_has_all_symbols(
+        problem, reference_point_aug
+    ):
         msg = (
             f"The given reference point for the augmentation term {reference_point_aug} "
             "does not have a component defined for all the objectives."
@@ -446,7 +480,9 @@ def add_asf_generic_diff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     # check the weight vector for the augmentation term
-    if weights_aug is not None and not objective_dict_has_all_symbols(problem, weights_aug):
+    if weights_aug is not None and not objective_dict_has_all_symbols(
+        problem, weights_aug
+    ):
         msg = f"The given weight vector {weights_aug} is missing a value for one or more objectives."
         raise ScalarizationError(msg)
 
@@ -469,10 +505,20 @@ def add_asf_generic_diff(  # noqa: PLR0913
     if reference_point_aug is None and weights_aug is None:
         # no reference point in augmentation term
         # same weights for both terms
-        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[obj.symbol]})" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({obj.symbol}_min / {weights[obj.symbol]})"
+                for obj in problem.objectives
+            ]
+        )
     elif reference_point_aug is None and weights_aug is not None:
         # different weights provided for augmentation term
-        aug_expr = " + ".join([f"({obj.symbol}_min / {weights_aug[obj.symbol]})" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({obj.symbol}_min / {weights_aug[obj.symbol]})"
+                for obj in problem.objectives
+            ]
+        )
     elif reference_point_aug is not None and weights_aug is None:
         # reference point in augmentation term
         aug_expr = " + ".join(
@@ -596,7 +642,9 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     # check augmentation term reference point
-    if reference_point_aug is not None and not objective_dict_has_all_symbols(problem, reference_point_aug):
+    if reference_point_aug is not None and not objective_dict_has_all_symbols(
+        problem, reference_point_aug
+    ):
         msg = (
             f"The given reference point for the augmentation term {reference_point_aug} "
             "does not have a component defined for all the objectives."
@@ -609,7 +657,9 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
         raise ScalarizationError(msg)
 
     # check the weight vector for the augmentation term
-    if weights_aug is not None and not objective_dict_has_all_symbols(problem, weights_aug):
+    if weights_aug is not None and not objective_dict_has_all_symbols(
+        problem, weights_aug
+    ):
         msg = f"The given weight vector {weights_aug} is missing a value for one or more objectives."
         raise ScalarizationError(msg)
 
@@ -623,7 +673,8 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
 
     # Build the max term
     max_operands = [
-        (f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / ({weights[obj.symbol]})") for obj in problem.objectives
+        (f"({obj.symbol}_min - {corrected_rp[obj.symbol]}) / ({weights[obj.symbol]})")
+        for obj in problem.objectives
     ]
     max_term = f"{Op.MAX}({', '.join(max_operands)})"
 
@@ -631,10 +682,20 @@ def add_asf_generic_nondiff(  # noqa: PLR0913
     if reference_point_aug is None and weights_aug is None:
         # no reference point in augmentation term
         # same weights for both terms
-        aug_expr = " + ".join([f"({obj.symbol}_min / {weights[obj.symbol]})" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({obj.symbol}_min / {weights[obj.symbol]})"
+                for obj in problem.objectives
+            ]
+        )
     elif reference_point_aug is None and weights_aug is not None:
         # different weights provided for augmentation term
-        aug_expr = " + ".join([f"({obj.symbol}_min / {weights_aug[obj.symbol]})" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({obj.symbol}_min / {weights_aug[obj.symbol]})"
+                for obj in problem.objectives
+            ]
+        )
     elif reference_point_aug is not None and weights_aug is None:
         # reference point in augmentation term
         aug_expr = " + ".join(
@@ -755,7 +816,9 @@ def add_nimbus_sf_diff(  # noqa: PLR0913
 
     # check that at least one objective function is allowed to be improved and one is
     # allowed to worsen
-    if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+    if not any(
+        classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives
+    ) or not any(
         classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
     ):
         msg = (
@@ -994,7 +1057,9 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
 
     # check that at least one objective function is allowed to be improved and one is
     # allowed to worsen
-    if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+    if not any(
+        classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives
+    ) or not any(
         classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
     ):
         msg = (
@@ -1005,7 +1070,9 @@ def add_nimbus_sf_nondiff(  # noqa: PLR0913
 
     # check ideal and nadir exist
     ideal_point, nadir_point = get_corrected_ideal_and_nadir(problem)
-    corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
+    corrected_current_point = get_corrected_reference_point(
+        problem, current_objective_vector
+    )
 
     # max term and constraints
     max_args = []
@@ -1195,7 +1262,9 @@ def add_group_nimbus_sf(  # noqa: PLR0913
 
         # check that at least one objective function is allowed to be improved and one is
         # allowed to worsen
-        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+        if not any(
+            classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives
+        ) or not any(
             classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
         ):
             msg = (
@@ -1206,10 +1275,15 @@ def add_group_nimbus_sf(  # noqa: PLR0913
 
     # check ideal and nadir exist
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
-    corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
+    corrected_current_point = get_corrected_reference_point(
+        problem, current_objective_vector
+    )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
 
     # max term and constraints
     max_args = []
@@ -1221,7 +1295,9 @@ def add_group_nimbus_sf(  # noqa: PLR0913
             _symbol = obj.symbol
             match classifications[_symbol]:
                 case ("<", _):
-                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
+                    max_expr = (
+                        f"{weights[_symbol]} * ({_symbol}_min - {ideal[_symbol]})"
+                    )
                     max_args.append(max_expr)
 
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1238,9 +1314,7 @@ def add_group_nimbus_sf(  # noqa: PLR0913
                     )
                 case ("<=", aspiration):
                     # if obj is to be maximized, then the current aspiration value needs to be multiplied by -1
-                    max_expr = (
-                        f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration})"
-                    )
+                    max_expr = f"{weights[_symbol]} * ({_symbol}_min - {aspiration * -1 if obj.maximize else aspiration})"
                     max_args.append(max_expr)
 
                     con_expr = f"{_symbol}_min - {corrected_current_point[_symbol]}"
@@ -1295,7 +1369,12 @@ def add_group_nimbus_sf(  # noqa: PLR0913
     # form the augmentation term
     aug_exprs = []
     for _ in range(len(classifications_list)):
-        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1398,7 +1477,9 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
 
         # check that at least one objective function is allowed to be improved and one is
         # allowed to worsen
-        if not any(classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives) or not any(
+        if not any(
+            classifications[obj.symbol][0] in ["<", "<="] for obj in problem.objectives
+        ) or not any(
             classifications[obj.symbol][0] in [">=", "0"] for obj in problem.objectives
         ):
             msg = (
@@ -1409,7 +1490,9 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
 
     # check ideal and nadir exist
     ideal, nadir = get_corrected_ideal_and_nadir(problem)
-    corrected_current_point = get_corrected_reference_point(problem, current_objective_vector)
+    corrected_current_point = get_corrected_reference_point(
+        problem, current_objective_vector
+    )
 
     # define the auxiliary variable
     alpha = Variable(
@@ -1422,7 +1505,10 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     )
 
     # calculate the weights
-    weights = {obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+    weights = {
+        obj.symbol: 1 / (nadir[obj.symbol] - (ideal[obj.symbol] - delta))
+        for obj in problem.objectives
+    }
 
     constraints = []
 
@@ -1524,7 +1610,12 @@ def add_group_nimbus_sf_diff(  # noqa: PLR0913
     # form the augmentation term
     aug_exprs = []
     for _ in range(len(classifications_list)):
-        aug_expr = " + ".join([f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1772,20 +1863,30 @@ def add_group_stom_sf(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
     max_terms = []
     for i in range(len(reference_points)):
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta})")
+            max_terms.append(
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta})"
+            )
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
     aug_exprs = []
     for i in range(len(reference_points)):
-        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[i][obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1861,7 +1962,10 @@ def add_group_stom_sf_diff(
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
         weights.append(
-            {obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta)) for obj in problem.objectives}
+            {
+                obj.symbol: 1 / (corrected_rp[obj.symbol] - (ideal[obj.symbol] - delta))
+                for obj in problem.objectives
+            }
         )
 
     # form the max term
@@ -1869,13 +1973,20 @@ def add_group_stom_sf_diff(
     for i in range(len(reference_points)):
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta}) - _alpha"
+            rp[obj.symbol] = (
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {ideal[obj.symbol] - delta}) - _alpha"
+            )
         con_terms.append(rp)
 
     # form the augmentation term
     aug_exprs = []
     for i in range(len(reference_points)):
-        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[i][obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -1972,7 +2083,8 @@ def add_guess_sf_diff(
     free_to_change = [
         sym
         for sym in corrected_rp
-        if np.isclose(corrected_rp[sym], nadir_point[sym]) or corrected_rp[sym] > nadir_point[sym]
+        if np.isclose(corrected_rp[sym], nadir_point[sym])
+        or corrected_rp[sym] > nadir_point[sym]
     ]
 
     # define the auxiliary variable
@@ -2101,7 +2213,8 @@ def add_guess_sf_nondiff(
     free_to_change = [
         sym
         for sym in corrected_rp
-        if np.isclose(corrected_rp[sym], nadir_point[sym]) or corrected_rp[sym] > nadir_point[sym]
+        if np.isclose(corrected_rp[sym], nadir_point[sym])
+        or corrected_rp[sym] > nadir_point[sym]
     ]
 
     # define the max expression of the scalarization
@@ -2143,7 +2256,10 @@ def add_guess_sf_nondiff(
 
 
 def add_group_guess_sf(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2185,20 +2301,32 @@ def add_group_guess_sf(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append(
+            {
+                obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol]))
+                for obj in problem.objectives
+            }
+        )
 
     # form the max term
     max_terms = []
     for i in range(len(reference_points)):
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         for obj in problem.objectives:
-            max_terms.append(f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]})")
+            max_terms.append(
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]})"
+            )
     max_terms = ", ".join(max_terms)
 
     # form the augmentation term
     aug_exprs = []
     for i in range(len(reference_points)):
-        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[i][obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -2215,7 +2343,10 @@ def add_group_guess_sf(
 
 
 def add_group_guess_sf_diff(
-    problem: Problem, symbol: str, reference_points: list[dict[str, float]], rho: float = 1e-6
+    problem: Problem,
+    symbol: str,
+    reference_points: list[dict[str, float]],
+    rho: float = 1e-6,
 ) -> tuple[Problem, str]:
     r"""Adds the differentiable variant of the multiple decision maker variant of the GUESS scalarizing function.
 
@@ -2268,7 +2399,12 @@ def add_group_guess_sf_diff(
     weights = []
     for reference_point in reference_points:
         corrected_rp = get_corrected_reference_point(problem, reference_point)
-        weights.append({obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol])) for obj in problem.objectives})
+        weights.append(
+            {
+                obj.symbol: 1 / (nadir[obj.symbol] - (corrected_rp[obj.symbol]))
+                for obj in problem.objectives
+            }
+        )
 
     # form the max term
     con_terms = []
@@ -2276,13 +2412,20 @@ def add_group_guess_sf_diff(
         corrected_rp = get_corrected_reference_point(problem, reference_points[i])
         rp = {}
         for obj in problem.objectives:
-            rp[obj.symbol] = f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]}) - _alpha"
+            rp[obj.symbol] = (
+                f"{weights[i][obj.symbol]} * ({obj.symbol}_min - {nadir[obj.symbol]}) - _alpha"
+            )
         con_terms.append(rp)
 
     # form the augmentation term
     aug_exprs = []
     for i in range(len(reference_points)):
-        aug_expr = " + ".join([f"({weights[i][obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives])
+        aug_expr = " + ".join(
+            [
+                f"({weights[i][obj.symbol]} * {obj.symbol}_min)"
+                for obj in problem.objectives
+            ]
+        )
         aug_exprs.append(aug_expr)
     aug_exprs = " + ".join(aug_exprs)
 
@@ -2382,11 +2525,14 @@ def add_asf_diff(
     # define the objective function of the scalarization
     aug_expr = " + ".join(
         [
-            (f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})")
+            (
+                f"{obj.symbol}_min / ({nadir_point[obj.symbol]} - {ideal_point[obj.symbol] - delta})"
+            )
             for obj in problem.objectives
         ]
     )
 
+    print(aug_expr)
     target_expr = f"_alpha + {rho}*" + f"({aug_expr})"
     scalarization = ScalarizationFunction(
         name="ASF scalarization objective function",
@@ -2422,7 +2568,9 @@ def add_asf_diff(
     return _problem.add_constraints(constraints), symbol
 
 
-def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) -> tuple[Problem, str]:
+def add_weighted_sums(
+    problem: Problem, symbol: str, weights: dict[str, float]
+) -> tuple[Problem, str]:
     r"""Add the weighted sums scalarization to a problem with the given weights.
 
     It is assumed that the weights add to 1.
@@ -2463,7 +2611,9 @@ def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) 
         raise ScalarizationError(msg)
 
     # Build the sum
-    sum_terms = [f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives]
+    sum_terms = [
+        f"({weights[obj.symbol]} * {obj.symbol}_min)" for obj in problem.objectives
+    ]
 
     # aggregate the terms
     sf = " + ".join(sum_terms)
@@ -2480,7 +2630,9 @@ def add_weighted_sums(problem: Problem, symbol: str, weights: dict[str, float]) 
     return problem.add_scalarization(scalarization_function), symbol
 
 
-def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symbol: str) -> tuple[Problem, str]:
+def add_objective_as_scalarization(
+    problem: Problem, symbol: str, objective_symbol: str
+) -> tuple[Problem, str]:
     r"""Creates a scalarization where one of the problem's objective functions is optimized.
 
     The scalarization is defined as follows:
@@ -2525,7 +2677,11 @@ def add_objective_as_scalarization(problem: Problem, symbol: str, objective_symb
 
 
 def add_epsilon_constraints(
-    problem: Problem, symbol: str, constraint_symbols: dict[str, str], objective_symbol: str, epsilons: dict[str, float]
+    problem: Problem,
+    symbol: str,
+    constraint_symbols: dict[str, str],
+    objective_symbol: str,
+    epsilons: dict[str, float],
 ) -> tuple[Problem, str, list[str]]:
     r"""Creates expressions for an epsilon constraints scalarization and constraints.
 
@@ -2565,7 +2721,9 @@ def add_epsilon_constraints(
             the objective to be optimized. The last element is a list with the symbols
             of the added constraints to the problem.
     """
-    if objective_symbol not in (correct_symbols := [objective.symbol for objective in problem.objectives]):
+    if objective_symbol not in (
+        correct_symbols := [objective.symbol for objective in problem.objectives]
+    ):
         msg = f"The given objective symbol {objective_symbol} should be one of {correct_symbols}."
         raise ScalarizationError(msg)
 
@@ -2624,6 +2782,8 @@ def create_epsilon_constraints_json(
     scalarization_expr = ["Multiply", 1, f"{objective_symbol}_min"]
 
     # the epsilons must be given such that each objective function is to be minimized
-    constraint_exprs = [["Add", f"{obj}_min", ["Negate", epsilons[obj]]] for obj in correct_symbols]
+    constraint_exprs = [
+        ["Add", f"{obj}_min", ["Negate", epsilons[obj]]] for obj in correct_symbols
+    ]
 
     return scalarization_expr, constraint_exprs

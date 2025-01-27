@@ -3229,7 +3229,7 @@ def forest_problem_discrete() -> Problem:
     )
 
 
-def energy_problem() -> Problem:
+def energy_problem_old() -> Problem:
     # The front of this problem is not open source
     filename = "HRI/energy.csv"
     trueVarNames = {
@@ -3264,9 +3264,9 @@ def energy_problem() -> Problem:
             name=trueVarNames[varName],
             symbol=varName,
             variable_type=VariableTypeEnum.real,
-            lowerbound=0.0,
-            upperbound=1.0,
-            initial_value=0.5,
+            lowerbound=data[varName].min(),
+            upperbound=data[varName].max(),
+            initial_value=data[varName].mean(),
         )
         for varName in trueVarNames
     ]
@@ -3296,15 +3296,6 @@ def energy_problem() -> Problem:
         "Maximum feed-in power peak": "kW",
     }
 
-    ideal = {
-        objName: (data[objName].max() if maximize[objName] else data[objName].min())
-        for objName in trueObjNames
-    }
-    nadir = {
-        objName: (data[objName].min() if maximize[objName] else data[objName].max())
-        for objName in trueObjNames
-    }
-
     objectives = [
         Objective(
             name=trueObjNames[objName],
@@ -3313,16 +3304,145 @@ def energy_problem() -> Problem:
             unit=units[objName],
             objective_type=ObjectiveTypeEnum.data_based,
             maximize=maximize[objName],
-            ideal=ideal[objName],
-            nadir=nadir[objName],
+            ideal=data[objName].min(),
+            nadir=data[objName].max(),
         )
         for objName in trueObjNames
     ]
 
     discrete_def = DiscreteRepresentation(
         variable_values=data[list(trueVarNames.keys())].to_dict(),
-        objective_values=data[list(trueObjNames.keys())].to_dict(),
+        objective_values=data[[obj.symbol for obj in objectives]].to_dict(),
     )
+    # discrete_def = DiscreteRepresentation(
+    #    variable_values=data[list(trueVarNames.keys())].to_dict(),
+    #    objective_values=data[list(trueObjNames.keys())].to_dict(),
+    # )
+
+    return Problem(
+        name="Energy Management Problem",
+        description="Selection of a set of reasonable configurations for achieving effective energy management.",
+        variables=variables,
+        objectives=objectives,
+        discrete_representation=discrete_def,
+    )
+
+
+def energy_problem() -> Problem:
+    # The front of this problem is not open source
+    filename = "HRI/energy.csv"
+
+    variable_names = [
+        "Photovoltaics.alphaModule",
+        "Photovoltaics.betaModule",
+        "Photovoltaics.PPeak",
+        "BatteryStorage.EBattNominal",
+        "BatteryStorage.SOCMax",
+        "BatteryStorage.SOCMin",
+        "batteryControllerDT1.lowerLimit",
+        "batteryControllerDT1.upperLimit",
+        "HeatingAndCooling.HeatGeneration.HeatStorage.VStorage",
+    ]
+
+    objective_names = [
+        "Investment costs",
+        "Yearly total costs",
+        "Yearly CO2 emissions",
+        "Resilience",
+        "Mean battery state of charge",
+        "Yearly energy discharged from battery",
+        "Maximum power peak",
+        "SOC Time proportion",
+        "Yearly energy fed into the grid",
+        "Maximum feed-in power peak",
+    ]
+
+    column_names = list(np.hstack((variable_names, objective_names)))
+
+    variable_symbols = [
+        "alpha_PV",
+        "beta_PV",
+        "P_PV",
+        "C_B",
+        "b_SOC_max",
+        "b_SOC_min",
+        "P_charge",
+        "P_discharge",
+        "V_C",
+    ]
+
+    objective_symbols = [
+        "I_invest",
+        "C_annual",
+        "G_total",
+        "R",
+        "B_SOC",
+        "E_batt_discharge",
+        "P_peak_supply",
+        "T_m",
+        "E_feed",
+        "P_peak_feed",
+    ]
+
+    path = Path(__file__).parent.parent.parent / filename
+    data = pl.read_csv(path, columns=column_names, separator=",", has_header=True)
+
+    headers = {}
+    for i in range(len(variable_names)):
+        headers[variable_names[i]] = variable_symbols[i]
+    for i in range(len(objective_names)):
+        headers[objective_names[i]] = objective_symbols[i]
+
+    data = data.rename(headers)
+
+    variables = [
+        Variable(
+            name=varName,
+            symbol=headers[varName],
+            variable_type=VariableTypeEnum.real,
+            lowerbound=data[headers[varName]].min(),
+            upperbound=data[headers[varName]].max(),
+            initial_value=data[headers[varName]].mean(),
+        )
+        for varName in variable_names
+    ]
+
+    units = {
+        "Investment costs": "Euro",
+        "Yearly total costs": "Euro",
+        "Yearly CO2 emissions": "s",
+        "Resilience": "t",
+        "Mean battery state of charge": "-",
+        "Yearly energy discharged from battery": "kWh",
+        "Maximum power peak": "kW",
+        "SOC Time proportion": "-",
+        "Yearly energy fed into the grid": "kWh",
+        "Maximum feed-in power peak": "kW",
+    }
+
+    objectives = [
+        Objective(
+            name=objName,
+            symbol=headers[objName],
+            func=None,
+            objective_type=ObjectiveTypeEnum.data_based,
+            maximize=False,
+            ideal=data[headers[objName]].min(),
+            nadir=data[headers[objName]].max(),
+        )
+        for objName in objective_names
+    ]
+
+    discrete_def = DiscreteRepresentation(
+        variable_values=data[[var.symbol for var in variables]].to_dict(),
+        objective_values=data[[obj.symbol for obj in objectives]].to_dict(),
+    )
+
+    # print(data)
+    # discrete_def = DiscreteRepresentation(
+    #    variable_values=data[list(trueVarNames.keys())].to_dict(),
+    #    objective_values=data[list(trueObjNames.keys())].to_dict(),
+    # )
 
     return Problem(
         name="Energy Management Problem",

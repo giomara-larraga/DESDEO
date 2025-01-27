@@ -20,6 +20,7 @@ from desdeo.api.schema import (
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import (
     binh_and_korn,
+    energy_problem,
     forest_problem,
     forest_problem_discrete,
     nimbus_test_problem,
@@ -150,6 +151,17 @@ problem_in_db = db_models.Problem(
 db.add(problem_in_db)
 db.commit()
 
+problem = energy_problem()
+problem_in_db = db_models.Problem(
+    owner=user.id,
+    name=problem.name,
+    kind=ProblemKind.DISCRETE,
+    obj_kind=ObjectiveKind.DATABASED,
+    value=problem.model_dump(mode="json"),
+    role_permission=[UserRole.GUEST],
+)
+db.add(problem_in_db)
+db.commit()
 
 # I guess we need to have methods in the database as well
 nimbus = db_models.Method(

@@ -8,7 +8,12 @@ References:
 
 import numpy as np
 
-from desdeo.problem import PolarsEvaluator, Problem, VariableType, variable_dict_to_numpy_array
+from desdeo.problem import (
+    PolarsEvaluator,
+    Problem,
+    VariableType,
+    variable_dict_to_numpy_array,
+)
 from desdeo.tools import (
     BaseSolver,
     SolverOptions,
@@ -74,7 +79,9 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         raise NimbusError(msg)
 
     init_solver = guess_best_solver(problem) if solver is None else solver
-    _solver_options = None if solver_options is None or solver is None else solver_options
+    _solver_options = (
+        None if solver_options is None or solver is None else solver_options
+    )
 
     # compute the element-wise difference between each solution (in the decision space)
     solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
@@ -85,16 +92,23 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     # between the two given points; we are not interested in the given points themselves.
     step_size = delta / (2 + num_desired)
 
-    intermediate_points = np.array([solution_2_arr + i * step_size for i in range(1, num_desired + 1)])
+    intermediate_points = np.array(
+        [solution_2_arr + i * step_size for i in range(1, num_desired + 1)]
+    )
 
-    xs = {f"{variable.symbol}": intermediate_points[:, i].tolist() for (i, variable) in enumerate(problem.variables)}
+    xs = {
+        f"{variable.symbol}": intermediate_points[:, i].tolist()
+        for (i, variable) in enumerate(problem.variables)
+    }
 
     # evaluate the intermediate points to get reference points
     # TODO(gialmisi): an evaluator might have to be selected depending on the problem
     evaluator = PolarsEvaluator(problem)
 
     reference_points: list[dict[str, float]] = (
-        evaluator.evaluate(xs).select([obj.symbol for obj in problem.objectives]).to_dicts()
+        evaluator.evaluate(xs)
+        .select([obj.symbol for obj in problem.objectives])
+        .to_dicts()
     )
 
     # for each reference point, add and solve the ASF scalarization problem
@@ -105,7 +119,9 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         # add scalarization
         # TODO(gialmisi): add logic that selects correct variant of the ASF
         # depending on problem properties (either diff or non-diff)
-        asf_problem, target = add_asf_diff(problem, "target", rp, **(scalarization_options or {}))
+        asf_problem, target = add_asf_diff(
+            problem, "target", rp, **(scalarization_options or {})
+        )
 
         solver = init_solver(asf_problem, _solver_options)
 
@@ -118,7 +134,9 @@ def solve_intermediate_solutions(  # noqa: PLR0913
 
 
 def infer_classifications(
-    problem: Problem, current_objectives: dict[str, float], reference_point: dict[str, float]
+    problem: Problem,
+    current_objectives: dict[str, float],
+    reference_point: dict[str, float],
 ) -> dict[str, tuple[str, float | None]]:
     r"""Infers NIMBUS classifications based on a reference point and current objective values.
 
@@ -175,12 +193,16 @@ def infer_classifications(
         raise NimbusError(msg)
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
-        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The reference point {reference_point} is missing entries "
+            "for one or more of the objective functions."
+        )
         raise NimbusError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
         msg = (
-            f"The current point {current_objectives} is missing entries " "for one or more of the objective functions."
+            f"The current point {current_objectives} is missing entries "
+            "for one or more of the objective functions."
         )
         raise NimbusError(msg)
 
@@ -198,19 +220,31 @@ def infer_classifications(
         elif np.isclose(reference_point[obj.symbol], current_objectives[obj.symbol]):
             # the objective should stay as it is
             classification = {obj.symbol: ("=", None)}
-        elif not obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+        elif (
+            not obj.maximize
+            and reference_point[obj.symbol] < current_objectives[obj.symbol]
+        ):
             # minimizing objective, reference value smaller, this is an aspiration level
             # improve until
             classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
-        elif not obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
+        elif (
+            not obj.maximize
+            and reference_point[obj.symbol] > current_objectives[obj.symbol]
+        ):
             # minimizing objective, reference value is greater, this is a reservations level
             # impair until
             classification = {obj.symbol: (">=", reference_point[obj.symbol])}
-        elif obj.maximize and reference_point[obj.symbol] < current_objectives[obj.symbol]:
+        elif (
+            obj.maximize
+            and reference_point[obj.symbol] < current_objectives[obj.symbol]
+        ):
             # maximizing objective, reference value is smaller, this is a reservation level
             # impair until
             classification = {obj.symbol: (">=", reference_point[obj.symbol])}
-        elif obj.maximize and reference_point[obj.symbol] > current_objectives[obj.symbol]:
+        elif (
+            obj.maximize
+            and reference_point[obj.symbol] > current_objectives[obj.symbol]
+        ):
             # maximizing objective, reference value is greater, this is an aspiration level
             # improve until
             classification = {obj.symbol: ("<=", reference_point[obj.symbol])}
@@ -280,11 +314,17 @@ def solve_sub_problems(  # noqa: PLR0913
         raise NimbusError(msg)
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
-        msg = f"The reference point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The reference point {reference_point} is missing entries "
+            "for one or more of the objective functions."
+        )
         raise NimbusError(msg)
 
     if not all(obj.symbol in current_objectives for obj in problem.objectives):
-        msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
+        msg = (
+            f"The current point {reference_point} is missing entries "
+            "for one or more of the objective functions."
+        )
         raise NimbusError(msg)
 
     init_solver = solver if solver is not None else guess_best_solver(problem)
@@ -292,27 +332,47 @@ def solve_sub_problems(  # noqa: PLR0913
 
     # derive the classifications based on the reference point and and previous
     # objective function values
-    classifications = infer_classifications(problem, current_objectives, reference_point)
+    classifications = infer_classifications(
+        problem, current_objectives, reference_point
+    )
 
     solutions = []
 
     # solve the nimbus scalarization problem, this is done always
-    add_nimbus_sf = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
-
-    problem_w_nimbus, nimbus_target = add_nimbus_sf(
-        problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
+    add_nimbus_sf = (
+        add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
     )
 
-    nimbus_solver = init_solver(problem_w_nimbus, _solver_options) if _solver_options else init_solver(problem_w_nimbus)
+    problem_w_nimbus, nimbus_target = add_nimbus_sf(
+        problem,
+        "nimbus_sf",
+        classifications,
+        current_objectives,
+        **(scalarization_options or {}),
+    )
+
+    nimbus_solver = (
+        init_solver(problem_w_nimbus, _solver_options)
+        if _solver_options
+        else init_solver(problem_w_nimbus)
+    )
 
     solutions.append(nimbus_solver.solve(nimbus_target))
 
     if num_desired > 1:
         # solve STOM
-        add_stom_sf = add_stom_sf_diff if problem.is_twice_differentiable else add_stom_sf_nondiff
+        add_stom_sf = (
+            add_stom_sf_diff if problem.is_twice_differentiable else add_stom_sf_nondiff
+        )
 
-        problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
-        stom_solver = init_solver(problem_w_stom, _solver_options) if _solver_options else init_solver(problem_w_stom)
+        problem_w_stom, stom_target = add_stom_sf(
+            problem, "stom_sf", reference_point, **(scalarization_options or {})
+        )
+        stom_solver = (
+            init_solver(problem_w_stom, _solver_options)
+            if _solver_options
+            else init_solver(problem_w_stom)
+        )
 
         solutions.append(stom_solver.solve(stom_target))
 
@@ -320,15 +380,25 @@ def solve_sub_problems(  # noqa: PLR0913
         # solve ASF
         add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
-        problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
+        problem_w_asf, asf_target = add_asf(
+            problem, "asf", reference_point, **(scalarization_options or {})
+        )
 
-        asf_solver = init_solver(problem_w_asf, _solver_options) if _solver_options else init_solver(problem_w_asf)
+        asf_solver = (
+            init_solver(problem_w_asf, _solver_options)
+            if _solver_options
+            else init_solver(problem_w_asf)
+        )
 
         solutions.append(asf_solver.solve(asf_target))
 
     if num_desired > 3:  # noqa: PLR2004
         # solve GUESS
-        add_guess_sf = add_guess_sf_diff if problem.is_twice_differentiable else add_guess_sf_nondiff
+        add_guess_sf = (
+            add_guess_sf_diff
+            if problem.is_twice_differentiable
+            else add_guess_sf_nondiff
+        )
 
         problem_w_guess, guess_target = add_guess_sf(
             problem, "guess_sf", reference_point, **(scalarization_options or {})
@@ -395,12 +465,14 @@ def generate_starting_point(
     _solver_options = solver_options if solver_options is not None else None
 
     # TODO(gialmisi): this info should come from the problem
-    is_smooth = True
+    is_smooth = False
 
     # solve ASF
     add_asf = add_asf_diff if is_smooth else add_asf_nondiff
 
-    problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
+    problem_w_asf, asf_target = add_asf(
+        problem, "asf", reference_point, **(scalarization_options or {})
+    )
     if _solver_options:
         asf_solver = init_solver(problem_w_asf, _solver_options)
     else:
