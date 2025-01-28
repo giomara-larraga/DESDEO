@@ -3427,6 +3427,7 @@ def energy_problem() -> Problem:
             func=None,
             objective_type=ObjectiveTypeEnum.data_based,
             maximize=False,
+            units= units[objName],
             ideal=data[headers[objName]].min(),
             nadir=data[headers[objName]].max(),
         )

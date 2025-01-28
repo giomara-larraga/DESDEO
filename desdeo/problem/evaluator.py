@@ -537,11 +537,9 @@ class PolarsEvaluator:
         )
 
         agg_df = agg_df.hstack(min_obj_columns)
-        print(agg_df)
+       
         # Evaluate any constraints and put the results in the aggregate dataframe
         if self.constraint_expressions is not None:
-            print(self.constraint_expressions)
-            print(*[expr.alias(symbol) for symbol, expr in self.constraint_expressions])
             cons_columns = agg_df.select(
                 *[expr.alias(symbol) for symbol, expr in self.constraint_expressions]
             )
