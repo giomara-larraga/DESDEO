@@ -155,4 +155,7 @@ reference_solutions.json
 # Scratch
 scratch/
 
+# Surrogate models
+surrogatemodels/
+
 HRI/
