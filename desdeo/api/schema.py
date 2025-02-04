@@ -50,6 +50,7 @@ class Methods(Enum):
     RVEA = "RVEA"
     NSGAIII = "NSGAIII"
     RPM = "Reference point method"
+    XNIMBUS = "Explainable NIMBUS"
 
 
 class MethodProperties(Enum):

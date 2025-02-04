@@ -12,6 +12,7 @@ from desdeo.api.routers import (
     problems,
     test,
     NAUTILUS,
+    XNIMBUS,
 )
 from desdeo.api.config import WebUIConfig
 
@@ -28,6 +29,7 @@ app.include_router(problems.router)
 app.include_router(NAUTILUS_navigator.router)
 app.include_router(NAUTILUS.router)
 app.include_router(reference_point_method.router)
+app.include_router(XNIMBUS.router)
 
 origins = WebUIConfig.cors_origins
 
