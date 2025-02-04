@@ -23,6 +23,7 @@ from desdeo.tools import (
     add_stom_sf_nondiff,
     guess_best_solver,
 )
+from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
 
 
 class NimbusError(Exception):
@@ -73,8 +74,13 @@ def solve_intermediate_solutions(  # noqa: PLR0913
         msg = f"The given number of desired intermediate ({num_desired=}) solutions must be at least 1."
         raise NimbusError(msg)
 
-    init_solver = guess_best_solver(problem) if solver is None else solver
-    _solver_options = None if solver_options is None or solver is None else solver_options
+    if not problem.is_twice_differentiable:
+        msg = "The given problem must be twice differentiablr."
+        raise NimbusError(msg)
+
+    # TODO: Giomara: add validation 
+    init_solver = PyomoIpoptSolver
+
 
     # compute the element-wise difference between each solution (in the decision space)
     solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
@@ -103,11 +109,10 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     intermediate_solutions = []
     for rp in reference_points:
         # add scalarization
-        # TODO(gialmisi): add logic that selects correct variant of the ASF
-        # depending on problem properties (either diff or non-diff)
+        # It will only work for twice differentiable problems, as it is a restriction of the method
         asf_problem, target = add_asf_diff(problem, "target", rp, **(scalarization_options or {}))
 
-        solver = init_solver(asf_problem, _solver_options)
+        solver = init_solver(asf_problem, solver_options)
 
         # solve and store results
         result: SolverResults = solver.solve(target)
@@ -229,7 +234,6 @@ def solve_sub_problems(  # noqa: PLR0913
     reference_point: dict[str, float],
     num_desired: int,
     scalarization_options: dict | None = None,
-    solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> list[SolverResults]:
     r"""Solves a desired number of sub-problems as defined in the NIMBUS methods.
@@ -287,7 +291,13 @@ def solve_sub_problems(  # noqa: PLR0913
         msg = f"The current point {reference_point} is missing entries " "for one or more of the objective functions."
         raise NimbusError(msg)
 
-    init_solver = solver if solver is not None else guess_best_solver(problem)
+    if not problem.is_twice_differentiable:
+        msg = "The given problem must be twice differentiablr."
+        raise NimbusError(msg)
+
+    # TODO: Giomara: add validation for the type of variables
+
+    init_solver = PyomoIpoptSolver
     _solver_options = solver_options if solver_options is not None else None
 
     # derive the classifications based on the reference point and and previous
@@ -297,9 +307,9 @@ def solve_sub_problems(  # noqa: PLR0913
     solutions = []
 
     # solve the nimbus scalarization problem, this is done always
-    add_nimbus_sf = add_nimbus_sf_diff if problem.is_twice_differentiable else add_nimbus_sf_nondiff
+    #add_nimbus_sf = add_nimbus_sf_diff
 
-    problem_w_nimbus, nimbus_target = add_nimbus_sf(
+    problem_w_nimbus, nimbus_target = add_nimbus_sf_diff(
         problem, "nimbus_sf", classifications, current_objectives, **(scalarization_options or {})
     )
 
@@ -309,8 +319,7 @@ def solve_sub_problems(  # noqa: PLR0913
 
     if num_desired > 1:
         # solve STOM
-        add_stom_sf = add_stom_sf_diff if problem.is_twice_differentiable else add_stom_sf_nondiff
-
+        add_stom_sf = add_stom_sf_diff
         problem_w_stom, stom_target = add_stom_sf(problem, "stom_sf", reference_point, **(scalarization_options or {}))
         stom_solver = init_solver(problem_w_stom, _solver_options) if _solver_options else init_solver(problem_w_stom)
 
@@ -318,7 +327,7 @@ def solve_sub_problems(  # noqa: PLR0913
 
     if num_desired > 2:  # noqa: PLR2004
         # solve ASF
-        add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
+        add_asf = add_asf_diff
 
         problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
 
@@ -328,7 +337,7 @@ def solve_sub_problems(  # noqa: PLR0913
 
     if num_desired > 3:  # noqa: PLR2004
         # solve GUESS
-        add_guess_sf = add_guess_sf_diff if problem.is_twice_differentiable else add_guess_sf_nondiff
+        add_guess_sf = add_guess_sf_diff
 
         problem_w_guess, guess_target = add_guess_sf(
             problem, "guess_sf", reference_point, **(scalarization_options or {})
@@ -348,7 +357,6 @@ def generate_starting_point(
     problem: Problem,
     reference_point: dict[str, float] | None = None,
     scalarization_options: dict | None = None,
-    solver: BaseSolver | None = None,
     solver_options: SolverOptions | None = None,
 ) -> SolverResults:
     r"""Generates a starting point for the NIMBUS method.
@@ -385,20 +393,22 @@ def generate_starting_point(
         msg = "The given problem must have both an ideal and nadir point defined."
         raise NimbusError(msg)
 
+    if not problem.is_twice_differentiable:
+        msg = "The given problem must be twice differentiable."
+        raise NimbusError(msg)
+
+
     if reference_point is None:
         reference_point = {}
     for obj in problem.objectives:
         if obj.symbol not in reference_point:
             reference_point[obj.symbol] = ideal[obj.symbol]
 
-    init_solver = solver if solver is not None else guess_best_solver(problem)
+    init_solver = PyomoIpoptSolver
     _solver_options = solver_options if solver_options is not None else None
 
-    # TODO(gialmisi): this info should come from the problem
-    is_smooth = True
-
     # solve ASF
-    add_asf = add_asf_diff if is_smooth else add_asf_nondiff
+    add_asf = add_asf_diff
 
     problem_w_asf, asf_target = add_asf(problem, "asf", reference_point, **(scalarization_options or {}))
     if _solver_options:
