@@ -146,6 +146,7 @@ def init_nimbus(
     # The request is supposed to contain method id, but I don't want to deal with frontend code
     init_request.method_id = get_nimbus_method_id(db)
     method_id = init_request.method_id
+    print("method_id", method_id)
 
     problem = read_problem_from_db(db=db, problem_id=problem_id, user_id=user.index)
 
@@ -182,9 +183,9 @@ def init_nimbus(
         current_solutions=[current_solution.objectives],
         saved_solutions=[sol.objectives for sol in solutions if sol.saved],
         all_solutions=[sol.objectives for sol in solutions],
-        current_multipliers=[current_solution],
-        saved_multipliers=None,
-        all_multipliers=None,
+        current_multipliers=[current_solution.multipliers],
+        saved_multipliers=[sol.multipliers for sol in solutions if sol.saved],
+        all_multipliers=[sol.multipliers for sol in solutions],
     )
 
 
@@ -447,8 +448,8 @@ def get_nimbus_method_id(db: Session) -> int:
     Returns:
         The method id
     """
-    nimbus_method = db.query(Method).filter(Method.kind == Methods.XNIMBUS).first()
-    return nimbus_method.id
+    xnimbus_method = db.query(Method).filter(Method.kind == Methods.XNIMBUS).first()
+    return xnimbus_method.id
 
 
 def read_problem_from_db(

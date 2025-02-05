@@ -26,7 +26,7 @@ from desdeo.problem.testproblems import (
     river_pollution_problem_discrete,
 )
 
-#from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
+# from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -124,32 +124,32 @@ db.add(problem_in_db)
 # db.add(problem_in_db)
 # db.commit()
 
-#problem, schedule_dict = utopia_problem_old(holding=1)
-#problem_in_db = db_models.Problem(
+# problem, schedule_dict = utopia_problem_old(holding=1)
+# problem_in_db = db_models.Problem(
 #    owner=user.id,
 #    name="Test 5",
 #    kind=ProblemKind.CONTINUOUS,
 #   obj_kind=ObjectiveKind.ANALYTICAL,
 #    solver=Solvers.PYOMO_IPOPT,
 #    value=problem.model_dump(mode="json"),
-#)
-#db.add(problem_in_db)
-#db.commit()
+# )
+# db.add(problem_in_db)
+# db.commit()
 
 # CAUTION: DO NOT PUT ANY CODE IN BETWEEN THE PREVIOUS AND FOLLOWING BLOCKS OF CODE.
 # UTOPIA MAPS WILL BREAK IF YOU DO.
 
 # The info about the map and decision alternatives now goes into the database
-#with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
+# with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
 #    forest_map = f.read()
-#map_info = db_models.Utopia(
+# map_info = db_models.Utopia(
 #    problem=problem_in_db.id,
 #    map_json=forest_map,
 #    schedule_dict=schedule_dict,
 #    years=["2025", "2030", "2035"],
 #    stand_id_field="standnumbe",
-#)
-#db.add(map_info)
+# )
+# db.add(map_info)
 
 
 # I guess we need to have methods in the database as well
@@ -159,6 +159,14 @@ nimbus = db_models.Method(
     name="NIMBUS",
 )
 db.add(nimbus)
+db.commit()
+
+xnimbus = db_models.Method(
+    kind=Methods.XNIMBUS,
+    properties=[],
+    name="XNIMBUS",
+)
+db.add(xnimbus)
 db.commit()
 
 
