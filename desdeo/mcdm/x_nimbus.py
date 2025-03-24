@@ -11,8 +11,10 @@ import numpy as np
 from desdeo.problem import (
     PolarsEvaluator,
     Problem,
+    Variable,
     VariableType,
-    variable_dict_to_numpy_array,
+    flatten_variable_dict,
+    unflatten_variable_array,
 )
 from desdeo.tools import (
     BaseSolver,
@@ -79,8 +81,8 @@ def solve_intermediate_solutions(  # noqa: PLR0913
     init_solver = PyomoIpoptSolver
 
     # compute the element-wise difference between each solution (in the decision space)
-    solution_1_arr = variable_dict_to_numpy_array(problem, solution_1)
-    solution_2_arr = variable_dict_to_numpy_array(problem, solution_2)
+    solution_1_arr = flatten_variable_dict(problem, solution_1)
+    solution_2_arr = flatten_variable_dict(problem, solution_2)
     delta = solution_1_arr - solution_2_arr
 
     # the '2' is in the denominator because we want to calculate the steps
