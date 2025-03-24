@@ -6,6 +6,7 @@ decision making. Mathematical modelling, 3(5), 391-405.
 """
 
 import numpy as np
+import shap
 
 from desdeo.problem import (
     Problem,
@@ -22,14 +23,15 @@ from desdeo.tools import (
     guess_best_solver,
 )
 from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
+from desdeo.problem.testproblems import river_pollution_problem_discrete
+from desdeo.shapley_values.utilities import generate_black_box
 
 
 class ReferencePointError(Exception):
     """Raised when an error with the reference point method is encountered."""
 
 
-def rpm_solve_solutions(
-    problem: Problem,
+def rximo_solve_solutions(
     reference_point: dict[str, float],
     scalarization_options: dict | None = None,
     solver: BaseSolver | None = None,
@@ -68,11 +70,14 @@ def rpm_solve_solutions(
             If the problem is not twice differentiable, then `add_asf_nondiff` is used.
     """
     # setup problem with ASF
-    # check if problem is differentiable or not, choose appropriate ASF variant.
+    problem = river_pollution_problem_discrete()
+    pareto_front = problem.discrete_representation.objective_values
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
         msg = f"The reference point {reference_point} is missing entries for one or more of the objective functions."
         raise ReferencePointError(msg)
+
+    missing_data = shap.sample(pareto_front, nsamples=200)
 
     _add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
@@ -83,61 +88,14 @@ def rpm_solve_solutions(
         **scalarization_options if scalarization_options is not None else {},
     )
 
+    bb = generate_black_box(problem_w_asf, target)
+
     # setup solver
     # solve scalarized problem with given reference point
-    if kkt_multipliers is False:
-        _init_solver = guess_best_solver(problem_w_asf) if solver is None else solver
-    else:
-        if problem_w_asf.is_twice_differentiable and problem.variable_domain in [
-            VariableDomainTypeEnum.continuous
-        ]:
-            _init_solver = PyomoIpoptSolver
-        else:
-            msg = f"KKT multipliers can only be obtained for continuous and twice differentiable problems."
-            raise ReferencePointError(msg)
-
+    _init_solver = guess_best_solver(problem_w_asf) if solver is None else solver
     _solver = _init_solver(problem_w_asf, solver_options)
 
     initial_solution = _solver.solve(target)
 
-    # using the found solution, perturb the reference point to get
-    # k (num of objectives) perturbed reference points
-
-    initial_objective_vector = objective_dict_to_numpy_array(
-        problem, initial_solution.optimal_objectives
-    )
-    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
-
-    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
-    unit_vectors = np.eye(len(initial_objective_vector))
-
-    perturbed_reference_point_vectors = reference_point_vector + (
-        distance * unit_vectors
-    )
-
-    perturbed_reference_points = [
-        numpy_array_to_objective_dict(problem, v)
-        for v in perturbed_reference_point_vectors
-    ]
-
-    # scalarize the problem using the appropriate ASF variant and the perturbed
-    # reference points
-
-    perturbed_problems_and_targets = [
-        _add_asf(
-            problem,
-            "_asf",
-            rp,
-            **scalarization_options if scalarization_options is not None else {},
-        )
-        for rp in perturbed_reference_points
-    ]
-
-    # solve the problems
-    perturbed_solutions = [
-        _init_solver(problem_and_target[0], solver_options).solve(problem_and_target[1])
-        for problem_and_target in perturbed_problems_and_targets
-    ]
-
     # return the original solution and the solutions found with the perturbed reference points
-    return [initial_solution, *perturbed_solutions]
+    return [initial_solution]

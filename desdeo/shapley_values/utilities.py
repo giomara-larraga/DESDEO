@@ -1,3 +1,4 @@
+from desdeo.tools.utils import guess_best_solver
 import numpy as np
 import pandas as pd
 import shap
@@ -10,10 +11,7 @@ from desdeo.shapley_values.explanations import (
     how_to_improve_objective_i,
 )
 from sklearn.preprocessing import MinMaxScaler
-from desdeo_problem.problem import DiscreteDataProblem
-from desdeo_tools.scalarization import DiscreteScalarizer
-from desdeo_tools.solver import DiscreteMinimizer
-from desdeo_tools.scalarization import SimpleASF
+from desdeo.problem.schema import Problem
 
 
 class Normalizer:
@@ -76,8 +74,7 @@ def generate_missing_data_even(n: int, low: np.ndarray, high: np.ndarray) -> np.
 
 
 def generate_black_box(
-    problem: DiscreteDataProblem,
-    asf: SimpleASF,
+    problem: Problem,
     normalizer: Optional[Normalizer] = None,
 ) -> np.ndarray:
     """Given a 2D array of reference points, a problem, and an achivevement scalarizing function,
@@ -89,18 +86,16 @@ def generate_black_box(
 
     def black_box(
         ref_points: np.ndarray,
-        problem: DiscreteDataProblem = problem,
-        asf: SimpleASF = asf,
+        target: str,
+        problem: Problem = problem,
         normalizer: Optional[Normalizer] = normalizer,
     ) -> np.ndarray:
         res = np.zeros(ref_points.shape)
 
         for i, ref_point in enumerate(ref_points):
-            scalarizer = DiscreteScalarizer(
-                asf, scalarizer_args={"reference_point": np.atleast_2d(ref_point)}
-            )
-            solver = DiscreteMinimizer(scalarizer)
-            index = solver.minimize(problem.objectives)["x"]
+            _init_solver = guess_best_solver(problem)
+            _solver = _init_solver(problem)
+            init_solution = _solver.solve(target)
 
             res[i] = problem.objectives[index]
 
