@@ -1,19 +1,22 @@
 """Classes for evaluating the objectives and constraints of the individuals in the population."""
 
-from collections.abc import Callable, Sequence
+import warnings
+from collections.abc import Sequence
 
-import numpy as np
+import polars as pl
 
-from desdeo.problem import Problem
-from desdeo.tools.message import Array2DMessage, EvaluatorMessageTopics, IntMessage, Message
+from desdeo.problem import Evaluator, Problem
+from desdeo.tools.message import (
+    EvaluatorMessageTopics,
+    GenericMessage,
+    IntMessage,
+    Message,
+    PolarsDataFrameMessage,
+)
 from desdeo.tools.patterns import Subscriber
 
-ObjEvaluator = Callable[[Sequence], np.ndarray]
-ConsEvaluator = Callable[[Sequence], np.ndarray | None]
-TargetsEvaluator = Callable[[np.ndarray], np.ndarray]
 
-
-class BaseEvaluator(Subscriber):
+class EMOEvaluator(Subscriber):
     """Base class for evaluating the objectives and constraints of the individuals in the population.
 
     This class should be inherited by the classes that implement the evaluation of the objectives
@@ -21,101 +24,94 @@ class BaseEvaluator(Subscriber):
 
     """
 
+    @property
+    def provided_topics(self) -> dict[int, Sequence[EvaluatorMessageTopics]]:
+        """The topics provided by the Evaluator."""
+        return {
+            0: [],
+            1: [EvaluatorMessageTopics.NEW_EVALUATIONS],
+            2: [
+                EvaluatorMessageTopics.NEW_EVALUATIONS,
+                EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        """The topics that the Evaluator is interested in."""
+        return []
+
     def __init__(
         self,
         problem: Problem,
-        obj_evaluator: ObjEvaluator,
-        cons_evaluator: ConsEvaluator,
-        targets_evaluator: TargetsEvaluator,
         verbosity: int = 1,
         **kwargs,
     ):
-        """Initialize the BaseEvaluator class."""
+        """Initialize the EMOEvaluator class."""
         super().__init__(**kwargs)
         self.problem = problem
-        self.obj_evaluator = obj_evaluator
-        self.cons_evaluator = cons_evaluator
-        self.targets_evaluator = targets_evaluator
-        self.population: Sequence | None = None
-        self.objs: np.ndarray | None = None
-        self.targets: np.ndarray | None = None
-        self.cons: np.ndarray | None = None
+        # TODO(@light-weaver, @gialmisi): This can be so much more efficient.
+        self.evaluator = lambda x: Evaluator(problem).evaluate(
+            {name.symbol: x[name.symbol].to_list() for name in problem.get_flattened_variables()}, flat=True
+        )
+        self.variable_symbols = [name.symbol for name in problem.variables]
+        self.population: pl.DataFrame
+        self.outs: pl.DataFrame
         self.verbosity: int = verbosity
         self.new_evals: int = 0
-        match self.verbosity:
-            case 0:
-                self.provided_topics = []
-            case 1:
-                self.provided_topics = [EvaluatorMessageTopics.NEW_EVALUATIONS]
-            case 2:
-                self.provided_topics = [
-                    EvaluatorMessageTopics.NEW_EVALUATIONS,
-                    EvaluatorMessageTopics.POPULATION,
-                    EvaluatorMessageTopics.OBJECTIVES,
-                    EvaluatorMessageTopics.CONSTRAINTS,
-                    EvaluatorMessageTopics.TARGETS,
-                ]
 
-    def evaluate(self, population: Sequence) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    def evaluate(self, population: pl.DataFrame) -> pl.DataFrame:
         """Evaluate and return the objectives.
 
         Args:
-            population (Iterable): The set of decision variables to evaluate.
+            population (pl.Dataframe): The set of decision variables to evaluate.
 
         Returns:
-            tuple[np.ndarray, np.ndarray, np.ndarray | None]: Tuple of objective vectors, target vectors, and
-                constraint vectors.
+            pl.Dataframe: A dataframe of objective vectors, target vectors, and constraint vectors.
         """
         self.population = population
-        # TODO(@light-weaver): Replace the code below with calls to the Problem object.
-        # For now, this is a hack.
-        self.objs = self.obj_evaluator(population)
-        self.cons = self.cons_evaluator(population)
-        self.targets = self.targets_evaluator(self.objs)
+        out = self.evaluator(population)
+        # remove variable_symbols from the output
+        self.out = out.drop(self.variable_symbols)
         self.new_evals = len(population)
+        # merge the objectives and targets
+
         self.notify()
-        return self.objs, self.targets, self.cons
+        return self.out
 
     def state(self) -> Sequence[Message]:
         """The state of the evaluator sent to the Publisher."""
-        if self.population is None or self.objs is None or self.cons is None or self.targets is None:
-            return []
-        if self.verbosity == 0:
+        if self.population is None or self.out is None or self.population is None or self.verbosity == 0:
             return []
         if self.verbosity == 1:
             return [
                 IntMessage(
                     topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                     value=self.new_evals,
-                    source="BaseEvaluator",
+                    source=self.__class__.__name__,
                 )
             ]
+
+        if isinstance(self.population, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+                value=pl.concat([self.population, self.out], how="horizontal"),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            message = PolarsDataFrameMessage(
+                topic=EvaluatorMessageTopics.VERBOSE_OUTPUTS,
+                value=self.out,
+                source=self.__class__.__name__,
+            )
         return [
             IntMessage(
                 topic=EvaluatorMessageTopics.NEW_EVALUATIONS,
                 value=self.new_evals,
-                source="BaseEvaluator",
+                source=self.__class__.__name__,
             ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.POPULATION,
-                value=self.population.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.OBJECTIVES,
-                value=self.objs.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.CONSTRAINTS,
-                value=self.cons.tolist(),
-                source="BaseEvaluator",
-            ),
-            Array2DMessage(
-                topic=EvaluatorMessageTopics.TARGETS,
-                value=self.targets.tolist(),
-                source="BaseEvaluator",
-            ),
+            message,
         ]
 
     def update(self, *_, **__):

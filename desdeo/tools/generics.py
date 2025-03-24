@@ -21,9 +21,9 @@ class SolverError(Exception):
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
 
-    optimal_variables: dict[
-        str, float | list[float] | list[list[float]] | dict[str | int, float]
-    ] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, int | float | list] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )

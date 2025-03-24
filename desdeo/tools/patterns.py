@@ -28,7 +28,7 @@ Instead, we let the mutation operator subscribe to a topic called, e.g., `curren
 responsible for sending the current generation number to the mutation operator, whenever the generation number changes.
 The mutation operator can then update its internal state based on the received generation number.
 
-To be able to send this informatiom, the `Publisher` class has a method called `notify`. Operators can call this method
+To be able to send this information, the `Publisher` class has a method called `notify`. Operators can call this method
 to send messages to the subscribers. The idea is to do this at the end of the `do` method. That way, whenever any
 operator is executed, it can send messages to the other operators (which have subscribed to the topics).
 
@@ -37,45 +37,44 @@ This decoupling allows for a more modular design and easier extensibility of the
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any, Sequence
+from collections.abc import Sequence
 
-from desdeo.tools.message import Message, MessageTopics, AllowedMessagesAtVerbosity
+from desdeo.tools.message import AllowedMessagesAtVerbosity, Message, MessageTopics
 
 
 class Subscriber(ABC):
     """Base class for both subscriber and message sender.
 
-    These are used in the evoluationary algorithms to send messages between the different components. The pattern
+    These are used in the evolutionary algorithms to send messages between the different components. The pattern
     closely resembles the publisher-subscriber pattern, with one key difference. The subscribers can also create
     messages and send them to the publisher, which then forwards the messages to the other subscribers.
     """
 
+    @property
+    @abstractmethod
+    def interested_topics(self) -> Sequence[MessageTopics]:
+        """Return the topics the subscriber is interested in."""
+
+    @property
+    @abstractmethod
+    def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
+        """Return the topics the subscriber provides to the publisher, grouped by verbosity level."""
+
     def __init__(
-        self, publisher: "Publisher", topics: Sequence[MessageTopics] | None = None, verbosity: int = 1
+        self,
+        publisher: "Publisher",
+        verbosity: int = 1,
     ) -> None:
         """Initialize a subscriber.
 
         Args:
             publisher (Callable): the publisher to send messages to.
-            topics (list[str] | None): the topics the subscriber is interested in. Check the documentation to see
-                available topics. If the subscriber is interested in all topics, the list should contain "ALL".
-                A user should not need to provide topics, as the operators provide default topics. Defaults to None,
-                in which case the subscriber will not receive any messages.
             verbosity (int, optional): the verbosity level of the messages. Defaults to 1, which may mean differing
                 amounts of information depending on the message sender. A value of 0 means no messages at all.
         """
-        if topics is not None:
-            if isinstance(topics, list):
-                if not all(isinstance(elem, MessageTopics) for elem in topics):
-                    raise TypeError("Topics must be a list of predefined topics.")
-            else:
-                raise TypeError("Topics must be a list of predefined topics.")
         if not isinstance(verbosity, int):
             raise TypeError("Verbosity must be an integer.")
         self.publisher = publisher
-        self.topics = topics if topics is not None else []
-        self.provided_topics: list[MessageTopics] = []
         self.verbosity: int = verbosity
 
     def notify(self) -> None:
@@ -86,16 +85,12 @@ class Subscriber(ABC):
         """
         if self.verbosity not in AllowedMessagesAtVerbosity:
             raise ValueError(f"Verbosity level {self.verbosity} is not allowed.")
+        if self.verbosity == 0:
+            return
 
         state = self.state()
-
-        if self.verbosity == 0 and len(state) > 0:
-            raise ValueError("Verbosity level 0 should not return any messages.")
-        else:
-            if all(isinstance(x, AllowedMessagesAtVerbosity[self.verbosity]) for x in state):
-                self.publisher.notify(messages=state)
-
-        self.publisher.notify(messages=self.state())
+        if all(isinstance(x, AllowedMessagesAtVerbosity[self.verbosity]) for x in state):
+            self.publisher.notify(messages=state)
 
     @abstractmethod
     def update(self, message: Message) -> None:
@@ -152,7 +147,7 @@ class Publisher:
         Args:
             subscriber (Subscriber): the subscriber to notify.
         """
-        for topic in subscriber.topics:
+        for topic in subscriber.interested_topics:
             self.subscribe(subscriber, topic)
 
     def unsubscribe(self, subscriber: Subscriber, topic: str) -> None:
@@ -228,7 +223,7 @@ class Publisher:
         return relationships
 
     def notify(self, messages: Sequence[Message] | None) -> None:
-        """Notify subcribers of the received message/messages.
+        """Notify subscribers of the received message/messages.
 
         Args:
             messages (Sequence[BaseMessage]): the messages to send to the subscribers. Each message is a pydantic model
@@ -246,19 +241,41 @@ class Publisher:
                     subscriber.update(message)
 
 
-class BlankSubscriber(Subscriber):
-    """A simple subscriber for testing purposes."""
+def createblanksubs(interested_topics):
+    """Create a blank subscriber for testing purposes.
 
-    def __init__(self, publisher: "Publisher", topics: Sequence[MessageTopics], verbosity: int = 1) -> None:
-        """Initialize a subscriber."""
-        super().__init__(publisher, topics, verbosity)
-        self.messages_to_send: list[Message] = []
-        self.messages_received: list[Message] = []
+    Args:
+        interested_topics (list[MessageTopics]): the topics the subscriber is interested in.
 
-    def update(self, message: Message) -> None:
-        """Update the internal state of the subscriber."""
-        self.messages_received.append(message)
+    Returns:
+        class: the blank subscriber class.
+    """
 
-    def state(self) -> list[Message]:
-        """Return the internal state of the subscriber."""
-        return self.messages_to_send
+    class BlankSubscriber(Subscriber):
+        """A simple subscriber for testing purposes."""
+
+        @property
+        def interested_topics(self) -> Sequence[MessageTopics]:
+            """Return the topics the subscriber is interested in."""
+            return interested_topics
+
+        @property
+        def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
+            """Return the topics the subscriber provides to the publisher, grouped by verbosity level."""
+            return {0: []}
+
+        def __init__(self, publisher: "Publisher", verbosity: int = 0) -> None:
+            """Initialize a subscriber."""
+            super().__init__(publisher, verbosity)
+            self.messages_to_send: list[Message] = []
+            self.messages_received: list[Message] = []
+
+        def update(self, message: Message) -> None:
+            """Update the internal state of the subscriber."""
+            self.messages_received.append(message)
+
+        def state(self) -> list[Message]:
+            """Return the internal state of the subscriber."""
+            return self.messages_to_send
+
+    return BlankSubscriber

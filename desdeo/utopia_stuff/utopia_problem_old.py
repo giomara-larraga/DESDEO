@@ -88,15 +88,8 @@ def utopia_problem_old(
     )
     for i in range(np.shape(v_array)[0]):
         for j in range(np.shape(v_array)[1]):
-            key = (unique_units[i], j)
-            if key in rows_by_key:
-                value = rows_by_key[key][0]
-                # Handle case where value is a tuple
-                if isinstance(value, tuple):
-                    value = value[0]  # Extract the first element if it's a tuple
-                v_array[i][j] = float(value)  # Ensure it's converted to float
-            else:
-                v_array[i][j] = 0  # Default value for missing keys
+            if (unique_units[i], j) in rows_by_key:
+                v_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     # determine whether the results are to be compared to those from the rahti app (for testing purposes)
     # if compared, the stock values are calculated by substacting the value after 2025 period from
@@ -139,7 +132,7 @@ def utopia_problem_old(
                 if len(rows_by_key_df_key[(unique_units[i], j)]) == 0:
                     continue
                 if (unique_units[i], j) in rows_by_key:
-                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0]
+                    w_array[i][j] = rows_by_key[(unique_units[i], j)][0][0]
 
     """
     selected_df_p = df.filter(pl.col("holding") == holding).select(
@@ -169,7 +162,7 @@ def utopia_problem_old(
     for i in range(np.shape(p1_array)[0]):
         for j in range(np.shape(p1_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p1_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
+                p1_array[i][j] = rows_by_key[(unique_units[i], j)][0][0] + 1e-6
 
     selected_df_p2 = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", "harvest_value_period_2030"]
@@ -182,7 +175,7 @@ def utopia_problem_old(
     for i in range(np.shape(p2_array)[0]):
         for j in range(np.shape(p2_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p2_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
+                p2_array[i][j] = rows_by_key[(unique_units[i], j)][0][0] + 1e-6
 
     selected_df_p3 = df.filter(pl.col("holding") == holding).select(
         ["unit", "schedule", "harvest_value_period_2035"]
@@ -195,7 +188,7 @@ def utopia_problem_old(
     for i in range(np.shape(p3_array)[0]):
         for j in range(np.shape(p3_array)[1]):
             if (unique_units[i], j) in rows_by_key:
-                p3_array[i][j] = rows_by_key[(unique_units[i], j)][0] + 1e-6
+                p3_array[i][j] = rows_by_key[(unique_units[i], j)][0][0] + 1e-6
 
     constants = []
     variables = []

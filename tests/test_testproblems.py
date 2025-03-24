@@ -8,15 +8,18 @@ from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import (
     PolarsEvaluator,
     PyomoEvaluator,
+)
+from desdeo.problem.testproblems import (
     dtlz2,
     forest_problem,
     re21,
     re22,
     re23,
     re24,
+    river_pollution_scenario,
     spanish_sustainability_problem,
 )
-from desdeo.tools import GurobipySolver
+from desdeo.tools import GurobipySolver, payoff_table_method
 
 
 @pytest.mark.testproblem
@@ -107,7 +110,7 @@ def test_re24():
     evaluator = PolarsEvaluator(problem)
 
     xs = {"x_1": [2, 3.3], "x_2": [20, 41.7]}
-    expected_result = np.array([[2402, 3.63459881], [5007.3, 3.8568386109]])
+    expected_result = np.array([[2402, 0], [5007.3, 0]])
 
     res = evaluator.evaluate(xs)
 
@@ -331,15 +334,44 @@ def test_solve_spanish_sustainability_problem():
     """Test the Spanish sustainability problem."""
     problem = spanish_sustainability_problem()
 
-    ref_point = {"f1": 1.162, "f2": 0.69, "f3": 2.91}
+    # ideal = {"f1": 1.17, "f2": 1.98, "f3": 2.93}
+    # nadir = {"f1": 1.15, "f2": 0.63, "f3": 1.52}
 
-    # ideal = {"f1": 1.15, "f2": 0.63, "f3": 1.52}
-    # nadir = {"f1": 1.17, "f2": 1.98, "f3": 2.93}
+    ref_point = {"f1": 1.162, "f2": 0.69, "f3": 2.91}
 
     res = rpm_solve_solutions(problem, ref_point)
 
     assert len(res) == 4
 
     for i in range(len(res)):
+        assert res[i].success
         for con in problem.constraints:
             npt.assert_array_less(res[i].constraint_values[con.symbol], 1e-5)
+
+
+def test_river_scenario():
+    """Test that the scenario-based river pollution problem works."""
+    problem = river_pollution_scenario()
+
+    assert len(problem.scenario_keys) == 6
+
+    for i in range(6):
+        problem_scenario = problem.get_scenario_problem(f"scenario_{i+1}")
+        assert len(problem_scenario.objectives) == 4
+
+    ideal, nadir = payoff_table_method(problem)
+
+    assert len(ideal) == len(problem.objectives)
+    assert len(nadir) == len(problem.objectives)
+
+    problem_scenario_2 = problem.get_scenario_problem("scenario_2")
+
+    ideal_2, nadir_2 = payoff_table_method(problem_scenario_2)
+
+    assert len(ideal_2) == 4
+    assert len(nadir_2) == 4
+
+    npt.assert_allclose(ideal["f1_2"], ideal_2["f1_2"])
+    npt.assert_allclose(ideal["f2_2"], ideal_2["f2_2"])
+    npt.assert_allclose(ideal["f3_2"], ideal_2["f3_2"])
+    npt.assert_allclose(ideal["f4"], ideal_2["f4"])

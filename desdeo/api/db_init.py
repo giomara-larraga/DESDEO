@@ -1,5 +1,7 @@
 """This module initializes the database."""
 
+import json
+from os import walk
 import warnings
 
 import numpy as np
@@ -21,9 +23,11 @@ from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Va
 from desdeo.problem.testproblems import (
     binh_and_korn,
     forest_problem,
+    forest_problem_discrete,
     nimbus_test_problem,
     river_pollution_problem,
     river_pollution_problem_discrete,
+    spanish_sustainability_problem_discrete,
 )
 
 # from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old

@@ -12,11 +12,8 @@ from desdeo.mcdm.nautilus import (
     ranks_to_weights,
     solve_reachable_solution,
 )
-from desdeo.problem import (
-    binh_and_korn,
-    objective_dict_to_numpy_array,
-    river_pollution_problem,
-)
+from desdeo.problem import objective_dict_to_numpy_array
+from desdeo.problem.testproblems import binh_and_korn, river_pollution_problem
 
 
 @pytest.mark.nautilus
@@ -181,19 +178,19 @@ def test_solve_reachable_bounds_complicated():
     lower_bounds, upper_bounds = solve_reachable_bounds(problem, nav_point)
 
     # lower bound should be lower (better) than the navigation point, for min objectives
-    assert lower_bounds["f_1"] < nav_point["f_1"]
-    assert lower_bounds["f_2"] < nav_point["f_2"]
     assert lower_bounds["f_5"] < nav_point["f_5"]
     # lower bound should be higher or equal to the nav point for max objectives
+    assert lower_bounds["f_1"] >= nav_point["f_1"]
+    assert lower_bounds["f_2"] >= nav_point["f_2"]
     assert lower_bounds["f_3"] >= nav_point["f_3"]
     assert lower_bounds["f_4"] >= nav_point["f_4"]
 
     # upper bound should be less than or equel to nav point min objectives
-    assert upper_bounds["f_1"] <= nav_point["f_1"]
-    assert upper_bounds["f_2"] <= nav_point["f_2"]
     assert upper_bounds["f_5"] <= nav_point["f_5"]
 
     # upper bound should be higher (better) than nav point for max objectives
+    assert upper_bounds["f_1"] > nav_point["f_1"]
+    assert upper_bounds["f_2"] > nav_point["f_2"]
     assert upper_bounds["f_3"] > nav_point["f_3"]
     assert upper_bounds["f_4"] > nav_point["f_4"]
 
