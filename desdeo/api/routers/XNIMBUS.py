@@ -2,6 +2,8 @@
 
 import json
 from typing import Annotated, Any
+import re
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException
 from numpy import allclose
@@ -581,6 +583,8 @@ def save_results_to_db(
         old.current = False
 
     for res in results:
+        print(res.constraint_duals)
+        print(filter_multipliers(res.constraint_duals))
         # Check if the results already exist in the database
         duplicate = False
         for prev in previous_solutions:
@@ -599,7 +603,7 @@ def save_results_to_db(
                     decision_variables=json.dumps(res.optimal_variables),
                     objectives=list(res.optimal_objectives.values()),
                     multipliers=(
-                        list(res.constraint_duals.values())
+                        list(filter_multipliers(res.constraint_duals))
                         if res.constraint_duals is not None
                         else None
                     ),
@@ -609,3 +613,26 @@ def save_results_to_db(
                 )
             )
     db.commit()
+
+
+def filter_multipliers(data):
+
+    # Group all entries by f_i
+    grouped = defaultdict(list)
+
+    for key, value in data.items():
+        match = re.search(r"f_\d", key)
+        if match:
+            f_i = match.group()
+            grouped[f_i].append((key, value))
+
+    # Prefer values not ending with 'eq'
+    selected_values = []
+    for entries in grouped.values():
+        # Try to find a non-eq version
+        preferred = next((v for k, v in entries if not k.endswith("eq")), None)
+        if preferred is None:
+            # fallback to any value (probably the 'eq' one)
+            preferred = entries[0][1]
+        selected_values.append(preferred)
+    return selected_values
