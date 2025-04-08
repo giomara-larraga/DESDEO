@@ -12,6 +12,7 @@ from desdeo.problem.schema import (
     VariableTypeEnum,
 )
 
+
 def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
     r"""Create a pydantic dataclass representation of the river pollution problem with either five or four variables.
 
@@ -53,10 +54,20 @@ def river_pollution_problem(*, five_objective_variant: bool = True) -> Problem:
             Heidelberg, 1997.
     """
     variable_1 = Variable(
-        name="BOD", symbol="x_1", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="BOD",
+        symbol="x_1",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
     variable_2 = Variable(
-        name="DO", symbol="x_2", variable_type="real", lowerbound=0.3, upperbound=1.0, initial_value=0.65
+        name="DO",
+        symbol="x_2",
+        variable_type="real",
+        lowerbound=0.3,
+        upperbound=1.0,
+        initial_value=0.65,
     )
 
     f_1 = "4.07 + 2.27 * x_1"
@@ -165,7 +176,12 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
     """
     filename = "datasets/river_poll_4_objs.csv"
     trueVarNames = {"x_1": "BOD", "x_2": "DO"}
-    trueObjNames = {"f1": "DO city", "f2": "DO municipality", "f3": "ROI fishery", "f4": "ROI city"}
+    trueObjNames = {
+        "f1": "DO city",
+        "f2": "DO municipality",
+        "f3": "ROI fishery",
+        "f4": "ROI city",
+    }
     if five_objective_variant:
         filename = "datasets/river_poll_5_objs.csv"
         trueObjNames["f5"] = "BOD deviation"
@@ -185,8 +201,14 @@ def river_pollution_problem_discrete(*, five_objective_variant: bool = True) -> 
         for varName in trueVarNames
     ]
     maximize = {"f1": True, "f2": True, "f3": True, "f4": True, "f5": False}
-    ideal = {objName: (data[objName].max() if maximize[objName] else data[objName].min()) for objName in trueObjNames}
-    nadir = {objName: (data[objName].min() if maximize[objName] else data[objName].max()) for objName in trueObjNames}
+    ideal = {
+        objName: (data[objName].max() if maximize[objName] else data[objName].min())
+        for objName in trueObjNames
+    }
+    nadir = {
+        objName: (data[objName].min() if maximize[objName] else data[objName].max())
+        for objName in trueObjNames
+    }
     units = {"f1": "mg/L", "f2": "mg/L", "f3": "%", "f4": "%", "f5": "mg/L"}
 
     objectives = [
@@ -292,7 +314,10 @@ def river_pollution_scenario() -> Problem:
 
     # each scenario parameter is defined as its own tensor constant
     alpha_constant = TensorConstant(
-        name="Water quality index after fishery", symbol="alpha", shape=[num_scenarios], values=alpha_values
+        name="Water quality index after fishery",
+        symbol="alpha",
+        shape=[num_scenarios],
+        values=alpha_values,
     )
     beta_constant = TensorConstant(
         name="BOD reduction rate at treatment plant 1 (after the fishery)",
@@ -325,7 +350,14 @@ def river_pollution_scenario() -> Problem:
         values=r_values,
     )
 
-    constants = [alpha_constant, beta_constant, delta_constant, xi_constant, eta_constant, r_constant]
+    constants = [
+        alpha_constant,
+        beta_constant,
+        delta_constant,
+        xi_constant,
+        eta_constant,
+        r_constant,
+    ]
 
     # define variables
     x1 = Variable(
@@ -357,9 +389,7 @@ def river_pollution_scenario() -> Problem:
         gamma_expr = f"Ln(alpha[{i+1}]/2 - 1) + alpha[{i+1}]/2 + 1.5"
 
         f1_expr = f"alpha[{i+1}] + (Ln((beta[{i+1}]/2 - 1.14)**2) + beta[{i+1}]**3)*x_1"
-        f2_expr = (
-            f"{gamma_expr} + delta[{i+1}]*x_1 + xi[{i+1}]*x_2 + 0.01/(eta[{i+1}] - x_1**2) + 0.3/(eta[{i+1}] - x_2**2)"
-        )
+        f2_expr = f"{gamma_expr} + delta[{i+1}]*x_1 + xi[{i+1}]*x_2 + 0.01/(eta[{i+1}] - x_1**2) + 0.3/(eta[{i+1}] - x_2**2)"
         f3_expr = f"r[{i+1}]  - 0.71/(1.09 - x_1**2)"
 
         # f1

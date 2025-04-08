@@ -7,22 +7,6 @@ decision making. Mathematical modelling, 3(5), 391-405.
 
 import numpy as np
 import shap
-
-from desdeo.problem import (
-    Problem,
-    numpy_array_to_objective_dict,
-    objective_dict_to_numpy_array,
-)
-from desdeo.problem.schema import VariableDomainTypeEnum
-from desdeo.tools import (
-    BaseSolver,
-    SolverOptions,
-    SolverResults,
-    add_asf_diff,
-    add_asf_nondiff,
-    guess_best_solver,
-)
-from desdeo.tools.pyomo_solver_interfaces import PyomoIpoptSolver
 from desdeo.problem.testproblems import river_pollution_problem_discrete
 from desdeo.shapley_values.utilities import generate_black_box
 
@@ -33,11 +17,7 @@ class ReferencePointError(Exception):
 
 def rximo_solve_solutions(
     reference_point: dict[str, float],
-    scalarization_options: dict | None = None,
-    solver: BaseSolver | None = None,
-    solver_options: SolverOptions | None = None,
-    shap_values: bool | None = False,
-) -> list[SolverResults]:
+) -> list:
     """Finds (near) Pareto optimal solutions based on a reference point.
 
     Find a (near) Pareto optimal solution based on the given reference point by
@@ -71,7 +51,13 @@ def rximo_solve_solutions(
     """
     # setup problem with ASF
     problem = river_pollution_problem_discrete()
-    pareto_front = problem.discrete_representation.objective_values
+    d_rep = problem.discrete_representation.objective_values
+
+    # Extract values for each key in d_rep and store them in a list
+    data = [d_rep[obj.symbol] for obj in problem.objectives]
+
+    # Convert the list to a 2D NumPy array with values as columns
+    pareto_front = np.column_stack(data)
 
     if not all(obj.symbol in reference_point for obj in problem.objectives):
         msg = f"The reference point {reference_point} is missing entries for one or more of the objective functions."
@@ -79,23 +65,9 @@ def rximo_solve_solutions(
 
     missing_data = shap.sample(pareto_front, nsamples=200)
 
-    _add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
-
-    problem_w_asf, target = _add_asf(
-        problem,
-        "_asf",
-        reference_point,
-        **scalarization_options if scalarization_options is not None else {},
-    )
-
-    bb = generate_black_box(problem_w_asf, target)
-
-    # setup solver
-    # solve scalarized problem with given reference point
-    _init_solver = guess_best_solver(problem_w_asf) if solver is None else solver
-    _solver = _init_solver(problem_w_asf, solver_options)
-
-    initial_solution = _solver.solve(target)
-
+    bb = generate_black_box(problem)
+    explainer = shap.KernelExplainer(bb, missing_data)
+    result = bb(reference_point)
+    shap_values = np.array(explainer.shap_values(reference_point))
     # return the original solution and the solutions found with the perturbed reference points
-    return [initial_solution]
+    return result, shap_values
