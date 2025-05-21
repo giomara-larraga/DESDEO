@@ -21,7 +21,9 @@ class SolverError(Exception):
 class SolverResults(BaseModel):
     """Defines a schema for a dataclass to store the results of a solver."""
 
-    optimal_variables: dict[str, int | float | list] = Field(description="The optimal decision variables found.")
+    optimal_variables: dict[str, int | float | list] = Field(
+        description="The optimal decision variables found."
+    )
     optimal_objectives: dict[str, float | list[float]] = Field(
         description="The objective function values corresponding to the optimal decision variables found."
     )
@@ -38,7 +40,13 @@ class SolverResults(BaseModel):
     scalarization_values: dict[str, float | list[float]] | None = Field(
         description=("The scalarization function values of the problem."), default=None
     )
-    success: bool = Field(description="A boolean flag indicating whether the optimization was successful or not.")
+    constraint_duals: dict[str, float | list[float]] | None = Field(
+        description=("Lagrange multiplier for each objective function"),
+        default=None,
+    )
+    success: bool = Field(
+        description="A boolean flag indicating whether the optimization was successful or not."
+    )
     message: str = Field(description="Description of the cause of termination.")
 
 

@@ -14,11 +14,11 @@ from desdeo.api.routers import (
 if SettingsConfig.debug:
     # debug and development stuff
 
-    app = FastAPI(
-        title="DESDEO (fast)API",
-        version="0.1.0",
-        description="A rest API for the DESDEO framework.",
-    )
+app = FastAPI(
+    title="DESDEO (fast)API",
+    version="0.1.0",
+    description="A rest API for the DESDEO framework.",
+)
 
     app.include_router(user_authentication.router)
     app.include_router(problem.router)

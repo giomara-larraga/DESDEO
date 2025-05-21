@@ -1,0 +1,2 @@
+#!/bin/bash
+exec gunicorn ${APP_MODULE} ${GUNICORN_CMD_ARGS}

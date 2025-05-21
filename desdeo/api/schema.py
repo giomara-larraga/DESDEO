@@ -49,6 +49,9 @@ class Methods(str, Enum):
     NAUTILUSII = "nautilusII"
     RVEA = "RVEA"
     NSGAIII = "NSGAIII"
+    RPM = "Reference point method"
+    XNIMBUS = "XNIMBUS"
+    RXIMO = "R-XIMO"
 
 
 class MethodProperties(str, Enum):
