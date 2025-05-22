@@ -4,12 +4,8 @@ This module contains functions related to the reference point method as
 presented in Wierzbicki, A. P. (1982). A mathematical basis for satisficing
 decision making. Mathematical modelling, 3(5), 391-405.
 """
-
 import numpy as np
-import shap
-from desdeo.problem.testproblems import river_pollution_problem_discrete
-from desdeo.shapley_values.utilities import generate_black_box
-
+from desdeo.explainations.explainer import ShapExplainer
 
 class ReferencePointError(Exception):
     """Raised when an error with the reference point method is encountered."""
