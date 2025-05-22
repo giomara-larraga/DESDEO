@@ -6,6 +6,8 @@
 
 __Everything in this repository is currently subject to change. Stay tuned for updates.__
 
+The branch desdeo2_oldapi contains the work in progress related to explainability
+
 ## Introduction
 
 DESDEO is an open source framework for interactive multiobjective optimization
