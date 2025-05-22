@@ -6,6 +6,10 @@
 
 __Everything in this repository is currently subject to change. Stay tuned for updates.__
 
+- The branch desdeo2_oldapi contains the work in progress related to explainability
+- The branch api-xai has the latest functional version of xNIMBUS, without the latest updates from the desdeo main repository. 
+- The branch desdeo2-xai is a merge if api-xai and the latest version of desdeo2, which does not work because of the new api.
+
 ## Introduction
 
 DESDEO is an open source framework for interactive multiobjective optimization
