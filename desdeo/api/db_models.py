@@ -19,7 +19,9 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(nullable=False)
     role: Mapped[schema.UserRole] = mapped_column(nullable=False)
     user_group: Mapped[str] = mapped_column(nullable=True)
-    privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(ARRAY(Enum(schema.UserPrivileges)), nullable=False)
+    privilages: Mapped[list[schema.UserPrivileges]] = mapped_column(
+        ARRAY(Enum(schema.UserPrivileges)), nullable=False
+    )
 
     def __repr__(self):
         """Return a string representation of the user (username)."""
@@ -31,12 +33,16 @@ class Problem(Base):
 
     __tablename__ = "problem"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    owner = mapped_column(Integer, ForeignKey("user.id"), nullable=True)  # Null if problem is public.
+    owner = mapped_column(
+        Integer, ForeignKey("user.id"), nullable=True
+    )  # Null if problem is public.
     name: Mapped[str] = mapped_column(nullable=False)
     # kind and obj_kind are also in value, but we need them as columns for querying. Maybe?
     kind: Mapped[schema.ProblemKind] = mapped_column(nullable=False)
     obj_kind: Mapped[schema.ObjectiveKind] = mapped_column(nullable=False)
-    role_permission: Mapped[list[schema.UserRole]] = mapped_column(ARRAY(Enum(schema.UserRole)), nullable=True)
+    role_permission: Mapped[list[schema.UserRole]] = mapped_column(
+        ARRAY(Enum(schema.UserRole)), nullable=True
+    )
     # We need some way to tell the API what solver should be used, and this seems like a good place
     # This should match one of the available_solvers in desdeo.tools.utils
     solver: Mapped[schema.Solvers] = mapped_column(nullable=True)
@@ -52,8 +58,12 @@ class UserProblemAccess(Base):
 
     __tablename__ = "user_problem_access"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    user_id = mapped_column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    problem_access: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    user_id = mapped_column(
+        Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
+    problem_access: Mapped[int] = mapped_column(
+        Integer, ForeignKey("problem.id"), nullable=False
+    )
     problem = relationship("Problem", foreign_keys=[problem_access], lazy="selectin")
 
 
@@ -77,7 +87,9 @@ class Preference(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    previous_preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
+    previous_preference = mapped_column(
+        Integer, ForeignKey("preference.id"), nullable=True
+    )
     method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)
     kind: Mapped[str]  # Depends on the method
     value = mapped_column(JSON, nullable=False)
@@ -90,7 +102,9 @@ class MethodState(Base):
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
     user = mapped_column(Integer, ForeignKey("user.id"), nullable=False)
     problem = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
-    method = mapped_column(Integer, ForeignKey("method.id"), nullable=False)  # Honestly, this can just be a string.
+    method = mapped_column(
+        Integer, ForeignKey("method.id"), nullable=False
+    )  # Honestly, this can just be a string.
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     value = mapped_column(JSON, nullable=False)  # Depends on the method.
 
@@ -128,6 +142,7 @@ class SolutionArchive(Base):
     preference = mapped_column(Integer, ForeignKey("preference.id"), nullable=True)
     decision_variables = mapped_column(JSONB, nullable=True)
     objectives = mapped_column(ARRAY(FLOAT), nullable=False)
+    multipliers = mapped_column(ARRAY(FLOAT), nullable=True)
     constraints = mapped_column(ARRAY(FLOAT), nullable=True)
     extra_funcs = mapped_column(ARRAY(FLOAT), nullable=True)
     other_info = mapped_column(
@@ -155,7 +170,9 @@ class Utopia(Base):
 
     __tablename__ = "utopia"
     id: Mapped[int] = mapped_column(primary_key=True, unique=True)
-    problem: Mapped[int] = mapped_column(Integer, ForeignKey("problem.id"), nullable=False)
+    problem: Mapped[int] = mapped_column(
+        Integer, ForeignKey("problem.id"), nullable=False
+    )
     map_json: Mapped[str] = mapped_column(nullable=False)
     schedule_dict = mapped_column(JSONB, nullable=False)
     years: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)

@@ -26,11 +26,15 @@ class BonminOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    tol: float = Field(description="Sets the convergence tolerance of ipopt. Defaults to 1e-8.", default=1e-8)
+    tol: float = Field(
+        description="Sets the convergence tolerance of ipopt. Defaults to 1e-8.",
+        default=1e-8,
+    )
     """Sets the convergence tolerance of ipopt. Defaults to 1e-8."""
 
     bonmin_integer_tolerance: float = Field(
-        description="Numbers within this value of an integer are considered integers. Defaults to 1e-6.", default=1e-6
+        description="Numbers within this value of an integer are considered integers. Defaults to 1e-6.",
+        default=1e-6,
     )
     """Numbers within this value of an integer are considered integers. Defaults to 1e-6."""
 
@@ -74,14 +78,21 @@ class IpoptOptions(BaseModel):
         Please add options as they are needed and make a pull request.
     """
 
-    tol: float = Field(description="The desired relative convergence tolerance. Defaults to 1e-8.", default=1e-8)
+    tol: float = Field(
+        description="The desired relative convergence tolerance. Defaults to 1e-8.",
+        default=1e-8,
+    )
     """The desired relative convergence tolerance. Defaults to 1e-8."""
 
-    max_iter: int = Field(description="Maximum number of iterations. Must be >1. Defaults to 3000.", default=3000)
+    max_iter: int = Field(
+        description="Maximum number of iterations. Must be >1. Defaults to 3000.",
+        default=3000,
+    )
     """Maximum number of iterations. Must be >1. Defaults to 3000."""
 
     print_level: str = Field(
-        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.", default=5
+        description="The verbosity level of the solver's output. Ranges between 0 and 12. Defaults to 5.",
+        default=5,
     )
     """The verbosity level of the solver's output. Ranges between 0 and 12."""
 
@@ -100,12 +111,14 @@ class CbcOptions(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     sec: int = Field(
-        description="The maximum amount of time (in seconds) the solver should run. Defaults to None.", default=None
+        description="The maximum amount of time (in seconds) the solver should run. Defaults to None.",
+        default=None,
     )
     """The maximum amount of time (in seconds) the solver should run. Defaults to None."""
 
     threads: int = Field(
-        description="Number of threads (cores) to use for solving the problem. Defaults to 1.", default=1
+        description="Number of threads (cores) to use for solving the problem. Defaults to 1.",
+        default=1,
     )
     """Number of threads (cores) to use for solving the problem. Defaults to 1."""
 
@@ -150,7 +163,8 @@ class CbcOptions(BaseModel):
     absolute_gap: float = Field(
         alias="absoluteGap",
         description=(
-            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate. " " Defaults to None."
+            "Sets the absolute MIP gap (an absolute value) at which the solver will terminate. "
+            " Defaults to None."
         ),
         default=None,
     )
@@ -168,7 +182,8 @@ class CbcOptions(BaseModel):
     """
 
     presolve: int = Field(
-        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1.", default=1
+        description="Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1.",
+        default=1,
     )
     """Controls the presolve level (0: no presolve, 1: default, 2: aggressive). Defaults to 1."""
 
@@ -210,7 +225,9 @@ _default_ipopt_options = IpoptOptions()
 
 
 def parse_pyomo_optimizer_results(
-    opt_res: _pyomo_SolverResults, problem: Problem, evaluator: PyomoEvaluator
+    opt_res: _pyomo_SolverResults,
+    problem: Problem,
+    evaluator: PyomoEvaluator,
 ) -> SolverResults:
     """Parses pyomo SolverResults into DESDEO SolverResults.
 
@@ -241,8 +258,23 @@ def parse_pyomo_optimizer_results(
 
     objective_values = {obj.symbol: results[obj.symbol] for obj in problem.objectives}
     constraint_values = (
-        {con.symbol: results[con.symbol] for con in problem.constraints} if problem.constraints else None
+        {con.symbol: results[con.symbol] for con in problem.constraints}
+        if problem.constraints
+        else None
     )
+
+    # TODO: check if it does not crash when using only equality constraints
+    # TODO: identify only the constraints related to the scalarization function
+    constraint_duals = (
+        {
+            "mu_"
+            + con.symbol: evaluator.model.dual[getattr(evaluator.model, con.symbol)]
+            for con in problem.constraints
+        }
+        if problem.constraints
+        else None
+    )
+
     success = (
         opt_res.solver.status == _pyomo_SolverStatus.ok
         and opt_res.solver.termination_condition == _pyomo_TerminationCondition.optimal
@@ -256,6 +288,7 @@ def parse_pyomo_optimizer_results(
         optimal_variables=variable_values,
         optimal_objectives=objective_values,
         constraint_values=constraint_values,
+        constraint_duals=constraint_duals,
         success=success,
         message=msg,
     )
@@ -264,7 +297,9 @@ def parse_pyomo_optimizer_results(
 class PyomoBonminSolver(BaseSolver):
     """Creates pyomo solvers that utilize bonmin."""
 
-    def __init__(self, problem: Problem, options: BonminOptions | None = _default_bonmin_options):
+    def __init__(
+        self, problem: Problem, options: BonminOptions | None = _default_bonmin_options
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for mixed-integer problems. The objective function being minimized
@@ -319,7 +354,9 @@ class PyomoBonminSolver(BaseSolver):
 class PyomoIpoptSolver(BaseSolver):
     """Create a pyomo solver that utilizes Ipopt."""
 
-    def __init__(self, problem: Problem, options: IpoptOptions | None = _default_ipopt_options):
+    def __init__(
+        self, problem: Problem, options: IpoptOptions | None = _default_ipopt_options
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for non-linear, twice differentiable constrained problems.
@@ -360,6 +397,10 @@ class PyomoIpoptSolver(BaseSolver):
 
         opt = pyomo.SolverFactory("ipopt", tee=True, options=self.options.dict())
         opt_res = opt.solve(self.evaluator.model)
+        # for c in self.evaluator.model.component_objects(pyomo.Constraint, active=True):
+        #    print("   Constraint", c)
+        #    for index in c:
+        #        print("      ", index, self.evaluator.model.dual[c[index]])
         return parse_pyomo_optimizer_results(opt_res, self.problem, self.evaluator)
 
 
@@ -409,7 +450,9 @@ class PyomoGurobiSolver(BaseSolver):
 class PyomoCBCSolver(BaseSolver):
     """Create a pyomo solver that utilizes CBC."""
 
-    def __init__(self, problem: Problem, options: CbcOptions | None = _default_cbc_options):
+    def __init__(
+        self, problem: Problem, options: CbcOptions | None = _default_cbc_options
+    ):
         """The solver is initialized with a problem and solver options.
 
         Suitable for combinatorial and large-scale mixed-integer linear problems.

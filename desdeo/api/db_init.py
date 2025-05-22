@@ -13,7 +13,14 @@ from desdeo.api import db_models
 from desdeo.api.config import DBConfig
 from desdeo.api.db import Base, SessionLocal, engine
 from desdeo.api.routers.UserAuth import get_password_hash
-from desdeo.api.schema import Methods, ObjectiveKind, ProblemKind, Solvers, UserPrivileges, UserRole
+from desdeo.api.schema import (
+    Methods,
+    ObjectiveKind,
+    ProblemKind,
+    Solvers,
+    UserPrivileges,
+    UserRole,
+)
 from desdeo.problem.schema import DiscreteRepresentation, Objective, Problem, Variable
 from desdeo.problem.testproblems import (
     binh_and_korn,
@@ -25,7 +32,8 @@ from desdeo.problem.testproblems import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
-from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
+
+# from desdeo.utopia_stuff.utopia_problem_old import utopia_problem_old
 
 TEST_USER = "test"
 TEST_PASSWORD = "test"  # NOQA: S105 # TODO: Remove this line and create a proper user creation system.
@@ -111,7 +119,7 @@ problem_in_db = db_models.Problem(
 
 db.add(problem_in_db)
 
-problem = river_pollution_problem()
+problem = river_pollution_problem(five_objective_variant=False)
 
 problem_in_db = db_models.Problem(
     name="Test 2",
@@ -155,33 +163,32 @@ problem_in_db = db_models.Problem(
 db.add(problem_in_db)
 db.commit()
 
-
-problem, schedule_dict = utopia_problem_old(holding=4)
-problem_in_db = db_models.Problem(
-    name="Test 5",
-    kind=ProblemKind.CONTINUOUS,
-    obj_kind=ObjectiveKind.ANALYTICAL,
-    solver=Solvers.GUROBIPY,
-    value=problem.model_dump(mode="json"),
-    role_permission=[UserRole.DM],
-)
-db.add(problem_in_db)
-db.commit()
+# problem, schedule_dict = utopia_problem_old(holding=1)
+# problem_in_db = db_models.Problem(
+#    owner=user.id,
+#    name="Test 5",
+#    kind=ProblemKind.CONTINUOUS,
+#   obj_kind=ObjectiveKind.ANALYTICAL,
+#    solver=Solvers.PYOMO_IPOPT,
+#    value=problem.model_dump(mode="json"),
+# )
+# db.add(problem_in_db)
+# db.commit()
 
 # CAUTION: DO NOT PUT ANY CODE IN BETWEEN THE PREVIOUS AND FOLLOWING BLOCKS OF CODE.
 # UTOPIA MAPS WILL BREAK IF YOU DO.
 
 # The info about the map and decision alternatives now goes into the database
-with open("desdeo/utopia_stuff/data/4.json") as f:  # noqa: PTH123
-    forest_map = f.read()
-map_info = db_models.Utopia(
-    problem=problem_in_db.id,
-    map_json=forest_map,
-    schedule_dict=schedule_dict,
-    years=["2025", "2030", "2035"],
-    stand_id_field="standnumbe",
-)
-db.add(map_info)
+# with open("desdeo/utopia_stuff/data/1.json") as f:  # noqa: PTH123
+#    forest_map = f.read()
+# map_info = db_models.Utopia(
+#    problem=problem_in_db.id,
+#    map_json=forest_map,
+#    schedule_dict=schedule_dict,
+#    years=["2025", "2030", "2035"],
+#    stand_id_field="standnumbe",
+# )
+# db.add(map_info)
 
 problem = forest_problem_discrete()
 problem_in_db = db_models.Problem(
@@ -203,24 +210,22 @@ nimbus = db_models.Method(
 db.add(nimbus)
 db.commit()
 
-root_folder = "datasets/problemModels/"
-# Load all json files within the root folder
-problems = list(walk(root_folder))[0][2]
-problems = [f for f in problems if f.endswith(".json")]
+xnimbus = db_models.Method(
+    kind=Methods.XNIMBUS,
+    properties=[],
+    name="XNIMBUS",
+)
+db.add(xnimbus)
+db.commit()
 
-for problem in problems:  # TODO (@light-weaver): get "kind" and "obj_kind" from the problem model
-    with open(root_folder + problem, encoding="utf-8") as f:
-        problem_data = json.load(f)
-    problem_data = Problem.model_validate(problem_data)
-    problem_in_db = db_models.Problem(
-        owner=user.id,
-        name=problem_data.name,
-        kind=ProblemKind.DISCRETE if "discrete_representation" in problem_data else ProblemKind.CONTINUOUS,
-        obj_kind=ObjectiveKind.DATABASED,
-        value=problem_data.model_dump(mode="json"),
-        role_permission=[UserRole.GUEST],
-    )
-    db.add(problem_in_db)
-    db.commit()
+
+rpm = db_models.Method(
+    kind=Methods.RPM,
+    properties=[],
+    name="RPM",
+)
+db.add(rpm)
+
+db.commit()
 
 db.close()
