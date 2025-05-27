@@ -7,7 +7,7 @@
 </script>
 
 <div class="grid min-h-svh lg:grid-cols-2">
-	<div class="flex flex-col gap-4 p-6 md:p-10">
+	<div class="left-inner-shadow flex flex-col gap-4 p-6 md:p-10">
 		<div class="flex justify-center gap-2 md:justify-start">
 			<a href="##" class="flex items-center gap-2 font-medium">
 				<div
