@@ -1,8 +1,8 @@
 <script lang="ts">
 	import CircleUser from '@lucide/svelte/icons/user-circle';
-	import Menu from '@lucide/svelte/icons/brain-circuit';
-	import Package2 from '@lucide/svelte/icons/orbit';
-	import Search from '@lucide/svelte/icons/puzzle';
+	import Method from '@lucide/svelte/icons/brain-circuit';
+	import Logo from '@lucide/svelte/icons/orbit';
+	import Problem from '@lucide/svelte/icons/puzzle';
 	import Archive from '@lucide/svelte/icons/archive';
 	import HelpCircle from '@lucide/svelte/icons/circle-help';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -17,7 +17,7 @@
 		href="/"
 		class="text-primary-foreground flex items-center gap-2 text-lg font-semibold md:text-base"
 	>
-		<Package2 class="h-6 w-6" />
+		<Logo class="h-6 w-6" />
 		<span>DESDEO</span>
 	</a>
 
@@ -29,14 +29,14 @@
 			href="##"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
-			<Search class="h-4 w-4" />
+			<Problem class="h-4 w-4" />
 			Problems
 		</a>
 		<a
 			href="##"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
-			<Menu class="h-4 w-4" />
+			<Method class="h-4 w-4" />
 			Methods
 		</a>
 		<a
