@@ -12,12 +12,7 @@
 
 </script>
 
-<div class="flex min-h-screen w-full flex-col">
-	<Topbar />
-
-	<main
-		class="mx-auto flex max-w-5xl flex-col items-center gap-6 text-center"
-	>
+<div>
 		<h1 class="mb-6 text-4xl font-semibold text-pretty lg:text-5xl text-primary pt-4">Welcome to DESDEO</h1>
 		<p class="text-lg text-gray-700 text-center">
 			Explore the features and functionalities to enhance your decision-making process.
@@ -108,5 +103,4 @@
               </Card.Footer>
             </Card.Root>
           </div>
-	</main>
 </div>

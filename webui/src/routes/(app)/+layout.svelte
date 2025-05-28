@@ -1,0 +1,14 @@
+<script lang="ts">
+	import Topbar from '$lib/components/ui/topbar/Topbar.svelte';
+    let { children } = $props();
+</script>
+
+<div class="flex min-h-screen w-full flex-col">
+	<Topbar />
+
+	<main
+		class="mx-auto flex max-w-5xl flex-col items-center gap-6 text-center"
+	>
+		{@render children()}
+	</main>
+</div>
