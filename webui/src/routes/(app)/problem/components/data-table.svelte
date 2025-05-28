@@ -154,6 +154,7 @@
 		columns,
 		enableRowSelection: true,
 		enableMultiRowSelection: false,
+
 		onRowSelectionChange: (updater) => {
 			if (typeof updater === 'function') {
 				rowSelection = updater(rowSelection);
@@ -383,7 +384,12 @@
 			</Table.Header>
 			<Table.Body>
 				{#each table.getRowModel().rows as row (row.id)}
-					<Table.Row data-state={row.getIsSelected() && 'selected'}>
+					<Table.Row
+						data-state={row.getIsSelected() && 'selected'}
+						onclick={() => row.toggleSelected(!row.getIsSelected())}
+						class="cursor-pointer data-[state=selected]:bg-blue-500"
+						aria-label="Select row"
+					>
 						{#each row.getVisibleCells() as cell (cell.id)}
 							<Table.Cell>
 								<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
