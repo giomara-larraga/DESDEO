@@ -26,7 +26,7 @@
 		class="flex flex-1 flex-col justify-end gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6"
 	>
 		<a
-			href="##"
+			href="/problem"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<Problem class="h-4 w-4" />
