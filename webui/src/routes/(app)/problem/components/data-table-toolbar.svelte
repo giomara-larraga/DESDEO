@@ -31,7 +31,7 @@
 			</Button>
 		{/if}
 	</div>
-	<Button variant="outline" size="sm" class="hidden lg:flex">
+	<Button variant="outline" size="sm" class="hover:bg-muted hidden lg:flex">
 		<NewIcon />
 		<span class="hidden lg:inline">New problem</span>
 	</Button>

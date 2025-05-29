@@ -23,7 +23,6 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import { problemSchema, type Problem } from '../data/schemas.js';
 	import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
-	import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
@@ -33,10 +32,10 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
+	import { createEventDispatcher } from 'svelte';
 
 	let { data }: { data: Problem[] } = $props();
 
@@ -46,25 +45,9 @@
 	let sorting = $state<SortingState>([]);
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
+	const dispatch = createEventDispatcher();
+
 	const columns: ColumnDef<Problem>[] = [
-		{
-			id: 'select',
-			header: ({ table }) =>
-				renderComponent(Checkbox, {
-					checked: table.getIsAllPageRowsSelected(),
-					onCheckedChange: (value) => table.toggleAllPageRowsSelected(value),
-					indeterminate: table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected(),
-					'aria-label': 'Select all'
-				}),
-			cell: ({ row }) =>
-				renderComponent(Checkbox, {
-					checked: row.getIsSelected(),
-					onCheckedChange: (value) => row.toggleSelected(value),
-					'aria-label': 'Select row'
-				}),
-			enableSorting: false,
-			enableHiding: false
-		},
 		{
 			accessorKey: 'name',
 			header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Name' }),
@@ -197,6 +180,11 @@
 		getFacetedRowModel: getFacetedRowModel(),
 		getFacetedUniqueValues: getFacetedUniqueValues()
 	});
+
+	function handleRowClick(row: any) {
+		row.toggleSelected(true);
+		dispatch('select', row.original);
+	}
 </script>
 
 {#snippet NumberCell({ value }: { value: number })}
@@ -224,16 +212,20 @@
 	<DropdownMenu.Root>
 		<DropdownMenu.Trigger>
 			{#snippet child({ props })}
-				<Button {...props} variant="ghost" class="data-[state=open]:bg-muted flex h-8 w-8 p-0">
+				<Button
+					{...props}
+					variant="ghost"
+					class="hover:bg-muted data-[state=open]:bg-muted flex h-8 w-8 p-0"
+				>
 					<EllipsisIcon />
 					<span class="sr-only">Open Menu</span>
 				</Button>
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-[160px]" align="end">
-			<DropdownMenu.Item>Edit</DropdownMenu.Item>
-			<DropdownMenu.Item>Download</DropdownMenu.Item>
-			<DropdownMenu.Item>Delete</DropdownMenu.Item>
+			<DropdownMenu.Item class="hover:bg-muted">Edit</DropdownMenu.Item>
+			<DropdownMenu.Item class="hover:bg-muted">Download</DropdownMenu.Item>
+			<DropdownMenu.Item class="hover:bg-muted">Delete</DropdownMenu.Item>
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 {/snippet}
@@ -259,7 +251,7 @@
 						{String(table.getState().pagination.pageSize)}
 					</Select.Trigger>
 					<Select.Content side="top">
-						{#each [5, 10, 20, 30, 40, 50] as pageSize (pageSize)}
+						{#each [5, 10, 15, 20, 25, 30] as pageSize (pageSize)}
 							<Select.Item value={`${pageSize}`}>
 								{pageSize}
 							</Select.Item>
@@ -386,8 +378,8 @@
 				{#each table.getRowModel().rows as row (row.id)}
 					<Table.Row
 						data-state={row.getIsSelected() && 'selected'}
-						onclick={() => row.toggleSelected(!row.getIsSelected())}
-						class="cursor-pointer data-[state=selected]:bg-blue-500"
+						onclick={() => handleRowClick(row)}
+						class="data-[state=selected]:bg-muted cursor-pointer"
 						aria-label="Select row"
 					>
 						{#each row.getVisibleCells() as cell (cell.id)}
