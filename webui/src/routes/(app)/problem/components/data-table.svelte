@@ -328,7 +328,7 @@
 							{...props}
 							variant="ghost"
 							size="sm"
-							class="data-[state=open]:bg-accent -ml-3 h-8"
+							class="hover:bg-muted data-[state=open]:bg-muted -ml-3 h-8"
 						>
 							<span>
 								{title}
@@ -344,11 +344,17 @@
 					{/snippet}
 				</DropdownMenu.Trigger>
 				<DropdownMenu.Content align="start">
-					<DropdownMenu.Item onclick={() => column.toggleSorting(false)}>
+					<DropdownMenu.Item
+						class="data-highlighted:bg-muted"
+						onclick={() => column.toggleSorting(false)}
+					>
 						<ArrowUpIcon class="text-muted-foreground/70 mr-2 size-3.5" />
 						Asc
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onclick={() => column.toggleSorting(true)}>
+					<DropdownMenu.Item
+						class="data-highlighted:bg-muted"
+						onclick={() => column.toggleSorting(true)}
+					>
 						<ArrowDownIcon class="text-muted-foreground/70 mr-2 size-3.5" />
 						Desc
 					</DropdownMenu.Item>
