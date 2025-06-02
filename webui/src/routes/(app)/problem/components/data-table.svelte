@@ -66,7 +66,7 @@
 				}),
 			cell: ({ row }) => {
 				return renderSnippet(NumberCell, {
-					value: row.original.objectives
+					value: row.original.objectives.length
 				});
 			},
 			filterFn: (row, id, value) => {
@@ -83,7 +83,7 @@
 			},
 			cell: ({ row }) => {
 				return renderSnippet(NumberCell, {
-					value: row.original.variables
+					value: row.original.variables.length
 				});
 			},
 			filterFn: (row, id, value) => {
