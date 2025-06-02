@@ -4,6 +4,8 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import type { Problem } from './data/schemas';
 	import * as Table from '$lib/components/ui/table/index.js';
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 
 	let selectedProblem: Problem;
 </script>
@@ -78,20 +80,104 @@
 								</div>
 								<div class="col-span-2 border-b border-gray-300"></div>
 
-								<!-- List of solutions row -->
-								<div class="col-span-2 flex">
-									<div class="w-40 font-semibold">Available solutions</div>
-									<div class="flex-1">
-										{#if selectedProblem.solutions?.length}
-											<ul class="list-inside list-disc">
-												{#each selectedProblem.solutions as solution}
-													<li>{solution.id ?? solution.createdByName ?? solution}</li>
-												{/each}
-											</ul>
-										{:else}
-											—
-										{/if}
-									</div>
+								<!-- Available solutions row (title) -->
+								<div class="col-span-2 mb-2">
+									<span class="text-lg font-semibold text-gray-800">Available solutions</span>
+								</div>
+								<!-- Solutions Table -->
+								<div class="col-span-2">
+									{#if selectedProblem.solutions?.length}
+										<div class="overflow-x-auto">
+											<Table.Root>
+												<Table.Header>
+													<Table.Row>
+														<Table.Head class="px-4 py-2 text-left font-semibold text-gray-700"
+															>Solution ID</Table.Head
+														>
+														<Table.Head class="px-4 py-2 text-left font-semibold text-gray-700"
+															>Details</Table.Head
+														>
+													</Table.Row>
+												</Table.Header>
+												<Table.Body>
+													{#each selectedProblem.solutions as solution}
+														<Table.Row class="even:bg-gray-50">
+															<Table.Cell class="px-4 py-2">
+																{solution.id}
+															</Table.Cell>
+															<Table.Cell class="px-4 py-2">
+																<Dialog.Root>
+																	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>
+																		View Details
+																	</Dialog.Trigger>
+																	<Dialog.Content
+																		class="max-h-[80vh] w-full max-w-4xl overflow-x-auto overflow-y-auto"
+																	>
+																		<Dialog.Header>
+																			<Dialog.Title>Details</Dialog.Title>
+																			<Dialog.Description>
+																				View the details of the {solution.id} solution below.
+																			</Dialog.Description>
+																		</Dialog.Header>
+																		<div class="grid gap-4 py-4">
+																			<div>
+																				<span class="font-semibold">ID:</span>
+																				{solution.id}
+																			</div>
+																			<div>
+																				<span class="font-semibold">Created At:</span>
+																				{solution.createdAt}
+																			</div>
+																			<div>
+																				<span class="font-semibold">Method:</span>
+																				{solution.method}
+																			</div>
+
+																			<!-- Objectives Table -->
+																			<div>
+																				<span class="font-semibold">Objective function values:</span
+																				>
+																				<Table.Root>
+																					<Table.Header>
+																						<Table.Row>
+																							<Table.Head></Table.Head>
+																							{#each selectedProblem.objectives as o}
+																								<Table.Head>{o.name}</Table.Head>
+																							{/each}
+																						</Table.Row>
+																					</Table.Header>
+																					<Table.Body>
+																						<Table.Row>
+																							<Table.Cell>Value</Table.Cell>
+																							{#each solution.objectives as o}
+																								<Table.Cell>{o}</Table.Cell>
+																							{/each}
+																						</Table.Row>
+																					</Table.Body>
+																				</Table.Root>
+																			</div>
+																		</div>
+																		<p class="mt-4 text-sm text-gray-600">
+																			For more details, go to the
+																			<a
+																				href="/archive"
+																				class="text-blue-600 underline hover:text-blue-800"
+																			>
+																				archive page
+																			</a>
+																			.
+																		</p>
+																	</Dialog.Content>
+																</Dialog.Root>
+															</Table.Cell>
+														</Table.Row>
+													{/each}
+												</Table.Body>
+											</Table.Root>
+										</div>
+									{:else}
+										<p class="text-gray-500">—</p>
+									{/if}
 								</div>
 							</div>
 						</div>

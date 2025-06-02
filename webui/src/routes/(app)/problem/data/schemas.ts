@@ -31,30 +31,33 @@ export const constraintSchema = z.object({
 
 export type Constraint = z.infer<typeof constraintSchema>;
 
-// Solution schema
+// Solution schema (now stores only values)
 export const solutionSchema = z.object({
     id: z.string(),
     createdAt: z.string().datetime(),
+    method: z.enum(["NIMBUS", "Nautilus", "Reference point"]),
+    variables: z.array(z.number()),      // Array of variable values, order matches problem.variables
+    constraints: z.array(z.number()),    // Array of constraint values, order matches problem.constraints
+    objectives: z.array(z.number()),     // Array of objective values, order matches problem.objectives
     createdBy: z.string(),
-    createdByName: z.string(),
 });
 
 export type Solution = z.infer<typeof solutionSchema>;
 
 export const problemSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	description: z.string(),
-	objectives: z.array(objectiveSchema),
-	variables: z.array(variableSchema),
-	constraints: z.array(constraintSchema),
-	definedby: z.string(),
-	isLinear: z.boolean(),
-	createdAt: z.string().datetime(),
-	isConvex: z.boolean(),
-	isTwiceDifferentiable: z.boolean(),
-	isSurrogateAvailable: z.boolean(),
-	solutions: z.array(solutionSchema).optional(),
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    objectives: z.array(objectiveSchema),
+    variables: z.array(variableSchema),
+    constraints: z.array(constraintSchema),
+    definedby: z.string(),
+    isLinear: z.boolean(),
+    createdAt: z.string().datetime(),
+    isConvex: z.boolean(),
+    isTwiceDifferentiable: z.boolean(),
+    isSurrogateAvailable: z.boolean(),
+    solutions: z.array(solutionSchema).optional(),
 });
 
 export type Problem = z.output<typeof problemSchema>;

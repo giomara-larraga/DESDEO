@@ -34,9 +34,33 @@ export const data: Problem[] = [
         isSurrogateAvailable: true,
         createdAt: "2024-06-01T10:00:00Z",
         solutions: [
-            { id: "sol-1", createdAt: "2024-06-01T12:00:00Z", createdBy: "user1", createdByName: "Alice" },
-            { id: "sol-2", createdAt: "2024-06-01T12:10:00Z", createdBy: "user2", createdByName: "Bob" },
-            { id: "sol-3", createdAt: "2024-06-01T12:20:00Z", createdBy: "user3", createdByName: "Charlie" },
+            {
+                id: "sol-1",
+                createdAt: "2024-06-01T12:00:00Z",
+                method: "NIMBUS",
+                variables: [5, 2, 1.5, 2, 2, 50, 10, 128, 10, 3],
+                constraints: [400, 0.2, 200],
+                objectives: [0.15, 120, 60],
+                createdBy: "user1"
+            },
+            {
+                id: "sol-2",
+                createdAt: "2024-06-01T12:10:00Z",
+                method: "Nautilus",
+                variables: [6, 3, 2, 1, 3, 80, 12, 200, 15, 4],
+                constraints: [420, 0.18, 250],
+                objectives: [0.2, 150, 80],
+                createdBy: "user2"
+            },
+            {
+                id: "sol-3",
+                createdAt: "2024-06-01T12:20:00Z",
+                method: "Reference point",
+                variables: [7, 2.5, 2.2, 3, 1, 60, 14, 100, 12, 2],
+                constraints: [410, 0.22, 180],
+                objectives: [0.18, 130, 55],
+                createdBy: "user3"
+            }
         ],
     },
     {
@@ -62,8 +86,24 @@ export const data: Problem[] = [
         isSurrogateAvailable: false,
         createdAt: "2024-06-01T11:00:00Z",
         solutions: [
-            { id: "sol-4", createdAt: "2024-06-01T13:00:00Z", createdBy: "user4", createdByName: "Diana" },
-            { id: "sol-5", createdAt: "2024-06-01T13:10:00Z", createdBy: "user5", createdByName: "Eve" },
+            {
+                id: "sol-4",
+                createdAt: "2024-06-01T13:00:00Z",
+                method: "NIMBUS",
+                variables: [50, 1],
+                constraints: [80, 30],
+                objectives: [2, 90],
+                createdBy: "user4"
+            },
+            {
+                id: "sol-5",
+                createdAt: "2024-06-01T13:10:00Z",
+                method: "Nautilus",
+                variables: [75, 0],
+                constraints: [90, 40],
+                objectives: [3, 95],
+                createdBy: "user5"
+            }
         ],
     },
     {
@@ -111,7 +151,15 @@ export const data: Problem[] = [
         isSurrogateAvailable: true,
         createdAt: "2024-06-01T13:00:00Z",
         solutions: [
-            { id: "sol-6", createdAt: "2024-06-01T14:00:00Z", createdBy: "user6", createdByName: "Frank" },
+            {
+                id: "sol-6",
+                createdAt: "2024-06-01T14:00:00Z",
+                method: "NIMBUS",
+                variables: [20, 1],
+                constraints: [30],
+                objectives: [10, 20],
+                createdBy: "user6",
+            }
         ],
     },
     {
@@ -170,8 +218,24 @@ export const data: Problem[] = [
         isSurrogateAvailable: true,
         createdAt: "2024-06-01T15:00:00Z",
         solutions: [
-            { id: "sol-7", createdAt: "2024-06-01T16:00:00Z", createdBy: "user7", createdByName: "Grace" },
-            { id: "sol-8", createdAt: "2024-06-01T16:10:00Z", createdBy: "user8", createdByName: "Heidi" },
+            {
+                id: "sol-7",
+                createdAt: "2024-06-01T16:00:00Z",
+                method: "NIMBUS",
+                variables: [4, 1, 500, 50, 1, 2, 1, 1, 10, 5, 1, 3],
+                constraints: [80, 200],
+                objectives: [20, 100],
+                createdBy: "user7",
+            },
+            {
+                id: "sol-8",
+                createdAt: "2024-06-01T16:10:00Z",
+                method: "Nautilus",
+                variables: [6, 0, 800, 80, 1.5, 4, 2, 0, 20, 8, 0, 7],
+                constraints: [90, 300],
+                objectives: [25, 200],
+                createdBy: "user8",
+            }
         ],
     },
     {
@@ -217,8 +281,24 @@ export const data: Problem[] = [
         isSurrogateAvailable: true,
         createdAt: "2024-06-01T17:00:00Z",
         solutions: [
-            { id: "sol-9", createdAt: "2024-06-01T18:00:00Z", createdBy: "user9", createdByName: "Ivan" },
-            { id: "sol-10", createdAt: "2024-06-01T18:10:00Z", createdBy: "user10", createdByName: "Judy" },
+            {
+                id: "sol-9",
+                createdAt: "2024-06-01T18:00:00Z",
+                method: "NIMBUS",
+                variables: [10],
+                constraints: [1],
+                objectives: [15],
+                createdBy: "user9",
+            },
+            {
+                id: "sol-10",
+                createdAt: "2024-06-01T18:10:00Z",
+                method: "Nautilus",
+                variables: [20],
+                constraints: [1],
+                objectives: [20],
+                createdBy: "user10",
+            }
         ],
     },
     {
@@ -243,7 +323,58 @@ export const data: Problem[] = [
         isSurrogateAvailable: false,
         createdAt: "2024-06-01T18:00:00Z",
         solutions: [
-            { id: "sol-11", createdAt: "2024-06-01T19:00:00Z", createdBy: "user11", createdByName: "Kate" },
+            {
+                id: "sol-11",
+                createdAt: "2024-06-01T19:00:00Z",
+                method: "Reference point",
+                variables: [5, 1],
+                constraints: [0.8],
+                objectives: [90, 0.95],
+                createdBy: "user11",
+            }
+        ],
+    },
+    {
+        id: "PROBLEM-9999",
+        name: "High-dimensional objective test problem",
+        objectives: [
+            { name: "Obj1", direction: "minimize", ideal: 0, nadir: 10 },
+            { name: "Obj2", direction: "maximize", ideal: 10, nadir: 0 },
+            { name: "Obj3", direction: "minimize", ideal: 1, nadir: 5 },
+            { name: "Obj4", direction: "maximize", ideal: 20, nadir: 5 },
+            { name: "Obj5", direction: "minimize", ideal: 2, nadir: 8 },
+            { name: "Obj6", direction: "maximize", ideal: 15, nadir: 3 },
+            { name: "Obj7", direction: "minimize", ideal: 0.5, nadir: 4 },
+            { name: "Obj8", direction: "maximize", ideal: 12, nadir: 2 },
+            { name: "Obj9", direction: "minimize", ideal: 3, nadir: 9 },
+            { name: "Obj10", direction: "maximize", ideal: 18, nadir: 6 },
+        ],
+        variables: [
+            { name: "X1", lower: 0, upper: 10, type: "continuous" },
+            { name: "X2", lower: 0, upper: 5, type: "continuous" },
+            { name: "X3", lower: 1, upper: 100, type: "integer" },
+        ],
+        constraints: [
+            { name: "C1", type: "inequality", simulated: false, convex: true, expensive: false },
+            { name: "C2", type: "equation", simulated: true, convex: false, expensive: true },
+        ],
+        definedby: "Test",
+        description: "A problem with 10 objectives for high-dimensional testing.",
+        isLinear: false,
+        isConvex: false,
+        isTwiceDifferentiable: false,
+        isSurrogateAvailable: false,
+        createdAt: "2024-06-01T20:00:00Z",
+        solutions: [
+            {
+                id: "sol-100",
+                createdAt: "2024-06-01T21:00:00Z",
+                method: "NIMBUS",
+                variables: [5, 2.5, 50],
+                constraints: [1, 0],
+                objectives: [1, 9, 2, 15, 3, 10, 1.5, 8, 4, 12],
+                createdBy: "user100",
+            }
         ],
     },
 ];
