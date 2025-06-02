@@ -13,7 +13,7 @@
 <div class="flex items-center justify-between">
 	<div class="flex flex-1 items-center space-x-2">
 		<Input
-			placeholder="Filter tasks..."
+			placeholder="Filter problems by name..."
 			value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
 			oninput={(e) => {
 				table.getColumn('name')?.setFilterValue(e.currentTarget.value);
@@ -31,7 +31,7 @@
 			</Button>
 		{/if}
 	</div>
-	<Button variant="outline" size="sm" class="hover:bg-muted hidden lg:flex">
+	<Button variant="outline" size="sm" class="hidden lg:flex">
 		<NewIcon />
 		<span class="hidden lg:inline">New problem</span>
 	</Button>

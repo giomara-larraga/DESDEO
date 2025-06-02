@@ -82,7 +82,7 @@
 
 								<!-- Available solutions row (title) -->
 								<div class="col-span-2 mb-2">
-									<span class="text-lg font-semibold text-gray-800">Available solutions</span>
+									<span class="font-semibold text-gray-800">Available solutions</span>
 								</div>
 								<!-- Solutions Table -->
 								<div class="col-span-2">

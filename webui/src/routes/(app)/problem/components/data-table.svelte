@@ -43,7 +43,7 @@
 	let columnVisibility = $state<VisibilityState>({});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let sorting = $state<SortingState>([]);
-	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
+	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 5 });
 
 	const dispatch = createEventDispatcher();
 
@@ -223,9 +223,13 @@
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-[160px]" align="end">
-			<DropdownMenu.Item class="hover:bg-muted">Edit</DropdownMenu.Item>
-			<DropdownMenu.Item class="hover:bg-muted">Download</DropdownMenu.Item>
-			<DropdownMenu.Item class="hover:bg-muted">Delete</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted">Details</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted">Edit</DropdownMenu.Item>
+			<DropdownMenu.Item class="data-highlighted:bg-muted">Download</DropdownMenu.Item>
+			<DropdownMenu.Item
+				class="data-highlighted:bg-muted data-highlighted:text-red-700 text-red-500"
+				>Delete</DropdownMenu.Item
+			>
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
 {/snippet}
