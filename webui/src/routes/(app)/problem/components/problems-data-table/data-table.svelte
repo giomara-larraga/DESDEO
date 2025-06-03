@@ -16,14 +16,14 @@
 		getSortedRowModel,
 		type Column
 	} from '@tanstack/table-core';
-	import DataTableToolbar from './data-table-toolbar.svelte';
+	import DataTableToolbar from '../problems-data-table/data-table-toolbar.svelte';
 	import { createSvelteTable } from '$lib/components/ui/data-table/data-table.svelte.js';
 	import FlexRender from '$lib/components/ui/data-table/flex-render.svelte';
 	import * as Table from '$lib/components/ui/table/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import { problemSchema, type Problem } from '../data/schemas.js';
+	import { problemSchema, type Problem } from '../../data/schemas.js';
 	import { renderComponent, renderSnippet } from '$lib/components/ui/data-table/render-helpers.js';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
@@ -32,7 +32,11 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import Play from '@lucide/svelte/icons/play';
+
 	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils.js';
 	import { createEventDispatcher } from 'svelte';
@@ -109,8 +113,24 @@
 		},
 		{
 			id: 'actions',
+			header: ({ column }) => {
+				return renderSnippet(ColumnHeader, {
+					title: 'More',
+					column
+				});
+			},
 			cell: ({ row }) => renderSnippet(RowActions, { row })
-		}
+		},
+		{
+			id: 'solve',
+			header: ({ column }) => {
+				return renderSnippet(ColumnHeader, {
+					title: 'Solve',
+					column
+				});
+			},
+			cell: ({ row }) => renderSnippet(RowSolve, { row })
+		},
 	];
 
 	const table = createSvelteTable({
@@ -232,6 +252,23 @@
 			>
 		</DropdownMenu.Content>
 	</DropdownMenu.Root>
+{/snippet}
+
+
+{#snippet RowSolve({ row }: { row: Row<Problem> })}
+	{@const problem = problemSchema.parse(row.original)}
+	<Tooltip.Provider>
+	<Tooltip.Root>
+		<Tooltip.Trigger class={buttonVariants({ variant: "outline", size: "icon", class: "flex h-8 w-8 p-0 cursor-pointer" })}>
+			<a href={`/method?problemId=${encodeURIComponent(problem.id)}`}>
+				<Play />
+			</a>
+		</Tooltip.Trigger>
+		<Tooltip.Content>
+			<p>Solve this problem</p>
+		</Tooltip.Content>
+	</Tooltip.Root>
+	</Tooltip.Provider>
 {/snippet}
 
 {#snippet Pagination({ table }: { table: TableType<Problem> })}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DataTable from './components/data-table.svelte';
+	import DataTable from './components/problems-data-table/data-table.svelte';
 	import { data } from './data/problems.js';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import type { Problem } from './data/schemas';

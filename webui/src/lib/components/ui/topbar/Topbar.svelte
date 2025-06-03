@@ -33,21 +33,21 @@
 			Problems
 		</a>
 		<a
-			href="##"
+			href="/method"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<Method class="h-4 w-4" />
 			Methods
 		</a>
 		<a
-			href="##"
+			href="/archive"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<Archive class="h-4 w-4" />
 			Archive
 		</a>
 		<a
-			href="##"
+			href="/help"
 			class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
 		>
 			<HelpCircle class="h-4 w-4" />
