@@ -13,12 +13,15 @@
 
 	export let data: { form: SuperValidated<Infer<LoginSchema>> };
 
+	// TODO: Check why this code is never executed
 	const form = superForm(data.form, {
 		validators: zodClient(loginSchema),
 		onUpdated: ({ form: f }) => {
 			if (f.valid) {
+				console.log('Form is valid:', f.data);
 				toast.success(`You submitted ${JSON.stringify(f.data, null, 2)}`);
 			} else {
+				console.log('Form is invalid:', f.errors);
 				toast.error('Please fix the errors in the form.');
 			}
 		}
