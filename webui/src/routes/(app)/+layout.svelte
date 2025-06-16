@@ -7,7 +7,7 @@
 </script>
 
 <div class="flex min-h-screen w-full flex-col">
-	<header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
+	<header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
 		<a
 			href="/"
 			class="text-primary-foreground mr-4 flex items-center gap-2 text-lg font-semibold md:text-base"
@@ -18,7 +18,7 @@
 		<Topbar />
 	</header>
 
-	<main class="mx-auto flex flex-col items-center gap-6 text-center">
+	<main class="min-h-[calc(100vh-3rem)]">
 		{@render children()}
 	</main>
 </div>

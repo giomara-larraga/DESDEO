@@ -28,16 +28,19 @@
 
 <main class="flex min-h-[calc(100vh-3rem)]">
 	<!-- 3rem = 12 * 0.25rem (h-12) -->
-	<Sidebar.Provider style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;">
+	<Sidebar.Provider
+		class="flex min-h-[calc(100vh-3rem)]"
+		style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;"
+	>
 		<AppSidebar />
 		<Sidebar.Inset>
-			<div class="flex flex-1 flex-col gap-4 p-4">
+			<div class="bg-muted/50 flex flex-1 flex-col gap-4 p-4">
 				<div class="grid auto-rows-min gap-4 md:grid-cols-3">
 					<div class="bg-muted/50 aspect-video rounded-xl"></div>
 					<div class="bg-muted/50 aspect-video rounded-xl"></div>
 					<div class="bg-muted/50 aspect-video rounded-xl"></div>
 				</div>
-				<div class="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min"></div>
+				<div class="bg-muted/50 flex-1 rounded-xl"></div>
 			</div>
 		</Sidebar.Inset>
 		<AdvancedSidebar />

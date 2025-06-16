@@ -17,7 +17,7 @@
 	];
 </script>
 
-<Sidebar.Root bind:ref class="flex h-full min-h-screen" collapsible="none">
+<Sidebar.Root bind:ref class="top-12 flex  h-[calc(100vh-6rem)]   min-h-screen">
 	<Sidebar.Header>
 		<PreferenceSwitcher versions={preference_types} defaultVersion={preference_types[0]} />
 
