@@ -2,12 +2,14 @@
 	import AppSidebar from './preferences-sidebar.svelte';
 	import AdvancedSidebar from './advanced-sidebar.svelte';
 	import Logo from '@lucide/svelte/icons/orbit';
+	import * as Resizable from '$lib/components/ui/resizable/index.js';
 
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import Topbar from '$lib/components/ui/topbar/Topbar.svelte';
 	import '../../app.css';
+	import * as Menubar from '$lib/components/ui/menubar/index.js';
 </script>
 
 <header
@@ -33,15 +35,63 @@
 		style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;"
 	>
 		<AppSidebar />
-		<Sidebar.Inset>
-			<div class="bg-muted/50 flex flex-1 flex-col gap-4 p-4">
-				<div class="grid auto-rows-min gap-4 md:grid-cols-3">
-					<div class="bg-muted/50 aspect-video rounded-xl"></div>
-					<div class="bg-muted/50 aspect-video rounded-xl"></div>
-					<div class="bg-muted/50 aspect-video rounded-xl"></div>
-				</div>
-				<div class="bg-muted/50 flex-1 rounded-xl"></div>
-			</div>
+		<Sidebar.Inset class="bg-muted/50">
+			<Resizable.PaneGroup direction="vertical">
+				<Resizable.Pane class="p-2">
+					<div class="flex items-center justify-between">
+						<span>Alternatives</span>
+						<Menubar.Root>
+							<Menubar.Menu>
+								<Menubar.Trigger>View</Menubar.Trigger>
+								<Menubar.Content>
+									<Menubar.Item>
+										Current iteration<Menubar.Shortcut>⌘T</Menubar.Shortcut>
+									</Menubar.Item>
+									<Menubar.Item>
+										Best candidates <Menubar.Shortcut>⌘N</Menubar.Shortcut>
+									</Menubar.Item>
+									<Menubar.Item>All solutions</Menubar.Item>
+								</Menubar.Content>
+							</Menubar.Menu>
+							<Menubar.Menu>
+								<Menubar.Trigger>Plot</Menubar.Trigger>
+								<Menubar.Content>
+									<Menubar.Item>
+										Parallel coordinates <Menubar.Shortcut>⌘Z</Menubar.Shortcut>
+									</Menubar.Item>
+									<Menubar.Item>
+										Bar charts <Menubar.Shortcut>⇧⌘Z</Menubar.Shortcut>
+									</Menubar.Item>
+
+									<Menubar.Item>Petal diagram</Menubar.Item>
+									<Menubar.Item>Spider chart</Menubar.Item>
+									<Menubar.Item>Scatter plot</Menubar.Item>
+								</Menubar.Content>
+							</Menubar.Menu>
+							<Menubar.Menu>
+								<Menubar.Trigger>Save</Menubar.Trigger>
+								<Menubar.Content>
+									<Menubar.Separator />
+									<Menubar.Item inset>
+										Reload <Menubar.Shortcut>⌘R</Menubar.Shortcut>
+									</Menubar.Item>
+									<Menubar.Item inset>
+										Force Reload <Menubar.Shortcut>⇧⌘R</Menubar.Shortcut>
+									</Menubar.Item>
+									<Menubar.Separator />
+									<Menubar.Item inset>Toggle Fullscreen</Menubar.Item>
+									<Menubar.Separator />
+									<Menubar.Item inset>Hide Sidebar</Menubar.Item>
+								</Menubar.Content>
+							</Menubar.Menu>
+						</Menubar.Root>
+					</div>
+				</Resizable.Pane>
+				<Resizable.Handle />
+				<Resizable.Pane class="p-2">
+					<span>Best candidates</span>
+				</Resizable.Pane>
+			</Resizable.PaneGroup>
 		</Sidebar.Inset>
 		<AdvancedSidebar />
 	</Sidebar.Provider>
