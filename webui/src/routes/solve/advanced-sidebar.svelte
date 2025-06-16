@@ -17,7 +17,7 @@
 	];
 </script>
 
-<Sidebar.Root bind:ref side="right">
+<Sidebar.Root side="right" class="fixed right-0 top-12 h-[calc(100vh-3rem)]">
 	<Sidebar.Header>
 		<span>Explanations</span>
 		<p class="mt-1 text-xs font-normal text-gray-500">
