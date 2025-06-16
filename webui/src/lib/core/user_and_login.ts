@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from "$env/static/public";
+import { PUBLIC_API_URL } from '$env/static/public';
 import { z } from "zod";
 
 class ValidationError extends Error {
@@ -16,11 +16,11 @@ export type LoginResponse = {
 };
 
 export enum UserRole {
-    admin,
-    analyst,
-    dm,
-    guest
-};
+    admin = "admin",
+    analyst = "analyst",
+    dm = "dm",
+    guest = "guest"
+}
 
 export type UserInfo = {
     username: string;
@@ -37,11 +37,12 @@ export type UserData = {
 
 export const loginSchema = z.object({
     username: z.string().min(2).max(50),
+    password: z.string().min(6).max(100),
 });
 
 export type LoginSchema = typeof loginSchema;
 
-export async function login(username: string, password: string): Promise<LoginResponse> {
+export async function login(username: string, password: string): Promise<LoginResponse | null> {
     try {
         const url = PUBLIC_API_URL + "/login";
         const response = await fetch(url, {
@@ -61,7 +62,7 @@ export async function login(username: string, password: string): Promise<LoginRe
             throw new ValidationError("Login failed", ["Return code not 200"]);
         }
 
-        const data: string = await response.json();
+        const data: LoginResponse = await response.json();
 
         return data;
 
@@ -118,6 +119,7 @@ export async function getUserDetails(access_token: string): Promise<UserInfo | n
         return user_info;
 
     } catch (error) {
+        console.error(error);
         return null;
     }
 }

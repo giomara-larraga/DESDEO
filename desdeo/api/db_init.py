@@ -27,8 +27,8 @@ if __name__ == "__main__":
 
         with Session(engine) as session:
             user_analyst = User(
-                username=ServerDebugConfig.test_user_analyst_name,
-                password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
+                username="test",
+                password_hash=get_password_hash("test"),
                 role=UserRole.analyst,
                 group="test",
             )

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Topbar from '$lib/components/ui/topbar/Topbar.svelte';
+	import '../../app.css';
 	let { children } = $props();
 </script>
 
