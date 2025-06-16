@@ -10,6 +10,7 @@ const variantSchema = z.object({
 // Method schema: if variants exist, use them; otherwise, method has its own preferencesType and problemtypes
 export const methodSchema = z.object({
     name: z.string(),
+    shortName: z.string().optional(),
     preferencesType: z.array(z.string()).optional(),
     problemtypes: z.array(z.string()).optional(),
     variants: z.array(variantSchema).optional()

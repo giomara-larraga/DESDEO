@@ -5,22 +5,10 @@
 	import Problem from '@lucide/svelte/icons/puzzle';
 	import Archive from '@lucide/svelte/icons/archive';
 	import HelpCircle from '@lucide/svelte/icons/circle-help';
-	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import * as Sheet from '$lib/components/ui/sheet/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 </script>
 
-<header class="bg-primary sticky top-0 flex h-14 items-center gap-4 border-b px-4 md:px-6">
-	<!-- Left: DESDEO logo and name -->
-	<a
-		href="/"
-		class="text-primary-foreground flex items-center gap-2 text-lg font-semibold md:text-base"
-	>
-		<Logo class="h-6 w-6" />
-		<span>DESDEO</span>
-	</a>
-
+<div class="space-between flex flex-row">
 	<!-- Right: Navigation -->
 	<nav
 		class="flex flex-1 flex-col justify-end gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6"
@@ -72,4 +60,4 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 	</nav>
-</header>
+</div>
