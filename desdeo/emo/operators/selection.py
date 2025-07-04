@@ -28,6 +28,11 @@ from desdeo.tools.message import (
 )
 from desdeo.tools.non_dominated_sorting import fast_non_dominated_sort
 from desdeo.tools.patterns import Subscriber, Publisher
+from pymoo.algorithms.moo.rnsga3 import (
+    get_ref_dirs_from_points,
+    line_plane_intersection,
+)
+from pymoo.util.normalization import denormalize
 
 SolutionType = TypeVar("SolutionType", list, pl.DataFrame)
 
@@ -47,12 +52,18 @@ class BaseSelector(Subscriber):
             try:
                 ideal, nadir = get_corrected_ideal_and_nadir(problem)
                 self.ideal = np.array([ideal[x.symbol] for x in problem.objectives])
-                self.nadir = np.array([nadir[x.symbol] for x in problem.objectives]) if nadir is not None else None
+                self.nadir = (
+                    np.array([nadir[x.symbol] for x in problem.objectives])
+                    if nadir is not None
+                    else None
+                )
             except ValueError:  # in case the ideal and nadir are not provided
                 self.ideal = None
                 self.nadir = None
         else:
-            self.target_symbols = [x.symbol for x in problem.scalarization_funcs if x.symbol is not None]
+            self.target_symbols = [
+                x.symbol for x in problem.scalarization_funcs if x.symbol is not None
+            ]
             self.ideal: np.ndarray | None = None
             self.nadir: np.ndarray | None = None
         if problem.constraints is None:
@@ -79,6 +90,21 @@ class BaseSelector(Subscriber):
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
                 targets, and constraint violations.
         """
+
+
+class PreferenceOptions(TypedDict, total=False):
+    """The options for the preference based selection operators."""
+
+    preferred_solutions: dict[str, list[float]]
+    """The preferred solutions for the Decision maker."""
+    non_preferred_solutions: dict[str, list[float]]
+    """The non-preferred solutions for the Decision maker."""
+    preferred_ranges: dict[str, list[float]]
+    """The preferred ranges for the Decision maker."""
+    reference_point: dict[str, float]
+    """The reference point for the Decision maker."""
+    adaptation_distance: float
+    """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
 
 
 class ReferenceVectorOptions(TypedDict, total=False):
@@ -112,7 +138,11 @@ class ReferenceVectorOptions(TypedDict, total=False):
     500.
     """
     interactive_adaptation: Literal[
-        "preferred_solutions", "non_preferred_solutions", "preferred_ranges", "reference_point", "none"
+        "preferred_solutions",
+        "non_preferred_solutions",
+        "preferred_ranges",
+        "reference_point",
+        "none",
     ]
     """The method for adapting reference vectors based on the Decision maker's preference information.
     Defaults to "none".
@@ -127,18 +157,46 @@ class ReferenceVectorOptions(TypedDict, total=False):
     """The non-preferred solutions for interactive adaptation."""
     preferred_ranges: dict[str, list[float]]
     """The preferred ranges for interactive adaptation."""
+    preferred_solutions_adaptation_method: Literal["default", "custom"]
+    non_preferred_solutions_adaptation_method: Literal["default", "custom"]
+    preferred_ranges_adaptation_method: Literal["default", "custom"]
+    reference_point_adaptation_method: Literal["default", "custom"]
 
 
 class BaseDecompositionSelector(BaseSelector):
     """Base class for decomposition based selection operators."""
 
     def __init__(
-        self, problem: Problem, reference_vector_options: ReferenceVectorOptions, verbosity: int, publisher: Publisher
+        self,
+        problem: Problem,
+        reference_vector_options: ReferenceVectorOptions,
+        verbosity: int,
+        publisher: Publisher,
     ):
         super().__init__(problem, verbosity=verbosity, publisher=publisher)
         self.reference_vector_options = reference_vector_options
         self.reference_vectors: np.ndarray
         self.reference_vectors_initial: np.ndarray
+
+        # Define the mapping for the interactive reference vectors adaptation methods
+        self.reference_point_adaptations = {
+            "default": self.interactive_adapt_3,
+            "custom": self.interactive_adapt_custom_rp,
+        }
+
+        self.preferred_solutions_adaptations = {
+            "default": self.interactive_adapt_1,
+            "custom": self.interactive_adapt_custom_preferred_solution,
+        }
+
+        self.non_preferred_solutions_adaptations = {
+            "default": self.interactive_adapt_2,
+        }
+
+        self.ranges_adaptations = {
+            "default": self.interactive_adapt_4,
+            "custom": self.interactive_adapt_custom_ranges,
+        }
 
         # Set default values
         if "creation_type" not in self.reference_vector_options:
@@ -150,7 +208,9 @@ class BaseDecompositionSelector(BaseSelector):
         if self.reference_vector_options["creation_type"] == "simplex":
             self._create_simplex()
         elif self.reference_vector_options["creation_type"] == "s_energy":
-            raise NotImplementedError("Riesz s-energy criterion is not yet implemented.")
+            raise NotImplementedError(
+                "Riesz s-energy criterion is not yet implemented."
+            )
 
         if "interactive_adaptation" not in self.reference_vector_options:
             self.reference_vector_options["interactive_adaptation"] = "none"
@@ -162,30 +222,95 @@ class BaseDecompositionSelector(BaseSelector):
 
         if self.reference_vector_options["interactive_adaptation"] == "reference_point":
             if "reference_point" not in self.reference_vector_options:
-                raise ValueError("Reference point must be specified for interactive adaptation.")
-            self.interactive_adapt_3(
-                np.array([self.reference_vector_options["reference_point"][x] for x in self.target_symbols]),
+                raise ValueError(
+                    "Reference point must be specified for interactive adaptation."
+                )
+            # If a custom adaptation method is specified, use it; otherwise, use the default method (interactive RVEA).
+            method = self.reference_vector_options.get(
+                "reference_point_adaptation_method", "default"
+            )
+            adapt_func = self.reference_point_adaptations.get(
+                method, self.interactive_adapt_3
+            )
+
+            adapt_func(
+                np.array(
+                    [
+                        self.reference_vector_options["reference_point"][x]
+                        for x in self.target_symbols
+                    ]
+                ),
                 translation_param=self.reference_vector_options["adaptation_distance"],
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_solutions":
+        elif (
+            self.reference_vector_options["interactive_adaptation"]
+            == "preferred_solutions"
+        ):
             if "preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Preferred solutions must be specified for interactive adaptation.")
-            self.interactive_adapt_1(
-                np.array([self.reference_vector_options["preferred_solutions"][x] for x in self.target_symbols]).T,
+                raise ValueError(
+                    "Preferred solutions must be specified for interactive adaptation."
+                )
+
+            method = self.reference_vector_options.get(
+                "preferred_solutions_adaptation_method", "default"
+            )
+            adapt_func = self.preferred_solutions_adaptations.get(
+                method, self.interactive_adapt_1
+            )
+            adapt_func(
+                np.array(
+                    [
+                        self.reference_vector_options["preferred_solutions"][x]
+                        for x in self.target_symbols
+                    ]
+                ).T,
                 translation_param=self.reference_vector_options["adaptation_distance"],
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "non_preferred_solutions":
+        elif (
+            self.reference_vector_options["interactive_adaptation"]
+            == "non_preferred_solutions"
+        ):
             if "non_preferred_solutions" not in self.reference_vector_options:
-                raise ValueError("Non-preferred solutions must be specified for interactive adaptation.")
-            self.interactive_adapt_2(
-                np.array([self.reference_vector_options["non_preferred_solutions"][x] for x in self.target_symbols]).T,
-                predefined_distance=self.reference_vector_options["adaptation_distance"],
+                raise ValueError(
+                    "Non-preferred solutions must be specified for interactive adaptation."
+                )
+            method = self.reference_vector_options.get(
+                "non_preferred_solutions_adaptation_method", "default"
             )
-        elif self.reference_vector_options["interactive_adaptation"] == "preferred_ranges":
+            adapt_func = self.non_preferred_solutions_adaptations.get(
+                method, self.interactive_adapt_2
+            )
+
+            adapt_func(
+                np.array(
+                    [
+                        self.reference_vector_options["non_preferred_solutions"][x]
+                        for x in self.target_symbols
+                    ]
+                ).T,
+                predefined_distance=self.reference_vector_options[
+                    "adaptation_distance"
+                ],
+            )
+        elif (
+            self.reference_vector_options["interactive_adaptation"]
+            == "preferred_ranges"
+        ):
             if "preferred_ranges" not in self.reference_vector_options:
-                raise ValueError("Preferred ranges must be specified for interactive adaptation.")
-            self.interactive_adapt_4(
-                np.array([self.reference_vector_options["preferred_ranges"][x] for x in self.target_symbols]).T,
+                raise ValueError(
+                    "Preferred ranges must be specified for interactive adaptation."
+                )
+            method = self.reference_vector_options.get(
+                "ranges_adaptation_method", "default"
+            )
+            adapt_func = self.ranges_adaptations.get(method, self.interactive_adapt_4)
+            adapt_func(
+                np.array(
+                    [
+                        self.reference_vector_options["preferred_ranges"][x]
+                        for x in self.target_symbols
+                    ]
+                ).T,
             )
 
     def _create_simplex(self):
@@ -209,7 +334,8 @@ class BaseDecompositionSelector(BaseSelector):
             lattice_resolution = self.reference_vector_options["lattice_resolution"]
         elif "number_of_vectors" in self.reference_vector_options:
             lattice_resolution = approx_lattice_resolution(
-                self.reference_vector_options["number_of_vectors"], num_dims=self.num_dims
+                self.reference_vector_options["number_of_vectors"],
+                num_dims=self.num_dims,
             )
         else:
             lattice_resolution = approx_lattice_resolution(500, num_dims=self.num_dims)
@@ -244,7 +370,9 @@ class BaseDecompositionSelector(BaseSelector):
         elif self.reference_vector_options["vector_type"] == "planar":
             norm = np.sum(self.reference_vectors, axis=1).reshape(-1, 1)
         else:
-            raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
+            raise ValueError(
+                "Invalid vector type. Must be either 'spherical' or 'planar'."
+            )
         self.reference_vectors = np.divide(self.reference_vectors, norm)
 
     def interactive_adapt_1(self, z: np.ndarray, translation_param: float) -> None:
@@ -258,12 +386,19 @@ class BaseDecompositionSelector(BaseSelector):
         if z.shape[0] == 1:
             # single preferred solution
             # calculate new reference vectors
-            self.reference_vectors = translation_param * self.reference_vectors_initial + ((1 - translation_param) * z)
+            self.reference_vectors = (
+                translation_param * self.reference_vectors_initial
+                + ((1 - translation_param) * z)
+            )
 
         else:
             # multiple preferred solutions
             # calculate new reference vectors for each preferred solution
-            values = [translation_param * self.reference_vectors_initial + ((1 - translation_param) * z_i) for z_i in z]
+            values = [
+                translation_param * self.reference_vectors_initial
+                + ((1 - translation_param) * z_i)
+                for z_i in z
+            ]
 
             # combine arrays of reference vectors into a single array and update reference vectors
             self.reference_vectors = np.concatenate(values)
@@ -385,6 +520,23 @@ class BaseDecompositionSelector(BaseSelector):
         self.reference_vectors = np.vstack([self.reference_vectors, edge_vectors])
         self._normalize_rvs()
 
+    def interactive_adapt_custom_rp(self, ref_point, translation_param):
+
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def interactive_adapt_custom_preferred_solution(
+        self, z: np.ndarray, translation_param: float
+    ) -> None:
+
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
+    def interactive_adapt_custom_ranges(self, preferred_ranges: np.ndarray):
+
+        self._normalize_rvs()
+        self.add_edge_vectors()
+
 
 class ParameterAdaptationStrategy(Enum):
     """The parameter adaptation strategies for the RVEA selector."""
@@ -428,9 +580,13 @@ class RVEASelector(BaseDecompositionSelector):
         reference_vector_options: ReferenceVectorOptions | None = None,
     ):
         if not isinstance(parameter_adaptation_strategy, ParameterAdaptationStrategy):
-            raise TypeError(f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}")
+            raise TypeError(
+                f"Parameter adaptation strategy must be of Type {type(ParameterAdaptationStrategy)}"
+            )
         if parameter_adaptation_strategy == ParameterAdaptationStrategy.OTHER:
-            raise ValueError("Other parameter adaptation strategies are not yet implemented.")
+            raise ValueError(
+                "Other parameter adaptation strategies are not yet implemented."
+            )
 
         if reference_vector_options is None:
             reference_vector_options = ReferenceVectorOptions(
@@ -441,7 +597,10 @@ class RVEASelector(BaseDecompositionSelector):
             )
 
         super().__init__(
-            problem=problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem=problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
         )
 
         self.reference_vectors_gamma: np.ndarray
@@ -471,12 +630,16 @@ class RVEASelector(BaseDecompositionSelector):
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
                 targets, and constraint violations.
         """
-        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+        if isinstance(parents[0], pl.DataFrame) and isinstance(
+            offsprings[0], pl.DataFrame
+        ):
             solutions = parents[0].vstack(offsprings[0])
         elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
             solutions = parents[0] + offsprings[0]
         else:
-            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+            raise TypeError(
+                "The decision variables must be either a list or a polars DataFrame, not both"
+            )
         if len(parents[0]) == 0:
             raise RuntimeError(
                 "The parents population is empty. Cannot perform selection. This is a known unresolved issue."
@@ -487,13 +650,17 @@ class RVEASelector(BaseDecompositionSelector):
             constraints = None
         else:
             constraints = (
-                parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
+                parents[1][self.constraints_symbols]
+                .vstack(offsprings[1][self.constraints_symbols])
+                .to_numpy()
             )
 
         if self.ideal is None:
             self.ideal = np.min(targets, axis=0)
         else:
-            self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
+            self.ideal = np.min(
+                np.vstack((self.ideal, np.min(targets, axis=0))), axis=0
+            )
         partial_penalty_factor = self._partial_penalty_factor()
         self._adapt()
 
@@ -503,11 +670,15 @@ class RVEASelector(BaseDecompositionSelector):
         targets_norm = np.linalg.norm(translated_targets, axis=1)
         # TODO check if you need the next line
         # TODO changing the order of the following few operations might be efficient
-        targets_norm = np.repeat(targets_norm, len(translated_targets[0, :])).reshape(translated_targets.shape)
+        targets_norm = np.repeat(targets_norm, len(translated_targets[0, :])).reshape(
+            translated_targets.shape
+        )
         # Convert zeros to eps to avoid divide by zero.
         # Has to be checked!
         targets_norm[targets_norm == 0] = np.finfo(float).eps
-        normalized_targets = np.divide(translated_targets, targets_norm)  # Checked, works.
+        normalized_targets = np.divide(
+            translated_targets, targets_norm
+        )  # Checked, works.
         cosine = np.dot(normalized_targets, np.transpose(ref_vectors))
         if cosine[np.where(cosine > 1)].size:
             cosine[np.where(cosine > 1)] = 1
@@ -523,7 +694,9 @@ class RVEASelector(BaseDecompositionSelector):
         # Has to be checked!
         ref_vectors[ref_vectors == 0] = np.finfo(float).eps
         for i in range(len(ref_vectors)):
-            sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == i)))
+            sub_population_index = np.atleast_1d(
+                np.squeeze(np.where(assigned_vectors == i))
+            )
 
             # Constraint check
             if len(sub_population_index) > 1 and constraints is not None:
@@ -536,7 +709,9 @@ class RVEASelector(BaseDecompositionSelector):
                 # Case when entire subpopulation is infeasible
                 if not feasible_bool.any():
                     violation_values = violation_values.sum(axis=1)
-                    sub_population_index = sub_population_index[np.where(violation_values == violation_values.min())]
+                    sub_population_index = sub_population_index[
+                        np.where(violation_values == violation_values.min())
+                    ]
                 # Case when only some are infeasible
                 else:
                     sub_population_index = sub_population_index[feasible_bool]
@@ -552,10 +727,14 @@ class RVEASelector(BaseDecompositionSelector):
             elif len(sub_population_index) > 1:
                 # APD Calculation
                 angles = theta[sub_population_index, i]
-                angles = np.divide(angles, self.reference_vectors_gamma[i])  # This is correct.
+                angles = np.divide(
+                    angles, self.reference_vectors_gamma[i]
+                )  # This is correct.
                 # You have done this calculation before. Check with fitness_norm
                 # Remove this horrible line
-                sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
+                sub_pop_fitness_magnitude = np.sqrt(
+                    np.sum(np.power(sub_population_fitness, 2), axis=1)
+                )
                 apd = np.multiply(
                     np.transpose(sub_pop_fitness_magnitude),
                     (1 + np.dot(partial_penalty_factor, angles)),
@@ -585,7 +764,9 @@ class RVEASelector(BaseDecompositionSelector):
             float: The partial penalty factor
         """
         if self.numerator is None or self.denominator is None or self.denominator == 0:
-            raise RuntimeError("Numerator and denominator must be set before calculating the partial penalty factor.")
+            raise RuntimeError(
+                "Numerator and denominator must be set before calculating the partial penalty factor."
+            )
         penalty = self.numerator / self.denominator
         penalty = float(np.clip(penalty, 0, 1))
         self.penalty = (penalty**self.alpha) * self.reference_vectors.shape[1]
@@ -602,12 +783,18 @@ class RVEASelector(BaseDecompositionSelector):
             return
         if not isinstance(message.value, int):
             return
-        if self.parameter_adaptation_strategy == ParameterAdaptationStrategy.GENERATION_BASED:
+        if (
+            self.parameter_adaptation_strategy
+            == ParameterAdaptationStrategy.GENERATION_BASED
+        ):
             if message.topic == TerminatorMessageTopics.GENERATION:
                 self.numerator = message.value
             if message.topic == TerminatorMessageTopics.MAX_GENERATIONS:
                 self.denominator = message.value
-        elif self.parameter_adaptation_strategy == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED:
+        elif (
+            self.parameter_adaptation_strategy
+            == ParameterAdaptationStrategy.FUNCTION_EVALUATION_BASED
+        ):
             if message.topic == TerminatorMessageTopics.EVALUATION:
                 self.numerator = message.value
             if message.topic == TerminatorMessageTopics.MAX_EVALUATIONS:
@@ -637,11 +824,16 @@ class RVEASelector(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=pl.concat(
+                    [self.selected_individuals, self.selected_targets], how="horizontal"
+                ),
                 source=self.__class__.__name__,
             )
         else:
-            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            warnings.warn(
+                "Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.",
+                stacklevel=2,
+            )
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
                 value=self.selected_targets,
@@ -675,16 +867,24 @@ class RVEASelector(BaseDecompositionSelector):
         self.adapted_reference_vectors = self.reference_vectors
         if self.ideal is not None and self.nadir is not None:
             for i in range(self.reference_vectors.shape[0]):
-                self.adapted_reference_vectors[i] = self.reference_vectors[i] * (self.nadir - self.ideal)
+                self.adapted_reference_vectors[i] = self.reference_vectors[i] * (
+                    self.nadir - self.ideal
+                )
         self.adapted_reference_vectors = (
-            self.adapted_reference_vectors / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
+            self.adapted_reference_vectors
+            / np.linalg.norm(self.adapted_reference_vectors, axis=1)[:, None]
         )
 
         # More efficient way to calculate the gamma values
         self.reference_vectors_gamma = np.arccos(
-            np.dot(self.adapted_reference_vectors, np.transpose(self.adapted_reference_vectors))
+            np.dot(
+                self.adapted_reference_vectors,
+                np.transpose(self.adapted_reference_vectors),
+            )
         )
-        self.reference_vectors_gamma[np.where(self.reference_vectors_gamma == 0)] = np.inf
+        self.reference_vectors_gamma[np.where(self.reference_vectors_gamma == 0)] = (
+            np.inf
+        )
         self.reference_vectors_gamma = np.min(self.reference_vectors_gamma, axis=1)
 
 
@@ -733,7 +933,10 @@ class NSGAIII_select(BaseDecompositionSelector):
                 number_of_vectors=500,
             )
         super().__init__(
-            problem, reference_vector_options=reference_vector_options, verbosity=verbosity, publisher=publisher
+            problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
         )
         self.adapted_reference_vectors = None
         self.worst_fitness: np.ndarray | None = None
@@ -760,26 +963,34 @@ class NSGAIII_select(BaseDecompositionSelector):
             tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
                 targets, and constraint violations.
         """
-        if isinstance(parents[0], pl.DataFrame) and isinstance(offsprings[0], pl.DataFrame):
+        if isinstance(parents[0], pl.DataFrame) and isinstance(
+            offsprings[0], pl.DataFrame
+        ):
             solutions = parents[0].vstack(offsprings[0])
         elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
             solutions = parents[0] + offsprings[0]
         else:
-            raise TypeError("The decision variables must be either a list or a polars DataFrame, not both")
+            raise TypeError(
+                "The decision variables must be either a list or a polars DataFrame, not both"
+            )
         alltargets = parents[1].vstack(offsprings[1])
         targets = alltargets[self.target_symbols].to_numpy()
         if self.constraints_symbols is None:
             constraints = None
         else:
             constraints = (
-                parents[1][self.constraints_symbols].vstack(offsprings[1][self.constraints_symbols]).to_numpy()
+                parents[1][self.constraints_symbols]
+                .vstack(offsprings[1][self.constraints_symbols])
+                .to_numpy()
             )
         ref_dirs = self.reference_vectors
 
         if self.ideal is None:
             self.ideal = np.min(targets, axis=0)
         else:
-            self.ideal = np.min(np.vstack((self.ideal, np.min(targets, axis=0))), axis=0)
+            self.ideal = np.min(
+                np.vstack((self.ideal, np.min(targets, axis=0))), axis=0
+            )
         fitness = targets
         # Calculating fronts and ranks
         # fronts, dl, dc, rank = nds(fitness)
@@ -790,7 +1001,9 @@ class NSGAIII_select(BaseDecompositionSelector):
         if self.worst_fitness is None:
             self.worst_fitness = np.max(fitness, axis=0)
         else:
-            self.worst_fitness = np.amax(np.vstack((self.worst_fitness, fitness)), axis=0)
+            self.worst_fitness = np.amax(
+                np.vstack((self.worst_fitness, fitness)), axis=0
+            )
 
         # Calculating worst points
         worst_of_population = np.amax(fitness, axis=0)
@@ -821,7 +1034,9 @@ class NSGAIII_select(BaseDecompositionSelector):
 
         # Selecting individuals from the last acceptable front.
         if len(selection) > self.n_survive:
-            niche_of_individuals, dist_to_niche = self.associate_to_niches(F, ref_dirs, self.ideal, nadir_point)
+            niche_of_individuals, dist_to_niche = self.associate_to_niches(
+                F, ref_dirs, self.ideal, nadir_point
+            )
             # if there is only one front
             if len(fronts) == 1:
                 n_remaining = self.n_survive
@@ -832,7 +1047,9 @@ class NSGAIII_select(BaseDecompositionSelector):
             else:
                 until_last_front = np.concatenate(fronts[:-1])
                 id_until_last_front = list(range(len(until_last_front)))
-                niche_count = self.calc_niche_count(len(ref_dirs), niche_of_individuals[id_until_last_front])
+                niche_count = self.calc_niche_count(
+                    len(ref_dirs), niche_of_individuals[id_until_last_front]
+                )
                 n_remaining = self.n_survive - len(until_last_front)
 
             last_front_selection_id = list(range(len(until_last_front), len(selection)))
@@ -845,7 +1062,9 @@ class NSGAIII_select(BaseDecompositionSelector):
                 niche_of_individuals[last_front_selection_id],
                 dist_to_niche[last_front_selection_id],
             )
-            final_selection = np.concatenate((until_last_front, last_front[selected_from_last_front]))
+            final_selection = np.concatenate(
+                (until_last_front, last_front[selected_from_last_front])
+            )
             if self.extreme_points is None:
                 print("Error")
             if final_selection is None:
@@ -905,7 +1124,11 @@ class NSGAIII_select(BaseDecompositionSelector):
 
             nadir_point = ideal_point + intercepts
 
-            if not np.allclose(np.dot(M, plane), b) or np.any(intercepts <= 1e-6) or np.any(nadir_point > worst_point):
+            if (
+                not np.allclose(np.dot(M, plane), b)
+                or np.any(intercepts <= 1e-6)
+                or np.any(nadir_point > worst_point)
+            ):
                 raise LinAlgError()
 
         except LinAlgError:
@@ -932,7 +1155,9 @@ class NSGAIII_select(BaseDecompositionSelector):
             next_niche = next_niche[np.random.randint(0, len(next_niche))]
 
             # indices of individuals that are considered and assign to next_niche
-            next_ind = np.where(np.logical_and(niche_of_individuals == next_niche, mask))[0]
+            next_ind = np.where(
+                np.logical_and(niche_of_individuals == next_niche, mask)
+            )[0]
 
             # shuffle to break random tie (equal perp. dist) or select randomly
             np.random.shuffle(next_ind)
@@ -950,7 +1175,9 @@ class NSGAIII_select(BaseDecompositionSelector):
 
         return survivors
 
-    def associate_to_niches(self, F, ref_dirs, ideal_point, nadir_point, utopian_epsilon=0.0):
+    def associate_to_niches(
+        self, F, ref_dirs, ideal_point, nadir_point, utopian_epsilon=0.0
+    ):
         utopian_point = ideal_point - utopian_epsilon
 
         denom = nadir_point - utopian_point
@@ -985,7 +1212,11 @@ class NSGAIII_select(BaseDecompositionSelector):
         return matrix
 
     def state(self) -> Sequence[Message]:
-        if self.verbosity == 0 or self.selection is None or self.selected_targets is None:
+        if (
+            self.verbosity == 0
+            or self.selection is None
+            or self.selected_targets is None
+        ):
             return []
         if self.verbosity == 1:
             return [
@@ -1009,11 +1240,16 @@ class NSGAIII_select(BaseDecompositionSelector):
         if isinstance(self.selected_individuals, pl.DataFrame):
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
-                value=pl.concat([self.selected_individuals, self.selected_targets], how="horizontal"),
+                value=pl.concat(
+                    [self.selected_individuals, self.selected_targets], how="horizontal"
+                ),
                 source=self.__class__.__name__,
             )
         else:
-            warnings.warn("Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.", stacklevel=2)
+            warnings.warn(
+                "Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.",
+                stacklevel=2,
+            )
             message = PolarsDataFrameMessage(
                 topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
                 value=self.selected_targets,
@@ -1046,3 +1282,174 @@ class NSGAIII_select(BaseDecompositionSelector):
 
     def update(self, message: Message) -> None:
         pass
+
+
+class RNSGAIII_select(NSGAIII_select):
+    """The RNSGA-III selection operator. Code is heavily based on the version of nsga3 in the pymoo package by msu-coinlab.
+
+    Parameters
+    ----------
+    pop : Population
+        [description]
+    n_survive : int, optional
+        [description], by default None
+
+    """
+
+    def __init__(
+        self,
+        reference_points: np.ndarray,
+        aspiration_ref_dirs: np.ndarray,
+        mu=0.1,
+    ):
+        super().__init__()
+        self.reference_points = reference_points
+        self.aspiration_ref_dirs = aspiration_ref_dirs
+        self.mu = mu
+
+    def do(
+        self,
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if isinstance(parents[0], pl.DataFrame) and isinstance(
+            offsprings[0], pl.DataFrame
+        ):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError(
+                "The decision variables must be either a list or a polars DataFrame, not both"
+            )
+        alltargets = parents[1].vstack(offsprings[1])
+        targets = alltargets[self.target_symbols].to_numpy()
+        if self.constraints_symbols is None:
+            constraints = None
+        else:
+            constraints = (
+                parents[1][self.constraints_symbols]
+                .vstack(offsprings[1][self.constraints_symbols])
+                .to_numpy()
+            )
+        # ref_dirs = self.reference_vectors
+
+        if self.ideal is None:
+            self.ideal = np.min(targets, axis=0)
+        else:
+            self.ideal = np.min(
+                np.vstack((self.ideal, np.min(targets, axis=0))), axis=0
+            )
+        fitness = targets
+        # Calculating fronts and ranks
+        # fronts, dl, dc, rank = nds(fitness)
+        fronts = fast_non_dominated_sort(fitness)
+        fronts = [np.where(fronts[i])[0] for i in range(len(fronts))]
+        non_dominated = fronts[0]
+
+        if self.worst_fitness is None:
+            self.worst_fitness = np.max(fitness, axis=0)
+        else:
+            self.worst_fitness = np.amax(
+                np.vstack((self.worst_fitness, fitness)), axis=0
+            )
+
+        # Calculating worst points
+        worst_of_population = np.amax(fitness, axis=0)
+        worst_of_front = np.max(fitness[non_dominated, :], axis=0)
+        self.extreme_points = self.get_extreme_points_c(
+            fitness[non_dominated, :], self.ideal, extreme_points=self.extreme_points
+        )
+        self.nadir_point = nadir_point = self.get_nadir_point(
+            self.extreme_points,
+            self.ideal,
+            self.worst_fitness,
+            worst_of_population,
+            worst_of_front,
+        )
+
+        # Finding individuals in first 'n' fronts
+        selection = np.asarray([], dtype=int)
+        for front_id in range(len(fronts)):
+            if len(np.concatenate(fronts[: front_id + 1])) < self.n_survive:
+                continue
+            else:
+                fronts = fronts[: front_id + 1]
+                selection = np.concatenate(fronts)
+                break
+        F = fitness[selection]
+
+        last_front = fronts[-1]
+
+        unit_ref_points = (self.reference_points - self.ideal) / (
+            self.nadir_point - self.ideal
+        )
+        ref_dirs = get_ref_dirs_from_points(
+            unit_ref_points, self.aspiration_ref_dirs, mu=self.mu
+        )
+
+        ref_dirs = denormalize(ref_dirs, self.ideal, self.nadir_point)
+
+        # Selecting individuals from the last acceptable front.
+        if len(selection) > self.n_survive:
+            niche_of_individuals, dist_to_niche = self.associate_to_niches(
+                F, ref_dirs, self.ideal, nadir_point
+            )
+            # if there is only one front
+            if len(fronts) == 1:
+                n_remaining = self.n_survive
+                until_last_front = np.array([], dtype=int)
+                niche_count = np.zeros(len(ref_dirs), dtype=int)
+
+            # if some individuals already survived
+            else:
+                until_last_front = np.concatenate(fronts[:-1])
+                id_until_last_front = list(range(len(until_last_front)))
+                niche_count = self.calc_niche_count(
+                    len(ref_dirs), niche_of_individuals[id_until_last_front]
+                )
+                n_remaining = self.n_survive - len(until_last_front)
+
+            last_front_selection_id = list(range(len(until_last_front), len(selection)))
+            if np.any(selection[last_front_selection_id] != last_front):
+                print("error!!!")
+            selected_from_last_front = self.niching(
+                fitness[last_front, :],
+                n_remaining,
+                niche_count,
+                niche_of_individuals[last_front_selection_id],
+                dist_to_niche[last_front_selection_id],
+            )
+            final_selection = np.concatenate(
+                (until_last_front, last_front[selected_from_last_front])
+            )
+            if self.extreme_points is None:
+                print("Error")
+            if final_selection is None:
+                print("Error")
+        else:
+            final_selection = selection
+
+        self.selection = final_selection.tolist()
+        if isinstance(solutions, pl.DataFrame) and self.selection is not None:
+            self.selected_individuals = solutions[self.selection]
+        elif isinstance(solutions, list) and self.selection is not None:
+            self.selected_individuals = [solutions[i] for i in self.selection]
+        else:
+            raise RuntimeError("Something went wrong with the selection")
+        self.selected_targets = alltargets[self.selection]
+
+        self.notify()
+        return self.selected_individuals, self.selected_targets
