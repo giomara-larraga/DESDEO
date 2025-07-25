@@ -31,6 +31,9 @@ __all__ = [
     "ProblemInfoSmall",
     "ReferencePoint",
     "RPMSolveRequest",
+    "RPMExplainRequest",
+    "RPMExplanationResponse",
+    "ExplainerCacheDB",
     "RPMBaseState",
     "RPMState",
     "ScalarizationFunctionDB",
@@ -56,6 +59,7 @@ __all__ = [
     "UtopiaRequest",
     "UtopiaResponse",
     "ProblemMetaDataGetRequest",
+    "RXIMOSolveRequest",
 ]
 
 from .archive import UserSavedSolutionBase, UserSavedSolutionDB
@@ -97,7 +101,12 @@ from .problem import (
     ProblemMetaDataGetRequest,
 )
 from .utopia import UtopiaRequest, UtopiaResponse
-from .reference_point_method import RPMSolveRequest
+from .reference_point_method import (
+    RPMSolveRequest,
+    RPMExplainRequest,
+    RPMExplanationResponse,
+)
+from .explainer_cache import ExplainerCacheDB
 from .EMO import EMOSolveRequest
 
 from .session import (
@@ -118,6 +127,5 @@ from .state import (
     StateDB,
     EMOSaveState,
     EMOState,
-    BaseEMOState,
 )
 from .user import User, UserBase, UserPublic, UserRole
