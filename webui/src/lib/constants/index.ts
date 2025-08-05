@@ -15,3 +15,9 @@ export const PREFERENCE_TYPES = {
 };
 
 export const SIGNIFICANT_DIGITS = 2;
+
+export const 	TYPE_SOLUTIONS_TO_SHOW = [
+		{ value: 'current', label: 'Current solutions' },
+		{ value: 'best', label: 'Best solutions' },
+		{ value: 'all', label: 'All solutions' }
+];

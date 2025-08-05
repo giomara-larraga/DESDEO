@@ -31,7 +31,6 @@
 	import { methodSelection } from '../../../stores/methodSelection';
 	import type { components } from '$lib/api/client-types';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api/client';
 	import Table from '$lib/components/ui/table/table.svelte';
 	import TableBody from '$lib/components/ui/table/table-body.svelte';
 	import TableRow from '$lib/components/ui/table/table-row.svelte';
@@ -165,9 +164,9 @@
 						{} as Record<string, number>
 					)
 				},
-				scalarization_options: {},
-				solver: 'scipy',
-				solver_options: {}
+				scalarization_options: null,
+				solver: null,
+				solver_options: null
 			};
 
 			// Call the server-side endpoint which proxies to the backend API
@@ -314,9 +313,9 @@
 				typePreferences={PREFERENCE_TYPES.ReferencePoint}
 				preferenceValues={current_reference_point}
 				objectiveValues={Object.values(selected_objectives)}
-				isIterationAllowed={false}
 				isFinishAllowed={false}
 				onPreferenceChange={handle_preference_change}
+				onIterate={solve_rpm}
 			/>
 		{/if}
 	{/snippet}

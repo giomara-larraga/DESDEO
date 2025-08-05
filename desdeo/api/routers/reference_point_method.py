@@ -22,6 +22,7 @@ from desdeo.api.explainers import ExplainerRXIMO
 from desdeo.mcdm import rpm_solve_solutions
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.utils import available_solvers
 
 router = APIRouter(prefix="/method/rpm")
 
@@ -68,12 +69,23 @@ def solve_solutions(
 
     problem = Problem.from_problemdb(problem_db)
 
+    # Convert solver string to solver constructor if provided
+    solver_constructor = None
+    if request.solver is not None:
+        if request.solver in available_solvers:
+            solver_constructor = available_solvers[request.solver]["constructor"]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Solver '{request.solver}' is not available. Available solvers: {list(available_solvers.keys())}",
+            )
+
     # optimize for solutions
     solver_results: list[SolverResults] = rpm_solve_solutions(
         problem,
         request.preference.aspiration_levels,
         request.scalarization_options,
-        request.solver,
+        solver_constructor,
         request.solver_options,
     )
 

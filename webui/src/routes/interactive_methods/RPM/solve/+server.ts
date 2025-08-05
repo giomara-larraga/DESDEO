@@ -10,27 +10,13 @@
  * - Forwards the request to the backend DESDEO API
  * - Returns the optimization results to the frontend
  * 
- * Author: AI Assistant
- * Created: July 2025
  */
 
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from '@sveltejs/kit';
-import createClient from 'openapi-fetch';
-import type { paths } from '$lib/api/client-types';
+import type { RequestHandler } from './$types';
+import { serverApi as api } from '$lib/api/client';
 import type { components } from '$lib/api/client-types';
 
-/**
- * Create a server-side API client for communicating with the DESDEO backend.
- * 
- * This is separate from the frontend API client because:
- * - Server-side code doesn't have access to VITE_ environment variables
- * - Uses regular NODE_ENV variables (API_URL instead of VITE_API_URL)
- * - Runs in Node.js context, not browser context
- */
-const serverApi = createClient<paths>({
-  baseUrl: process.env.API_URL || 'http://localhost:8000' // Default to localhost if API_URL not set
-});
 
 // Type definitions from the OpenAPI schema
 type RPMSolveRequest = components['schemas']['RPMSolveRequest'];
@@ -60,36 +46,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
     // Parse the incoming RPM solve request from the frontend
     const solveRequest: RPMSolveRequest = await request.json();
-    
-    // Debug logging: Log the received request for troubleshooting
-    console.log('Received RPM solve request:', JSON.stringify(solveRequest, null, 2));
-    console.log('Making API call to /method/rpm/solve');
-
-    /**
-     * Forward the request to the backend DESDEO API
-     * 
-     * Process:
-     * - Uses the server-side API client (serverApi)
-     * - Includes authentication via Bearer token (refresh token)
-     * - Sends the solve request as JSON payload
-     */
-    const response = await serverApi.POST('/method/rpm/solve', {
+    const response = await api.POST('/method/rpm/solve', {
       body: solveRequest,
       headers: {
-        'Authorization': `Bearer ${refreshToken}`, // Authenticate with refresh token
+        'Authorization': `Bearer ${refreshToken}`, 
         'Content-Type': 'application/json'
       }
     });
 
-    // Debug logging: Log the API response details
-    console.log('API response status:', response.response?.status);
-    console.log('API response data:', response.data);
-    console.log('API response error:', response.error);
-
-    /**
-     * Handle API response errors
-     * If the backend API didn't return data, it indicates an error occurred
-     */
     if (!response.data) {
       console.error('No data in response:', {
         status: response.response?.status,
@@ -116,7 +80,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
      * - scalarization_options: Options used for scalarization
      * - Other metadata about the optimization run
      */
-    console.log('Returning successful response');
     return json({
       success: true,
       data: response.data as RPMState,
@@ -143,7 +106,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         name: errorName
     });
     
-    // Return generic server error to frontend (don't expose internal details)
+    // Return generic server error to frontend
     return json({ 
         error: 'Server error',
         details: errorMessage,
@@ -151,13 +114,3 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     }, { status: 500 });
   }
 };
-
-/**
- * Flow Summary:
- * 1. Frontend sends POST request to /interactive_methods/RPM/solve
- * 2. Server checks for valid refresh token in cookies
- * 3. Server parses RPMSolveRequest from request body
- * 4. Server forwards request to DESDEO backend API with authentication
- * 5. Server receives RPMState response from backend
- * 6. Server returns processed response to frontend
- */
