@@ -90,7 +90,7 @@
 	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
-	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { PREFERENCE_TYPES, TYPE_SOLUTIONS_SHOWN } from '$lib/constants';
 	
 	// Utility functions
 	import { 
@@ -130,11 +130,7 @@
 	let problem_list = data.problems ?? [];
 	// user can choose from three types of solutions: current, best, or all
 	let selected_type_solutions = $state('current');
-	const frameworks = [
-		{ value: 'current', label: 'Current solutions' },
-		{ value: 'best', label: 'Best candidate solutions' },
-		{ value: 'all', label: 'All solutions' }
-	];
+
 
 	let chosen_solutions = $derived.by(() => {
 	if (!current_state) return [];
@@ -153,7 +149,7 @@
 	
 	// Get the label for the selected solution type from frameworks
 	let selected_type_solutions_label = $derived.by(() => {
-		const framework = frameworks.find(f => f.value === selected_type_solutions);
+		const framework = TYPE_SOLUTIONS_SHOWN.find(f => f.value === selected_type_solutions);
 		return framework ? framework.label : "Solutions";
 	});
 	// variables for handling different modes (iteration, intermediate, save, finish)
@@ -697,8 +693,8 @@
 
 
 {#if mode === "final"}
-	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
-		{#snippet visualizationArea()}
+	<BaseLayout showLeftSidebar={false} showRightSidebar={false}>
+		{#snippet topPanel()}
 			{#if problem && selected_iteration_index.length > 0}
 				<!-- Resizable layout for visualizations -->
 				<div class="h-full">
@@ -744,7 +740,7 @@
 				</div>
 			{/if}
 		{/snippet}
-		{#snippet numericalValues()}
+		{#snippet bottomPanel()}
 			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
 				<SolutionTable
 					{problem}
@@ -761,9 +757,8 @@
 		{/snippet}
 	</BaseLayout>
 {:else}
-	<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false} bottomPanelTitle={selected_type_solutions_label}>
+	<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false}>
 		{#snippet leftSidebar()}
-
 			{#if problem && mode==="iterate"}
 				<AppSidebar
 					{problem}
@@ -794,7 +789,7 @@
 			{/if}
 		{/snippet}
 
-		{#snippet explorerControls()}
+		{#snippet menuRow()}
 			<SegmentedControl
 				bind:value={mode}
 				options={[
@@ -805,7 +800,7 @@
 			/>
 			<span>View: </span>
 			<Combobox
-			options={frameworks}
+			options={TYPE_SOLUTIONS_SHOWN}
 			defaultSelected={selected_type_solutions}
 			onChange={handle_type_solutions_change}
 			/>
@@ -826,7 +821,7 @@
 
 		{/snippet}
 
-		{#snippet visualizationArea()}
+		{#snippet topPanel()}
 			{#if problem && current_state }
 				<!-- Resizable layout for visualizations side by side -->
 				<div class="h-full">
@@ -875,7 +870,7 @@
 				</div>
 			{/if}
 		{/snippet}
-		{#snippet numericalValues()}
+		{#snippet bottomPanel()}
 			{#if problem && chosen_solutions.length > 0}
 				<SolutionTable
 				{problem}

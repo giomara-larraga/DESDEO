@@ -26,11 +26,8 @@
  * Returns standardized JSON responses with success/error fields and appropriate HTTP status codes.
  */
 import { json } from '@sveltejs/kit';
-import { serverApi as api } from '$lib/api/client';
 import type { RequestHandler } from './$types';
 import { postMethodApi } from '$lib/api/posts';
-
-
 
 export const POST: RequestHandler = async ({ url, request, cookies }) => {
     try {

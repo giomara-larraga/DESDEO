@@ -585,7 +585,7 @@
 		{/if}
 	{/snippet}
 
-	{#snippet explorerControls()}
+	{#snippet menuRow()}
 		<span>View: </span>
 		<Combobox
 			options={type_solutions_to_visualize}
@@ -595,7 +595,7 @@
 	{/snippet}
 
 	<!-- This container will flex to fill available space -->
-	{#snippet visualizationArea()}
+	{#snippet topPanel()}
 		{#if problem}
 			<VisualizationsPanel
 				{problem}
@@ -619,7 +619,7 @@
 			</div>
 		{/if}
 	{/snippet}
-	{#snippet numericalValues()}
+	{#snippet bottomPanel()}
 		<div class="space-y-4">
 			<div>Table of solutions</div>
 
@@ -676,11 +676,6 @@
 				</div>
 			</div>
 		</div>
-	{/snippet}
-
-	{#snippet savedSolutions()}
-		<!-- TODO: Implement saved solutions functionality -->
-		Visualize saved solutions
 	{/snippet}
 
 	{#snippet rightSidebar()}
