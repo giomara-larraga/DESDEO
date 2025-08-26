@@ -29,6 +29,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { postMethodApi } from '$lib/api/posts';
 
+
+
 export const POST: RequestHandler = async ({ url, request, cookies }) => {
     try {
         const body = await request.json();
