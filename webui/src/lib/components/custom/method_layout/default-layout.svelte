@@ -1,42 +1,101 @@
 <script lang="ts">
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
+	import { SegmentedControl } from '$lib/components/custom/segmented-control';
+	import { Combobox } from '$lib/components/ui/combobox';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import type { MethodHandlers } from '$lib/helpers/method-handler';
+	import type { components } from '$lib/api/client-types';
+	import { TYPE_SOLUTIONS_SHOWN } from '$lib/constants/index.js';
+	type Solution = components['schemas']['UserSavedSolutionAddress'];
 
-  const showLeftSidebar = true;
-  const showRightSidebar = true;
+	export let handlers: MethodHandlers;
+	export let mode: 'iterate' | 'final' | 'intermediate' = 'iterate';
+	export let problem: any;
+	export let selectedSolutions: Solution[] = [];
+	export let selectedIndexes: number[] = [];
+	export let solutionType: string = 'current';
+	export let allowIntermediate: boolean = true;
+
+	// Pass through slots for custom visualization components
+	export let visualizationComponent: any;
+	export let sidebarComponent: any;
+	export let tableComponent: any;
+
+	function handleTypeChange(event: { value: string }) {
+		// Type guard to ensure value is a valid SolutionViewType
+		if (event.value === 'current' || event.value === 'best' || event.value === 'all') {
+			handlers.handleSolutionTypeChange(event.value);
+		}
+	}
 </script>
 
-<BaseLayout {showLeftSidebar} {showRightSidebar}>
-  <!-- Left Sidebar Content -->
-  {#snippet leftSidebar()}
-    <h2 class="font-bold">Preference information</h2>
-    <ul>
-      <li>Objective 1</li>
-      <li>Objective 2</li>
-    </ul>
-  {/snippet}
+<BaseLayout showLeftSidebar={!!problem} showRightSidebar={false}>
+	{#snippet leftSidebar()}
+		{#if problem && mode === 'iterate'}
+			<svelte:component
+				this={sidebarComponent}
+				{problem}
+				onPreferenceChange={handlers.handlePreferenceChange}
+				onIterate={handlers.handleIterate}
+			/>
+		{/if}
+	{/snippet}
 
-  <!-- Menu Row -->
-  {#snippet menuRow()}
-    <button class="bg-gray-200 px-2 py-1 rounded">Intermediate solutions</button>
-    <button class="bg-gray-200 px-2 py-1 rounded">View options</button>
-    <button class="bg-red-500 px-2 py-1 rounded">Finish</button>
-  {/snippet}
+	{#snippet menuRow()}
+		{#if allowIntermediate}
+			<SegmentedControl
+				bind:value={mode}
+				options={[
+					{ value: 'iterate', label: 'Iterate' },
+					{ value: 'intermediate', label: 'Find intermediate' }
+				]}
+				class="mr-10"
+			/>
+		{/if}
 
-  <!-- Main Panel -->
-  {#snippet topPanel()}
-    <h1 class="text-xl font-bold">Main Area</h1>
-    <p>This is where the visualizations would go.</p>
-  {/snippet}
+		<span>View: </span>
+		<Combobox
+			options={TYPE_SOLUTIONS_SHOWN}
+			defaultSelected={solutionType}
+			onChange={handleTypeChange}
+		/>
 
-  <!-- Bottom Panel -->
-  {#snippet bottomPanel()}
-    <h3 class="font-semibold">Numerical values</h3>
-    <pre>A table willbe shown here</pre>
-  {/snippet}
+		<span
+			class="inline-block"
+			title={selectedIndexes.length !== 1
+				? 'Please select exactly one solution to finish with it.'
+				: 'Select final solution and finish'}
+		>
+			<Button
+				onclick={() =>
+					selectedIndexes.length === 1 &&
+					handlers.handleFinish(selectedSolutions[0], selectedIndexes[0])}
+				disabled={selectedIndexes.length !== 1}
+				variant="destructive"
+				class="ml-10"
+			>
+				Finish
+			</Button>
+		</span>
+	{/snippet}
 
-  <!-- Right Sidebar -->
-  {#snippet rightSidebar()}
-    <h2 class="font-bold">Explanations</h2>
-    <p>Selected solution details...</p>
-  {/snippet}
+	{#snippet topPanel()}
+		<svelte:component
+			this={visualizationComponent}
+			{problem}
+			{selectedSolutions}
+			{selectedIndexes}
+		/>
+	{/snippet}
+
+	{#snippet bottomPanel()}
+		<svelte:component
+			this={tableComponent}
+			{problem}
+			{selectedSolutions}
+			{selectedIndexes}
+			onSave={handlers.handleSave}
+			onRemove={handlers.handleRemove}
+		/>
+	{/snippet}
 </BaseLayout>

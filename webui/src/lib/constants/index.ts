@@ -21,4 +21,4 @@ export const TYPE_SOLUTIONS_SHOWN = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best candidate solutions' },
 		{ value: 'all', label: 'All solutions' }
-];
+	];
