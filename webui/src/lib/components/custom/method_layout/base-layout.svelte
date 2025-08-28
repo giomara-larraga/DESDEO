@@ -34,7 +34,7 @@
 
     <!-- Left Sidebar -->
     {#if showLeftSidebar}
-      <Resizable.Pane defaultSize={horizontalSizes[0]} minSize={10}>
+      <Resizable.Pane defaultSize={horizontalSizes[0]} minSize={0}>
         {#if leftSidebar}
           {@render leftSidebar()}
         {/if}
@@ -94,7 +94,7 @@
     {#if showRightSidebar}
   <Resizable.Handle withHandle />
 
-      <Resizable.Pane defaultSize={horizontalSizes[horizontalSizes.length - 1]} minSize={15}>
+      <Resizable.Pane defaultSize={horizontalSizes[horizontalSizes.length - 1]} minSize={0}>
         {#if rightSidebar}
           {@render rightSidebar()}
         {/if}

@@ -8,34 +8,35 @@
 <BaseLayout {showLeftSidebar} {showRightSidebar}>
   <!-- Left Sidebar Content -->
   {#snippet leftSidebar()}
-    <h2 class="font-bold">Project Explorer</h2>
+    <h2 class="font-bold">Preference information</h2>
     <ul>
-      <li>File1.svelte</li>
-      <li>File2.ts</li>
+      <li>Objective 1</li>
+      <li>Objective 2</li>
     </ul>
   {/snippet}
 
   <!-- Menu Row -->
   {#snippet menuRow()}
-    <button class="bg-blue-500 text-white px-2 py-1 rounded">Run</button>
-    <button class="bg-gray-200 px-2 py-1 rounded">Settings</button>
+    <button class="bg-gray-200 px-2 py-1 rounded">Intermediate solutions</button>
+    <button class="bg-gray-200 px-2 py-1 rounded">View options</button>
+    <button class="bg-red-500 px-2 py-1 rounded">Finish</button>
   {/snippet}
 
   <!-- Main Panel -->
   {#snippet topPanel()}
-    <h1 class="text-xl font-bold">Main Editor Area</h1>
-    <p>This is where your editor or visualization would go.</p>
+    <h1 class="text-xl font-bold">Main Area</h1>
+    <p>This is where the visualizations would go.</p>
   {/snippet}
 
   <!-- Bottom Panel -->
   {#snippet bottomPanel()}
-    <h3 class="font-semibold">Logs</h3>
-    <pre>Error: Something went wrong</pre>
+    <h3 class="font-semibold">Numerical values</h3>
+    <pre>A table willbe shown here</pre>
   {/snippet}
 
   <!-- Right Sidebar -->
   {#snippet rightSidebar()}
-    <h2 class="font-bold">Inspector</h2>
-    <p>Selected element details...</p>
+    <h2 class="font-bold">Explanations</h2>
+    <p>Selected solution details...</p>
   {/snippet}
 </BaseLayout>
