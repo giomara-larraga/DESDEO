@@ -1,17 +1,5 @@
-import type { components } from '$lib/api/client-types';
-
-type ProblemInfo = components['schemas']['ProblemInfo'];
-
-/**
- * Reference data structure for visualization components
- */
-export type ReferenceData = {
-    referencePoint?: { [key: string]: number };
-    previousReferencePoint?: { [key: string]: number };
-    preferredRanges?: { [key: string]: { min: number; max: number } };
-    preferredSolutions?: Array<{ [key: string]: number }>;
-    nonPreferredSolutions?: Array<{ [key: string]: number }>;
-};
+import type { ProblemInfo } from '$lib/types/general';
+import type { ReferenceData } from '$lib/types/visualizations';
 
 /**
  * Create reference data from preference values

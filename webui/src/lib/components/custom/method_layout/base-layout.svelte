@@ -1,106 +1,165 @@
-
 <script lang="ts">
-  import * as Resizable from '$lib/components/ui/resizable/index.js';
-  import * as Tabs from '$lib/components/ui/tabs/index.js';
-  import type { Snippet } from 'svelte';
-  import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
+	import type { Snippet } from 'svelte';
+	import * as Resizable from '$lib/components/ui/resizable/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 
+	// Define the interface for your named snippets
+	interface Props {
+		showLeftSidebar?: boolean;
+		showRightSidebar?: boolean;
+		leftSidebarWidth?: string;
+		rightSidebarWidth?: string;
+		bottomPanelTitle?: string; // New prop for the bottom panel title
+		// Named snippets
+		leftSidebar?: Snippet;
+		explorerTitle?: Snippet;
+		explorerControls?: Snippet;
+		debugPanel?: Snippet;
+		visualizationArea?: Snippet;
+		tabsList?: Snippet;
+		numericalValues?: Snippet;
+		savedSolutions?: Snippet;
+		rightSidebar?: Snippet;
+	}
 
-  interface Props {
-    showLeftSidebar?: boolean;
-    showRightSidebar?: boolean;
-    leftSidebar?: Snippet;
-    topPanel?: Snippet;
-    bottomPanel?: Snippet;
-    rightSidebar?: Snippet;
-    menuRow?: Snippet;
-  }
-
-  let {
-    showLeftSidebar = true,
-    showRightSidebar = true,
-    leftSidebar,
-    topPanel,
-    bottomPanel,
-    rightSidebar,
-    menuRow
-  }: Props = $props();
-
-  let horizontalSizes = showLeftSidebar && showRightSidebar ? [20, 60, 20] : showLeftSidebar || showRightSidebar ? [20, 80] : [100];
-  let verticalSizes = [70, 30]; // top panel & bottom tabs
+	let {
+		showLeftSidebar = true,
+		showRightSidebar = true,
+		leftSidebarWidth = 'auto',
+		rightSidebarWidth = 'auto',
+		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
+		leftSidebar,
+		explorerTitle,
+		explorerControls,
+		debugPanel,
+		visualizationArea,
+		tabsList,
+		numericalValues,
+		savedSolutions,
+		rightSidebar
+	}: Props = $props();
 </script>
-<div class="flex flex-col h-[calc(100vh-3rem)] w-full">
-  <Resizable.PaneGroup direction="horizontal" class="h-full">
 
-    <!-- Left Sidebar -->
-    {#if showLeftSidebar}
-      <Resizable.Pane defaultSize={horizontalSizes[0]} minSize={0}>
-        {#if leftSidebar}
-          {@render leftSidebar()}
-        {/if}
-      </Resizable.Pane>
-<!--       <Resizable.Handle>
-        <button
-          class="p-1 text-sm hover:bg-gray-200 rounded"
-          on:click={() => showLeftSidebar = false}
-        >
-          ⏴
-        </button>
-      </Resizable.Handle> -->
-	  <Resizable.Handle withHandle />
+<div class="flex min-h-[calc(100vh-3rem)]">
+	<!-- Left Sidebar: Preferences and Controls -->
+	{#if showLeftSidebar}
+		<aside class="left-sidebar" style="width: {leftSidebarWidth}">
+			{#if leftSidebar}
+				{@render leftSidebar()}
+			{/if}
+		</aside>
+	{/if}
 
-    {/if}
+	<!-- Main Content Area -->
+	<div class="flex min-w-0 flex-1 flex-col">
+		<Resizable.PaneGroup direction="vertical" class="flex-1">
+			<Resizable.Pane class="flex min-h-0 flex-col">
+				<!-- Top Panel: Explorer Title and Controls -->
+				<div class="flex-shrink-0 p-2">
+					<div class="flex flex-row items-center justify-between gap-4 pb-2">
+						<div class="font-semibold">
+							{#if explorerTitle}
+								{@render explorerTitle()}
+							{:else}
+								Solution Explorer
+							{/if}
+						</div>
+						<div class="flex items-center gap-2">
+							{#if explorerControls}
+								{@render explorerControls()}
+							{/if}
+						</div>
+					</div>
+				</div>
+				<!-- Visualization Area -->
+				<div class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4">
+					<!-- Main Visualization Area -->
+					<div class="h-full w-full">
+						<div class="grid h-full w-full gap-4 xl:grid-cols-1">
+							<div class="h-full flex-1 rounded">
+								{#if visualizationArea}
+									{@render visualizationArea()}
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+			</Resizable.Pane>
 
-    <!-- Main Vertical Split -->
-    <Resizable.Pane defaultSize={horizontalSizes[1]} minSize={horizontalSizes[1]} class="flex min-h-0 flex-1 flex-col">
+			<ResizableHandle />
+			<!-- Bottom Panel: Numerical Values and Tables -->
+			<Resizable.Pane class="flex min-h-0 flex-col p-2">
+					<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
+						<Tabs.List class="flex-shrink-0">
+						{#if tabsList}
+							{@render tabsList()}
+						{:else}
+							<span class='text-black'>{bottomPanelTitle}</span>
+						{/if}
+						</Tabs.List>
 
-      <!-- Fixed Menu Row (NOT resizable) -->
-      <div class="flex-shrink-0 p-2 border-b bg-gray-50">
-        {#if menuRow}
-          {@render menuRow()}
-        {:else}
-          <span class="font-semibold">Menu</span>
-        {/if}
-      </div>
+						<!-- Numerical Values Tab Content -->
+						<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
+							{#if numericalValues}
+								{@render numericalValues()}
+							{:else}
+								<div class="p-4">Default numerical values content</div>
+							{/if}
+						</Tabs.Content>
 
-      <!-- Resizable Top/Bottom Panel -->
-      <Resizable.PaneGroup direction="vertical" class="flex-1">
+						<!-- Saved Solutions Tab Content -->
+						<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
+							{#if savedSolutions}
+								{@render savedSolutions()}
+							{:else}
+								<div class="p-4">Default saved solutions content</div>
+							{/if}
+						</Tabs.Content>
+					</Tabs.Root>
+			</Resizable.Pane>
+		</Resizable.PaneGroup>
+	</div>
 
-        <!-- Top Panel: Explorer & Visualization -->
-        <Resizable.Pane class="flex min-h-0 flex-col">
-
-          <div class="flex-1 overflow-auto mx-2 rounded border bg-gray-100 p-4">
-            {#if topPanel}
-              {@render topPanel()}
-            {/if}
-          </div>
-        </Resizable.Pane>
-
-        <Resizable.Handle withHandle />
-
-        <!-- Bottom Panel: Tabs -->
-        <Resizable.Pane class="flex min-h-0 flex-col p-2">
-              {#if bottomPanel}
-                {@render bottomPanel()}
-              {:else}
-                <div class="p-4">Default bottom panel content</div>
-              {/if}
-
-        </Resizable.Pane>
-      </Resizable.PaneGroup>
-    </Resizable.Pane>
-
-    <!-- Right Sidebar -->
-    {#if showRightSidebar}
-  <Resizable.Handle withHandle />
-
-      <Resizable.Pane defaultSize={horizontalSizes[horizontalSizes.length - 1]} minSize={0}>
-        {#if rightSidebar}
-          {@render rightSidebar()}
-        {/if}
-      </Resizable.Pane>
-
-    {/if}
-
-  </Resizable.PaneGroup>
+	<!-- Right Sidebar -->
+	{#if showRightSidebar}
+		<aside class="right-sidebar" style="width: {rightSidebarWidth}">
+			{#if rightSidebar}
+				{@render rightSidebar()}
+			{/if}
+		</aside>
+	{/if}
 </div>
+
+<style>
+	.left-sidebar {
+		flex-shrink: 0;
+		border-right: 1px solid var(--border-color, #e2e8f0);
+	}
+
+	.right-sidebar {
+		flex-shrink: 0;
+		border-left: 1px solid var(--border-color, #e2e8f0);
+	}
+
+	/* Responsive design */
+	@media (max-width: 768px) {
+		.left-sidebar,
+		.right-sidebar {
+			position: fixed;
+			top: 0;
+			height: 100vh;
+			z-index: 1000;
+			background: white;
+			box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+		}
+
+		.left-sidebar {
+			left: 0;
+		}
+
+		.right-sidebar {
+			right: 0;
+		}
+	}
+</style>

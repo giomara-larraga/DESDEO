@@ -1,8 +1,5 @@
-import type { components } from '$lib/api/client-types';
 import { CLASSIFICATION_TYPES, PREFERENCE_TYPES, SIGNIFICANT_DIGITS } from '$lib/constants';
-
-type ObjectiveInfo = components['schemas']['ProblemInfo']['objectives'][0];
-type ProblemInfo = components['schemas']['ProblemInfo'];
+import type { ObjectiveInfo, ProblemInfo } from '$lib/types/general';
 
 export function calculateClassification(
   objective: ObjectiveInfo,

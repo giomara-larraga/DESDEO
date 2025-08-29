@@ -38,7 +38,7 @@
 -->
 
 <script lang="ts">
-	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
+	import BaseLayout from '$lib/components/custom/method_layout/reworked-layout.svelte';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import AdvancedSidebar from '$lib/components/custom/preferences-bar/advanced-sidebar.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
@@ -48,9 +48,8 @@
 	import { PREFERENCE_TYPES } from '$lib/constants';
 	import { formatNumber, formatNumberArray } from '$lib/helpers';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
-
-	type ProblemInfo = components['schemas']['ProblemInfo'];
-
+	import type { ProblemInfo } from '$lib/types/general';
+	
 	/**
 	 * Type definition for preference values
 	 * Maps to the available preference types in the system

@@ -1,6 +1,4 @@
-import type { components } from '$lib/api/client-types';
-
-type ProblemInfo = components['schemas']['ProblemInfo'];
+import type { ProblemInfo } from '$lib/types/general';
 
 /**
  * Transform 2D array of objective values into visualization-ready format
