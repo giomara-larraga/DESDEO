@@ -373,6 +373,10 @@ Solution: Add proper prop type definitions for all components
 - TailwindCSS
 - DaisyUI
 
+## Run the tests
+
+npm run test:unit
+
 ## Questions or Issues?
 
 Contact: Giomara Larraga (glarragw@jyu.fi)
