@@ -1,10 +1,22 @@
 import type { components } from '$lib/api/client-types';
 
-export type Solution = components['schemas']['UserSavedSolutionAddress'];
+export interface Solution {
+    id: string;
+    objectives: Record<string, number>;
+    variables: Record<string, number>;
+    selected?: boolean;
+}
 export type ProblemInfo = components['schemas']['ProblemInfo'];
 
 export type MethodMode = 'iterate' | 'final' | 'intermediate';
 export type SolutionType = 'current' | 'best' | 'all';
+export type PeriodKey = 'period1' | 'period2' | 'period3';
+
+export type ApiResponse<T> = {
+    success: boolean;
+    data?: T;
+    error?: string;
+};
 
 export type ResponseNIMBUS = {
 		state_id: number | null,
@@ -27,14 +39,14 @@ export interface PreferenceData {
     numSolutions: number;
     typePreferences: string;
     preferenceValues: number[];
-    objectiveValues: Record<string, number>;
+    objectiveValues: number[];
 }
 
 export interface BaseMethodState {
-    currentState: ResponseNIMBUS;
+    currentState: ResponseNIMBUS; //TODO:Change to generic response
     problem: ProblemInfo | null;
     mode: MethodMode;
-    selectedType: SolutionType;
+    selectedTypeSolutions: SolutionType;
     currentPreference: number[];
     selectedIndexes: number[];
     numSolutions: number;
@@ -49,7 +61,7 @@ export interface DialogConfig {
     cancelText: string;
     onConfirm: () => void;
     onCancel?: () => void;
-    confirmVariant?: 'default' | 'destructive';
+	confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
 }
 
 export interface BaseMethodHandlers {

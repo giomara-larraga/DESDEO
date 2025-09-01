@@ -7,7 +7,7 @@ export function createMethodStore<T extends BaseMethodState>(initialState: Parti
         currentState: {} as ResponseNIMBUS,
         problem: null,
         mode: 'iterate',
-        selectedType: 'current',
+        selectedTypeSolutions: 'current',
         currentPreference: [],
         selectedIndexes: [0],
         numSolutions: 1,

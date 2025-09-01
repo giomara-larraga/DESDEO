@@ -201,7 +201,7 @@ export function updateSolutionNames(
     const updatedSolutions = [...targetSolutions];
     
     // Update names for solutions that exist in saved solutions
-    for (let solution of updatedSolutions) {
+    for (const solution of updatedSolutions) {
         const savedIndex = savedSolutions.findIndex(
             saved => saved.address_state === solution.address_state && 
                    saved.address_result === solution.address_result
@@ -214,33 +214,4 @@ export function updateSolutionNames(
     }
     
     return updatedSolutions;
-}
-
-export async function callNimbusAPI<T = Response>(type: string, data: Record<string, any>): Promise<{
-    success: boolean;
-    data?: T;
-    error?: string;
-}> {
-    try {
-        const response = await fetch(`/interactive_methods/NIMBUS/?type=${type}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        return result;
-    } catch (error) {
-        console.error(`Error calling NIMBUS ${type} API:`, error);
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        };
-    }
 }

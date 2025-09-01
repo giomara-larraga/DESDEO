@@ -1,8 +1,6 @@
-type ApiResponse<T> = {
-    success: boolean;
-    data?: T;
-    error?: string;
-};
+import type { ApiResponse } from "$lib/types/interactive-method";
+
+//the call for nimbus api should be /interactive_methods/NIMBUS/?type=${type}
 export class BaseMethodService {
     protected static async callAPI<T>(endpoint: string, data: Record<string, unknown>): Promise<ApiResponse<T>> {
         try {
