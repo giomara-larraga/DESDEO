@@ -81,12 +81,6 @@
 	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 	import { get_maps, type MapsResponse } from '$lib/helpers/mapUtopia';
 	
-
-	
-	// Dialog Components
-	//import ConfirmationDialog from '$lib/components/custom/dialogs/confirmation-dialog.svelte';
-	//import InputDialog from '$lib/components/custom/dialogs/input-dialog.svelte';	
-	
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import IntermediateSidebar from '$lib/components/custom/nimbus/intermediate-sidebar.svelte';
@@ -188,18 +182,6 @@
 	});
 	let selectedPeriod = $state<PeriodKey>("period1");
 
-	// Variables for showing the map for UTOPIA
-	/*let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
-		period1: {},
-		period2: {},
-		period3: {}
-	});
-	let yearlist = $state<string[]>([]);
-	let selectedPeriod = $state<PeriodKey>("period1");
-	let geoJSON = $state<object | undefined>(undefined);
-	let mapName = $state<string | undefined>(undefined);
-	let mapDescription = $state<string | undefined>(undefined);
-	let compensation = $state(0.0);*/
 	
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
@@ -494,59 +476,6 @@
 				console.error('NIMBUS iteration failed:', result.error);
 			}
 	}
-
-	// Fetch maps data for UTOPIA visualization for one solution
-	/*async function get_maps(solution: Solution) {
-		if (!problem) {
-			console.error('No problem selected');
-			return;
-		}
-		
-		// Define the expected return type for the maps API
-		interface MapsResponse {
-			years: string[];
-			options: Record<string, any>;
-			map_json: object;
-			map_name: string;
-			description: string;
-			compensation: number;
-		}
-		
-		const result = await callNimbusAPI<MapsResponse>('get_maps', {
-			problem_id: problem.id,
-			solution: solution
-		});
-		
-		if (result.success && result.data) {
-			const data = result.data;
-			
-			// Update state variables with the fetched data
-			yearlist = data.years;
-
-			// Apply the formatter function client-side
-			for (let year of yearlist) {
-				if (data.options[year].tooltip.formatterEnabled) {
-					data.options[year].tooltip.formatter = function (params: any) {
-						return `${params.name}`;
-					};
-				}
-			}
-			
-			// Assign map options for each period
-			mapOptions = {
-				period1: data.options[yearlist[0]] || {},
-				period2: data.options[yearlist[1]] || {},
-				period3: data.options[yearlist[2]] || {}
-			} as Record<PeriodKey, Record<string, any>>;
-			
-			geoJSON = data.map_json;
-			mapName = data.map_name;
-			mapDescription = data.description;
-			compensation = Math.round(data.compensation * 100) / 100; // TODO: not used anywhere, in old UI only used in one sentence
-		} else {
-			console.error('Failed to get maps:', result.error);
-		}
-	}*/
 
 	// Helper function to update current iteration objectives from the current state
 	async function update_iteration_selection(state: Response | null) {
