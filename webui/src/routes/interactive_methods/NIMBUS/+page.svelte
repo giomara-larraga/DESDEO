@@ -79,6 +79,8 @@
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
+	import { get_maps, type MapsResponse } from '$lib/helpers/mapUtopia';
+	
 
 	
 	// Dialog Components
@@ -106,7 +108,7 @@
 
 
 	// Types
-	import type { ProblemInfo, Solution, PeriodKey, DialogConfig, MethodMode, SolutionType } from '$lib/types';
+	import type { ProblemInfo, Solution, PeriodKey, MethodMode, SolutionType } from '$lib/types';
 	import type { Response } from './types';
 
 	// State for NIMBUS iteration management
@@ -172,8 +174,22 @@
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
 
+	let mapResponse: MapsResponse = $state({
+		years: [],
+		options: {
+			period1: {},
+			period2: {},
+			period3: {}
+		},
+		map_json: {},
+		map_name: '',
+		description: '',
+		compensation: 0.0
+	});
+	let selectedPeriod = $state<PeriodKey>("period1");
+
 	// Variables for showing the map for UTOPIA
-	let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
+	/*let mapOptions = $state<Record<PeriodKey, Record<string, any>>>({
 		period1: {},
 		period2: {},
 		period3: {}
@@ -183,7 +199,7 @@
 	let geoJSON = $state<object | undefined>(undefined);
 	let mapName = $state<string | undefined>(undefined);
 	let mapDescription = $state<string | undefined>(undefined);
-	let compensation = $state(0.0);
+	let compensation = $state(0.0);*/
 	
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived(() => {
@@ -480,7 +496,7 @@
 	}
 
 	// Fetch maps data for UTOPIA visualization for one solution
-	async function get_maps(solution: Solution) {
+	/*async function get_maps(solution: Solution) {
 		if (!problem) {
 			console.error('No problem selected');
 			return;
@@ -530,10 +546,10 @@
 		} else {
 			console.error('Failed to get maps:', result.error);
 		}
-	}
+	}*/
 
 	// Helper function to update current iteration objectives from the current state
-	function update_iteration_selection(state: Response | null) {
+	async function update_iteration_selection(state: Response | null) {
 		if (!problem) return;
 		if (!state) return;
 		
@@ -550,7 +566,15 @@
 				
 		// Only fetch maps if problem has utopia metadata
 		if (hasUtopiaMetadata) {
-			get_maps(selectedSolution);
+			const map_data = await get_maps(problem.id, selectedSolution);
+			if (map_data != null) {
+				mapResponse.years = map_data!.years;
+				mapResponse.options = map_data!.options;
+				mapResponse.map_json = map_data!.map_json;
+				mapResponse.map_name = map_data!.map_name;
+				mapResponse.description = map_data!.description;
+				mapResponse.compensation = map_data!.compensation;
+			}
 		}
 	}
 	
@@ -683,12 +707,12 @@
 							<!-- Map visualization -->
 							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
 								<UtopiaMap 
-									{mapOptions}
+									mapOptions={mapResponse.options}
 									bind:selectedPeriod={selectedPeriod}
-									{yearlist}
-									{geoJSON}
-									{mapName}
-									{mapDescription}
+									yearlist={mapResponse.years}
+									geoJSON={mapResponse.map_json}
+									mapName={mapResponse.map_name}
+									mapDescription={mapResponse.description}
 								/>
 							</Resizable.Pane>
 						{/if}
@@ -814,12 +838,12 @@
 							<!-- Right side: Decision space placeholder, for UTOPIA it is a map -->
 							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
 								<UtopiaMap 
-									{mapOptions}
+									mapOptions={mapResponse.options}
 									bind:selectedPeriod={selectedPeriod}
-									{yearlist}
-									{geoJSON}
-									{mapName}
-									{mapDescription}
+									yearlist={mapResponse.years}
+									geoJSON={mapResponse.map_json}
+									mapName={mapResponse.map_name}
+									mapDescription={mapResponse.description}
 								/>
 							</Resizable.Pane>
 						{/if}
