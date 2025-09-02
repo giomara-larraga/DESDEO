@@ -78,10 +78,12 @@
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
+	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
+
 	
 	// Dialog Components
-	import ConfirmationDialog from '$lib/components/custom/confirmation-dialog.svelte';
-	import InputDialog from '$lib/components/custom/input-dialog.svelte';	
+	//import ConfirmationDialog from '$lib/components/custom/dialogs/confirmation-dialog.svelte';
+	//import InputDialog from '$lib/components/custom/dialogs/input-dialog.svelte';	
 	
 	// NIMBUS specific components
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
@@ -223,27 +225,6 @@
         }
 	}
 
-	// Dialog state management
-	let dialogConfig = $state<DialogConfig>({
-		open: false,
-		title: "",
-		description: "",
-		confirmText: "",
-		cancelText: "",
-		onConfirm: () => {},
-		onCancel: () => {},
-		confirmVariant: "default"
-	});
-
-	// Helper function to open the dialog with specific configuration
-	function openDialog(config: Partial<DialogConfig>) {
-		dialogConfig = {
-			...dialogConfig,
-			...config,
-			open: true
-		};
-	}
-
 	// Function to handle finishing
 	function confirm_finish() {
 		// We now only handle the case when exactly one solution is selected
@@ -253,11 +234,12 @@
 		const final_solution = {...selectedSolution}; // Save the actual solution
 		const solutionName = selectedSolution.name || `Solution #${selectedIndexes[0] + 1}`;
 		
-		openDialog({
+		openConfirmDialog({
 			title: "Confirm Final Choice",
 			description: `Are you sure you want to proceed with "${solutionName}" as your final choice?`,
 			confirmText: "Yes, Proceed",
 			cancelText: "Cancel",
+			confirmVariant: "destructive",
 			onConfirm: ()=> handle_finish(final_solution, selectedIndexes[0]),
 		});
 	}
@@ -326,16 +308,18 @@
 			}
 	}
 
-	// Dialog state for renaming saved solution in input dialog
-	let show_rename_dialog: boolean = $state(false);
-	let solution_to_rename: Solution | null = $state(null);
-	let solution_initial_name: string = $state("");
+
 
 	function handle_change(solution: Solution): void {
-		// Open the input dialog and set the solution to be renamed
-		solution_to_rename = solution;
-		solution_initial_name = solution.name || "";
-		show_rename_dialog = true;
+		openInputDialog({
+			title: "Rename Solution",
+			description: "Enter a name for this solution.",
+			confirmText: "Save",
+			cancelText: "Cancel",
+			initialValue: solution.name || "",
+			placeholder: "Solution name",
+			onConfirm: (name) => handle_save(solution, name)
+		});
 	}
 
 	// Save a solution with an optional name
@@ -396,13 +380,12 @@
 	}
 	// Function to handle removing saved solution with confirmation
 	function confirm_remove_saved(solution: Solution) {
-		openDialog({
+		openConfirmDialog({
 			title: "Remove Saved Solution",
 			description: `Are you sure you want to remove ${solution.name || 'this solution'} from saved solutions?`,
 			confirmText: "Remove",
 			cancelText: "Cancel",
 			onConfirm: () => handle_remove_saved(solution),
-			// confirmVariant: "destructive" // Use red color for destructive action
 		});
 	}
 	
@@ -879,33 +862,3 @@
 		{/snippet}
 	</BaseLayout>
 {/if}
-
-<ConfirmationDialog
-	bind:open={dialogConfig.open}
-	title={dialogConfig.title}
-	description={dialogConfig.description}
-	confirmText={dialogConfig.confirmText}
-	cancelText={dialogConfig.cancelText}
-	onConfirm={dialogConfig.onConfirm}
-	onCancel={dialogConfig.onCancel}
-	confirmVariant={dialogConfig.confirmVariant}
-/>
-
-<InputDialog
-	bind:open={show_rename_dialog}
-	title="Rename Solution"
-	description="Enter a name for this solution."
-	confirmText="Save"
-	cancelText="Cancel"
-	initialValue={solution_initial_name}
-	placeholder="Solution name"
-	onConfirm={(name) => {
-		if (solution_to_rename) {
-			handle_save(solution_to_rename, name);
-		}
-	}}
-	onCancel={() => {
-		// Reset the solution to rename
-		solution_to_rename = null;
-	}}
-/>
