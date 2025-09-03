@@ -86,7 +86,7 @@
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import DataTableToolbar from './solution-table-toolbar.svelte';
+	//import DataTableToolbar from './solution-table-toolbar.svelte';
 
 	// Types matching your original solution-table
 	type ProblemInfo = components['schemas']['ProblemInfo'];
@@ -471,9 +471,9 @@
 
 {#if problem}
 	<div class="flex h-full w-full flex-col">
-		{#if selected_type_solutions !== 'current' && !isFrozen}
+		<!-- 		{#if selected_type_solutions !== 'current' && !isFrozen}
 			<DataTableToolbar {table} />
-		{/if}
+		{/if} -->
 		<div class="w-full flex-1 overflow-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
 			<Table.Root class="w-full">

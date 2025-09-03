@@ -12,14 +12,14 @@
 	 *   - Reset button to clear all filters (visible when filters are active).
 	 *
 	 * @prop {Table<TData>} table - TanStack Table instance, passed via $props in Svelte Runes mode.
-	 * 
+	 *
 	 * @features
 	 * - Provides search functionality for finding solutions by name
 	 * - Shows/hides reset button based on filter state
 	 *
 	 * @usage
 	 * <SolutionTableToolbar table={table} />
-	 * 
+	 *
 	 * @dependencies
 	 * - @tanstack/table-core for table logic
 	 * - $lib/components/ui/button for reset button

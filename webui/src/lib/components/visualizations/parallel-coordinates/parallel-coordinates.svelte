@@ -62,7 +62,7 @@
 	 */
 	type ReferenceData = {
 		referencePoint?: { [key: string]: number }; // Single reference point across all dimensions
-    	previousReferencePoint?: { [key: string]: number }; // Single reference point across all dimensions, for previous preference
+		previousReferencePoint?: { [key: string]: number }; // Single reference point across all dimensions, for previous preference
 		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
 		preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solution points
 		nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solution points
@@ -73,8 +73,12 @@
 	export let data: { [key: string]: number }[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: { symbol: string; min?: number; max?: number; direction?: 'max' | 'min' }[] =
-		[];
+	export let dimensions: {
+		symbol: string;
+		min?: number;
+		max?: number;
+		direction?: 'max' | 'min';
+	}[] = [];
 
 	// Optional reference data for enhanced visualization
 	export let referenceData: ReferenceData | undefined = undefined;
@@ -102,14 +106,16 @@
 	/**
 	 * Helper function to check if a data point is selected
 	 * Works with both single selection (selectedIndex) and multi-selection (multipleSelectedIndexes) modes
-	 * 
+	 *
 	 * @param index - The index of the data point to check
 	 * @returns true if the data point is selected, false otherwise
 	 */
 	function isSelected(index: number): boolean {
 		// Check if we're in single or multi-selection mode and if the point is selected
-		return (multipleSelectedIndexes === null && index === selectedIndex) || 
-			   (multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index));
+		return (
+			(multipleSelectedIndexes === null && index === selectedIndex) ||
+			(multipleSelectedIndexes !== null && multipleSelectedIndexes.includes(index))
+		);
 	}
 
 	// Active brush filters - maps dimension name to [y1, y2] pixel coordinates
@@ -237,9 +243,9 @@
 				const passes = passesFilters(d);
 				if (!passes) return 0; // Hidden lines have 0 opacity
 
-				if (isSelected(i)) return 1;// Selected line is fully opaque
-					return options.opacity; // Other lines use configured opacity
-				})
+				if (isSelected(i)) return 1; // Selected line is fully opaque
+				return options.opacity; // Other lines use configured opacity
+			})
 			// Set stroke color - selected line gets theme color, others are gray
 			.attr('stroke', (d, i) => {
 				const passes = passesFilters(d);
@@ -391,7 +397,7 @@
 			onLineSelect?.(index, dataPoint);
 			return;
 		}
-		
+
 		// Single selection mode
 		if (selectedIndex === index) {
 			// Deselect if already selected
@@ -458,7 +464,7 @@
 
 	/**
 	 * Draws a reference point as a line across all dimensions with configurable styling
-	 * 
+	 *
 	 * @param svgElement - Parent SVG group element
 	 * @param scales - Scale functions for each dimension
 	 * @param xScale - Scale for positioning dimensions horizontally
@@ -515,7 +521,7 @@
 						.attr('opacity', modifiedOptions.opacity);
 				}
 			});
-			
+
 			// Note: Reference point label is commented out to reduce visual clutter
 			/*referenceGroup
                 .append('text')
@@ -656,7 +662,7 @@
 		if (!data.length || !dimensions.length) return; // Skip if no data to display
 
 		// Define margins around the chart area
-		const margin = { top: 20, right: 40, bottom: 20, left: 40 };
+		const margin = { top: 20, right: 20, bottom: 10, left: 20 };
 		const innerWidth = width - margin.left - margin.right; // Available width for chart
 		const innerHeight = height - margin.top - margin.bottom; // Available height for chart
 
@@ -735,16 +741,18 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.symbol)
+					.text(dim.symbol);
 
-					// Add an arrow if direction is specified
+				// Add an arrow if direction is specified
 				if (dim.direction) {
 					const arrowX = x - 5 + dim.symbol.length * 7; // Rough estimate of text width
 					svgElement
 						.append('path')
-						.attr('d', dim.direction === 'max' 
-							? `M${arrowX},-8 L${arrowX+5},-16 L${arrowX+10},-8` // Up arrow
-							: `M${arrowX},-16 L${arrowX+5},-8 L${arrowX+10},-16` // Down arrow
+						.attr(
+							'd',
+							dim.direction === 'max'
+								? `M${arrowX},-8 L${arrowX + 5},-16 L${arrowX + 10},-8` // Up arrow
+								: `M${arrowX},-16 L${arrowX + 5},-8 L${arrowX + 10},-16` // Down arrow
 						)
 						.attr('fill', '#333')
 						.attr('stroke', 'none');
@@ -811,17 +819,20 @@
 
 		// Draw reference visualizations (on top of data lines)
 		// Draw current reference point (red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.referencePoint, {
-				groupClass: 'reference-point',
-				opacity: 0.9,
-			}
-		);
+		drawGenericReferencePoint(svgElement, newScales, xScale, line, referenceData?.referencePoint, {
+			groupClass: 'reference-point',
+			opacity: 0.9
+		});
 		// Draw previous reference point (gray or another color)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, 
-			referenceData?.previousReferencePoint, {
+		drawGenericReferencePoint(
+			svgElement,
+			newScales,
+			xScale,
+			line,
+			referenceData?.previousReferencePoint,
+			{
 				groupClass: 'previous-reference-point',
-				opacity: 0.3, // more transparent than current ref point
+				opacity: 0.3 // more transparent than current ref point
 			}
 		);
 		drawReferenceSolutions(svgElement, newScales, xScale, line);

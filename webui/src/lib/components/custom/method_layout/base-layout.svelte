@@ -90,33 +90,33 @@
 			<ResizableHandle />
 			<!-- Bottom Panel: Numerical Values and Tables -->
 			<Resizable.Pane class="flex min-h-0 flex-col p-2">
-					<Tabs.Root value="numerical-values" class="flex flex-col min-h-0 h-full">
-						<Tabs.List class="flex-shrink-0">
+				<Tabs.Root value="numerical-values" class="flex h-full min-h-0 flex-col">
+					<Tabs.List class="flex-shrink-0">
 						{#if tabsList}
 							{@render tabsList()}
 						{:else}
-							<span class='text-black'>{bottomPanelTitle}</span>
+							<span class="font-semibold text-black"> </span>
 						{/if}
-						</Tabs.List>
+					</Tabs.List>
 
-						<!-- Numerical Values Tab Content -->
-						<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
-							{#if numericalValues}
-								{@render numericalValues()}
-							{:else}
-								<div class="p-4">Default numerical values content</div>
-							{/if}
-						</Tabs.Content>
+					<!-- Numerical Values Tab Content -->
+					<Tabs.Content value="numerical-values" class="min-h-0 flex-grow">
+						{#if numericalValues}
+							{@render numericalValues()}
+						{:else}
+							<div class="p-4">Default numerical values content</div>
+						{/if}
+					</Tabs.Content>
 
-						<!-- Saved Solutions Tab Content -->
-						<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
-							{#if savedSolutions}
-								{@render savedSolutions()}
-							{:else}
-								<div class="p-4">Default saved solutions content</div>
-							{/if}
-						</Tabs.Content>
-					</Tabs.Root>
+					<!-- Saved Solutions Tab Content -->
+					<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
+						{#if savedSolutions}
+							{@render savedSolutions()}
+						{:else}
+							<div class="p-4">Default saved solutions content</div>
+						{/if}
+					</Tabs.Content>
+				</Tabs.Root>
 			</Resizable.Pane>
 		</Resizable.PaneGroup>
 	</div>
