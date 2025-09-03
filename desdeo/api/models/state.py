@@ -17,9 +17,9 @@ from desdeo.problem import VariableType
 from desdeo.tools import SolverResults
 
 from .preference import PreferenceType, ReferencePoint
+from desdeo.tools.generics import EMOResults
 
 if TYPE_CHECKING:
-    from desdeo.tools.generics import EMOResults
 
     from .problem import RepresentativeNonDominatedSolutions
     from .state_table import UserSavedSolutionDB
@@ -106,9 +106,13 @@ class RPMState(SQLModel, table=True):
 
     # inputs
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -120,10 +124,16 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
-    current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    current_objectives: dict[str, float] = Field(
+        sa_column=Column(JSON), default_factory=dict
+    )
     num_desired: int | None = 1
     previous_preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
 
@@ -176,13 +186,21 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    reference_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # Results
-    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
+    solver_results: "SolverResults" = Field(
+        sa_column=Column(ResultsType), default_factory=list
+    )
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
@@ -214,7 +232,9 @@ class EMOState(SQLModel, table=True):
     solutions: list["EMOResults"] = Field(
         sa_column=Column(JSON), description="Optimization results", default_factory=list
     )
-    outputs: list = Field(sa_column=Column(JSON), description="Optimization outputs", default_factory=list)
+    outputs: list = Field(
+        sa_column=Column(JSON), description="Optimization outputs", default_factory=list
+    )
 
 
 class EMOSaveState(SQLModel, table=True):
@@ -230,8 +250,14 @@ class EMOSaveState(SQLModel, table=True):
     use_archive: bool = Field(default=True)
 
     # results
-    saved_solutions: list["EMOResults"] = Field(sa_column=Column(JSON), default_factory=list)
-    solutions: list = Field(sa_column=Column(JSON), description="Original solutions from request", default_factory=list)
+    saved_solutions: list["EMOResults"] = Field(
+        sa_column=Column(JSON), default_factory=list
+    )
+    solutions: list = Field(
+        sa_column=Column(JSON),
+        description="Original solutions from request",
+        default_factory=list,
+    )
 
 
 class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
@@ -243,12 +269,20 @@ class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
         default=None,
         description="Originating method context (e.g., 'nimbus', 'rpm') that requested these solutions",
     )
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     num_desired: int | None = 1
-    reference_solution_1: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    reference_solution_2: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    reference_solution_1: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    reference_solution_2: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -271,12 +305,18 @@ class ENautilusState(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    non_dominated_solutions_id: int | None = Field(foreign_key="representativenondominatedsolutions.id", default=None)
+    non_dominated_solutions_id: int | None = Field(
+        foreign_key="representativenondominatedsolutions.id", default=None
+    )
 
     current_iteration: int
     iterations_left: int
-    selected_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    reachable_point_indices: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    selected_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    reachable_point_indices: list[int] = Field(
+        sa_column=Column(JSON), default_factory=list
+    )
     number_of_intermediate_points: int
 
     enautilus_results: "ENautilusResult" = Field(sa_column=Column(ResultsType))

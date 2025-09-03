@@ -40,7 +40,9 @@ router = APIRouter(prefix="/method/nimbus")
 
 
 # helper for collecting solutions
-def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolutionReference]:
+def filter_duplicates(
+    solutions: list[SavedSolutionReference],
+) -> list[SavedSolutionReference]:
     """Filters out the duplicate values of objectives."""
 
     # No solutions or only one solution. There can not be any duplicates.
@@ -52,13 +54,18 @@ def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolu
     # Get the function symbols
     objective_keys = list(objective_values_list[0])
     # Get the corresponding values for functions into a list of lists of values
-    valuelists = [[dictionary[key] for key in objective_keys] for dictionary in objective_values_list]
+    valuelists = [
+        [dictionary[key] for key in objective_keys]
+        for dictionary in objective_values_list
+    ]
     # Check duplicate indices
     duplicate_indices = []
     for i in range(len(solutions) - 1):
         for j in range(i + 1, len(solutions)):
             # If all values of the objective functions are (nearly) identical, that's a duplicate
-            if allclose(valuelists[i], valuelists[j]):  # TODO: "similarity tolerance" from problem metadata
+            if allclose(
+                valuelists[i], valuelists[j]
+            ):  # TODO: "similarity tolerance" from problem metadata
                 duplicate_indices.append(i)
 
     # Quite the memory hell. See If there's a smarter way to do this
@@ -71,32 +78,50 @@ def filter_duplicates(solutions: list[SavedSolutionReference]) -> list[SavedSolu
 
 
 # for collecting solutions for responses in iterate and initialize endpoints
-def collect_saved_solutions(user: User, problem_id: int, session: Session) -> list[SavedSolutionReference]:
+def collect_saved_solutions(
+    user: User, problem_id: int, session: Session
+) -> list[SavedSolutionReference]:
     """Collects all saved solutions for the user and problem."""
     user_saved_solutions = session.exec(
         select(UserSavedSolutionDB).where(
-            UserSavedSolutionDB.problem_id == problem_id, UserSavedSolutionDB.user_id == user.id
+            UserSavedSolutionDB.problem_id == problem_id,
+            UserSavedSolutionDB.user_id == user.id,
         )
     ).all()
 
-    saved_solutions = [SavedSolutionReference(saved_solution=saved_solution) for saved_solution in user_saved_solutions]
+    saved_solutions = [
+        SavedSolutionReference(saved_solution=saved_solution)
+        for saved_solution in user_saved_solutions
+    ]
 
     return filter_duplicates(saved_solutions)
 
 
 # for collecting solutions for responses in iterate and initialize endpoints
-def collect_all_solutions(user: User, problem_id: int, session: Session) -> list[SolutionReference]:
+def collect_all_solutions(
+    user: User, problem_id: int, session: Session
+) -> list[SolutionReference]:
     """Collects all solutions for the user and problem."""
     statement = (
         select(StateDB)
-        .where(StateDB.problem_id == problem_id, StateDB.session_id == user.active_session_id)
+        .where(
+            StateDB.problem_id == problem_id,
+            StateDB.session_id == user.active_session_id,
+        )
         .order_by(StateDB.id.desc())
     )
     states = session.exec(statement).all()
     all_solutions = []
     for state in states:
-        for i in range(state.state.num_solutions):
-            all_solutions.append(SolutionReference(state=state, solution_index=i))
+        if state.state and hasattr(state.state, "result_objective_values"):
+            try:
+                num_solutions = len(state.state.result_objective_values)
+                for i in range(num_solutions):
+                    all_solutions.append(
+                        SolutionReference(state=state, solution_index=i)
+                    )
+            except (AttributeError, TypeError):
+                continue
 
     return filter_duplicates(all_solutions)
 
@@ -109,7 +134,9 @@ def solve_solutions(
 ) -> NIMBUSClassificationResponse:
     """Solve the problem using the NIMBUS method."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -120,17 +147,22 @@ def solve_solutions(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
     # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
+    )
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with id={request.problem_id} could not be found.",
         )
 
     problem = Problem.from_problemdb(problem_db)
@@ -151,7 +183,8 @@ def solve_solutions(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     solver_results: list[SolverResults] = solve_sub_problems(
@@ -214,7 +247,9 @@ def initialize(
 ) -> NIMBUSInitializationResponse:
     """Initialize the problem for the NIMBUS method."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -225,17 +260,22 @@ def initialize(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
     # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
+    )
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with id={request.problem_id} could not be found.",
         )
 
     problem = Problem.from_problemdb(problem_db)
@@ -252,7 +292,8 @@ def initialize(
 
         if state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"StateDB with index {info.state_id} could not be found."
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"StateDB with index {info.state_id} could not be found.",
             )
 
         starting_point = state.state.result_objective_values[info.solution_index]
@@ -278,7 +319,8 @@ def initialize(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     initialization_state = NIMBUSInitializationState(
@@ -321,7 +363,9 @@ def save(
 ) -> NIMBUSSaveResponse:
     """Save solutions."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -332,7 +376,9 @@ def save(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
@@ -352,7 +398,8 @@ def save(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     # Check for duplicate solutions and update names instead of saving duplicates
@@ -377,7 +424,12 @@ def save(
         else:
             # This is a new solution
             new_solution = UserSavedSolutionDB.from_state_info(
-                session, user.id, request.problem_id, info.state_id, info.solution_index, info.name
+                session,
+                user.id,
+                request.problem_id,
+                info.state_id,
+                info.solution_index,
+                info.name,
             )
 
             session.add(new_solution)
@@ -435,15 +487,22 @@ def solve_nimbus_intermediate(
         all_solutions=all_solutions,
     )
 
+
 @router.post("/get-or-initialize")
 def get_or_initialize(
     request: NIMBUSInitializationRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> NIMBUSInitializationResponse | NIMBUSClassificationResponse | NIMBUSIntermediateSolutionResponse:
+) -> (
+    NIMBUSInitializationResponse
+    | NIMBUSClassificationResponse
+    | NIMBUSIntermediateSolutionResponse
+):
     """Get the latest NIMBUS state if it exists, or initialize a new one if it doesn't."""
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -453,7 +512,9 @@ def get_or_initialize(
             )
     else:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
         interactive_session = session.exec(statement).first()
 
     # Look for latest relevant state in the session
@@ -461,7 +522,12 @@ def get_or_initialize(
         select(StateDB)
         .where(
             StateDB.problem_id == request.problem_id,
-            StateDB.session_id == (interactive_session.id if interactive_session else user.active_session_id),
+            StateDB.session_id
+            == (
+                interactive_session.id
+                if interactive_session
+                else user.active_session_id
+            ),
         )
         .order_by(StateDB.id.desc())
     )
@@ -470,16 +536,22 @@ def get_or_initialize(
     # Find the latest relevant state (NIMBUS classification, initialization, or intermediate with NIMBUS context)
     latest_state = None
     for state in states:
-        if (isinstance(state.state, (NIMBUSClassificationState | NIMBUSInitializationState)) or
-            (isinstance(state.state, IntermediateSolutionState) and state.state.context == "nimbus")):
+        if isinstance(
+            state.state, (NIMBUSClassificationState | NIMBUSInitializationState)
+        ) or (
+            isinstance(state.state, IntermediateSolutionState)
+            and state.state.context == "nimbus"
+        ):
             latest_state = state
             break
 
     if latest_state is not None:
         saved_solutions = collect_saved_solutions(user, request.problem_id, session)
         all_solutions = collect_all_solutions(user, request.problem_id, session)
-        current_solutions = [SolutionReference(state=latest_state, solution_index=i)
-                           for i in range(len(latest_state.state.solver_results))]
+        current_solutions = [
+            SolutionReference(state=latest_state, solution_index=i)
+            for i in range(len(latest_state.state.solver_results))
+        ]
 
         if isinstance(latest_state.state, NIMBUSClassificationState):
             return NIMBUSClassificationResponse(

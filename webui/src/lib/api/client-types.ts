@@ -796,6 +796,40 @@ export interface components {
             problem_id?: number | null;
         };
         /**
+         * EMOResults
+         * @description Defines a schema for storing results of an evolutionary multi-objective optimization (EMO) solver.
+         */
+        EMOResults: {
+            /**
+             * Optimal Variables
+             * @description The optimal decision variables found.
+             */
+            optimal_variables: {
+                [key: string]: number | unknown[];
+            };
+            /**
+             * Optimal Objectives
+             * @description The objective function values corresponding to the optimal decision variables found.
+             */
+            optimal_objectives: {
+                [key: string]: number | number[];
+            };
+            /**
+             * Constraint Values
+             * @description The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.
+             */
+            constraint_values?: {
+                [key: string]: number | number[] | unknown[];
+            } | unknown | null;
+            /**
+             * Extra Func Values
+             * @description The extra function values of the problem.
+             */
+            extra_func_values?: {
+                [key: string]: number | number[];
+            } | null;
+        };
+        /**
          * EMOSaveRequest
          * @description Request model for saving selected EMO solutions.
          */
@@ -837,7 +871,7 @@ export interface components {
              */
             use_archive: boolean;
             /** Saved Solutions */
-            saved_solutions?: unknown[];
+            saved_solutions?: components["schemas"]["EMOResults"][];
             /**
              * Solutions
              * @description Original solutions from request
@@ -922,7 +956,7 @@ export interface components {
              * Solutions
              * @description Optimization results
              */
-            solutions?: unknown[];
+            solutions?: components["schemas"]["EMOResults"][];
             /**
              * Outputs
              * @description Optimization outputs
