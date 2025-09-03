@@ -99,25 +99,10 @@
 		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
-	type ProblemInfo = components['schemas']['ProblemInfo'];
+
+	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
+	import type { Response } from './types';
 	// Define a general type combining all three responses that NIMBUS can return
-	type Solution = components['schemas']['SolutionReferenceResponse'];
-	type Response = {
-		state_id: number | null;
-		previous_preference?: components['schemas']['ReferencePoint'];
-		previous_objectives?: {
-			[key: string]: number;
-		};
-		reference_solution_1?: {
-			[key: string]: number;
-		};
-		reference_solution_2?: {
-			[key: string]: number;
-		};
-		current_solutions: Solution[];
-		saved_solutions: Solution[];
-		all_solutions: Solution[];
-	};
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);

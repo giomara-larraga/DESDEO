@@ -3,7 +3,7 @@ import type { components } from '$lib/api/client-types';
 /*Types for the entire UI*/
 
 export type ProblemInfo = components['schemas']['ProblemInfo'];
-export type Solution = components['schemas']['UserSavedSolutionAddress'];
+export type Solution = components['schemas']['SolutionReferenceResponse'];
 
 export type MethodMode = 'iterate' | 'final' | 'intermediate';
 export type SolutionType = 'current' | 'best' | 'all';
