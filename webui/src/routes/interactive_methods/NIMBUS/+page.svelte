@@ -612,29 +612,46 @@
 			{#if problem && selected_iteration_index.length > 0}
 				<!-- Resizable layout for visualizations -->
 				<div class="h-full">
-					<Resizable.PaneGroup direction="horizontal" class="h-full">
-						<!-- Left side: VisualizationsPanel with constrained height -->
-						<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
-							<!-- Visualization panel showing only the final selected solution -->
-							<VisualizationsPanel
-								{problem}
-								previousPreferenceValues={last_iterated_preference}
-								previousPreferenceType={type_preferences}
-								currentPreferenceValues={current_preference}
-								currentPreferenceType={type_preferences}
-								solutionsObjectiveValues={problem
-									? mapSolutionsToObjectiveValues(
-											[chosen_solutions[selected_iteration_index[0]]],
-											problem
-										)
-									: []}
-								externalSelectedIndexes={selected_iteration_index}
-								onSelectSolution={() => {}}
-							/>
-						</Resizable.Pane>
+					<!-- Visualization panel showing only the final selected solution -->
+					<VisualizationsPanel
+						{problem}
+						previousPreferenceValues={last_iterated_preference}
+						previousPreferenceType={type_preferences}
+						currentPreferenceValues={current_preference}
+						currentPreferenceType={type_preferences}
+						solutionsObjectiveValues={problem
+							? mapSolutionsToObjectiveValues(
+									[chosen_solutions[selected_iteration_index[0]]],
+									problem
+								)
+							: []}
+						externalSelectedIndexes={selected_iteration_index}
+						onSelectSolution={() => {}}
+					/>
+					{#if hasUtopiaMetadata}
+						<Resizable.PaneGroup direction="horizontal" class="h-full">
+							<!-- Left side: VisualizationsPanel with constrained height -->
+							<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
+								<!-- Visualization panel showing only the final selected solution -->
+								<VisualizationsPanel
+									{problem}
+									previousPreferenceValues={last_iterated_preference}
+									previousPreferenceType={type_preferences}
+									currentPreferenceValues={current_preference}
+									currentPreferenceType={type_preferences}
+									solutionsObjectiveValues={problem
+										? mapSolutionsToObjectiveValues(
+												[chosen_solutions[selected_iteration_index[0]]],
+												problem
+											)
+										: []}
+									externalSelectedIndexes={selected_iteration_index}
+									onSelectSolution={() => {}}
+								/>
+							</Resizable.Pane>
 
-						<!-- Right side: Decision space placeholder, only shown for problems with utopia metadata -->
-						{#if hasUtopiaMetadata}
+							<!-- Right side: Decision space placeholder, only shown for problems with utopia metadata -->
+
 							<!-- Resizable handle between panels with custom styling -->
 							<ResizableHandle withHandle class="border-l border-gray-200 shadow-sm" />
 
@@ -649,8 +666,8 @@
 									mapDescription={mapResponse.description}
 								/>
 							</Resizable.Pane>
-						{/if}
-					</Resizable.PaneGroup>
+						</Resizable.PaneGroup>
+					{/if}
 				</div>
 			{:else}
 				<div class="flex h-full items-center justify-center text-gray-500">
@@ -795,33 +812,37 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && chosen_solutions.length > 0}
-				<SolutionTable
-					{problem}
-					solverResults={chosen_solutions}
-					selectedSolutions={selectedIndexes}
-					{handle_save}
-					{handle_change}
-					handle_remove_saved={confirm_remove_saved}
-					handle_row_click={handle_solution_click}
-					{isSaved}
-					{selected_type_solutions}
-					previousObjectiveValues={selected_type_solutions === 'current'
-						? problem
-							? [
-									// Add previous_objectives if it exists
-									...(current_state.previous_objectives ? [current_state.previous_objectives] : []),
-									// Add reference_solution_1 if it exists
-									...(current_state.reference_solution_1
-										? [current_state.reference_solution_1]
-										: []),
-									// Add reference_solution_2 if it exists
-									...(current_state.reference_solution_2
-										? [current_state.reference_solution_2]
-										: [])
-								]
-							: []
-						: []}
-				/>
+				<div class="h-full w-full overflow-auto">
+					<SolutionTable
+						{problem}
+						solverResults={chosen_solutions}
+						selectedSolutions={selectedIndexes}
+						{handle_save}
+						{handle_change}
+						handle_remove_saved={confirm_remove_saved}
+						handle_row_click={handle_solution_click}
+						{isSaved}
+						{selected_type_solutions}
+						previousObjectiveValues={selected_type_solutions === 'current'
+							? problem
+								? [
+										// Add previous_objectives if it exists
+										...(current_state.previous_objectives
+											? [current_state.previous_objectives]
+											: []),
+										// Add reference_solution_1 if it exists
+										...(current_state.reference_solution_1
+											? [current_state.reference_solution_1]
+											: []),
+										// Add reference_solution_2 if it exists
+										...(current_state.reference_solution_2
+											? [current_state.reference_solution_2]
+											: [])
+									]
+								: []
+							: []}
+					/>
+				</div>
 			{/if}
 		{/snippet}
 	</BaseLayout>
