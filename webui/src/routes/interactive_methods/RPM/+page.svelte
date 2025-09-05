@@ -3,12 +3,12 @@
 	import { onMount } from 'svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import type { ProblemInfo } from '$lib/types';
-	import type { RPMState, RPMSolveRequest } from './types';
+	import type { RPMState, RPMSolveRequest, RPMSolution } from './types';
 
 	// Basic state
 	let problem: ProblemInfo | null = $state(null);
 	let reference_point: number[] = $state([]);
-	let solutions: RPMState['solver_results'][] = $state([]);
+	let solutions: RPMSolution[] = $state([]);
 
 	// Get problem from route data
 	const { data } = $props<{ data: { problems: ProblemInfo[] } }>();
@@ -111,17 +111,38 @@
 						{#each solutions as solution, i}
 							<div class="rounded border p-4">
 								<h4 class="mb-2 font-medium">Solution {i + 1}</h4>
-								<pre class="mb-4 rounded bg-gray-50 p-2 text-xs">{JSON.stringify(
-										solution,
-										null,
-										2
-									)}</pre>
-								<div class="grid gap-2">
-									{#each problem.objectives as obj, j}
-										<div class="flex items-center justify-between">
-											<span class="text-sm">{obj.name}:</span>
+								<div class="space-y-4">
+									<div class="rounded bg-gray-50 p-4">
+										<h5 class="mb-2 text-sm font-medium">Objective Values:</h5>
+										<div class="grid gap-2">
+											{#each problem.objectives as obj}
+												<div class="flex items-center justify-between">
+													<span class="text-sm font-medium">{obj.name}:</span>
+													<span class="font-mono text-sm">
+														{solution.optimal_objectives[obj.symbol]?.toFixed(4) ?? 'N/A'}
+													</span>
+												</div>
+											{/each}
 										</div>
-									{/each}
+									</div>
+
+									<div class="rounded bg-gray-50 p-4">
+										<h5 class="mb-2 text-sm font-medium">Variable Values:</h5>
+										<div class="grid gap-2">
+											{#each Object.entries(solution.optimal_variables) as [name, value]}
+												<div class="flex items-center justify-between">
+													<span class="text-sm font-medium">{name}:</span>
+													<span class="font-mono text-sm">{value?.toFixed(4) ?? 'N/A'}</span>
+												</div>
+											{/each}
+										</div>
+									</div>
+
+									{#if solution.success}
+										<div class="text-sm text-green-600">✓ {solution.message}</div>
+									{:else}
+										<div class="text-sm text-red-600">✗ {solution.message}</div>
+									{/if}
 								</div>
 							</div>
 						{/each}

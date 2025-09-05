@@ -23,25 +23,20 @@ export interface RPMSolveRequest {
     solver_options?: RPMSolverOptions | null;
 }
 
+// Type for a single solution
+export interface RPMSolution {
+    optimal_variables: { [key: string]: number };
+    optimal_objectives: { [key: string]: number };
+    constraint_values: { [key: string]: number };
+    extra_func_values: { [key: string]: number };
+    scalarization_values: { [key: string]: number };
+    success: boolean;
+    message: string;
+}
+
 // State returned by the RPM solve endpoint
 export interface RPMState {
-    solver_results: {
-        optimal_variables: { [key: string]: number };
-        optimal_objectives: { [key: string]: number };
-        constraint_values: { [key: string]: number };
-        extra_func_values: { [key: string]: number };
-        scalarization_values: { [key: string]: number };
-        success: boolean;
-        message: string;
-    }[] | {
-        optimal_variables: { [key: string]: number };
-        optimal_objectives: { [key: string]: number };
-        constraint_values: { [key: string]: number };
-        extra_func_values: { [key: string]: number };
-        scalarization_values: { [key: string]: number };
-        success: boolean;
-        message: string;
-    };
+    solver_results: RPMSolution | RPMSolution[];
     scalarization_options: RPMScalarizationOptions;
     solver: string;
     solver_options: RPMSolverOptions;
