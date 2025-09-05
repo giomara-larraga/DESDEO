@@ -32,7 +32,9 @@ def solve_solutions(
     """."""
 
     if request.session_id is not None:
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == request.session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == request.session_id
+        )
         interactive_session = session.exec(statement)
 
         if interactive_session is None:
@@ -43,17 +45,22 @@ def solve_solutions(
     else:
         # request.session_id is None:
         # use active session instead
-        statement = select(InteractiveSessionDB).where(InteractiveSessionDB.id == user.active_session_id)
+        statement = select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id
+        )
 
         interactive_session = session.exec(statement).first()
 
     # fetch the problem from the DB
-    statement = select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id)
+    statement = select(ProblemDB).where(
+        ProblemDB.user_id == user.id, ProblemDB.id == request.problem_id
+    )
     problem_db = session.exec(statement).first()
 
     if problem_db is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Problem with id={request.problem_id} could not be found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Problem with id={request.problem_id} could not be found.",
         )
 
     problem = Problem.from_problemdb(problem_db)
@@ -68,7 +75,9 @@ def solve_solutions(
     )
 
     # create DB preference
-    preference_db = PreferenceDB(user_id=user.id, problem_id=problem_db.id, preference=request.preference)
+    preference_db = PreferenceDB(
+        user_id=user.id, problem_id=problem_db.id, preference=request.preference
+    )
 
     session.add(preference_db)
     session.commit()
@@ -90,7 +99,8 @@ def solve_solutions(
 
         if parent_state is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Could not find state with id={request.parent_state_id}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not find state with id={request.parent_state_id}",
             )
 
     # create state and add to DB
