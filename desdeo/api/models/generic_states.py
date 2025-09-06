@@ -25,7 +25,9 @@ from .state import (
     NIMBUSClassificationState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMState,
+    RPMSolveState,
+    RPMSaveState,
+    RPMInitializationState,
 )
 from .user import User
 
@@ -42,10 +44,12 @@ class StateKind(str, Enum):
         in this file as well.
     """
 
-    RPM_SOLVE = "reference_point_method.solve_candidates"
     NIMBUS_SOLVE = "nimbus.solve_candidates"
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
+    RPM_SOLVE = "reference_point_method.solve"
+    RPM_SAVE = "reference_point_method.save_solutions"
+    RPM_INIT = "reference_point_method.initialize"
     EMO_RUN = "emo.run"
     EMO_SAVE = "emo.save_solutions"
     GENERIC_INTERMEDIATE = "generic.solve_intermediate"
@@ -161,11 +165,15 @@ class StateDB(SQLModel, table=True):
             # No bound state
             raise RuntimeError("StateDB.state accessed without a bound Session")
 
-        return db_session.exec(select(table).where(table.id == self.base_state.id)).first()
+        return db_session.exec(
+            select(table).where(table.id == self.base_state.id)
+        ).first()
 
 
 KIND_TO_TABLE: dict[StateKind, SQLModel] = {
-    StateKind.RPM_SOLVE: RPMState,
+    StateKind.RPM_SOLVE: RPMSolveState,
+    StateKind.RPM_SAVE: RPMSaveState,
+    StateKind.RPM_INIT: RPMInitializationState,
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
@@ -176,7 +184,9 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
-    RPMState: StateKind.RPM_SOLVE,
+    RPMSolveState: StateKind.RPM_SOLVE,
+    RPMSaveState: StateKind.RPM_SAVE,
+    RPMInitializationState: StateKind.RPM_INIT,
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
@@ -217,7 +227,9 @@ class UserSavedSolutionDB(SQLModel, table=True):
     # Links
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
-    origin_state_id: int | None = Field(foreign_key="states.id", default=None)  # the StateDB holder
+    origin_state_id: int | None = Field(
+        foreign_key="states.id", default=None
+    )  # the StateDB holder
 
     # Back populates
     user: "User" = Relationship(back_populates="archive")
@@ -264,12 +276,17 @@ class SolutionReference(SQLModel):
     referencing those, see `SavedSolutionReference`.
     """
 
-    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
+    name: str | None = Field(
+        description="Optional name to help identify the solution if, e.g., saved.",
+        default=None,
+    )
     solution_index: int | None = Field(
         description="The index of the referenced solution, if multiple solutions exist in the reference state.",
         default=None,
     )
-    state: StateDB = Field(description="The reference state with the solution information.")
+    state: StateDB = Field(
+        description="The reference state with the solution information."
+    )
 
     @computed_field
     @property
@@ -323,7 +340,9 @@ class SolutionReferenceResponse(SQLModel):
 class SavedSolutionReference(SQLModel):
     """A model that functions as a reference to solutions that users have chosen to explicitly save in the database."""
 
-    saved_solution: UserSavedSolutionDB = Field(description="The reference object with the solution information.")
+    saved_solution: UserSavedSolutionDB = Field(
+        description="The reference object with the solution information."
+    )
 
     @computed_field
     @property

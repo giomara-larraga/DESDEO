@@ -829,8 +829,6 @@ def test_rpm_solve(client: TestClient):
     request = RPMSolveRequest(
         problem_id=1,
         preference=preference,
-        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
-        num_desired=3,
     )
 
     response = post_json(
@@ -841,7 +839,7 @@ def test_rpm_solve(client: TestClient):
         json.loads(response.content.decode("utf-8"))
     )
     assert result.previous_preference == preference
-    assert len(result.all_solutions) == 3
+    assert len(result.all_solutions) == 4
 
     request = RPMSaveRequest(
         problem_id=1,
@@ -881,7 +879,7 @@ def test_rpm_solve(client: TestClient):
     assert result.previous_preference == preference
     # We saved the same solution twice, so the filtering should remove one of those.
     assert len(result.saved_solutions) == 2
-    assert len(result.all_solutions) == 6  # should not count saved solutions twice
+    assert len(result.all_solutions) == 8  # should not count saved solutions twice
 
     # Save some more solutions!
     request = RPMSaveRequest(
@@ -922,4 +920,4 @@ def test_rpm_solve(client: TestClient):
     )
     assert result3.previous_preference == preference
     assert len(result3.saved_solutions) == 3
-    assert len(result3.all_solutions) == 7
+    assert len(result3.all_solutions) == 8
