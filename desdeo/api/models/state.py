@@ -367,6 +367,7 @@ class RPMSaveState(ResultInterface, SQLModel, table=True):
             "primaryjoin": "RPMSaveState.id == UserSavedSolutionDB.origin_state_id",
             "cascade": "all, delete-orphan",
             "lazy": "selectin",
+            "overlaps": "solutions"  # Add this to silence the warning
         }
     )
 

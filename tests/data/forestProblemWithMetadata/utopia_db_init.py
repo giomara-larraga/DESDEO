@@ -11,7 +11,13 @@ from sqlmodel import Session, SQLModel
 
 from desdeo.api.config import ServerDebugConfig, SettingsConfig
 from desdeo.api.db import engine
-from desdeo.api.models import ProblemDB, User, UserRole, ForestProblemMetaData, ProblemMetaDataDB
+from desdeo.api.models import (
+    ProblemDB,
+    User,
+    UserRole,
+    ForestProblemMetaData,
+    ProblemMetaDataDB,
+)
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.tools.desc_gen import generate_descriptions
 from desdeo.problem.schema import Problem
@@ -33,7 +39,9 @@ if __name__ == "__main__":
         with Session(engine) as session:
             user_analyst = User(
                 username=ServerDebugConfig.test_user_analyst_name,
-                password_hash=get_password_hash(ServerDebugConfig.test_user_analyst_password),
+                password_hash=get_password_hash(
+                    ServerDebugConfig.test_user_analyst_password
+                ),
                 role=UserRole.analyst,
                 group="test",
             )
@@ -43,9 +51,9 @@ if __name__ == "__main__":
 
             current_path = Path(__file__)
             path = current_path
-            while not str(path).endswith("/DESDEO"):
+            while not str(path).endswith("\\DESDEO"):
                 path = path.parent
-            path = path / "tests/data/forestProblemWithMetadata/"
+            path = path / "tests\\data\\forestProblemWithMetadata\\"
 
             # load the problem from json
             with Path(path / "problem.json").open(mode="r") as file:
@@ -64,41 +72,23 @@ if __name__ == "__main__":
             forest_metadata = ForestProblemMetaData(
                 map_json=map_json,
                 schedule_dict=key,
-                years=list(map(lambda x: str(x), [5,10,20])),
+                years=list(map(lambda x: str(x), [5, 10, 20])),
                 stand_id_field="id",
                 stand_descriptor=generate_descriptions(
-                    json.loads(map_json),
-                    "id",
-                    "number",
-                    "estate_code",
-                    "extension"
-                )
+                    json.loads(map_json), "id", "number", "estate_code", "extension"
+                ),
             )
 
             metadata_db = ProblemMetaDataDB(
-                problem_id = problem_db.id,
+                problem_id=problem_db.id,
                 forest_metadata=[forest_metadata],
-                problem=problem_db
+                problem=problem_db,
             )
 
             session.add(metadata_db)
             session.commit()
 
             # We need to move the newly created test.db file to desdeo/api/ so that the api can read it.
-            target_path = current_path
-            while not str(target_path).endswith("/DESDEO"):
-                print(target_path)
-                target_path = target_path.parent
-            target_path = target_path / "desdeo/api/test.db"
-            # Remove old test.db
-            # os.remove(target_path / "test.db")
-            # Put new one in.
-            os.rename(current_path.parent / "test.db", target_path)
-
-
-            
-
-            
 
     else:
         # deployment stuff
