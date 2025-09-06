@@ -46,6 +46,11 @@ __all__ = [  # noqa: RUF022
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
     "RPMState",
+    "RPMSolveResponse",
+    "RPMSaveRequest",
+    "RPMSaveResponse",
+    "RPMInitializationRequest",
+    "RPMInitializationResponse",
     "SavedSolutionReference",
     "ScalarizationFunctionDB",
     "SimulatorDB",
@@ -77,6 +82,9 @@ __all__ = [  # noqa: RUF022
     "UtopiaRequest",
     "UtopiaResponse",
     "VariableDB",
+    "RPMSolveState",
+    "RPMSaveState",
+    "RPMInitializationState",
 ]
 
 
@@ -133,7 +141,14 @@ from .problem import (
     TensorVariableDB,
     VariableDB,
 )
-from .reference_point_method import RPMSolveRequest
+from .reference_point_method import (
+    RPMSolveRequest,
+    RPMSolveResponse,
+    RPMSaveRequest,
+    RPMSaveResponse,
+    RPMInitializationRequest,
+    RPMInitializationResponse,
+)
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -150,6 +165,9 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    RPMSolveState,
+    RPMSaveState,
+    RPMInitializationState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

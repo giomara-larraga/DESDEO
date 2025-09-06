@@ -106,9 +106,13 @@ class RPMState(SQLModel, table=True):
 
     # inputs
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -120,10 +124,16 @@ class NIMBUSClassificationState(ResultInterface, SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
-    current_objectives: dict[str, float] = Field(sa_column=Column(JSON), default_factory=dict)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    current_objectives: dict[str, float] = Field(
+        sa_column=Column(JSON), default_factory=dict
+    )
     num_desired: int | None = 1
     previous_preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
 
@@ -176,13 +186,21 @@ class NIMBUSInitializationState(ResultInterface, SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    reference_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    reference_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # Results
-    solver_results: "SolverResults" = Field(sa_column=Column(ResultsType), default_factory=list)
+    solver_results: "SolverResults" = Field(
+        sa_column=Column(ResultsType), default_factory=list
+    )
 
     @property
     def result_objective_values(self) -> list[dict[str, float]]:
@@ -214,7 +232,9 @@ class EMOState(SQLModel, table=True):
     solutions: list["EMOResults"] = Field(
         sa_column=Column(JSON), description="Optimization results", default_factory=list
     )
-    outputs: list = Field(sa_column=Column(JSON), description="Optimization outputs", default_factory=list)
+    outputs: list = Field(
+        sa_column=Column(JSON), description="Optimization outputs", default_factory=list
+    )
 
 
 class EMOSaveState(SQLModel, table=True):
@@ -230,8 +250,14 @@ class EMOSaveState(SQLModel, table=True):
     use_archive: bool = Field(default=True)
 
     # results
-    saved_solutions: list["EMOResults"] = Field(sa_column=Column(JSON), default_factory=list)
-    solutions: list = Field(sa_column=Column(JSON), description="Original solutions from request", default_factory=list)
+    saved_solutions: list["EMOResults"] = Field(
+        sa_column=Column(JSON), default_factory=list
+    )
+    solutions: list = Field(
+        sa_column=Column(JSON),
+        description="Original solutions from request",
+        default_factory=list,
+    )
 
 
 class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
@@ -243,12 +269,20 @@ class IntermediateSolutionState(SQLModel, ResultInterface, table=True):
         default=None,
         description="Originating method context (e.g., 'nimbus', 'rpm') that requested these solutions",
     )
-    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     solver: str | None = None
-    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
     num_desired: int | None = 1
-    reference_solution_1: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    reference_solution_2: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
+    reference_solution_1: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    reference_solution_2: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
 
     # results
     solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
@@ -271,14 +305,113 @@ class ENautilusState(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
 
-    non_dominated_solutions_id: int | None = Field(foreign_key="representativenondominatedsolutions.id", default=None)
+    non_dominated_solutions_id: int | None = Field(
+        foreign_key="representativenondominatedsolutions.id", default=None
+    )
 
     current_iteration: int
     iterations_left: int
-    selected_point: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
-    reachable_point_indices: list[int] = Field(sa_column=Column(JSON), default_factory=list)
+    selected_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    reachable_point_indices: list[int] = Field(
+        sa_column=Column(JSON), default_factory=list
+    )
     number_of_intermediate_points: int
 
     enautilus_results: "ENautilusResult" = Field(sa_column=Column(ResultsType))
 
     non_dominated_solutions: "RepresentativeNonDominatedSolutions" = Relationship()
+
+
+class RPMSolveState(ResultInterface, SQLModel, table=True):
+    """RPM: solve candidates."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    solver: str | None = None
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    previous_preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
+
+    # results
+    solver_results: list[SolverResults] = Field(sa_column=Column(ResultsType))
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.optimal_objectives for x in self.solver_results]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [x.optimal_variables for x in self.solver_results]
+
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solver_results)
+
+
+class RPMSaveState(ResultInterface, SQLModel, table=True):
+    """RPM: save solutions."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    solutions: list["UserSavedSolutionDB"] = Relationship(
+        sa_relationship_kwargs={
+            # tell SQLA which FK on the child points back to THIS parent
+            "foreign_keys": "[UserSavedSolutionDB.origin_state_id]",
+            "primaryjoin": "RPMSaveState.id == UserSavedSolutionDB.origin_state_id",
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin",
+        }
+    )
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [x.objective_values for x in self.solutions]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [x.variable_values for x in self.solutions]
+
+    @property
+    def num_solutions(self) -> int:
+        return len(self.solutions)
+
+
+class RPMInitializationState(ResultInterface, SQLModel, table=True):
+    """RPM: initialization."""
+
+    id: int | None = Field(default=None, primary_key=True, foreign_key="states.id")
+
+    reference_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    solver: str | None = None
+    solver_options: dict[str, float | str | bool] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+
+    # Results
+    solver_results: "SolverResults" = Field(
+        sa_column=Column(ResultsType), default_factory=list
+    )
+
+    @property
+    def result_objective_values(self) -> list[dict[str, float]]:
+        return [self.solver_results.optimal_objectives]
+
+    @property
+    def result_variable_values(self) -> list[dict[str, VariableType | Tensor]]:
+        return [self.solver_results.optimal_variables]
+
+    @property
+    def num_solutions(self) -> int:
+        return 1
