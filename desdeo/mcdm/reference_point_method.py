@@ -26,6 +26,46 @@ class ReferencePointError(Exception):
     """Raised when an error with the reference point method is encountered."""
 
 
+def get_perturbed_reference_points(
+    problem: Problem, reference_point: dict[str, float], initial_solution: SolverResults
+) -> list[dict[str, float]]:
+    """Generates perturbed reference points based on the initial solution.
+
+    Given a problem, a reference point and an initial solution found using the
+    reference point, this function generates perturbed reference points by
+    moving the original reference point away from the initial solution along
+    each objective axis by a distance equal to the Euclidean distance between
+    the reference point and the initial solution.
+
+    Args:
+        problem (Problem): the problem containing the objectives.
+        reference_point (dict[str, float]): the original reference point.
+        initial_solution (SolverResults): the solution found using the original
+            reference point.
+
+    Returns:
+        list[dict[str, float]]: a list of perturbed reference points.
+    """
+    initial_objective_vector = objective_dict_to_numpy_array(
+        problem, initial_solution.optimal_objectives
+    )
+    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
+
+    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
+    unit_vectors = np.eye(len(initial_objective_vector))
+
+    perturbed_reference_point_vectors = reference_point_vector + (
+        distance * unit_vectors
+    )
+
+    perturbed_reference_points = [
+        numpy_array_to_objective_dict(problem, v)
+        for v in perturbed_reference_point_vectors
+    ]
+
+    return perturbed_reference_points
+
+
 def rpm_solve_solutions(
     problem: Problem,
     reference_point: dict[str, float],
@@ -74,7 +114,10 @@ def rpm_solve_solutions(
     _add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
     problem_w_asf, target = _add_asf(
-        problem, "_asf", reference_point, **scalarization_options if scalarization_options is not None else {}
+        problem,
+        "_asf",
+        reference_point,
+        **scalarization_options if scalarization_options is not None else {},
     )
 
     # setup solver
@@ -88,21 +131,33 @@ def rpm_solve_solutions(
     # using the found solution, perturb the reference point to get
     # k (num of objectives) perturbed reference points
 
-    initial_objective_vector = objective_dict_to_numpy_array(problem, initial_solution.optimal_objectives)
+    initial_objective_vector = objective_dict_to_numpy_array(
+        problem, initial_solution.optimal_objectives
+    )
     reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
 
     distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
     unit_vectors = np.eye(len(initial_objective_vector))
 
-    perturbed_reference_point_vectors = reference_point_vector + (distance * unit_vectors)
+    perturbed_reference_point_vectors = reference_point_vector + (
+        distance * unit_vectors
+    )
 
-    perturbed_reference_points = [numpy_array_to_objective_dict(problem, v) for v in perturbed_reference_point_vectors]
+    perturbed_reference_points = [
+        numpy_array_to_objective_dict(problem, v)
+        for v in perturbed_reference_point_vectors
+    ]
 
     # scalarize the problem using the appropriate ASF variant and the perturbed
     # reference points
 
     perturbed_problems_and_targets = [
-        _add_asf(problem, "_asf", rp, **scalarization_options if scalarization_options is not None else {})
+        _add_asf(
+            problem,
+            "_asf",
+            rp,
+            **scalarization_options if scalarization_options is not None else {},
+        )
         for rp in perturbed_reference_points
     ]
 

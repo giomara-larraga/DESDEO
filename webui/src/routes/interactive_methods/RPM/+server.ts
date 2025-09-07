@@ -32,6 +32,9 @@ export const POST: RequestHandler = async ({ url, request, cookies }) => {
             case 'save':
                 response = await handle_save(body, refreshToken);
                 break;
+            case 'explain':
+                response = await handle_explain(body, refreshToken);
+                break;
             case 'remove_saved':
                 return json({ success: false, error: 'solution remove not implemented!' });
             default:
@@ -125,6 +128,37 @@ async function handle_iterate(body: any, refreshToken: string) {
     };
 
     const response = await api.POST('/method/rpm/solve', {
+        body: requestBody,
+        headers: {
+            'Authorization': `Bearer ${refreshToken}`
+        }
+    });
+
+    // Check if the response has an error
+    if (response.error) {
+        console.error(`RPM solve API error: ${response.error} (Status: ${response.response?.status})`);
+        throw new Error(`RPM solve API error: ${response.error} (Status: ${response.response?.status})`);
+    }
+
+    if (!response.data) {
+        console.error('No data received from RPM solve API');
+        throw new Error('No data received from RPM solve API');
+    }
+
+    return { success: true, data: response.data };
+}
+
+async function handle_explain(body: any, refreshToken: string) {
+    const { problem_id, session_id, parent_state_id, preference } = body;
+
+    const requestBody = {
+        problem_id: Number(problem_id),
+        session_id: session_id ? Number(session_id) : null,
+        parent_state_id: parent_state_id ? Number(parent_state_id) : null,
+        preference,
+    };
+
+    const response = await api.POST('/method/rximo/explain', {
         body: requestBody,
         headers: {
             'Authorization': `Bearer ${refreshToken}`

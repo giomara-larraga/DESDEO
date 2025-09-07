@@ -13,6 +13,7 @@ from desdeo.api.routers import (
     session,
     user_authentication,
     utopia,
+    rximo,
 )
 
 if SettingsConfig.debug:
@@ -32,6 +33,7 @@ if SettingsConfig.debug:
     # app.include_router(EMO.router) #TODO: after EMO stuff works, put it to use again
     app.include_router(generic.router)
     app.include_router(utopia.router)
+    app.include_router(rximo.router)
 
     origins = AuthDebugConfig.cors_origins
 

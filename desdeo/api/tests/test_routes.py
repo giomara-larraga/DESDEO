@@ -5,6 +5,9 @@ import json
 from fastapi import status
 from fastapi.testclient import TestClient
 
+import polars as pl
+import numpy as np
+
 from desdeo.api.models import (
     CreateSessionRequest,
     EMOSaveRequest,
@@ -34,6 +37,8 @@ from desdeo.api.models import (
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.models.state import EMOSaveState, EMOState
 from desdeo.api.routers.user_authentication import create_access_token
+from desdeo.explanations.explainer import ShapExplainer
+from desdeo.explanations.utils import generate_biased_mean_data
 from desdeo.problem.testproblems import simple_knapsack_vectors
 
 

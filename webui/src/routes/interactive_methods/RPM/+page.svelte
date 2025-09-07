@@ -2,7 +2,11 @@
 	/**
 	 * +page.svelte (NIMBUS method)
 	 *
-	 * @author Stina (Functionality) <palomakistina@gmail.com>
+	 * @author Stina (Functionality) <palom// State for NIMBUS iteration management
+let current_state: Response = $state({} as Response);
+let current_explanation: RXIMOExplanation | null = $state(null);
+
+let problem: ProblemInfo | null = $state(null);tina@gmail.com>
 	 * @author Giomara Larraga (Base structure)<glarragw@jyu.fi>
 	 * @created July 2025
 	 *
@@ -71,6 +75,7 @@
 	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { onMount } from 'svelte';
+	import type { RXIMOExplanation } from '$lib/types/explain';
 
 	// UI Components
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -98,13 +103,12 @@
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
 	import type { Response } from './types';
-
-	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problem_list = data.problems ?? [];
+	let current_explanation: RXIMOExplanation | null = $state(null);
 	// user can choose from three types of solutions: current, best, or all
 	let selected_type_solutions = $state('current');
 	const frameworks = [
@@ -236,7 +240,8 @@
 		handle_save as handleSaveRequest,
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
-		initialize_rpm_state as initializeRpmStateRequest
+		initialize_rpm_state as initializeRpmStateRequest,
+		handle_explain
 	} from './handlers';
 
 	function handle_change(solution: Solution): void {
@@ -364,7 +369,7 @@
 			selected_iteration_index = [0];
 			// Switch to current solutions view after iteration
 			change_solution_type_updating_selections('current');
-			update_preferences_from_state(current_state);
+			await update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
 		}
 	}
@@ -387,10 +392,15 @@
 	}
 
 	// Helper function to initialize preferences from previous state or ideal values
-	function update_preferences_from_state(state: Response | null) {
+	async function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
 		current_preference = updatePreferencesFromState(state, problem);
 		last_iterated_preference = [...current_preference];
+
+		// Now that we have the initial preference, get the explanation
+		if (problem && current_preference.length > 0) {
+			current_explanation = await handle_explain(problem, current_preference);
+		}
 	}
 
 	// Helper function to update current intermediate objectives from the current state
@@ -452,7 +462,7 @@
 			// Initialize other state
 			selected_iteration_index = [0];
 			update_iteration_selection(current_state);
-			update_preferences_from_state(current_state);
+			await update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
 		}
 	}
@@ -548,6 +558,44 @@
 					onIterate={handle_iterate}
 					isFinishButton={false}
 				/>
+
+				{#if current_explanation}
+					<div class="mt-4 border-t border-gray-200 p-4">
+						<h3 class="mb-2 text-lg font-medium">SHAP Explanation</h3>
+						<div class="space-y-3">
+							{#each problem.objectives as obj, i}
+								<div class="text-sm">
+									<div class="font-medium">{obj.name}</div>
+									<div class="mt-1 flex items-center">
+										<div class="h-2 w-full rounded-full bg-gray-200">
+											{#if current_explanation.shap_values[i]}
+												{@const shapValue = current_explanation.shap_values[i][0]}
+												{@const maxAbs = Math.max(Math.abs(shapValue), 1)}
+												{@const width = (Math.abs(shapValue) / maxAbs) * 50}
+												{@const isPositive = shapValue > 0}
+												<div
+													class="h-2 rounded-full transition-all duration-200 {isPositive
+														? 'bg-blue-500'
+														: 'bg-red-500'}"
+													style="width: {50 + (isPositive ? width : -width)}%;"
+												></div>
+											{/if}
+										</div>
+										<span class="ml-2 min-w-[60px] text-right">
+											{current_explanation.shap_values[i]
+												? current_explanation.shap_values[i][0].toFixed(4)
+												: '0.0000'}
+										</span>
+									</div>
+								</div>
+							{/each}
+						</div>
+						<p class="mt-4 text-xs text-gray-500">
+							SHAP values show how each reference point component influences the solution. Blue bars
+							indicate positive influence, red bars indicate negative influence.
+						</p>
+					</div>
+				{/if}
 			{/if}
 		{/snippet}
 

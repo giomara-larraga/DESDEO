@@ -85,6 +85,11 @@ __all__ = [  # noqa: RUF022
     "RPMSolveState",
     "RPMSaveState",
     "RPMInitializationState",
+    "RXIMOExplainRequest",
+    "RXIMOExplainResponse",
+    "ReferenceData",
+    "ReferenceDataBase",
+    "ReferenceDataRead",
 ]
 
 
@@ -149,6 +154,11 @@ from .reference_point_method import (
     RPMInitializationRequest,
     RPMInitializationResponse,
 )
+from .rximo import (
+    RXIMOExplainRequest,
+    RXIMOExplainResponse,
+)
+
 from .session import (
     CreateSessionRequest,
     GetSessionRequest,
@@ -171,3 +181,4 @@ from .state import (
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse
+from .reference_data import ReferenceData, ReferenceDataBase, ReferenceDataRead

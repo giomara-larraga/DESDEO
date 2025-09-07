@@ -137,3 +137,33 @@ export async function initialize_rpm_state(problem_id: number): Promise<Response
         return null;
     }
 }
+
+export async function handle_explain(
+    problem: ProblemInfo,
+    current_preference: number[],
+): Promise<Response | null> {
+    const preference = {
+        preference_type: 'reference_point',
+        aspiration_levels: problem.objectives.reduce(
+            (acc, obj, idx) => {
+                acc[obj.symbol] = current_preference[idx];
+                return acc;
+            },
+            {} as Record<string, number>
+        )
+    };
+
+    const result = await callRPMAPI<Response>('explain', {
+        problem_id: problem.id,
+        session_id: null,
+        parent_state_id: null,
+        preference: preference
+    });
+
+    if (result.success && result.data) {
+        return result.data;
+    } else {
+        console.error('RPM explanation failed:', result.error);
+        return null;
+    }
+}

@@ -1,14 +1,20 @@
 """Database configuration file for the API."""
 
+from typing import Any
+from sqlalchemy.ext.declarative import declarative_base
 from sqlmodel import Session, create_engine
 
 from desdeo.api.config import DatabaseDebugConfig, SettingsConfig
+
+Base: Any = declarative_base()
 
 if SettingsConfig.debug:
     # debug and development stuff
 
     # SQLite setup
-    engine = create_engine(DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        DatabaseDebugConfig.db_database, connect_args={"check_same_thread": False}
+    )
 
 else:
     # deployment stuff

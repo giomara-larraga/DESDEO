@@ -12,10 +12,8 @@ from desdeo.mcdm.nimbus import generate_starting_point
 from desdeo.api.db import get_session
 from desdeo.api.models import (
     InteractiveSessionDB,
-    PreferenceDB,
     ProblemDB,
     RPMSolveRequest,
-    RPMState,
     RPMSolveResponse,
     RPMSaveRequest,
     RPMSaveResponse,
