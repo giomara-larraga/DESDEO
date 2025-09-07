@@ -324,7 +324,6 @@ def get_or_initialize(
             return RPMSolveResponse(
                 state_id=latest_state.id,
                 previous_preference=latest_state.state.preferences,
-                previous_objectives=latest_state.state.current_objectives,
                 current_solutions=current_solutions,
                 saved_solutions=saved_solutions,
                 all_solutions=all_solutions,
