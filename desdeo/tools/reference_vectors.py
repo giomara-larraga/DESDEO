@@ -134,6 +134,9 @@ def create_simplex(
     number_of_objectives: int,
     lattice_resolution: int = None,
     number_of_vectors: int = None,
+    *,
+    method: str = "simplex",
+    pymoo_layers: list | None = None,
 ) -> np.ndarray:
     """
     Create reference vectors using the simplex lattice design.
@@ -149,6 +152,50 @@ def create_simplex(
     Raises:
         ValueError: If both lattice_resolution and number_of_vectors are None.
     """
+    method = method.lower()
+
+    # Support a pymoo multi-layer generation when requested. The user can pass
+    # either precomputed layer arrays (ndarray-like) or dicts with kwargs to
+    # pass to pymoo.util.ref_dirs.get_reference_directions for constructing
+    # each layer (e.g. {'strategy': 'das-dennis', 'n_partitions': 12, 'scaling': 1.0}).
+    if method in ("multi-layer", "multi_layer", "pymoo-multi", "pymoo"):
+        try:
+            from pymoo.util.ref_dirs import get_reference_directions
+        except Exception as e:
+            raise ImportError(
+                "pymoo is required for multi-layer reference vector generation. Install pymoo or use method='simplex'."
+            ) from e
+
+        if not pymoo_layers:
+            raise ValueError(
+                "pymoo_layers must be provided when using multi-layer method"
+            )
+
+        # Build layer arrays
+        built_layers = []
+        for layer in pymoo_layers:
+            # If the user gave a dict with kwargs, call get_reference_directions to build it
+            if isinstance(layer, dict):
+                # Allow both 'strategy' or positional first arg naming
+                kwargs = layer.copy()
+                strategy = kwargs.pop("strategy", None) or kwargs.pop("name", None)
+                if strategy is None:
+                    raise ValueError(
+                        "Layer dicts must include a 'strategy' key (e.g. 'das-dennis')"
+                    )
+                built = get_reference_directions(
+                    strategy, number_of_objectives, **kwargs
+                )
+                built_layers.append(np.asarray(built))
+            else:
+                # Assume it's an array-like of reference directions
+                built_layers.append(np.asarray(layer))
+
+        # Delegate to pymoo multi-layer constructor
+        ref_dirs = get_reference_directions("multi-layer", *built_layers)
+        return normalize(np.asarray(ref_dirs))
+
+    # Default: simplex lattice design (original behaviour)
     if lattice_resolution is None and number_of_vectors is None:
         raise ValueError(
             "Either lattice resolution or number of vectors must be specified."

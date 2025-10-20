@@ -35,6 +35,8 @@ class ADMAfsar(BaseADM):
         it_decision_phase: int,
         lattice_resolution: int = None,
         number_of_vectors: int = None,
+        true_ideal: np.ndarray = None,
+        true_nadir: np.ndarray = None,
     ):
         """
         Initialize the artificial decision maker proposed by Afsar et al.
@@ -46,7 +48,17 @@ class ADMAfsar(BaseADM):
             lattice_resolution (int, optional): Lattice resolution for reference vectors.
             number_of_vectors (int, optional): Number of reference vectors.
         """
-        self.true_ideal, self.true_nadir = payoff_table_method(problem)
+        if true_ideal is not None and true_nadir is not None:
+            self.true_ideal = true_ideal
+            self.true_nadir = true_nadir
+        else:
+            try:
+                self.true_ideal, self.true_nadir = problem.get_ideal_and_nadir()
+            except:
+                Warning("Problem does not have ideal and nadir points defined. ")
+                self.true_ideal = np.zeros(len(problem.objectives))
+                self.true_nadir = np.ones(len(problem.objectives))
+
         problem = problem.update_ideal_and_nadir(
             new_ideal=self.true_ideal, new_nadir=self.true_nadir
         )
@@ -59,8 +71,6 @@ class ADMAfsar(BaseADM):
         self.reference_vectors = create_simplex(
             number_of_objectives, lattice_resolution, number_of_vectors
         )
-        self.true_ideal, self.true_nadir = payoff_table_method(problem)
-
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
