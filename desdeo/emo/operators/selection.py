@@ -109,7 +109,9 @@ class ReferenceVectorOptions(BaseModel):
     adaptation_frequency: int = Field(default=0)
     """Number of generations between reference vector adaptation. If set to 0, no adaptation occurs. Defaults to 0.
     Only used if no preference is provided."""
-    creation_type: Literal["simplex", "s_energy"] = Field(default="simplex")
+    creation_type: Literal["simplex", "s_energy", "multi_layer"] = Field(
+        default="simplex"
+    )
     """The method for creating reference vectors. Defaults to "simplex".
     Currently only "simplex" is implemented. Future versions will include "s_energy".
 
@@ -119,6 +121,8 @@ class ReferenceVectorOptions(BaseModel):
     If set to "s_energy", the reference vectors are created using the Riesz s-energy criterion. This method is used to
     distribute an arbitrary number of reference vectors in the objective space while minimizing the s-energy.
     Currently not implemented.
+
+    multi_layer uses pymoo's multi-layer reference direction generation.
     """
     vector_type: Literal["spherical", "planar"] = Field(default="spherical")
     """The method for normalizing the reference vectors. Defaults to "spherical"."""
@@ -167,8 +171,10 @@ class BaseDecompositionSelector(BaseSelector):
             raise NotImplementedError(
                 "Riesz s-energy criterion is not yet implemented."
             )
-
-        self._create_simplex()
+        elif self.reference_vector_options.creation_type == "multi_layer":
+            self._create_multi_layer_simplex()
+        else:
+            self._create_simplex()
 
         if self.reference_vector_options.reference_point:
             corrected_rp = np.array(
@@ -269,47 +275,6 @@ class BaseDecompositionSelector(BaseSelector):
             self.reference_vectors = weight / lattice_resolution
         else:
             self.reference_vectors = 1 - (weight / lattice_resolution)
-        self.reference_vectors_initial = np.copy(self.reference_vectors)
-        self._normalize_rvs()
-
-    def _create_multi_layer_simplex(self):
-        """Create reference vectors using pymoo's multi-layer reference directions.
-
-        Expects `self.reference_vector_options['pymoo_layers']` to be a list where
-        each element is either an array-like of directions or a dict of kwargs for
-        `pymoo.util.ref_dirs.get_reference_directions`, e.g.
-            [{'strategy': 'das-dennis', 'n_partitions':12, 'scaling':1.0}, ...]
-        """
-        try:
-            from pymoo.util.ref_dirs import get_reference_directions
-        except Exception as e:
-            raise ImportError(
-                "pymoo is required for multi-layer reference generation"
-            ) from e
-
-        layers = self.reference_vector_options.get("pymoo_layers")
-        if not layers:
-            raise ValueError(
-                "reference_vector_options['pymoo_layers'] must be provided for multi-layer creation"
-            )
-
-        built_layers = []
-        for layer in layers:
-            if isinstance(layer, dict):
-                # pop strategy/name
-                kwargs = layer.copy()
-                strategy = kwargs.pop("strategy", None) or kwargs.pop("name", None)
-                if strategy is None:
-                    raise ValueError(
-                        "Each layer dict must include a 'strategy' key (e.g. 'das-dennis')"
-                    )
-                built = get_reference_directions(strategy, self.num_dims, **kwargs)
-                built_layers.append(np.asarray(built))
-            else:
-                built_layers.append(np.asarray(layer))
-
-        ref_dirs = get_reference_directions("multi-layer", *built_layers)
-        self.reference_vectors = np.asarray(ref_dirs)
         self.reference_vectors_initial = np.copy(self.reference_vectors)
         self._normalize_rvs()
 
