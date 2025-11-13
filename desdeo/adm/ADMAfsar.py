@@ -1,9 +1,10 @@
 from desdeo.adm import BaseADM
 import numpy as np
-from desdeo.tools.reference_vectors import create_simplex
 from desdeo.tools.non_dominated_sorting import non_dominated as nds
 from desdeo.problem.schema import Problem
 from desdeo.tools import payoff_table_method
+from desdeo.emo.operators.selection import ReferenceVectorOptions
+from desdeo.tools.reference_vectors import create_reference_vectors
 
 
 class ADMAfsar(BaseADM):
@@ -33,8 +34,7 @@ class ADMAfsar(BaseADM):
         problem: Problem,
         it_learning_phase: int,
         it_decision_phase: int,
-        lattice_resolution: int = None,
-        number_of_vectors: int = None,
+        reference_vector_options: ReferenceVectorOptions = None,
         true_ideal: np.ndarray = None,
         true_nadir: np.ndarray = None,
     ):
@@ -68,8 +68,8 @@ class ADMAfsar(BaseADM):
         self.preference_type = "reference_point"
         number_of_objectives = len(problem.objectives)
 
-        self.reference_vectors = create_simplex(
-            number_of_objectives, lattice_resolution, number_of_vectors
+        self.reference_vectors = create_reference_vectors(
+            number_of_objectives, reference_vector_options
         )
         self.generate_initial_preference()
 

@@ -137,6 +137,12 @@ class ReferenceVectorOptions(BaseModel):
     Note that if neither `lattice_resolution` nor `number_of_vectors` is specified, the number of vectors defaults to
     200. Overridden if "spherical" is selected as the `vector_type` and `lattice_resolution` is provided.
     """
+    pymoo_layers: list[dict] | None = None
+    """List of layers for multi-layer reference vector generation using pymoo. Each layer can be specified as a dict of kwargs for
+    `pymoo.util.ref_dirs.get_reference_directions`, e.g.
+        [{'strategy': 'das-dennis', 'n_partitions':12, 'scaling':1.0}, ...]
+    """
+
     adaptation_distance: float = Field(default=0.2)
     """Distance parameter for the interactive adaptation methods. Defaults to 0.2."""
     reference_point: dict[str, float] | None = Field(default=None)
@@ -172,7 +178,7 @@ class BaseDecompositionSelector(BaseSelector):
                 "Riesz s-energy criterion is not yet implemented."
             )
         elif self.reference_vector_options.creation_type == "multi_layer":
-            self._create_multi_layer_simplex()
+            self._create_multi_layer_simplex(self.reference_vector_options.pymoo_layers)
         else:
             self._create_simplex()
 
@@ -278,13 +284,11 @@ class BaseDecompositionSelector(BaseSelector):
         self.reference_vectors_initial = np.copy(self.reference_vectors)
         self._normalize_rvs()
 
-    def _create_multi_layer_simplex(self):
+    def _create_multi_layer_simplex(self, pymoo_layers: list[dict] | None = None):
         """Create reference vectors using pymoo's multi-layer reference directions.
 
-        Expects `self.reference_vector_options['pymoo_layers']` to be a list where
-        each element is either an array-like of directions or a dict of kwargs for
-        `pymoo.util.ref_dirs.get_reference_directions`, e.g.
-            [{'strategy': 'das-dennis', 'n_partitions':12, 'scaling':1.0}, ...]
+        Expects `pymoo_layers` to be a list where each element is either a dict of kwargs for
+        `pymoo.util.ref_dirs.get_reference_directions` or a numpy array of reference directions.
         """
         try:
             from pymoo.util.ref_dirs import get_reference_directions
@@ -293,7 +297,7 @@ class BaseDecompositionSelector(BaseSelector):
                 "pymoo is required for multi-layer reference generation"
             ) from e
 
-        layers = self.reference_vector_options.get("pymoo_layers")
+        layers = pymoo_layers
         if not layers:
             raise ValueError(
                 "reference_vector_options['pymoo_layers'] must be provided for multi-layer creation"

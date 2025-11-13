@@ -2,23 +2,27 @@ from itertools import combinations
 
 import numpy as np
 from scipy.special import comb
+from desdeo.emo.operators.selection import ReferenceVectorOptions
 
 
-def normalize(vectors):
-    """Normalize a set of vectors.
-
-    The length of the returned vectors will be unity.
-
-    Parameters
-    ----------
-    vectors : np.ndarray
-        Set of vectors of any length, except zero.
-
-    """
-    if len(np.asarray(vectors).shape) == 1:
-        return vectors / np.linalg.norm(vectors)
-    norm = np.linalg.norm(vectors, axis=1)
-    return vectors / norm[:, np.newaxis]
+def normalize(reference_vectors, vector_type, invert_reference_vectors=False):
+    """Normalize the reference vectors to a unit hypersphere."""
+    if vector_type == "spherical":
+        norm = np.linalg.norm(reference_vectors, axis=1).reshape(-1, 1)
+        norm[norm == 0] = np.finfo(float).eps
+        reference_vectors = np.divide(reference_vectors, norm)
+        return reference_vectors
+    if vector_type == "planar":
+        if not invert_reference_vectors:
+            norm = np.sum(reference_vectors, axis=1).reshape(-1, 1)
+            reference_vectors = np.divide(reference_vectors, norm)
+            return reference_vectors
+        else:
+            norm = np.sum(1 - reference_vectors, axis=1).reshape(-1, 1)
+            reference_vectors = 1 - np.divide(1 - reference_vectors, norm)
+            return reference_vectors
+    # Not needed due to pydantic validation
+    raise ValueError("Invalid vector type. Must be either 'spherical' or 'planar'.")
 
 
 def shear(vectors, degrees: float = 5):
@@ -130,21 +134,36 @@ def approx_lattice_resolution(number_of_vectors: int, num_dims: int) -> int:
     return temp_lattice_resolution - 1
 
 
+def create_reference_vectors(
+    num_dims: int,
+    reference_vector_options: ReferenceVectorOptions,
+    invert_reference_vectors: bool = False,
+):
+    reference_vectors = None
+    if reference_vector_options.creation_type == "s_energy":
+        raise NotImplementedError("Riesz s-energy criterion is not yet implemented.")
+    elif reference_vector_options.creation_type == "multi_layer":
+        reference_vectors = create_multi_layer_simplex(
+            reference_vector_options, num_dims, invert_reference_vectors
+        )
+    else:
+        reference_vectors = create_simplex(
+            reference_vector_options, num_dims, invert_reference_vectors
+        )
+
+    return reference_vectors
+
+
 def create_simplex(
-    number_of_objectives: int,
-    lattice_resolution: int = None,
-    number_of_vectors: int = None,
-    *,
-    method: str = "simplex",
-    pymoo_layers: list | None = None,
+    reference_vector_options: ReferenceVectorOptions,
+    num_dims: int,
+    invert_reference_vectors: bool = False,
 ) -> np.ndarray:
     """
     Create reference vectors using the simplex lattice design.
 
     Args:
-        number_of_objectives (int): Number of objectives (dimensions).
-        lattice_resolution (int, optional): Lattice resolution to use. If None, will be determined from number_of_vectors.
-        number_of_vectors (int, optional): Desired number of reference vectors. Used if lattice_resolution is None.
+        reference_vector_options (ReferenceVectorOptions): Options for generating reference vectors.
 
     Returns:
         np.ndarray: Array of normalized reference vectors.
@@ -152,93 +171,35 @@ def create_simplex(
     Raises:
         ValueError: If both lattice_resolution and number_of_vectors are None.
     """
-    method = method.lower()
-
-    # Support a pymoo multi-layer generation when requested. The user can pass
-    # either precomputed layer arrays (ndarray-like) or dicts with kwargs to
-    # pass to pymoo.util.ref_dirs.get_reference_directions for constructing
-    # each layer (e.g. {'strategy': 'das-dennis', 'n_partitions': 12, 'scaling': 1.0}).
-    if method in ("multi-layer", "multi_layer", "pymoo-multi", "pymoo"):
-        try:
-            from pymoo.util.ref_dirs import get_reference_directions
-        except Exception as e:
-            raise ImportError(
-                "pymoo is required for multi-layer reference vector generation. Install pymoo or use method='simplex'."
-            ) from e
-
-        if not pymoo_layers:
-            raise ValueError(
-                "pymoo_layers must be provided when using multi-layer method"
-            )
-
-        # Build layer arrays
-        built_layers = []
-        for layer in pymoo_layers:
-            # If the user gave a dict with kwargs, call get_reference_directions to build it
-            if isinstance(layer, dict):
-                # Allow both 'strategy' or positional first arg naming
-                kwargs = layer.copy()
-                strategy = kwargs.pop("strategy", None) or kwargs.pop("name", None)
-                if strategy is None:
-                    raise ValueError(
-                        "Layer dicts must include a 'strategy' key (e.g. 'das-dennis')"
-                    )
-                built = get_reference_directions(
-                    strategy, number_of_objectives, **kwargs
-                )
-                built_layers.append(np.asarray(built))
-            else:
-                # Assume it's an array-like of reference directions
-                built_layers.append(np.asarray(layer))
-
-        # Delegate to pymoo multi-layer constructor
-        ref_dirs = get_reference_directions("multi-layer", *built_layers)
-        return normalize(np.asarray(ref_dirs))
-
-    # Default: simplex lattice design (original behaviour)
-    if lattice_resolution is None and number_of_vectors is None:
-        raise ValueError(
-            "Either lattice resolution or number of vectors must be specified."
-        )
-
-    if lattice_resolution is None:
+    if reference_vector_options.lattice_resolution:
+        lattice_resolution = reference_vector_options.lattice_resolution
+    else:
         lattice_resolution = approx_lattice_resolution(
-            number_of_vectors, number_of_objectives
+            reference_vector_options.number_of_vectors, num_dims=num_dims
         )
 
-    number_of_vectors = comb(
-        lattice_resolution + number_of_objectives - 1,
-        number_of_objectives - 1,
+    number_of_vectors: int = comb(
+        lattice_resolution + num_dims - 1,
+        num_dims - 1,
         exact=True,
     )
 
-    temp1 = range(1, number_of_objectives + lattice_resolution)
-    temp1 = np.array(list(combinations(temp1, number_of_objectives - 1)))
-    temp2 = np.array([range(number_of_objectives - 1)] * number_of_vectors)
+    temp1 = range(1, num_dims + lattice_resolution)
+    temp1 = np.array(list(combinations(temp1, num_dims - 1)))
+    temp2 = np.array([range(num_dims - 1)] * number_of_vectors)
     temp = temp1 - temp2 - 1
-    weight = np.zeros((number_of_vectors, number_of_objectives), dtype=int)
+    weight = np.zeros((number_of_vectors, num_dims), dtype=int)
     weight[:, 0] = temp[:, 0]
-    for i in range(1, number_of_objectives - 1):
+    for i in range(1, num_dims - 1):
         weight[:, i] = temp[:, i] - temp[:, i - 1]
     weight[:, -1] = lattice_resolution - temp[:, -1]
-    values = weight / lattice_resolution
-    return normalize(values)
-
-
-def normalize(values: np.ndarray) -> np.ndarray:
-    """
-    Normalize a set of vectors to unit length (project onto the unit hypersphere).
-
-    Args:
-        values (np.ndarray): Array of vectors to normalize.
-
-    Returns:
-        np.ndarray: Normalized vectors.
-    """
-    norm_2 = np.linalg.norm(values, axis=1).reshape(-1, 1)
-    norm_2[norm_2 == 0] = np.finfo(float).eps
-    values = np.divide(values, norm_2)
-    return values
+    if not invert_reference_vectors:
+        values = weight / lattice_resolution
+    else:
+        values = 1 - weight / lattice_resolution
+    return normalize(
+        values, reference_vector_options.vector_type, invert_reference_vectors
+    )
 
 
 def neighbouring_angles(values: np.ndarray) -> np.ndarray:
@@ -259,7 +220,11 @@ def neighbouring_angles(values: np.ndarray) -> np.ndarray:
     return acosvv
 
 
-def add_edge_vectors(values: np.ndarray) -> np.ndarray:
+def add_edge_vectors(
+    values: np.ndarray,
+    vector_type: str = "default",
+    invert_reference_vectors: bool = False,
+) -> np.ndarray:
     """
     Add edge (axis-aligned) vectors to the set of reference vectors.
 
@@ -273,4 +238,55 @@ def add_edge_vectors(values: np.ndarray) -> np.ndarray:
     """
     edge_vectors = np.eye(values.shape[1])
     values = np.vstack([values, edge_vectors])
-    return normalize(values)
+    return normalize(
+        values,
+        vector_type=vector_type,
+        invert_reference_vectors=invert_reference_vectors,
+    )
+
+
+def create_multi_layer_simplex(
+    reference_vector_options: ReferenceVectorOptions,
+    num_dims: int,
+    invert_reference_vectors: bool = False,
+) -> np.ndarray:
+    """Create reference vectors using pymoo's multi-layer reference directions.
+
+    Expects `pymoo_layers` to be a list where each element is either a dict of kwargs for
+    `pymoo.util.ref_dirs.get_reference_directions` or a numpy array of reference directions.
+    """
+    try:
+        from pymoo.util.ref_dirs import get_reference_directions
+    except Exception as e:
+        raise ImportError(
+            "pymoo is required for multi-layer reference generation"
+        ) from e
+
+    layers = reference_vector_options.pymoo_layers
+    if not layers:
+        raise ValueError(
+            "reference_vector_options.pymoo_layers must be provided for multi-layer creation"
+        )
+
+    built_layers = []
+    for layer in layers:
+        if isinstance(layer, dict):
+            # pop strategy/name
+            kwargs = layer.copy()
+            strategy = kwargs.pop("strategy", None) or kwargs.pop("name", None)
+            if strategy is None:
+                raise ValueError(
+                    "Each layer dict must include a 'strategy' key (e.g. 'das-dennis')"
+                )
+            built = get_reference_directions(strategy, num_dims, **kwargs)
+            built_layers.append(np.asarray(built))
+        else:
+            built_layers.append(np.asarray(layer))
+
+    ref_dirs = get_reference_directions("multi-layer", *built_layers)
+    reference_vectors = np.asarray(ref_dirs)
+    return normalize(
+        reference_vectors,
+        reference_vector_options.vector_type,
+        invert_reference_vectors,
+    )
