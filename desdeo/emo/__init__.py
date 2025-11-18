@@ -37,6 +37,7 @@ from .options.crossover import (
 )
 from .options.generator import (
     LHSGeneratorOptions,
+    ArchiveGeneratorOptions,
     RandomBinaryGeneratorOptions,
     RandomGeneratorOptions,
     RandomIntegerGeneratorOptions,
@@ -53,8 +54,16 @@ from .options.mutation import (
     SelfAdaptiveGaussianMutationOptions,
 )
 from .options.repair import ClipRepairOptions, NoRepairOptions
-from .options.scalar_selection import RouletteWheelSelectionOptions, TournamentSelectionOptions
-from .options.selection import IBEASelectorOptions, NSGA3SelectorOptions, ReferenceVectorOptions, RVEASelectorOptions
+from .options.scalar_selection import (
+    RouletteWheelSelectionOptions,
+    TournamentSelectionOptions,
+)
+from .options.selection import (
+    IBEASelectorOptions,
+    NSGA3SelectorOptions,
+    ReferenceVectorOptions,
+    RVEASelectorOptions,
+)
 from .options.templates import (
     DesirableRangesOptions,
     NonPreferredSolutionsOptions,
@@ -118,6 +127,7 @@ mutation = SimpleNamespace(
 
 generator = SimpleNamespace(
     LHSGeneratorOptions=LHSGeneratorOptions,
+    ArchiveGeneratorOptions=ArchiveGeneratorOptions,
     RandomBinaryGeneratorOptions=RandomBinaryGeneratorOptions,
     RandomGeneratorOptions=RandomGeneratorOptions,
     RandomIntegerGeneratorOptions=RandomIntegerGeneratorOptions,
@@ -129,7 +139,9 @@ templates = SimpleNamespace(
     Template2Options=Template2Options,
 )
 
-repair = SimpleNamespace(NoRepairOptions=NoRepairOptions, ClipRepairOptions=ClipRepairOptions)
+repair = SimpleNamespace(
+    NoRepairOptions=NoRepairOptions, ClipRepairOptions=ClipRepairOptions
+)
 
 preference_handling = SimpleNamespace(
     ReferencePointOptions=ReferencePointOptions,

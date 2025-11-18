@@ -71,6 +71,7 @@ class ADMAfsar(BaseADM):
         self.reference_vectors = create_reference_vectors(
             number_of_objectives, reference_vector_options
         )
+
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
@@ -294,6 +295,9 @@ class ADMAfsar(BaseADM):
                 )
             )
         )
+        # If multiple vectors have the same maximum, return only the first one
+        if max_assigned_vector.size > 1:
+            max_assigned_vector = max_assigned_vector[0]
         return max_assigned_vector
 
     def generate_reference_point_learning(
