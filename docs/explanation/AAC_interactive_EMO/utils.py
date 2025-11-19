@@ -203,3 +203,230 @@ def create_problem(name: str, n_obj: int):
 
     print(f"✅ Created {name.upper()} with {n_var} vars and {n_obj} objectives.")
     return problem
+
+
+def get_experiment_configurations():
+    """
+    Returns experiment configurations for minimal and complete runs.
+
+    Returns
+    -------
+    dict
+        Dictionary with 'minimal' and 'complete' keys containing problem lists and objective counts
+    """
+    configurations = {
+        "minimal": {
+            "dtlz_problems": ["dtlz1", "dtlz2"],
+            "wfg_problems": [],
+            "objective_counts": [3, 5],
+        },
+        "complete": {
+            "dtlz_problems": [f"dtlz{i}" for i in range(1, 8)],
+            "wfg_problems": [f"wfg{i}" for i in range(1, 10)],
+            "objective_counts": [3, 5, 7],
+        },
+    }
+    return configurations
+
+
+def run_single_experiment(
+    name: str, n_obj: int, run_adm_func, output_dir: str, counter: int, total: int
+):
+    """
+    Run a single ADM optimization experiment.
+
+    Parameters
+    ----------
+    name : str
+        Problem name (e.g., 'wfg1', 'dtlz2')
+    n_obj : int
+        Number of objectives
+    run_adm_func : callable
+        Function to run ADM optimization
+    output_dir : str
+        Directory to save results
+    counter : int
+        Current experiment number
+    total : int
+        Total number of experiments
+
+    Returns
+    -------
+    bool
+        True if successful, False if failed
+    """
+    import os
+    import pandas as pd
+
+    try:
+        print(
+            f"\n[{counter:2d}/{total}] 🔄 Processing {name.upper()} with {n_obj} objectives..."
+        )
+
+        # Create problem instance
+        problem = create_problem(name, n_obj)
+
+        # Run ADM optimization
+        reference_points = run_adm_func(problem)
+
+        # Save results
+        out_path = os.path.join(output_dir, f"{name}_{n_obj}obj_refpoints.csv")
+        reference_points.to_csv(out_path, index=False)
+        print(f"         Saved {len(reference_points)} reference points → {out_path}")
+
+        return True
+
+    except Exception as e:
+        print(f"         Error processing {name} with {n_obj} objectives: {str(e)}")
+        return False
+
+
+def run_experiment_batch(
+    problems: list,
+    objective_counts: list,
+    run_adm_func,
+    output_dir: str,
+    experiment_type: str = "experiments",
+):
+    """
+    Run a batch of ADM optimization experiments.
+
+    Parameters
+    ----------
+    problems : list
+        List of problem names
+    objective_counts : list
+        List of objective counts to test
+    run_adm_func : callable
+        Function to run ADM optimization
+    output_dir : str
+        Directory to save results
+    experiment_type : str
+        Type of experiment for display purposes
+
+    Returns
+    -------
+    dict
+        Summary of experiment results
+    """
+    import time
+    import os
+
+    total = len(problems) * len(objective_counts)
+    counter = 0
+    successful = 0
+    failed = 0
+
+    print(f"Starting {experiment_type}...")
+    print(
+        f"Total experiments: {len(problems)} problems × {len(objective_counts)} objective counts = {total}"
+    )
+    print("-" * 60)
+
+    start_time = time.time()
+
+    for name in problems:
+        for n_obj in objective_counts:
+            counter += 1
+            success = run_single_experiment(
+                name, n_obj, run_adm_func, output_dir, counter, total
+            )
+            if success:
+                successful += 1
+            else:
+                failed += 1
+
+    elapsed = (time.time() - start_time) / 60
+
+    print(f"\n{experiment_type.capitalize()} completed in {elapsed:.2f} minutes!")
+    print(f"Successful: {successful}/{total}")
+    if failed > 0:
+        print(f"Failed: {failed}/{total}")
+    print(f"Results saved to: {os.path.abspath(output_dir)}")
+
+    return {
+        "total": total,
+        "successful": successful,
+        "failed": failed,
+        "elapsed_minutes": elapsed,
+    }
+
+
+def get_generated_experiments(output_dir: str):
+    """
+    Get list of experiments that were successfully generated.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory containing the results
+
+    Returns
+    -------
+    list of dict
+        List of experiments with keys: 'name', 'n_obj', 'ref_file'
+    """
+    import os
+    import glob
+
+    experiments = []
+
+    # Find all reference point files
+    pattern = os.path.join(output_dir, "*_*obj_refpoints.csv")
+    ref_files = glob.glob(pattern)
+
+    for ref_file in ref_files:
+        filename = os.path.basename(ref_file)
+        # Parse filename: {name}_{n_obj}obj_refpoints.csv
+        parts = filename.replace("_refpoints.csv", "").split("_")
+        if len(parts) >= 2 and parts[-1].endswith("obj"):
+            n_obj = int(parts[-1].replace("obj", ""))
+            name = "_".join(parts[:-1])
+
+            experiments.append({"name": name, "n_obj": n_obj, "ref_file": ref_file})
+
+    # Sort by name then by n_obj
+    experiments.sort(key=lambda x: (x["name"], x["n_obj"]))
+    return experiments
+
+
+def check_iteration_files_exist(
+    output_dir: str, name: str, n_obj: int, max_iterations: int = 7
+):
+    """
+    Check which iteration files exist for a given experiment.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory containing the results
+    name : str
+        Problem name
+    n_obj : int
+        Number of objectives
+    max_iterations : int
+        Maximum number of iterations to check
+
+    Returns
+    -------
+    dict
+        Dictionary with 'nsga3' and 'rvea' keys containing lists of existing iteration numbers
+    """
+    import os
+
+    existing_iterations = {"nsga3": [], "rvea": []}
+
+    for iteration in range(1, max_iterations + 1):
+        nsga3_file = os.path.join(
+            output_dir, f"nsga3_iteration_{name}_{n_obj}_{iteration}.csv"
+        )
+        rvea_file = os.path.join(
+            output_dir, f"rvea_iteration_{name}_{n_obj}_{iteration}.csv"
+        )
+
+        if os.path.exists(nsga3_file):
+            existing_iterations["nsga3"].append(iteration)
+        if os.path.exists(rvea_file):
+            existing_iterations["rvea"].append(iteration)
+
+    return existing_iterations

@@ -43,11 +43,12 @@ def get_pymoo_problem(p: PymooParameters):
 def evaluate(d: dict[str, list[float]], p: PymooParameters) -> dict[str, Any]:
     """Evaluate a pymoo problem instance with given parameters and input values."""
     problem = get_pymoo_problem(p)
-
     xs_df = pl.DataFrame(d)
 
     output = problem.evaluate(xs_df.to_numpy())
-    output_df = pl.DataFrame(output, schema=[f"f_{i + 1}" for i in range(problem.n_obj)])
+    output_df = pl.DataFrame(
+        output, schema=[f"f_{i + 1}" for i in range(problem.n_obj)]
+    )
 
     return d | output_df.to_dict(as_series=False)
 
@@ -75,7 +76,9 @@ def server_problem(parameters: PymooParameters) -> Problem:
         info = requests.get(url + f":{port}/info", json=parameters.model_dump())
         info.raise_for_status()
     except requests.RequestException as e:
-        raise RuntimeError("Failed to fetch problem info. Is the server running?") from e
+        raise RuntimeError(
+            "Failed to fetch problem info. Is the server running?"
+        ) from e
     info: ProblemInfo = ProblemInfo.model_validate(info.json())
 
     simulator_url = Url(url=f"{url}:{port}/evaluate")
