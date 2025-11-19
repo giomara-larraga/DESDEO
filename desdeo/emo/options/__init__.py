@@ -103,4 +103,5 @@ __all__ = [
     "selection_constructor",
     "RepairOptions",
     "repair_constructor",
+    "WASFGASelectorOptions",
 ]

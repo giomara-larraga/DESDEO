@@ -79,7 +79,9 @@ class Template1Options(BaseTemplateOptions):
     more details.
     """
 
-    name: Literal["Template1"] = Field(default="Template1", frozen=True, description="The name of the template.")
+    name: Literal["Template1"] = Field(
+        default="Template1", frozen=True, description="The name of the template."
+    )
     """The name of the template."""
 
 
@@ -91,9 +93,13 @@ class Template2Options(BaseTemplateOptions):
     more details.
     """
 
-    name: Literal["Template2"] = Field(default="Template2", frozen=True, description="The name of the template.")
+    name: Literal["Template2"] = Field(
+        default="Template2", frozen=True, description="The name of the template."
+    )
     """The name of the template."""
-    mate_selection: ScalarSelectionOptions = Field(description="The mate selection operator options.")
+    mate_selection: ScalarSelectionOptions = Field(
+        description="The mate selection operator options."
+    )
 
 
 TemplateOptions = Template1Options | Template2Options
@@ -103,14 +109,16 @@ class ReferencePointOptions(BaseModel):
     """Options for providing a reference point for an EA."""
 
     name: Literal["reference_point"] = Field(
-        default="reference_point", frozen=True, description="The name of the reference point option."
+        default="reference_point",
+        frozen=True,
+        description="The name of the reference point option.",
     )
     """The name of the reference point option."""
     preference: dict[str, float] = Field(
         description="The reference point as a dictionary with objective function symbols as the keys."
     )
     """The reference point as a dictionary with objective function symbols as the keys."""
-    method: Literal["Hakanen", "IOPIS"] = Field(
+    method: Literal["Hakanen", "IOPIS", "WASFGA"] = Field(
         default="Hakanen", description="The method for handling the reference point."
     )
     """The method for handling the reference point."""
@@ -120,7 +128,9 @@ class DesirableRangesOptions(BaseModel):
     """Options for providing desirable ranges for an EA."""
 
     name: Literal["preferred_ranges"] = Field(
-        default="preferred_ranges", frozen=True, description="The name of the preferred ranges option."
+        default="preferred_ranges",
+        frozen=True,
+        description="The name of the preferred ranges option.",
     )
     """The name of the preferred ranges option."""
     aspiration_levels: dict[str, float] = Field(
@@ -148,7 +158,9 @@ class PreferredSolutionsOptions(BaseModel):
     """Options for providing preferred solutions for an EA."""
 
     name: Literal["preferred_solutions"] = Field(
-        default="preferred_solutions", frozen=True, description="The name of the preferred solutions option."
+        default="preferred_solutions",
+        frozen=True,
+        description="The name of the preferred solutions option.",
     )
     """The name of the preferred solutions option."""
     preference: dict[str, list[float]] = Field(
@@ -156,7 +168,8 @@ class PreferredSolutionsOptions(BaseModel):
     )
     """The preferred solutions as a dictionary with objective function symbols as the keys."""
     method: Literal["Hakanen"] = Field(
-        default="Hakanen", description="The method for handling the preferred solutions."
+        default="Hakanen",
+        description="The method for handling the preferred solutions.",
     )
     """The method for handling the preferred solutions."""
 
@@ -165,7 +178,9 @@ class NonPreferredSolutionsOptions(BaseModel):
     """Options for providing non-preferred solutions for an EA."""
 
     name: Literal["non_preferred_solutions"] = Field(
-        default="non_preferred_solutions", frozen=True, description="The name of the non-preferred solutions option."
+        default="non_preferred_solutions",
+        frozen=True,
+        description="The name of the non-preferred solutions option.",
     )
     """The name of the non-preferred solutions option."""
     preference: dict[str, list[float]] = Field(
@@ -173,13 +188,17 @@ class NonPreferredSolutionsOptions(BaseModel):
     )
     """The non-preferred solutions as a dictionary with objective function symbols as the keys."""
     method: Literal["Hakanen"] = Field(
-        default="Hakanen", description="The method for handling the non-preferred solutions."
+        default="Hakanen",
+        description="The method for handling the non-preferred solutions.",
     )
     """The method for handling the non-preferred solutions."""
 
 
 PreferenceOptions = (
-    ReferencePointOptions | DesirableRangesOptions | PreferredSolutionsOptions | NonPreferredSolutionsOptions
+    ReferencePointOptions
+    | DesirableRangesOptions
+    | PreferredSolutionsOptions
+    | NonPreferredSolutionsOptions
 )
 
 
@@ -223,15 +242,24 @@ def preference_handler(
             raise InvalidTemplateError(
                 "Preference handling with Hakanen method requires a selection operator with reference vectors."
             )
-        if selection.name == "IBEASelector":  # Technically not needed due to check above, but for shutting up linters
-            raise InvalidTemplateError("Preference handling with Hakanen method is not supported for IBEASelector.")
+        if (
+            selection.name == "IBEASelector"
+        ):  # Technically not needed due to check above, but for shutting up linters
+            raise InvalidTemplateError(
+                "Preference handling with Hakanen method is not supported for IBEASelector."
+            )
         if selection.reference_vector_options is None:
-            reference_vector_options = ReferenceVectorOptions()  # Use default reference vector options
+            reference_vector_options = (
+                ReferenceVectorOptions()
+            )  # Use default reference vector options
         else:
             reference_vector_options = selection.reference_vector_options
         if isinstance(preference, DesirableRangesOptions):
             preference_value = {
-                obj.symbol: [preference.aspiration_levels[obj.symbol], preference.reservation_levels[obj.symbol]]
+                obj.symbol: [
+                    preference.aspiration_levels[obj.symbol],
+                    preference.reservation_levels[obj.symbol],
+                ]
                 for obj in problem.objectives
             }
         else:
@@ -250,11 +278,30 @@ def preference_handler(
             problem=problem,
             aspiration_levels=preference.aspiration_levels,
             reservation_levels=preference.reservation_levels,
-            desirability_levels={name: preference.desirability_levels for name in preference.aspiration_levels},
+            desirability_levels={
+                name: preference.desirability_levels
+                for name in preference.aspiration_levels
+            },
             desirability_func="MaoMao",
         )
         return df_problem, selection
-    raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")
+    if preference.method == "WASFGA":
+        if selection.name != "WASFGASelector":
+            raise InvalidTemplateError(
+                "Preference handling with WASF-GA method requires WASFGASelector as selection operator."
+            )
+        if selection.reference_vector_options is None:
+            reference_vector_options = (
+                ReferenceVectorOptions()
+            )  # Use default reference vector options
+        else:
+            reference_vector_options = selection.reference_vector_options
+        selection.reference_point = preference.preference
+        selection.reference_vector_options = reference_vector_options
+        return problem, selection
+    raise InvalidTemplateError(
+        f"Unknown preference handling method: {preference.method}"
+    )
 
 
 @dataclass
@@ -271,7 +318,9 @@ class ConstructorExtras:
 
 
 def emo_constructor(
-    emo_options: EMOOptions, problem: Problem, external_check: Callable[[], bool] | None = None
+    emo_options: EMOOptions,
+    problem: Problem,
+    external_check: Callable[[], bool] | None = None,
 ) -> tuple[Callable[[], EMOResult], ConstructorExtras]:
     """Construct an evolutionary algorithm from the given options.
 
@@ -297,7 +346,9 @@ def emo_constructor(
         preference=emo_options.preference, problem=problem, selection=template.selection
     )
 
-    evaluator = EMOEvaluator(problem=problem_, publisher=publisher, verbosity=template.verbosity)
+    evaluator = EMOEvaluator(
+        problem=problem_, publisher=publisher, verbosity=template.verbosity
+    )
 
     selector = selection_constructor(
         problem=problem_,
@@ -366,18 +417,28 @@ def emo_constructor(
         components["mate_selection"] = scalar_selector
 
     [publisher.auto_subscribe(x) for x in components.values()]
-    [publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__) for x in components.values()]
+    [
+        publisher.register_topics(x.provided_topics[x.verbosity], x.__class__.__name__)
+        for x in components.values()
+    ]
 
     consistency = publisher.check_consistency()
 
     if not consistency[0]:
-        raise InvalidTemplateError(f"Inconsistent template configuration. See details:\n {consistency[1]}")
+        raise InvalidTemplateError(
+            f"Inconsistent template configuration. See details:\n {consistency[1]}"
+        )
     archive = components.pop("archive", None)
     template_funcs = {
         "Template1": template1,
         "Template2": template2,
     }
 
-    constructor_extras = ConstructorExtras(problem=problem_, publisher=publisher, archive=archive)
+    constructor_extras = ConstructorExtras(
+        problem=problem_, publisher=publisher, archive=archive
+    )
 
-    return (partial(template_funcs[template.name], **components, repair=repair), constructor_extras)
+    return (
+        partial(template_funcs[template.name], **components, repair=repair),
+        constructor_extras,
+    )

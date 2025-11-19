@@ -24,6 +24,7 @@ from .options.algorithms import (
     nsga3_options,
     rvea_mixed_integer_options,
     rvea_options,
+    wasfga_options,
 )
 from .options.crossover import (
     BlendAlphaCrossoverOptions,
@@ -85,6 +86,7 @@ algorithms = SimpleNamespace(
     rvea_options=rvea_options,
     nsga3_options=nsga3_options,
     ibea_options=ibea_options,
+    wasfga_options=wasfga_options,
     rvea_mixed_integer_options=rvea_mixed_integer_options,
     nsga3_mixed_integer_options=nsga3_mixed_integer_options,
     ibea_mixed_integer_options=ibea_mixed_integer_options,

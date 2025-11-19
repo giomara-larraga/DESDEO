@@ -3,9 +3,18 @@
 from collections.abc import Callable
 from functools import partial
 
-from desdeo.emo.options.crossover import SimulatedBinaryCrossoverOptions, UniformMixedIntegerCrossoverOptions
-from desdeo.emo.options.generator import LHSGeneratorOptions, RandomMixedIntegerGeneratorOptions
-from desdeo.emo.options.mutation import BoundedPolynomialMutationOptions, MixedIntegerRandomMutationOptions
+from desdeo.emo.options.crossover import (
+    SimulatedBinaryCrossoverOptions,
+    UniformMixedIntegerCrossoverOptions,
+)
+from desdeo.emo.options.generator import (
+    LHSGeneratorOptions,
+    RandomMixedIntegerGeneratorOptions,
+)
+from desdeo.emo.options.mutation import (
+    BoundedPolynomialMutationOptions,
+    MixedIntegerRandomMutationOptions,
+)
 from desdeo.emo.options.repair import NoRepairOptions
 from desdeo.emo.options.scalar_selection import TournamentSelectionOptions
 from desdeo.emo.options.selection import (
@@ -14,6 +23,7 @@ from desdeo.emo.options.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    WASFGASelectorOptions,
 )
 from desdeo.emo.options.templates import (
     ConstructorExtras,
@@ -354,15 +364,80 @@ def ibea_mixed_integer_options() -> EMOOptions:
     )
 
 
+def wasfga_options() -> EMOOptions:
+    """Get default WASFGA options as a Pydantic model.
+
+    References:
+        To be added.
+    Returns:
+        EMOOptions: The default WASFGA options as a Pydantic model.
+    """
+    return EMOOptions(
+        preference=None,
+        template=Template1Options(
+            algorithm_name="WASFGA",
+            crossover=SimulatedBinaryCrossoverOptions(
+                name="SimulatedBinaryCrossover",
+                xover_distribution=30,
+                xover_probability=0.5,
+            ),
+            mutation=BoundedPolynomialMutationOptions(
+                name="BoundedPolynomialMutation",
+                distribution_index=20,
+                mutation_probability=None,
+            ),
+            selection=WASFGASelectorOptions(
+                name="WASFGASelector",
+                reference_vector_options=ReferenceVectorOptions(
+                    adaptation_frequency=0,
+                    creation_type="simplex",
+                    vector_type="planar",
+                    lattice_resolution=None,
+                    number_of_vectors=100,
+                    adaptation_distance=0.2,
+                    reference_point=None,
+                    preferred_solutions=None,
+                    non_preferred_solutions=None,
+                    preferred_ranges=None,
+                ),
+            ),
+            generator=LHSGeneratorOptions(
+                name="LHSGenerator",
+                n_points=100,
+            ),
+            repair=NoRepairOptions(
+                name="NoRepair",
+            ),
+            termination=MaxGenerationsTerminatorOptions(
+                name="MaxGenerationsTerminator",
+                max_generations=100,
+            ),
+            use_archive=True,
+            verbosity=2,
+            seed=42,
+        ),
+    )
+
+
 if __name__ == "__main__":
     import json
     from pathlib import Path
 
     current_dir = Path(__file__)
-    json_dump_path = current_dir.parent.parent.parent.parent / "datasets" / "emoTemplates"
+    json_dump_path = (
+        current_dir.parent.parent.parent.parent / "datasets" / "emoTemplates"
+    )
 
     for algo_name, algo in zip(
-        ["rvea", "nsga3", "ibea", "rvea_mixed_integer", "nsga3_mixed_integer", "ibea_mixed_integer"],
+        [
+            "rvea",
+            "nsga3",
+            "ibea",
+            "rvea_mixed_integer",
+            "nsga3_mixed_integer",
+            "ibea_mixed_integer",
+            "wasfga",
+        ],
         [
             rvea_options,
             nsga3_options,
@@ -370,6 +445,7 @@ if __name__ == "__main__":
             rvea_mixed_integer_options,
             nsga3_mixed_integer_options,
             ibea_mixed_integer_options,
+            wasfga_options,
         ],
         strict=True,
     ):

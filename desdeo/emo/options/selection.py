@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+import numpy as np
 
 from desdeo.emo.operators.selection import (
     BaseSelector,
@@ -13,6 +14,7 @@ from desdeo.emo.operators.selection import (
     ParameterAdaptationStrategy,
     ReferenceVectorOptions,
     RVEASelector,
+    WASFGASelector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -27,18 +29,26 @@ class RVEASelectorOptions(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     name: Literal["RVEASelector"] = Field(
-        default="RVEASelector", frozen=True, description="The name of the selection operator."
+        default="RVEASelector",
+        frozen=True,
+        description="The name of the selection operator.",
     )
     """The name of the selection operator."""
     reference_vector_options: ReferenceVectorOptions = Field(
-        default=ReferenceVectorOptions(), description="Options for the reference vectors."
+        default=ReferenceVectorOptions(),
+        description="Options for the reference vectors.",
     )
     """Options for the reference vectors."""
     parameter_adaptation_strategy: ParameterAdaptationStrategy = Field(
-        default=ParameterAdaptationStrategy.GENERATION_BASED, description="The parameter adaptation strategy to use."
+        default=ParameterAdaptationStrategy.GENERATION_BASED,
+        description="The parameter adaptation strategy to use.",
     )
     """Whether the angle penalized distance is adapted per generation or per function evaluation."""
-    alpha: float = Field(default=2.0, gt=0.0, description="The alpha parameter in the angle penalized distance.")
+    alpha: float = Field(
+        default=2.0,
+        gt=0.0,
+        description="The alpha parameter in the angle penalized distance.",
+    )
     """The alpha parameter in the angle penalized distance."""
 
 
@@ -46,15 +56,19 @@ class NSGA3SelectorOptions(BaseModel):
     """Options for NSGA-III Selection."""
 
     name: Literal["NSGA3Selector"] = Field(
-        default="NSGA3Selector", frozen=True, description="The name of the selection operator."
+        default="NSGA3Selector",
+        frozen=True,
+        description="The name of the selection operator.",
     )
     """The name of the selection operator."""
     reference_vector_options: ReferenceVectorOptions = Field(
-        default=ReferenceVectorOptions(), description="Options for the reference vectors."
+        default=ReferenceVectorOptions(),
+        description="Options for the reference vectors.",
     )
     """Options for the reference vectors."""
     invert_reference_vectors: bool = Field(
-        default=False, description="Whether to invert the reference vectors (inverted triangle)."
+        default=False,
+        description="Whether to invert the reference vectors (inverted triangle).",
     )
     """Whether to invert the reference vectors (inverted triangle)."""
 
@@ -63,22 +77,54 @@ class IBEASelectorOptions(BaseModel):
     """Options for IBEA Selection."""
 
     name: Literal["IBEASelector"] = Field(
-        default="IBEASelector", frozen=True, description="The name of the selection operator."
+        default="IBEASelector",
+        frozen=True,
+        description="The name of the selection operator.",
     )
     """The name of the selection operator."""
     population_size: int = Field(gt=0, description="The population size.")
     """The population size."""
     kappa: float = Field(default=0.05, description="The kappa parameter for IBEA.")
     """The kappa parameter for IBEA."""
-    binary_indicator: Literal["eps", "hv"] = Field(default="eps", description="The binary indicator for IBEA.")
+    binary_indicator: Literal["eps", "hv"] = Field(
+        default="eps", description="The binary indicator for IBEA."
+    )
     """The binary indicator for IBEA."""
 
 
-SelectorOptions = RVEASelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions
+class WASFGASelectorOptions(BaseModel):
+    """Options for WASFGA Selection."""
+
+    name: Literal["WASFGASelector"] = Field(
+        default="WASFGASelector",
+        frozen=True,
+        description="The name of the selection operator.",
+    )
+    """The name of the selection operator."""
+    reference_vector_options: ReferenceVectorOptions = Field(
+        default=ReferenceVectorOptions(),
+        description="Options for the reference vectors.",
+    )
+    reference_point: dict[str, float] | None = Field(
+        default=None,
+        description="The reference point for the achievement scalarizing function.",
+    )
+
+
+SelectorOptions = (
+    RVEASelectorOptions
+    | NSGA3SelectorOptions
+    | IBEASelectorOptions
+    | WASFGASelectorOptions
+)
 
 
 def selection_constructor(
-    problem: Problem, options: SelectorOptions, publisher: Publisher, verbosity: int, seed: int
+    problem: Problem,
+    options: SelectorOptions,
+    publisher: Publisher,
+    verbosity: int,
+    seed: int,
 ) -> BaseSelector:
     """Construct a selection operator from given options.
 
@@ -99,6 +145,7 @@ def selection_constructor(
         "RVEASelector": RVEASelector,
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
+        "WASFGASelector": WASFGASelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")
@@ -111,4 +158,6 @@ def selection_constructor(
                 options["binary_indicator"] = self_hv
             case _:
                 raise ValueError(f"Unknown binary indicator: {indi}")
-    return selection_types[name](problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options)
+    return selection_types[name](
+        problem=problem, publisher=publisher, seed=seed, verbosity=verbosity, **options
+    )

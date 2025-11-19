@@ -1676,3 +1676,441 @@ class IBEASelector(BaseSelector):
 
     def update(self, message: Message) -> None:
         pass
+
+
+class WASFGASelector(BaseDecompositionSelector):
+    """The WASFGA selection operator."""
+
+    @property
+    def provided_topics(self):
+        return {
+            0: [],
+            1: [
+                SelectorMessageTopics.STATE,
+            ],
+            2: [
+                SelectorMessageTopics.REFERENCE_VECTORS,
+                SelectorMessageTopics.STATE,
+                SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+            ],
+        }
+
+    @property
+    def interested_topics(self):
+        return []
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        reference_vector_options: ReferenceVectorOptions | None = None,
+        invert_reference_vectors: bool = False,
+        reference_point: dict[str, float] | None = None,
+        seed: int = 0,
+    ):
+        """Initialize the WASFGA selection operator.
+
+        Args:
+            problem (Problem): The optimization problem to be solved.
+            verbosity (int): The verbosity level of the operator.
+            publisher (Publisher): The publisher to use for communication.
+            reference_vector_options (ReferenceVectorOptions | None, optional): Options for the reference vectors. Defaults to None.
+            invert_reference_vectors (bool, optional): Whether to invert the reference vectors. Defaults to False.
+            seed (int, optional): The random seed to use. Defaults to 0.
+        """
+        if reference_vector_options is None:
+            reference_vector_options = ReferenceVectorOptions()
+        elif isinstance(reference_vector_options, dict):
+            reference_vector_options = ReferenceVectorOptions.model_validate(
+                reference_vector_options
+            )
+
+        # Just asserting correct options for NSGA-III
+        # reference_vector_options.vector_type = "planar"
+        super().__init__(
+            problem,
+            reference_vector_options=reference_vector_options,
+            verbosity=verbosity,
+            publisher=publisher,
+            seed=seed,
+            invert_reference_vectors=invert_reference_vectors,
+        )
+        if self.constraints_symbols is not None:
+            raise NotImplementedError(
+                "NSGA3 selector does not support constraints. Please use a different selector."
+            )
+
+        self.n_survive = self.reference_vectors.shape[0]
+        self.selection: list[int] | None = None
+        self.selected_individuals: SolutionType | None = None
+        self.selected_targets: pl.DataFrame | None = None
+        objective_symbols = [objective.symbol for objective in self.problem.objectives]
+        self.reference_point = [reference_point[symbol] for symbol in objective_symbols]
+
+    def do(
+        self,
+        parents: tuple[SolutionType, pl.DataFrame],
+        offsprings: tuple[SolutionType, pl.DataFrame],
+    ) -> tuple[SolutionType, pl.DataFrame]:
+        """Perform the selection operation.
+
+        Args:
+            parents (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+            offsprings (tuple[SolutionType, pl.DataFrame]): the decision variables as the first element.
+                The second element is the objective values, targets, and constraint violations.
+
+        Returns:
+            tuple[SolutionType, pl.DataFrame]: The selected decision variables and their objective values,
+                targets, and constraint violations.
+        """
+        if isinstance(parents[0], pl.DataFrame) and isinstance(
+            offsprings[0], pl.DataFrame
+        ):
+            solutions = parents[0].vstack(offsprings[0])
+        elif isinstance(parents[0], list) and isinstance(offsprings[0], list):
+            solutions = parents[0] + offsprings[0]
+        else:
+            raise TypeError(
+                "The decision variables must be either a list or a polars DataFrame, not both"
+            )
+        alltargets = parents[1].vstack(offsprings[1])
+        targets = alltargets[self.target_symbols].to_numpy()
+        if self.constraints_symbols is None:
+            constraints = None
+        else:
+            constraints = (
+                parents[1][self.constraints_symbols]
+                .vstack(offsprings[1][self.constraints_symbols])
+                .to_numpy()
+            )
+        ref_dirs = self.reference_vectors
+
+        if self.ideal is None:
+            self.ideal = np.min(targets, axis=0)
+        else:
+            self.ideal = np.min(
+                np.vstack((self.ideal, np.min(targets, axis=0))), axis=0
+            )
+
+        if self.nadir is None:
+            self.nadir = np.max(targets, axis=0)
+
+        fitness = targets
+
+        # Evaluate ASF
+        N = fitness.shape[0]
+        if constraints is None:
+            overall_viol = np.zeros(N, dtype=float)
+            feasible = np.ones(N, dtype=bool)
+        else:
+            # assuming constraint columns are already violations >= 0
+            overall_viol = constraints.sum(axis=1)
+            feasible = overall_viol <= 1e-12  # tolerance, adjust if needed
+
+        # Calculating fronts and ranks
+        fronts, infeasible_order, asf_table = self.classify_fronts_asf(
+            F=fitness,
+            feasible=feasible,
+            overall_viol=overall_viol,
+            z_ref=self.reference_point,
+            ideal=self.ideal,
+            nadir=self.nadir,
+            mu=ref_dirs,
+            rho=getattr(self, "rho", 1e-6),
+        )
+        score = asf_table.min(axis=1)  # for example
+
+        # Finding individuals in first 'n' fronts
+        all_fronts = fronts + [
+            infeasible_order
+        ]  # infeasible are already sorted by violation
+
+        selected_idx = self.environmental_selection(all_fronts, score, self.n_survive)
+        self.selected_individuals = solutions[selected_idx]
+        self.selected_targets = alltargets[selected_idx]
+        self.notify()
+        return self.selected_individuals, self.selected_targets
+
+    def environmental_selection(self, fronts, scores, N):
+        """
+        Implement:
+        Set P_{h+1} = ∅ and n = 1. If #(P_{h+1} ∪ F^h_n) ≤ N, then
+        P_{h+1} = P_{h+1} ∪ F^h_n, n = n+1, ...
+        Otherwise add to P_{h+1} from F^h_n the individuals with lowest (2)
+        until size N.
+
+        Parameters
+        ----------
+        fronts : list[list[int]]
+            fronts[0] = F^h_1, fronts[1] = F^h_2, ...
+        scores : (N_total,) array-like
+            Value of “(2)” for each *individual index* in the whole population.
+        N : int
+            Desired number of survivors.
+
+        Returns
+        -------
+        selected : np.ndarray[int]
+            Indices of selected individuals (size N).
+        """
+        scores = np.asarray(scores)
+        selected = []
+
+        for front in fronts:
+            front = list(front)
+            if len(selected) + len(front) <= N:
+                # take whole front
+                selected.extend(front)
+            else:
+                # take only as many as needed, ordered by lowest score
+                remaining = N - len(selected)
+                if remaining > 0:
+                    front_scores = scores[front]
+                    order = np.argsort(front_scores)  # low score = better
+                    chosen = [front[i] for i in order[:remaining]]
+                    selected.extend(chosen)
+                break  # population is full
+
+        return np.array(selected, dtype=int)
+
+    def wierzbicki_asf_batch(self, F, z_ref, ideal, nadir, w, rho=1e-6):
+        """
+        Wierzbicki ASF for a batch of objective vectors F using one weight vector w.
+        F : (N, m)
+        z_ref : (m,)
+        w : (m,)
+        """
+        utopian_point = ideal - 1e-6
+        denom = nadir - utopian_point
+        denom[denom == 0] = 1e-12
+
+        F = np.asarray(F, dtype=float)
+        z_ref = np.asarray(z_ref, dtype=float)
+        w = np.asarray(w, dtype=float)
+
+        diff = (F - z_ref) / denom  # minimization case
+        weighted = diff * w  # (N, m)
+
+        max_term = np.max(weighted, axis=1)  # (N,)
+        sum_term = np.sum(weighted, axis=1)  # (N,)
+
+        return max_term + rho * sum_term  # (N,)
+
+    def classify_fronts_asf(
+        self, F, feasible, overall_viol, z_ref, ideal, nadir, mu, rho=1e-6
+    ):
+        """
+        Returns:
+        fronts, infeasible_order, asf_table
+        """
+        F = np.asarray(F, dtype=float)
+        feasible = np.asarray(feasible, dtype=bool)
+        overall_viol = np.asarray(overall_viol, dtype=float)
+        mu = np.asarray(mu, dtype=float)
+
+        N = F.shape[0]
+        N_mu = mu.shape[0]
+
+        # --- PRECOMPUTE ALL ASF VALUES ---
+        # asf_table[i, j] = ASF of individual i under weight vector μ_j
+        asf_table = np.zeros((N, N_mu), dtype=float)
+        for j in range(N_mu):
+            asf_table[:, j] = self.wierzbicki_asf_batch(
+                F, z_ref, ideal, nadir, mu[j], rho=rho
+            )
+
+        # --- FEASIBLE FRONT CONSTRUCTION ---
+        feasible_idx = np.where(feasible)[0]
+        remaining = feasible_idx.copy()
+
+        fronts = []
+
+        while remaining.size > 0:
+            front = []
+            for j in range(N_mu):
+                if remaining.size == 0:
+                    break
+
+                # we already have ASF values
+                s_vals = asf_table[remaining, j]
+
+                best_local = np.argmin(s_vals)
+                best_global = remaining[best_local]
+
+                front.append(best_global)
+
+                remaining = np.delete(remaining, best_local)
+
+            fronts.append(front)
+
+        # --- INFEASIBLE ORDERING ---
+        infeasible_idx = np.where(~feasible)[0]
+        order = np.argsort(overall_viol[infeasible_idx])
+        infeasible_order = list(infeasible_idx[order])
+
+        return fronts, infeasible_order, asf_table
+
+    def get_extreme_points_c(self, F, ideal_point, extreme_points=None):
+        """Taken from pymoo"""
+        # calculate the asf which is used for the extreme point decomposition
+        asf = np.eye(F.shape[1])
+        asf[asf == 0] = 1e6
+
+        # add the old extreme points to never loose them for normalization
+        _F = F
+        if extreme_points is not None:
+            _F = np.concatenate([extreme_points, _F], axis=0)
+
+        # use __F because we substitute small values to be 0
+        __F = _F - ideal_point
+        __F[__F < 1e-3] = 0
+
+        # update the extreme points for the normalization having the highest asf value
+        # each
+        F_asf = np.max(__F * asf[:, None, :], axis=2)
+        I = np.argmin(F_asf, axis=1)
+        extreme_points = _F[I, :]
+        return extreme_points
+
+    def get_nadir_point(
+        self,
+        extreme_points,
+        ideal_point,
+        worst_point,
+        worst_of_front,
+        worst_of_population,
+    ):
+        LinAlgError = np.linalg.LinAlgError
+        try:
+            # find the intercepts using gaussian elimination
+            M = extreme_points - ideal_point
+            b = np.ones(extreme_points.shape[1])
+            plane = np.linalg.solve(M, b)
+            intercepts = 1 / plane
+
+            nadir_point = ideal_point + intercepts
+
+            if (
+                not np.allclose(np.dot(M, plane), b)
+                or np.any(intercepts <= 1e-6)
+                or np.any(nadir_point > worst_point)
+            ):
+                raise LinAlgError()
+
+        except LinAlgError:
+            nadir_point = worst_of_front
+
+        b = nadir_point - ideal_point <= 1e-6
+        nadir_point[b] = worst_of_population[b]
+        return nadir_point
+
+    def niching(self, F, n_remaining, niche_count, niche_of_individuals, dist_to_niche):
+        survivors = []
+
+        # boolean array of elements that are considered for each iteration
+        mask = np.full(F.shape[0], True)
+
+        while len(survivors) < n_remaining:
+            # all niches where new individuals can be assigned to
+            next_niches_list = np.unique(niche_of_individuals[mask])
+
+            # pick a niche with minimum assigned individuals - break tie if necessary
+            next_niche_count = niche_count[next_niches_list]
+            next_niche = np.where(next_niche_count == next_niche_count.min())[0]
+            next_niche = next_niches_list[next_niche]
+            next_niche = next_niche[self.rng.integers(0, len(next_niche))]
+
+            # indices of individuals that are considered and assign to next_niche
+            next_ind = np.where(
+                np.logical_and(niche_of_individuals == next_niche, mask)
+            )[0]
+
+            # shuffle to break random tie (equal perp. dist) or select randomly
+            self.rng.shuffle(next_ind)
+
+            if niche_count[next_niche] == 0:
+                next_ind = next_ind[np.argmin(dist_to_niche[next_ind])]
+            else:
+                # already randomized through shuffling
+                next_ind = next_ind[0]
+
+            mask[next_ind] = False
+            survivors.append(int(next_ind))
+
+            niche_count[next_niche] += 1
+
+        return survivors
+
+    def state(self) -> Sequence[Message]:
+        if (
+            self.verbosity == 0
+            or self.selection is None
+            or self.selected_targets is None
+        ):
+            return []
+        if self.verbosity == 1:
+            return [
+                Array2DMessage(
+                    topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                    value=self.reference_vectors.tolist(),
+                    source=self.__class__.__name__,
+                ),
+                DictMessage(
+                    topic=SelectorMessageTopics.STATE,
+                    value={
+                        "ideal": self.ideal,
+                        "nadir": self.worst_fitness,
+                        "extreme_points": self.extreme_points,
+                        "n_survive": self.n_survive,
+                    },
+                    source=self.__class__.__name__,
+                ),
+            ]
+        # verbosity == 2
+        if isinstance(self.selected_individuals, pl.DataFrame):
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=pl.concat(
+                    [self.selected_individuals, self.selected_targets], how="horizontal"
+                ),
+                source=self.__class__.__name__,
+            )
+        else:
+            warnings.warn(
+                "Population is not a Polars DataFrame. Defaulting to providing OUTPUTS only.",
+                stacklevel=2,
+            )
+            message = PolarsDataFrameMessage(
+                topic=SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS,
+                value=self.selected_targets,
+                source=self.__class__.__name__,
+            )
+        state_verbose = [
+            Array2DMessage(
+                topic=SelectorMessageTopics.REFERENCE_VECTORS,
+                value=self.reference_vectors.tolist(),
+                source=self.__class__.__name__,
+            ),
+            DictMessage(
+                topic=SelectorMessageTopics.STATE,
+                value={
+                    "ideal": self.ideal,
+                    "nadir": self.worst_fitness,
+                    "extreme_points": self.extreme_points,
+                    "n_survive": self.n_survive,
+                },
+                source=self.__class__.__name__,
+            ),
+            # Array2DMessage(
+            #     topic=SelectorMessageTopics.SELECTED_INDIVIDUALS,
+            #     value=self.selected_individuals,
+            #     source=self.__class__.__name__,
+            # ),
+            message,
+        ]
+        return state_verbose
+
+    def update(self, message: Message) -> None:
+        pass
