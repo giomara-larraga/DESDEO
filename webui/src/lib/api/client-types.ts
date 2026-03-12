@@ -2724,6 +2724,11 @@ export interface components {
                     [key: string]: number;
                 };
             } | null)[] | null;
+            /**
+             * Active Objectives
+             * @description List of active objectives for each solution, or None if not available
+             */
+            active_objectives?: string[][] | null;
         };
         /**
          * NIMBUSSaveRequest
