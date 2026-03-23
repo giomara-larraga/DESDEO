@@ -57,6 +57,8 @@
 		}
 		return null;
 	});
+
+	const isAnalyst = derived(auth, ($auth) => $auth.user?.role === 'analyst');
 </script>
 
 <header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
@@ -143,6 +145,9 @@
 			<DropdownMenu.Content align="end">
 				<DropdownMenu.Label>My Account</DropdownMenu.Label>
 				<DropdownMenu.Separator />
+				{#if $isAnalyst}
+					<DropdownMenu.Item onSelect={() => goto('/analyst')}>Analyst workspace</DropdownMenu.Item>
+				{/if}
 				<DropdownMenu.Item>Settings</DropdownMenu.Item>
 				<DropdownMenu.Item>Support</DropdownMenu.Item>
 				<DropdownMenu.Separator />
