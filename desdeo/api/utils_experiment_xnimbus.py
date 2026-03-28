@@ -2,11 +2,12 @@
 import warnings
 import json
 import csv
+from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from sqlmodel import Session, SQLModel, select
-from desdeo.api.config import ServerConfig, SettingsConfig
-from desdeo.api.models import ProblemDB, User, UserRole
+from sqlmodel import Session, select
+from desdeo.api.models import ProblemDB, User
 from desdeo.api.db import engine
 from sqlalchemy_utils import database_exists
 from desdeo.api.models.generic_states import StateKind
@@ -18,9 +19,11 @@ from desdeo.api.models.generic_states import (
     NIMBUSInitializationState,
     NIMBUSClassificationState,
     NIMBUSFinalState,
-    NIMBUSSaveState,
     IntermediateSolutionState,
 )
+
+
+EXPERIMENT_METHODS = ("nimbus", "xnimbus")
 
 
 def ensure_database_exists():
@@ -137,7 +140,9 @@ def _extract_phase_data(phase: str, state_id: int, session: Session) -> dict[str
     """Retrieves phase-specific fields for a given state id."""
     if phase == "initialize":
         state = session.exec(
-            select(NIMBUSInitializationState).where(NIMBUSInitializationState.id == state_id)
+            select(NIMBUSInitializationState).where(
+                NIMBUSInitializationState.id == state_id
+            )
         ).first()
         if state is None:
             return {}
@@ -148,7 +153,9 @@ def _extract_phase_data(phase: str, state_id: int, session: Session) -> dict[str
 
     if phase == "solve_candidates":
         state = session.exec(
-            select(NIMBUSClassificationState).where(NIMBUSClassificationState.id == state_id)
+            select(NIMBUSClassificationState).where(
+                NIMBUSClassificationState.id == state_id
+            )
         ).first()
         if state is None:
             return {}
@@ -159,7 +166,9 @@ def _extract_phase_data(phase: str, state_id: int, session: Session) -> dict[str
             "num_desired": _to_serializable(state.num_desired),
             "previous_preferences": _to_serializable(state.previous_preferences),
             "solver_results": _to_serializable(state.solver_results),
-            "filtered_lagrange_multipliers": _to_serializable(state.filtered_lagrange_multipliers),
+            "filtered_lagrange_multipliers": _to_serializable(
+                state.filtered_lagrange_multipliers
+            ),
             "tradeoffs_matrix": _to_serializable(state.tradeoffs_matrix),
         }
 
@@ -177,7 +186,9 @@ def _extract_phase_data(phase: str, state_id: int, session: Session) -> dict[str
 
     if phase in {"intermediate", "solve_intermediate"}:
         state = session.exec(
-            select(IntermediateSolutionState).where(IntermediateSolutionState.id == state_id)
+            select(IntermediateSolutionState).where(
+                IntermediateSolutionState.id == state_id
+            )
         ).first()
         if state is None:
             return {}
@@ -193,7 +204,9 @@ def _extract_phase_data(phase: str, state_id: int, session: Session) -> dict[str
     return {}
 
 
-def fetch_users_problems_states_grouped_by_method(session: Session) -> list[dict[str, Any]]:
+def fetch_users_problems_states_grouped_by_method(
+    session: Session, include_phase_data: bool = True
+) -> list[dict[str, Any]]:
     """Fetches user -> problem -> state data, grouped by method, with phase-specific payloads.
 
     Returned structure per user:
@@ -240,7 +253,9 @@ def fetch_users_problems_states_grouped_by_method(session: Session) -> list[dict
 
         for problem in problems:
             statedb_rows = session.exec(
-                select(StateDB).where(StateDB.problem_id == problem.id).order_by(StateDB.id)
+                select(StateDB)
+                .where(StateDB.problem_id == problem.id)
+                .order_by(StateDB.id)
             ).all()
 
             if not statedb_rows:
@@ -248,6 +263,11 @@ def fetch_users_problems_states_grouped_by_method(session: Session) -> list[dict
 
             problem_entry: dict[str, Any] = {
                 "problem_id": problem.id,
+                "objective_name_map": {
+                    objective.symbol: objective.name
+                    for objective in (problem.objectives or [])
+                    if objective.symbol and objective.name
+                },
                 "stateDB": [
                     {
                         "state_id": state_row.state_id,
@@ -270,7 +290,11 @@ def fetch_users_problems_states_grouped_by_method(session: Session) -> list[dict
                     continue
 
                 method = base_state.method
-                phase_data = _extract_phase_data(base_state.phase, state_row.state_id, session)
+                phase_data = (
+                    _extract_phase_data(base_state.phase, state_row.state_id, session)
+                    if include_phase_data
+                    else {}
+                )
 
                 state_entry = {
                     "state_id": state_row.state_id,
@@ -294,6 +318,247 @@ def fetch_users_problems_states_grouped_by_method(session: Session) -> list[dict
     return all_data
 
 
+def _parse_date_time(value: str | None) -> datetime | None:
+    """Parse stored ISO timestamps, returning None for missing or invalid values."""
+    if value is None:
+        return None
+
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _get_time_window(
+    states: list[dict[str, Any]],
+) -> tuple[str | None, str | None, float | None]:
+    """Return first timestamp, last timestamp, and elapsed seconds for a state collection."""
+    stamped_states = [
+        (state.get("date_time"), _parse_date_time(state.get("date_time")))
+        for state in states
+    ]
+    stamped_states = [
+        (raw, parsed) for raw, parsed in stamped_states if parsed is not None
+    ]
+
+    if not stamped_states:
+        return None, None, None
+
+    stamped_states.sort(key=lambda item: item[1])
+    first_raw, first_parsed = stamped_states[0]
+    last_raw, last_parsed = stamped_states[-1]
+
+    return first_raw, last_raw, max((last_parsed - first_parsed).total_seconds(), 0.0)
+
+
+def _normalize_preferred_method(method: str | None) -> str:
+    """Normalize preferred method labels for grouping and display."""
+    if method is None:
+        return "unspecified"
+
+    normalized = method.strip().lower()
+    return normalized or "unspecified"
+
+
+def _build_method_summary(
+    method: str,
+    states: list[dict[str, Any]],
+    include_action_details: bool = False,
+) -> dict[str, Any]:
+    """Summarize the actions taken within a single method."""
+    sorted_states = sorted(
+        states,
+        key=lambda state: (
+            _parse_date_time(state.get("date_time")) or datetime.min,
+            state.get("state_id") or 0,
+        ),
+    )
+    phase_counts = Counter(state.get("phase", "unknown") for state in sorted_states)
+    first_action_at, last_action_at, duration_seconds = _get_time_window(sorted_states)
+
+    return {
+        "method": method,
+        "total_actions": len(sorted_states),
+        "problem_ids": sorted(
+            {
+                state.get("problem_id")
+                for state in sorted_states
+                if state.get("problem_id") is not None
+            }
+        ),
+        "phase_counts": dict(sorted(phase_counts.items())),
+        "first_action_at": first_action_at,
+        "last_action_at": last_action_at,
+        "duration_seconds": duration_seconds,
+        "actions": [
+            {
+                "state_id": state.get("state_id"),
+                "problem_id": state.get("problem_id"),
+                "date_time": state.get("date_time"),
+                "phase": state.get("phase"),
+                "kind": state.get("kind"),
+                "phase_data": (
+                    state.get("phase_data", {}) if include_action_details else {}
+                ),
+            }
+            for state in sorted_states
+        ],
+    }
+
+
+def _build_user_summary(
+    user_entry: dict[str, Any],
+    include_action_details: bool = False,
+) -> dict[str, Any]:
+    """Build a per-user summary with method drill-down information."""
+    method_states: dict[str, list[dict[str, Any]]] = {
+        method: [] for method in EXPERIMENT_METHODS
+    }
+    all_states: list[dict[str, Any]] = []
+    problem_objective_names: dict[str, dict[str, str]] = {}
+
+    for problem in user_entry.get("problems", []):
+        problem_id = problem.get("problem_id")
+        if problem_id is not None:
+            problem_objective_names[str(problem_id)] = problem.get(
+                "objective_name_map", {}
+            )
+        grouped_states = problem.get("states_grouped_by_method", {})
+
+        for method, states in grouped_states.items():
+            method_states.setdefault(method, [])
+
+            for state in states:
+                state_with_problem = {
+                    "problem_id": problem_id,
+                    "state_id": state.get("state_id"),
+                    "date_time": state.get("date_time"),
+                    "phase": state.get("phase"),
+                    "kind": state.get("kind"),
+                    "phase_data": state.get("phase_data", {}),
+                }
+                method_states[method].append(state_with_problem)
+                all_states.append(state_with_problem)
+
+    first_action_at, last_action_at, duration_seconds = _get_time_window(all_states)
+
+    methods = {
+        method: _build_method_summary(
+            method,
+            method_states.get(method, []),
+            include_action_details=include_action_details,
+        )
+        for method in sorted(method_states)
+    }
+
+    return {
+        "user_id": user_entry.get("user_id"),
+        "username": user_entry.get("username"),
+        "preferred_method": _normalize_preferred_method(
+            user_entry.get("preferred_method")
+        ),
+        "problem_objective_names": problem_objective_names,
+        "problem_count": len(user_entry.get("problems", [])),
+        "total_actions": len(all_states),
+        "first_action_at": first_action_at,
+        "last_action_at": last_action_at,
+        "duration_seconds": duration_seconds,
+        "methods": methods,
+    }
+
+
+def build_experiment_group_summaries(
+    session: Session,
+    include_action_details: bool = False,
+) -> list[dict[str, Any]]:
+    """Aggregate per-group summaries for analyst-facing experiment dashboards."""
+    dataset = fetch_users_problems_states_grouped_by_method(
+        session, include_phase_data=include_action_details
+    )
+    grouped: dict[int | None, list[dict[str, Any]]] = {}
+
+    for user_entry in dataset:
+        grouped.setdefault(user_entry.get("experiment_group"), []).append(user_entry)
+
+    group_summaries: list[dict[str, Any]] = []
+
+    for experiment_group, group_users in sorted(
+        grouped.items(), key=lambda item: (-1 if item[0] is None else item[0])
+    ):
+        user_summaries = sorted(
+            [
+                _build_user_summary(
+                    user_entry,
+                    include_action_details=include_action_details,
+                )
+                for user_entry in group_users
+            ],
+            key=lambda user: user["username"].lower(),
+        )
+        preferred_method_counts = Counter(
+            user_summary["preferred_method"] for user_summary in user_summaries
+        )
+        durations = [
+            user_summary["duration_seconds"]
+            for user_summary in user_summaries
+            if user_summary["duration_seconds"] is not None
+        ]
+
+        group_summaries.append(
+            {
+                "experiment_group": experiment_group,
+                "group_label": (
+                    "Unassigned"
+                    if experiment_group is None
+                    else f"Group {experiment_group}"
+                ),
+                "user_count": len(user_summaries),
+                "preferred_method_counts": dict(
+                    sorted(preferred_method_counts.items())
+                ),
+                "average_duration_seconds": (
+                    sum(durations) / len(durations) if durations else None
+                ),
+                "users": user_summaries,
+            }
+        )
+
+    return group_summaries
+
+
+def build_group_user_summary(
+    session: Session,
+    experiment_group: int | None,
+    user_id: int,
+    include_action_details: bool = False,
+) -> dict[str, Any] | None:
+    """Fetch a single user summary within an experiment group."""
+    if include_action_details:
+        dataset = fetch_users_problems_states_grouped_by_method(
+            session, include_phase_data=True
+        )
+        for user_entry in dataset:
+            if user_entry.get("experiment_group") != experiment_group:
+                continue
+
+            if user_entry.get("user_id") == user_id:
+                return _build_user_summary(user_entry, include_action_details=True)
+
+        return None
+
+    for group_summary in build_experiment_group_summaries(session):
+        if group_summary.get("experiment_group") != experiment_group:
+            continue
+
+        for user_summary in group_summary.get("users", []):
+            if user_summary.get("user_id") == user_id:
+                return user_summary
+
+        return None
+
+    return None
+
+
 def _flatten_states_for_csv(dataset: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Flattens nested user/problem/state data into per-state rows for CSV export."""
     rows: list[dict[str, Any]] = []
@@ -315,7 +580,9 @@ def _flatten_states_for_csv(dataset: list[dict[str, Any]]) -> list[dict[str, Any
                             "method": method,
                             "phase": state.get("phase"),
                             "kind": state.get("kind"),
-                            "phase_data": json.dumps(state.get("phase_data", {}), ensure_ascii=False),
+                            "phase_data": json.dumps(
+                                state.get("phase_data", {}), ensure_ascii=False
+                            ),
                         }
                     )
 
@@ -420,7 +687,9 @@ if __name__ == "__main__":
         with Session(engine) as session:
             dataset = fetch_users_problems_states_grouped_by_method(session)
             export_paths = export_users_problems_states_data(dataset)
-            grouped_export_paths = export_users_problems_states_by_experiment_group(dataset)
+            grouped_export_paths = export_users_problems_states_by_experiment_group(
+                dataset
+            )
 
             print("Export complete:")
             print(f"- JSON: {export_paths['json']}")

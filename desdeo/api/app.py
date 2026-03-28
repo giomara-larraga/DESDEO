@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
+    analyst,
     emo,
     enautilus,
     generic,
@@ -37,6 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(analyst.router)
 app.include_router(user_authentication.router)
 app.include_router(problem.router)
 app.include_router(session.router)

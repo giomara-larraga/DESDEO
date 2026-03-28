@@ -25,12 +25,15 @@ from desdeo.api.models import (
     IntermediateSolutionRequest,
     NIMBUSClassificationRequest,
     NIMBUSClassificationResponse,
+    NIMBUSClassificationState,
     NIMBUSDeleteSaveRequest,
     NIMBUSDeleteSaveResponse,
     NIMBUSFinalizeRequest,
     NIMBUSFinalizeResponse,
+    NIMBUSFinalState,
     NIMBUSInitializationRequest,
     NIMBUSIntermediateSolutionResponse,
+    NIMBUSInitializationState,
     NIMBUSSaveRequest,
     NIMBUSSaveResponse,
     ProblemDB,
@@ -41,16 +44,20 @@ from desdeo.api.models import (
     RPMSolveRequest,
     SolutionInfo,
     SolverSelectionMetadata,
+    StateDB,
     User,
     UserPublic,
+    UserRole,
 )
 from desdeo.api.models.nimbus import NIMBUSInitializationResponse
 from desdeo.api.routers.user_authentication import create_access_token
+from desdeo.api.models.generic_states import StateKind
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
+from desdeo.mcdm import generate_starting_point, solve_sub_problems
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
 
@@ -77,6 +84,193 @@ def test_user_login(client: TestClient):
     )
 
     assert response.status_code == 401
+
+
+def test_get_analyst_experiment_group_results(client: TestClient, session_and_user):
+    """Test grouped analyst experiment summaries and per-user drill-down."""
+    session = session_and_user["session"]
+    access_token = login(
+        client=client, username="analyst", password="analyst"
+    )  # noqa: S106
+
+    def add_user(username: str, experiment_group: int, preferred_method: str) -> User:
+        user = User(
+            username=username,
+            password_hash="hashed",
+            role=UserRole.dm,
+            experiment_group=experiment_group,
+            preferred_method=preferred_method,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+
+    def add_problem_for_user(problem_factory, user: User) -> tuple[Problem, ProblemDB]:
+        problem = problem_factory()
+        problem_db = ProblemDB.from_problem(problem, user=user)
+        session.add(problem_db)
+        session.commit()
+        session.refresh(problem_db)
+        return problem, problem_db
+
+    def add_state(
+        problem_id: int, state, timestamp: str, kind: StateKind | None = None
+    ) -> StateDB:
+        state_db = StateDB.create(
+            session, problem_id=problem_id, state=state, kind=kind
+        )
+        state_db.date_time = timestamp
+        session.add(state_db)
+        session.commit()
+        session.refresh(state_db)
+        return state_db
+
+    user_nimbus = add_user("dm_nimbus", 1, "NIMBUS")
+    user_xnimbus = add_user("dm_xnimbus", 1, "XNIMBUS")
+    user_group_two = add_user("dm_group_two", 2, "NIMBUS")
+
+    problem_nimbus, problem_db_nimbus = add_problem_for_user(
+        lambda: dtlz2(5, 3), user_nimbus
+    )
+    problem_xnimbus, problem_db_xnimbus = add_problem_for_user(
+        lambda: dtlz2(5, 3), user_xnimbus
+    )
+    problem_group_two, problem_db_group_two = add_problem_for_user(
+        lambda: dtlz2(5, 3), user_group_two
+    )
+
+    aspirations = {"f_1": 0.1, "f_2": 0.9, "f_3": 0.6}
+    preferences = ReferencePoint(aspiration_levels=aspirations)
+
+    start_nimbus = generate_starting_point(problem=problem_nimbus)
+    init_nimbus = add_state(
+        problem_db_nimbus.id,
+        NIMBUSInitializationState(solver_results=start_nimbus),
+        "2026-03-01T10:00:00",
+    )
+    solve_nimbus_results = solve_sub_problems(
+        problem=problem_nimbus,
+        current_objectives=start_nimbus.optimal_objectives,
+        reference_point=aspirations,
+        num_desired=3,
+    )
+    solve_nimbus = add_state(
+        problem_db_nimbus.id,
+        NIMBUSClassificationState(
+            preferences=preferences,
+            current_objectives=start_nimbus.optimal_objectives,
+            previous_preferences=preferences,
+            solver_results=solve_nimbus_results,
+        ),
+        "2026-03-01T10:05:00",
+    )
+    add_state(
+        problem_db_nimbus.id,
+        NIMBUSFinalState(
+            solution_origin_state_id=solve_nimbus.state_id,
+            solution_result_index=0,
+            solver_results=solve_nimbus_results[0],
+        ),
+        "2026-03-01T10:10:00",
+    )
+
+    start_xnimbus = generate_starting_point(problem=problem_xnimbus)
+    init_xnimbus = add_state(
+        problem_db_xnimbus.id,
+        NIMBUSInitializationState(solver_results=start_xnimbus),
+        "2026-03-01T11:00:00",
+        kind=StateKind.XNIMBUS_INIT,
+    )
+    solve_xnimbus_results = solve_sub_problems(
+        problem=problem_xnimbus,
+        current_objectives=start_xnimbus.optimal_objectives,
+        reference_point=aspirations,
+        num_desired=2,
+    )
+    solve_xnimbus = add_state(
+        problem_db_xnimbus.id,
+        NIMBUSClassificationState(
+            preferences=preferences,
+            current_objectives=start_xnimbus.optimal_objectives,
+            previous_preferences=preferences,
+            solver_results=solve_xnimbus_results,
+        ),
+        "2026-03-01T11:09:00",
+        kind=StateKind.XNIMBUS_SOLVE,
+    )
+    add_state(
+        problem_db_xnimbus.id,
+        NIMBUSFinalState(
+            solution_origin_state_id=solve_xnimbus.state_id,
+            solution_result_index=0,
+            solver_results=solve_xnimbus_results[0],
+        ),
+        "2026-03-01T11:12:00",
+        kind=StateKind.XNIMBUS_FINAL,
+    )
+
+    start_group_two = generate_starting_point(problem=problem_group_two)
+    init_group_two = add_state(
+        problem_db_group_two.id,
+        NIMBUSInitializationState(solver_results=start_group_two),
+        "2026-03-01T12:00:00",
+    )
+    add_state(
+        problem_db_group_two.id,
+        NIMBUSFinalState(
+            solution_origin_state_id=init_group_two.state_id,
+            solution_result_index=0,
+            solver_results=start_group_two,
+        ),
+        "2026-03-01T12:06:00",
+    )
+
+    response = get_json(client, "/analyst/experiment-results/groups", access_token)
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert len(payload["groups"]) == 2
+
+    group_one = next(
+        group for group in payload["groups"] if group["experiment_group"] == 1
+    )
+    group_two = next(
+        group for group in payload["groups"] if group["experiment_group"] == 2
+    )
+
+    assert group_one["user_count"] == 2
+    assert group_one["preferred_method_counts"] == {"nimbus": 1, "xnimbus": 1}
+    assert group_one["average_duration_seconds"] == 660.0
+    assert group_two["user_count"] == 1
+    assert group_two["average_duration_seconds"] == 360.0
+
+    nimbus_user_summary = next(
+        user for user in group_one["users"] if user["user_id"] == user_nimbus.id
+    )
+    assert nimbus_user_summary["methods"]["nimbus"]["total_actions"] == 3
+    assert nimbus_user_summary["methods"]["nimbus"]["phase_counts"] == {
+        "final": 1,
+        "initialize": 1,
+        "solve_candidates": 1,
+    }
+    assert nimbus_user_summary["methods"]["xnimbus"]["total_actions"] == 0
+
+    user_response = get_json(
+        client,
+        f"/analyst/experiment-results/users/{user_xnimbus.id}?experiment_group=1",
+        access_token,
+    )
+
+    assert user_response.status_code == status.HTTP_200_OK
+    user_payload = user_response.json()
+    assert user_payload["preferred_method"] == "xnimbus"
+    assert user_payload["methods"]["xnimbus"]["total_actions"] == 3
+    assert user_payload["methods"]["xnimbus"]["phase_counts"] == {
+        "final": 1,
+        "initialize": 1,
+        "solve_candidates": 1,
+    }
 
 
 def test_tokens():
@@ -112,14 +306,21 @@ def test_refresh(client: TestClient):
 
     assert "access_token" in response_refresh.json()
 
-    assert response_good.json()["access_token"] != response_refresh.json()["access_token"]
+    assert (
+        response_good.json()["access_token"] != response_refresh.json()["access_token"]
+    )
 
 
 def test_get_problem(client: TestClient):
     """Test fetching specific problems based on their id."""
     access_token = login(client)
 
-    response = post_json(client, "/problem/get", ProblemGetRequest(problem_id=1).model_dump(), access_token)
+    response = post_json(
+        client,
+        "/problem/get",
+        ProblemGetRequest(problem_id=1).model_dump(),
+        access_token,
+    )
 
     assert response.status_code == 200
 
@@ -129,7 +330,12 @@ def test_get_problem(client: TestClient):
     assert info.name == "dtlz2"
     assert info.problem_metadata is None
 
-    response = post_json(client, "problem/get", ProblemGetRequest(problem_id=2).model_dump(), access_token)
+    response = post_json(
+        client,
+        "problem/get",
+        ProblemGetRequest(problem_id=2).model_dump(),
+        access_token,
+    )
 
     assert response.status_code == 200
 
@@ -241,10 +447,15 @@ def test_rpm_solve(client: TestClient):
     access_token = login(client)
 
     request = RPMSolveRequest(
-        problem_id=1, preference=ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4})
+        problem_id=1,
+        preference=ReferencePoint(
+            aspiration_levels={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}
+        ),
     )
 
-    response = post_json(client, "/method/rpm/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/rpm/solve", request.model_dump(), access_token
+    )
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -256,10 +467,15 @@ def test_nimbus_solve(client: TestClient):
     preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
 
     request = NIMBUSClassificationRequest(
-        problem_id=1, preference=preference, current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}, num_desired=3
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=3,
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content.decode("utf-8"))
@@ -273,13 +489,19 @@ def test_nimbus_solve(client: TestClient):
         solution_info=[
             SolutionInfo(state_id=1, solution_index=0, name="Test solution 1"),
             SolutionInfo(state_id=1, solution_index=2, name="Test solution 3"),
-            SolutionInfo(state_id=1, solution_index=2, name="Test solution 34"),  # saved twice!
+            SolutionInfo(
+                state_id=1, solution_index=2, name="Test solution 34"
+            ),  # saved twice!
         ],
     )
 
-    response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/save", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    result2: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    result2: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert result2.state_id is not None
 
     preference = ReferencePoint(aspiration_levels={"f_1": 0.1, "f_2": 0.1, "f_3": 0.9})
@@ -292,7 +514,9 @@ def test_nimbus_solve(client: TestClient):
         parent_state_id=result2.state_id,
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
 
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
@@ -307,12 +531,20 @@ def test_nimbus_solve(client: TestClient):
     request = NIMBUSSaveRequest(
         problem_id=1,
         parent_state_id=result.state_id,
-        solution_info=[SolutionInfo(state_id=result.state_id, solution_index=1, name="Test solution 2")],
+        solution_info=[
+            SolutionInfo(
+                state_id=result.state_id, solution_index=1, name="Test solution 2"
+            )
+        ],
     )
 
-    response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/save", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    result2: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    result2: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert result2.state_id is not None
 
     # Same as the first one. Therefore, (I believe) STOM and ASF give same solutions,
@@ -327,7 +559,9 @@ def test_nimbus_solve(client: TestClient):
         parent_state_id=result2.state_id,
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
     result3: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content.decode("utf-8"))
@@ -344,10 +578,15 @@ def test_intermediate_solve(client: TestClient):
     preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
 
     request = NIMBUSClassificationRequest(
-        problem_id=1, preference=preference, current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}, num_desired=2
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=2,
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content.decode("utf-8"))
@@ -356,7 +595,9 @@ def test_intermediate_solve(client: TestClient):
 
     # Save some solutions!
     solution_1 = SolutionInfo(state_id=result.state_id, solution_index=0)
-    solution_2 = SolutionInfo(state_id=result.state_id, solution_index=1, name="named solution")
+    solution_2 = SolutionInfo(
+        state_id=result.state_id, solution_index=1, name="named solution"
+    )
 
     # Create request for intermediate solutions using solutions created with nimbus solve
     request = IntermediateSolutionRequest(
@@ -368,10 +609,14 @@ def test_intermediate_solve(client: TestClient):
     )
 
     # Test the generic intermediate endpoint
-    response = post_json(client, "/method/generic/intermediate", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/generic/intermediate", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    result: GenericIntermediateSolutionResponse = GenericIntermediateSolutionResponse.model_validate(
-        json.loads(response.content.decode("utf-8"))
+    result: GenericIntermediateSolutionResponse = (
+        GenericIntermediateSolutionResponse.model_validate(
+            json.loads(response.content.decode("utf-8"))
+        )
     )
 
     # Test the NIMBUS-specific intermediate endpoint
@@ -383,7 +628,9 @@ def test_intermediate_solve(client: TestClient):
         num_desired=2,
     )
 
-    nimbus_response = post_json(client, "/method/nimbus/intermediate", nimbus_request.model_dump(), access_token)
+    nimbus_response = post_json(
+        client, "/method/nimbus/intermediate", nimbus_request.model_dump(), access_token
+    )
     assert nimbus_response.status_code == status.HTTP_200_OK
     nimbus_result = NIMBUSIntermediateSolutionResponse.model_validate(
         json.loads(nimbus_response.content.decode("utf-8"))
@@ -402,10 +649,14 @@ def test_nimbus_initialize(client: TestClient):
     # test with no starting point
     request = NIMBUSInitializationRequest(problem_id=1, solver=None)
 
-    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/initialize", request.model_dump(), access_token
+    )
 
     assert response.status_code == status.HTTP_200_OK
-    init_result = NIMBUSInitializationResponse.model_validate(json.loads(response.content))
+    init_result = NIMBUSInitializationResponse.model_validate(
+        json.loads(response.content)
+    )
 
     assert init_result.state_id == 1
     assert len(init_result.current_solutions) == 1
@@ -417,25 +668,38 @@ def test_nimbus_initialize(client: TestClient):
         problem_id=1, starting_point=SolutionInfo(state_id=1, solution_index=0)
     )
 
-    response_w_info = post_json(client, "/method/nimbus/initialize", request_w_info.model_dump(), access_token)
+    response_w_info = post_json(
+        client, "/method/nimbus/initialize", request_w_info.model_dump(), access_token
+    )
 
     assert response_w_info.status_code == status.HTTP_200_OK
-    result_w_info = NIMBUSInitializationResponse.model_validate(json.loads(response_w_info.content))
+    result_w_info = NIMBUSInitializationResponse.model_validate(
+        json.loads(response_w_info.content)
+    )
 
     assert result_w_info.state_id == 2
     assert len(result_w_info.current_solutions) == 1
     assert len(result_w_info.saved_solutions) == 0
-    assert len(result_w_info.all_solutions) == 1  # this is still one because the new solution will be a duplicate.
+    assert (
+        len(result_w_info.all_solutions) == 1
+    )  # this is still one because the new solution will be a duplicate.
 
     # test with starting point given as a reference point
     request_w_ref = NIMBUSInitializationRequest(
-        problem_id=1, starting_point=ReferencePoint(aspiration_levels={"f_1": 0.2, "f_2": 0.8, "f_3": 0.4})
+        problem_id=1,
+        starting_point=ReferencePoint(
+            aspiration_levels={"f_1": 0.2, "f_2": 0.8, "f_3": 0.4}
+        ),
     )
 
-    response_w_ref = post_json(client, "/method/nimbus/initialize", request_w_ref.model_dump(), access_token)
+    response_w_ref = post_json(
+        client, "/method/nimbus/initialize", request_w_ref.model_dump(), access_token
+    )
 
     assert response_w_ref.status_code == status.HTTP_200_OK
-    result_w_ref = NIMBUSInitializationResponse.model_validate(json.loads(response_w_ref.content))
+    result_w_ref = NIMBUSInitializationResponse.model_validate(
+        json.loads(response_w_ref.content)
+    )
 
     assert result_w_ref.state_id == 3
     assert len(result_w_ref.current_solutions) == 1
@@ -449,9 +713,13 @@ def test_nimbus_finalize(client: TestClient):
 
     # create some previous iterations
     request = NIMBUSInitializationRequest(problem_id=1)
-    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    init_response = NIMBUSInitializationResponse.model_validate(json.loads(response.content))
+    init_response = NIMBUSInitializationResponse.model_validate(
+        json.loads(response.content)
+    )
     assert init_response.state_id == 1
     assert len(init_response.current_solutions) == 1
     assert len(init_response.saved_solutions) == 0
@@ -460,10 +728,15 @@ def test_nimbus_finalize(client: TestClient):
     preference = ReferencePoint(aspiration_levels={"f_1": 0.5, "f_2": 0.6, "f_3": 0.4})
 
     request = NIMBUSClassificationRequest(
-        problem_id=1, preference=preference, current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5}, num_desired=3
+        problem_id=1,
+        preference=preference,
+        current_objectives={"f_1": 0.6, "f_2": 0.4, "f_3": 0.5},
+        num_desired=3,
     )
 
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
     result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
         json.loads(response.content.decode("utf-8"))
@@ -479,9 +752,13 @@ def test_nimbus_finalize(client: TestClient):
     state_id = result.state_id
 
     request = NIMBUSInitializationRequest(problem_id=1)
-    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    classify_result = NIMBUSClassificationResponse.model_validate(json.loads(response.content))
+    classify_result = NIMBUSClassificationResponse.model_validate(
+        json.loads(response.content)
+    )
     assert classify_result.state_id == 2
     assert len(classify_result.current_solutions) == 3
     assert len(classify_result.saved_solutions) == 0
@@ -493,9 +770,13 @@ def test_nimbus_finalize(client: TestClient):
     )
 
     # Finalize the process
-    response = post_json(client, "/method/nimbus/finalize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/finalize", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert result.response_type == "nimbus.finalize"
     assert result.final_solution.objective_values == optim_obj
     assert result.final_solution.variable_values == optim_var
@@ -505,9 +786,13 @@ def test_nimbus_finalize(client: TestClient):
     request = NIMBUSInitializationRequest(problem_id=1)
 
     # The last item in the pipe is a finalize state, so we should be getting a finalize response.
-    response = post_json(client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/nimbus/get-or-initialize", request.model_dump(), access_token
+    )
     assert response.status_code == status.HTTP_200_OK
-    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(json.loads(response.content.decode("utf-8")))
+    result: NIMBUSFinalizeResponse = NIMBUSFinalizeResponse.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert result.response_type == "nimbus.finalize"
     assert result.final_solution.objective_values == optim_obj
     assert result.final_solution.variable_values == optim_var
@@ -521,9 +806,11 @@ def test_nimbus_save_and_delete_save(client: TestClient):
 
     # 1. Initialize
     request: NIMBUSInitializationRequest = NIMBUSInitializationRequest(problem_id=1)
-    response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
-    init_result: NIMBUSInitializationResponse = NIMBUSInitializationResponse.model_validate(
-        json.loads(response.content)
+    response = post_json(
+        client, "/method/nimbus/initialize", request.model_dump(), access_token
+    )
+    init_result: NIMBUSInitializationResponse = (
+        NIMBUSInitializationResponse.model_validate(json.loads(response.content))
     )
     assert init_result.state_id == 1
 
@@ -541,18 +828,26 @@ def test_nimbus_save_and_delete_save(client: TestClient):
         parent_state_id=1,
         num_desired=3,
     )
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
-    solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
-        json.loads(response.content)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
+    solve_result: NIMBUSClassificationResponse = (
+        NIMBUSClassificationResponse.model_validate(json.loads(response.content))
     )
     assert solve_result.state_id == 2
 
     # 3. Save
     request: NIMBUSSaveRequest = NIMBUSSaveRequest(
-        problem_id=1, parent_state_id=2, solution_info=[SolutionInfo(state_id=2, solution_index=1)]
+        problem_id=1,
+        parent_state_id=2,
+        solution_info=[SolutionInfo(state_id=2, solution_index=1)],
     )
-    response = post_json(client, "/method/nimbus/save", request.model_dump(), access_token)
-    save_result: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(json.loads(response.content))
+    response = post_json(
+        client, "/method/nimbus/save", request.model_dump(), access_token
+    )
+    save_result: NIMBUSSaveResponse = NIMBUSSaveResponse.model_validate(
+        json.loads(response.content)
+    )
     assert save_result.state_id == 3
 
     # Assert that stuff is saved
@@ -569,17 +864,25 @@ def test_nimbus_save_and_delete_save(client: TestClient):
         num_desired=1,
         parent_state_id=3,
     )
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
-    solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
-        json.loads(response.content)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
+    solve_result: NIMBUSClassificationResponse = (
+        NIMBUSClassificationResponse.model_validate(json.loads(response.content))
     )
     assert solve_result.state_id == 4
     assert len(solve_result.saved_solutions) > 0
 
     # 4. Delete save
-    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(state_id=2, solution_index=1)
-    response = post_json(client, "/method/nimbus/delete_save", request.model_dump(), access_token)
-    delete_save_result: NIMBUSDeleteSaveResponse = NIMBUSDeleteSaveResponse.model_validate(json.loads(response.content))
+    request: NIMBUSDeleteSaveRequest = NIMBUSDeleteSaveRequest(
+        state_id=2, solution_index=1
+    )
+    response = post_json(
+        client, "/method/nimbus/delete_save", request.model_dump(), access_token
+    )
+    delete_save_result: NIMBUSDeleteSaveResponse = (
+        NIMBUSDeleteSaveResponse.model_validate(json.loads(response.content))
+    )
 
     assert delete_save_result
 
@@ -599,9 +902,11 @@ def test_nimbus_save_and_delete_save(client: TestClient):
         num_desired=1,
         parent_state_id=4,
     )
-    response = post_json(client, "/method/nimbus/solve", request.model_dump(), access_token)
-    solve_result: NIMBUSClassificationResponse = NIMBUSClassificationResponse.model_validate(
-        json.loads(response.content)
+    response = post_json(
+        client, "/method/nimbus/solve", request.model_dump(), access_token
+    )
+    solve_result: NIMBUSClassificationResponse = (
+        NIMBUSClassificationResponse.model_validate(json.loads(response.content))
     )
     assert solve_result.state_id == 5
     assert len(solve_result.saved_solutions) == 0
@@ -631,7 +936,11 @@ def test_add_new_analyst(client: TestClient):
     # Try to create an analyst without logging in
     nologin_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
 
@@ -650,8 +959,15 @@ def test_add_new_analyst(client: TestClient):
 
     dm_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
-        headers={"Authorization": f"Bearer {dm_access_token}", "content-type": "application/x-www-form-urlencoded"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
+        headers={
+            "Authorization": f"Bearer {dm_access_token}",
+            "content-type": "application/x-www-form-urlencoded",
+        },
     )
 
     # Creating an analyst using unauthorized user should return 401 status
@@ -662,7 +978,11 @@ def test_add_new_analyst(client: TestClient):
 
     good_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
         headers={
             "Authorization": f"Bearer {analyst_access_token}",
             "content-type": "application/x-www-form-urlencoded",
@@ -674,7 +994,11 @@ def test_add_new_analyst(client: TestClient):
 
     bad_response = client.post(
         "/add_new_analyst",
-        data={"username": "new_analyst", "password": "new_analyst", "grant_type": "password"},
+        data={
+            "username": "new_analyst",
+            "password": "new_analyst",
+            "grant_type": "password",
+        },
         headers={
             "Authorization": f"Bearer {analyst_access_token}",
             "content-type": "application/x-www-form-urlencoded",
@@ -719,7 +1043,9 @@ def test_group_operations(client: TestClient):
     group_info_endpoint = "/gdm/get_group_info"
 
     # login to analyst
-    access_token = login(client=client, username="analyst", password="analyst")  # noqa: S106
+    access_token = login(
+        client=client, username="analyst", password="analyst"
+    )  # noqa: S106
 
     def get_info(gid: int):
         return post_json(
@@ -776,18 +1102,24 @@ def test_group_operations(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     response = get_info(1)
     assert response.status_code == status.HTTP_200_OK
-    group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
+    group: GroupPublic = GroupPublic.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert 2 in group.user_ids
     assert 1 not in group.user_ids
 
     user_info = get_user_info(access_token)
-    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    user: UserPublic = UserPublic.model_validate(
+        json.loads(user_info.content.decode("utf-8"))
+    )
     assert 1 in user.group_ids
 
     dm_access_token = login(client, "new_dm", "new_dm")
 
     user_info = get_user_info(dm_access_token)
-    dm_user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    dm_user: UserPublic = UserPublic.model_validate(
+        json.loads(user_info.content.decode("utf-8"))
+    )
     assert 1 in dm_user.group_ids
 
     # TODO: websocket testing and result fetching?
@@ -802,15 +1134,21 @@ def test_group_operations(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     response = get_info(1)
     assert response.status_code == status.HTTP_200_OK
-    group: GroupPublic = GroupPublic.model_validate(json.loads(response.content.decode("utf-8")))
+    group: GroupPublic = GroupPublic.model_validate(
+        json.loads(response.content.decode("utf-8"))
+    )
     assert 2 not in group.user_ids
 
     user_info = get_user_info(dm_access_token)
-    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    user: UserPublic = UserPublic.model_validate(
+        json.loads(user_info.content.decode("utf-8"))
+    )
     assert 1 not in user.group_ids
 
     user_info = get_user_info(access_token)
-    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    user: UserPublic = UserPublic.model_validate(
+        json.loads(user_info.content.decode("utf-8"))
+    )
     assert 1 in user.group_ids
 
     # Delete the group
@@ -827,7 +1165,9 @@ def test_group_operations(client: TestClient):
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
     user_info = get_user_info(access_token)
-    user: UserPublic = UserPublic.model_validate(json.loads(user_info.content.decode("utf-8")))
+    user: UserPublic = UserPublic.model_validate(
+        json.loads(user_info.content.decode("utf-8"))
+    )
     assert 1 not in user.group_ids
 
 
@@ -835,12 +1175,20 @@ def test_preferred_solver(client: TestClient):
     """Test that setting a preferred solver for the problem is ok."""
     access_token = login(client)
 
-    request = ProblemSelectSolverRequest(problem_id=1, solver_string_representation="THIS SOLVER DOESN'T EXIST")
-    response = post_json(client, "/problem/assign_solver", request.model_dump(), access_token)
+    request = ProblemSelectSolverRequest(
+        problem_id=1, solver_string_representation="THIS SOLVER DOESN'T EXIST"
+    )
+    response = post_json(
+        client, "/problem/assign_solver", request.model_dump(), access_token
+    )
     assert response.status_code == 404
 
-    request = ProblemSelectSolverRequest(problem_id=1, solver_string_representation="pyomo_cbc")
-    response = post_json(client, "/problem/assign_solver", request.model_dump(), access_token)
+    request = ProblemSelectSolverRequest(
+        problem_id=1, solver_string_representation="pyomo_cbc"
+    )
+    response = post_json(
+        client, "/problem/assign_solver", request.model_dump(), access_token
+    )
     assert response.status_code == 200
 
     request = {"problem_id": 1, "metadata_type": "solver_selection_metadata"}
@@ -855,12 +1203,18 @@ def test_preferred_solver(client: TestClient):
     # Test that the solver is in use
     try:
         request = NIMBUSInitializationRequest(problem_id=1)
-        response = post_json(client, "/method/nimbus/initialize", request.model_dump(), access_token)
+        response = post_json(
+            client, "/method/nimbus/initialize", request.model_dump(), access_token
+        )
         model = NIMBUSInitializationResponse.model_validate(response.json())
     except Exception as e:
         print(e)
-        print("^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems.")
-        print("  As that solver is what we set it to be in the start, we can verify that they actually get used.")
+        print(
+            "^ This outcome is expected since pyomo_cbc doesn't support nonlinear problems."
+        )
+        print(
+            "  As that solver is what we set it to be in the start, we can verify that they actually get used."
+        )
 
 
 def test_get_available_solvers(client: TestClient):
@@ -884,10 +1238,14 @@ def test_emo_solve_with_reference_point(client: TestClient):
     request = EMOIterateRequest(
         problem_id=1,
         template_options=[rvea_options.template],
-        preference_options=ReferencePointOptions(preference={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}, method="Hakanen"),
+        preference_options=ReferencePointOptions(
+            preference={"f_1": 0.5, "f_2": 0.3, "f_3": 0.4}, method="Hakanen"
+        ),
     )
 
-    response = post_json(client, "/method/emo/iterate", request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/emo/iterate", request.model_dump(), access_token
+    )
 
     assert response.status_code == status.HTTP_200_OK
 
@@ -897,14 +1255,18 @@ def test_emo_solve_with_reference_point(client: TestClient):
     state_id = emo_response.state_id
 
     initial_time = time.time()
-    with client.websocket_connect(f"/method/emo/ws/{emo_response.client_id}") as websocket:
+    with client.websocket_connect(
+        f"/method/emo/ws/{emo_response.client_id}"
+    ) as websocket:
         while time.time() - initial_time < 10:
             message = websocket.receive_json()
             if message.get("message") == f"Finished {emo_response.method_ids[0]}":
                 break
     # Fetch the state to verify it worked
     fetch_request = EMOFetchRequest(problem_id=1, parent_state_id=state_id)
-    response = post_json(client, "/method/emo/fetch", fetch_request.model_dump(), access_token)
+    response = post_json(
+        client, "/method/emo/fetch", fetch_request.model_dump(), access_token
+    )
 
 
 def test_get_problem_metadata(client: TestClient):
@@ -913,20 +1275,35 @@ def test_get_problem_metadata(client: TestClient):
 
     # Problem with no metadata
     req = {"problem_id": 1, "metadata_type": "forest_problem_metadata"}
-    response = post_json(client=client, endpoint="/problem/get_metadata", json=req, access_token=access_token)
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
     assert response.status_code == 200
     assert response.json() == []
 
     # Problem with forest metadata
     req = {"problem_id": 2, "metadata_type": "forest_problem_metadata"}
-    response = post_json(client=client, endpoint="/problem/get_metadata", json=req, access_token=access_token)
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
     assert response.status_code == 200
     assert response.json()[0]["metadata_type"] == "forest_problem_metadata"
     assert response.json()[0]["schedule_dict"] == {"type": "dict"}
 
     # No problem
     req = {"problem_id": 4, "metadata_type": "forest_problem_metadata"}
-    response = post_json(client=client, endpoint="/problem/get_metadata", json=req, access_token=access_token)
+    response = post_json(
+        client=client,
+        endpoint="/problem/get_metadata",
+        json=req,
+        access_token=access_token,
+    )
     assert response.status_code == 404
 
 
@@ -939,7 +1316,9 @@ def test_gdm_score_bands(client: TestClient):
         group_name="group",
         problem_id=3,  # The discrete representation problem
     ).model_dump()
-    response = post_json(client=client, endpoint="/gdm/create_group", json=req, access_token=access_token)
+    response = post_json(
+        client=client, endpoint="/gdm/create_group", json=req, access_token=access_token
+    )
     assert response.status_code == 201
 
     # Add a dm to the group
@@ -952,7 +1331,9 @@ def test_gdm_score_bands(client: TestClient):
     assert response.status_code == 201
 
     req = GroupModifyRequest(group_id=1, user_id=2).model_dump()
-    response = post_json(client=client, endpoint="/gdm/add_to_group", json=req, access_token=access_token)
+    response = post_json(
+        client=client, endpoint="/gdm/add_to_group", json=req, access_token=access_token
+    )
     assert response.status_code == 200
 
     access_token = login(client=client, username="dm", password="dm")
@@ -961,11 +1342,17 @@ def test_gdm_score_bands(client: TestClient):
     req = GDMScoreBandsInitializationRequest(
         group_id=1,
         score_bands_config=SCOREBandsGDMConfig(
-            score_bands_config=SCOREBandsConfig(clustering_algorithm=KMeansOptions(n_clusters=5)), from_iteration=None
+            score_bands_config=SCOREBandsConfig(
+                clustering_algorithm=KMeansOptions(n_clusters=5)
+            ),
+            from_iteration=None,
         ),
     ).model_dump()
     response = post_json(
-        client=client, endpoint="/gdm-score-bands/get-or-initialize", json=req, access_token=access_token
+        client=client,
+        endpoint="/gdm-score-bands/get-or-initialize",
+        json=req,
+        access_token=access_token,
     )
     assert response.status_code == 200
     response_innards = GDMSCOREBandsHistoryResponse.model_validate(response.json())
@@ -976,21 +1363,36 @@ def test_gdm_score_bands(client: TestClient):
         group_id=1,
         vote=4,
     ).model_dump()
-    response = post_json(client=client, endpoint="/gdm-score-bands/vote", json=req, access_token=access_token)
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/vote",
+        json=req,
+        access_token=access_token,
+    )
     assert response.status_code == 200
     req = GroupInfoRequest(group_id=1).model_dump()
-    response = post_json(client=client, endpoint="/gdm-score-bands/confirm", json=req, access_token=access_token)
+    response = post_json(
+        client=client,
+        endpoint="/gdm-score-bands/confirm",
+        json=req,
+        access_token=access_token,
+    )
     assert response.status_code == 200
 
     req = GDMScoreBandsInitializationRequest(
         group_id=1,
         score_bands_config=SCOREBandsGDMConfig(
-            score_bands_config=SCOREBandsConfig(clustering_algorithm=KMeansOptions(n_clusters=5)),
+            score_bands_config=SCOREBandsConfig(
+                clustering_algorithm=KMeansOptions(n_clusters=5)
+            ),
             from_iteration=response_innards.history[-1].latest_iteration,
         ),
     ).model_dump()
     response = post_json(
-        client=client, endpoint="/gdm-score-bands/get-or-initialize", json=req, access_token=access_token
+        client=client,
+        endpoint="/gdm-score-bands/get-or-initialize",
+        json=req,
+        access_token=access_token,
     )
     assert response.status_code == 200
     response_innards = GDMSCOREBandsHistoryResponse.model_validate(response.json())
