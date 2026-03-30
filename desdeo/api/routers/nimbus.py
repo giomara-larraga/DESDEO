@@ -30,6 +30,7 @@ from desdeo.api.models import (
     ProblemDB,
     ReferencePoint,
     SavedSolutionReference,
+    State,
     SolutionReference,
     SolutionReferenceResponse,
     StateDB,
@@ -91,11 +92,14 @@ def filter_duplicates(
 def collect_saved_solutions(
     user: User, problem_id: int, session: Session
 ) -> list[SavedSolutionReference]:
-    """Collects all saved solutions for the user and problem."""
+    """Collects NIMBUS-saved solutions for the user and problem."""
     user_saved_solutions = session.exec(
-        select(UserSavedSolutionDB).where(
+        select(UserSavedSolutionDB)
+        .join(State, UserSavedSolutionDB.save_state_id == State.id)
+        .where(
             UserSavedSolutionDB.problem_id == problem_id,
             UserSavedSolutionDB.user_id == user.id,
+            State.kind == StateKind.NIMBUS_SAVE,
         )
     ).all()
 
@@ -446,7 +450,7 @@ def save(
             new_solutions.append(new_solution)
 
     # Commit existing and new solutions
-    if updated_solutions or new_solution:
+    if updated_solutions or new_solutions:
         session.commit()
         [session.refresh(row) for row in updated_solutions + new_solutions]
 
@@ -465,6 +469,13 @@ def save(
     session.add(state)
     session.commit()
     session.refresh(state)
+
+    for saved_solution in updated_solutions + new_solutions:
+        saved_solution.save_state_id = state.state_id
+        session.add(saved_solution)
+
+    if updated_solutions or new_solutions:
+        session.commit()
 
     return NIMBUSSaveResponse(state_id=state.id)
 

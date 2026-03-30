@@ -19,9 +19,14 @@ def dmitry_forest_problem_disc() -> Problem:
     Returns:
         Problem: A problem instance representing the forest problem.
     """
-    path = Path(__file__)
-    while not str(path).endswith("/DESDEO"):
-        path = path.parent
+    path = Path(__file__).resolve()
+    for parent in path.parents:
+        if parent.name == "DESDEO":
+            path = parent
+            break
+    else:
+        msg = "Could not locate the DESDEO repository root."
+        raise FileNotFoundError(msg)
 
     path = path / "tests/data/dmitry_discrete_repr/dmitry_forest_problem_non_dom_solns.csv"
 
