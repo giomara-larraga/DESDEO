@@ -185,6 +185,35 @@ export interface ConstantDB {
 }
 
 /**
+ * Fix a single variable to a specific value via an EQ constraint.
+ */
+export interface VariableFixing {
+	variable_symbol: string;
+	fixed_value: number;
+	constraint_name?: string | null;
+}
+
+/**
+ * Request to create a derived problem with additional EQ constraints fixing variables.
+ */
+export interface ConstrainedVariantRequest {
+	variable_fixings: VariableFixing[];
+	name?: string | null;
+	is_temporary?: boolean;
+}
+
+/**
+ * Response after creating a constrained variant.
+ */
+export interface ConstrainedVariantResponse {
+	problem_id: number;
+	parent_problem_id: number;
+	name: string;
+	is_temporary: boolean;
+	n_constraints_added: number;
+}
+
+/**
  * Model for a URL.
  */
 export interface Url {
@@ -500,6 +529,53 @@ export interface ENautilusSessionTreeResponse {
 	root_ids: number[];
 	/** Pre-computed decision events for each parent-child transition. */
 	decision_events: ENautilusDecisionEventResponse[];
+}
+
+/**
+ * Run E-NAUTILUS greedily from a state to completion.
+ */
+export interface ENautilusSimulateRequest {
+	/** Starting ENautilusState to branch from. */
+	state_id: number;
+	/** Objective symbol to favor (e.g., 'f_1'). */
+	preferred_objective: string;
+	/** If True, always pick the WORST value for the objective instead of the best. */
+	deprioritize?: boolean;
+	/** Number of intermediate points per simulated step. */
+	number_of_intermediate_points?: number;
+}
+
+export type ENautilusSimulateResponseFinalIntermediatePoint = { [key: string]: number };
+
+/**
+ * The auto-picked intermediate point.
+ */
+export type ENautilusSimulateStepResultSelectedPoint = { [key: string]: number };
+
+export type ENautilusSimulateStepResultIntermediatePointsItem = { [key: string]: number };
+
+/**
+ * One step in the simulated path.
+ */
+export interface ENautilusSimulateStepResult {
+	iteration: number;
+	iterations_left: number;
+	/** The auto-picked intermediate point. */
+	selected_point: ENautilusSimulateStepResultSelectedPoint;
+	selected_point_index: number;
+	intermediate_points: ENautilusSimulateStepResultIntermediatePointsItem[];
+	closeness_measures: number[];
+}
+
+/**
+ * Result of greedy E-NAUTILUS simulation.
+ */
+export interface ENautilusSimulateResponse {
+	preferred_objective: string;
+	steps: ENautilusSimulateStepResult[];
+	/** Projected Pareto-optimal solution. */
+	final_solution: SolverResults;
+	final_intermediate_point: ENautilusSimulateResponseFinalIntermediatePoint;
 }
 
 export type ENautilusStepResponseIntermediatePointsItem = { [key: string]: number };
@@ -1556,12 +1632,37 @@ export interface RepresentativeNonDominatedSolutions {
 }
 
 /**
+ * A problem metadata class to hold site selection problem specific information.
+
+Stores geographic data and variable mappings needed to visualize binary
+site-selection solutions on a map (e.g., clinic placement, facility location).
+ */
+export interface SiteSelectionMetaData {
+	id?: number | null;
+	metadata_id?: number | null;
+	metadata_type?: string;
+	/** JSON array: [{name, node, lat, lon}, ...] one per site variable */
+	sites_json: string;
+	/** JSON array: [{name, lat, lon, size}, ...] one per map node */
+	nodes_json: string;
+	/** JSON: 2D list[list[float]], shape [n_nodes, n_nodes] */
+	travel_time_matrix_json: string;
+	/** Ordered list of site variable symbols matching sites_json positions */
+	site_variable_symbols: string[];
+	/** Ordered list of coverage variable symbols matching nodes_json positions, or None */
+	coverage_variable_symbols?: string[] | null;
+	/** Threshold for coverage edges (e.g., minutes, km) */
+	coverage_threshold?: number;
+}
+
+/**
  * Response model for ProblemMetaData.
  */
 export interface ProblemMetaDataPublic {
 	problem_id: number;
 	forest_metadata: ForestProblemMetaData[] | null;
 	representative_nd_metadata: RepresentativeNonDominatedSolutions[] | null;
+	site_selection_metadata: SiteSelectionMetaData[] | null;
 }
 
 /**
@@ -1728,6 +1829,66 @@ export interface ScoreBandsResponse {
 }
 
 /**
+ * A coverage connection edge between two nodes.
+ */
+export interface SiteSelectionMapEdge {
+	from_lat: number;
+	from_lon: number;
+	to_lat: number;
+	to_lon: number;
+}
+
+/**
+ * A node marker on the map.
+ */
+export interface SiteSelectionMapNode {
+	name: string;
+	lat: number;
+	lon: number;
+	size: number;
+	color: string;
+	tooltip: string;
+}
+
+export type SiteSelectionMapRequestOptimalVariables = { [key: string]: unknown };
+
+/**
+ * Request body for building the site selection map.
+ */
+export interface SiteSelectionMapRequest {
+	problem_id: number;
+	optimal_variables: SiteSelectionMapRequestOptimalVariables;
+}
+
+/**
+ * Response body for the site selection map endpoint.
+ */
+export interface SiteSelectionMapResponse {
+	nodes: SiteSelectionMapNode[];
+	edges: SiteSelectionMapEdge[];
+	center: number[];
+	site_variable_symbols: string[];
+	site_node_names: string[];
+}
+
+export type SiteSelectionMetaDataRequestSitesItem = { [key: string]: unknown };
+
+export type SiteSelectionMetaDataRequestNodesItem = { [key: string]: unknown };
+
+/**
+ * Request body for loading site selection metadata.
+ */
+export interface SiteSelectionMetaDataRequest {
+	problem_id: number;
+	sites: SiteSelectionMetaDataRequestSitesItem[];
+	nodes: SiteSelectionMetaDataRequestNodesItem[];
+	travel_time_matrix: number[][];
+	site_variable_symbols: string[];
+	coverage_variable_symbols?: string[] | null;
+	coverage_threshold?: number;
+}
+
+/**
  * A problem metadata class to store the preferred solver of a problem.
 
 A problem metadata class to store the preferred solver of a problem.
@@ -1823,10 +1984,12 @@ export type DeleteProblemProblemProblemIdDeleteParams = {
 };
 
 export type AddProblemProblemAddPostParams = {
+	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
 export type AddProblemJsonProblemAddJsonPostParams = {
+	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
@@ -1867,6 +2030,7 @@ export type GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = {
 };
 
 export type CreateNewSessionSessionNewPostParams = {
+	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
@@ -1964,6 +2128,43 @@ export type GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = {
 
 export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
 	group_id: number;
+};
+
+/**
+ * Return all users with the decision maker role. Requires analyst or admin.
+
+Args:
+    user (Annotated[User, Depends]): the current user.
+    session (Annotated[Session, Depends]): the database session.
+
+Returns:
+    list[UserPublic]: public information for all DM users.
+
+Raises:
+    HTTPException: if the current user is not an analyst or admin.
+ * @summary Get Dm Users
+ */
+export type getDmUsersUsersDmsGetResponse200 = {
+	data: UserPublic[];
+	status: 200;
+};
+
+export type getDmUsersUsersDmsGetResponseSuccess = getDmUsersUsersDmsGetResponse200 & {
+	headers: Headers;
+};
+export type getDmUsersUsersDmsGetResponse = getDmUsersUsersDmsGetResponseSuccess;
+
+export const getGetDmUsersUsersDmsGetUrl = () => {
+	return `http://localhost:8000/users/dms`;
+};
+
+export const getDmUsersUsersDmsGet = async (
+	options?: RequestInit
+): Promise<getDmUsersUsersDmsGetResponse> => {
+	return customFetch<getDmUsersUsersDmsGetResponse>(getGetDmUsersUsersDmsGetUrl(), {
+		...options,
+		method: 'GET'
+	});
 };
 
 /**
@@ -2157,9 +2358,10 @@ export const refreshAccessTokenRefreshPost = async (
 };
 
 /**
- * Add a new user of the role Decision Maker to the database. Requires no login.
+ * Add a new user of the role Decision Maker to the database. Requires a logged in analyst or an admin.
 
 Args:
+    user: Annotated[User, Depends(get_current_user)]: Logged in user with the role "analyst" or "admin".
     form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): The user credentials to add to the database.
     session (Annotated[Session, Depends(get_session)]): the database session.
 
@@ -2167,7 +2369,8 @@ Returns:
     JSONResponse: A JSON response
 
 Raises:
-    HTTPException: if username is already in use or if saving to the database fails for some reason.
+    HTTPException: if the logged in user is not an analyst or an admin or if
+    username is already in use or if saving to the database fails for some reason.
  * @summary Add New Dm
  */
 export type addNewDmAddNewDmPostResponse200 = {
@@ -2316,13 +2519,14 @@ export const addNewAnalystAddNewAnalystPost = async (
 };
 
 /**
- * Get information on all the current user's problems.
+ * Get information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfoSmall]: a list of information on all the problems.
+    list[ProblemInfoSmall]: a list of information on the problems.
  * @summary Get Problems
  */
 export type getProblemsProblemAllGetResponse200 = {
@@ -2349,13 +2553,14 @@ export const getProblemsProblemAllGet = async (
 };
 
 /**
- * Get detailed information on all the current user's problems.
+ * Get detailed information on problems. Analysts and admins see all users' problems.
 
 Args:
     user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
 
 Returns:
-    list[ProblemInfo]: a list of the detailed information on all the problems.
+    list[ProblemInfo]: a list of the detailed information on the problems.
  * @summary Get Problems Info
  */
 export type getProblemsInfoProblemAllInfoGetResponse200 = {
@@ -2458,6 +2663,9 @@ export const getProblemProblemProblemIdGet = async (
 
 /**
  * Delete a problem by its ID.
+
+Temporary problems (is_temporary=True) can be deleted by their owner.
+Non-temporary problems can only be deleted by admin users.
  * @summary Delete Problem
  */
 export type deleteProblemProblemProblemIdDeleteResponse204 = {
@@ -2522,6 +2730,8 @@ export const deleteProblemProblemProblemIdDelete = async (
 Args:
     request (Problem): the JSON representation of the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Note:
     Users with the role 'guest' may not add new problems.
@@ -2593,6 +2803,8 @@ export const addProblemProblemAddPost = async (
 Args:
     json_file (UploadFile): a file in JSON format describing the problem.
     context (Annotated[SessionContext, Depends): the session context.
+    target_user_id (int | None): if provided, assign the problem to this user instead of
+        the caller. Only analysts and admins may use this parameter.
 
 Raises:
     HTTPException: if the provided `json_file` is empty.
@@ -2685,7 +2897,12 @@ Returns:
  * @summary Get Metadata
  */
 export type getMetadataProblemGetMetadataPostResponse200 = {
-	data: (ForestProblemMetaData | RepresentativeNonDominatedSolutions | SolverSelectionMetadata)[];
+	data: (
+		| ForestProblemMetaData
+		| RepresentativeNonDominatedSolutions
+		| SolverSelectionMetadata
+		| SiteSelectionMetaData
+	)[];
 	status: 200;
 };
 
@@ -3160,219 +3377,62 @@ export const getProblemJsonProblemProblemIdJsonGet = async (
 };
 
 /**
- * Create a background dataset linked to one or more problems owned by the current user.
- * @summary Add Background Dataset
+ * Create a derived problem with additional EQ constraints fixing variables to specific values.
+
+The original problem is not modified. The variant is stored as a new ProblemDB row
+with parent_problem_id set to the original.
+ * @summary Create Constrained Variant
  */
-export type addBackgroundDatasetBackgroundDataAddPostResponse200 = {
-	data: BackgroundDatasetInfo;
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 = {
+	data: ConstrainedVariantResponse;
 	status: 200;
 };
 
-export type addBackgroundDatasetBackgroundDataAddPostResponse422 = {
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type addBackgroundDatasetBackgroundDataAddPostResponseSuccess =
-	addBackgroundDatasetBackgroundDataAddPostResponse200 & {
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse200 & {
 		headers: Headers;
 	};
-export type addBackgroundDatasetBackgroundDataAddPostResponseError =
-	addBackgroundDatasetBackgroundDataAddPostResponse422 & {
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError =
+	createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse422 & {
 		headers: Headers;
 	};
 
-export type addBackgroundDatasetBackgroundDataAddPostResponse =
-	| addBackgroundDatasetBackgroundDataAddPostResponseSuccess
-	| addBackgroundDatasetBackgroundDataAddPostResponseError;
+export type createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse =
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseSuccess
+	| createConstrainedVariantProblemProblemIdConstrainedVariantPostResponseError;
 
-export const getAddBackgroundDatasetBackgroundDataAddPostUrl = () => {
-	return `/api/background_data/add`;
+export const getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl = (
+	problemId: number | null
+) => {
+	return `http://localhost:8000/problem/${problemId}/constrained_variant`;
 };
 
-export const addBackgroundDatasetBackgroundDataAddPost = async (
-	backgroundDatasetCreateRequest: BackgroundDatasetCreateRequest,
+export const createConstrainedVariantProblemProblemIdConstrainedVariantPost = async (
+	problemId: number | null,
+	constrainedVariantRequest: ConstrainedVariantRequest,
 	options?: RequestInit
-): Promise<addBackgroundDatasetBackgroundDataAddPostResponse> => {
-	return customFetch<addBackgroundDatasetBackgroundDataAddPostResponse>(
-		getAddBackgroundDatasetBackgroundDataAddPostUrl(),
+): Promise<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse> => {
+	return customFetch<createConstrainedVariantProblemProblemIdConstrainedVariantPostResponse>(
+		getCreateConstrainedVariantProblemProblemIdConstrainedVariantPostUrl(problemId),
 		{
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(backgroundDatasetCreateRequest)
-		}
-	);
-};
-
-/**
- * List background datasets for a problem.
- * @summary Get Problem Background Datasets
- */
-export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 = {
-	data: BackgroundDatasetInfo[];
-	status: 200;
-};
-
-export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 = {
-	data: HTTPValidationError;
-	status: 422;
-};
-
-export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess =
-	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 & {
-		headers: Headers;
-	};
-export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError =
-	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 & {
-		headers: Headers;
-	};
-
-export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse =
-	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess
-	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError;
-
-export const getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl = (
-	problemId: number | null,
-	params?: GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams
-) => {
-	const normalizedParams = new URLSearchParams();
-
-	Object.entries(params || {}).forEach(([key, value]) => {
-		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
-		}
-	});
-
-	const stringifiedParams = normalizedParams.toString();
-
-	return stringifiedParams.length > 0
-		? `/api/background_data/problem/${problemId}?${stringifiedParams}`
-		: `/api/background_data/problem/${problemId}`;
-};
-
-export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet = async (
-	problemId: number | null,
-	params?: GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams,
-	options?: RequestInit
-): Promise<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse> => {
-	return customFetch<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse>(
-		getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl(problemId, params),
-		{
-			...options,
-			method: 'GET'
-		}
-	);
-};
-
-/**
- * Fetch a single background dataset if it belongs to one of the current user's problems.
- * @summary Get Background Dataset
- */
-export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 = {
-	data: BackgroundDatasetInfo;
-	status: 200;
-};
-
-export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 = {
-	data: HTTPValidationError;
-	status: 422;
-};
-
-export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess =
-	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 & {
-		headers: Headers;
-	};
-export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError =
-	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 & {
-		headers: Headers;
-	};
-
-export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse =
-	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess
-	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError;
-
-export const getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl = (
-	backgroundDatasetId: number,
-	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams
-) => {
-	const normalizedParams = new URLSearchParams();
-
-	Object.entries(params || {}).forEach(([key, value]) => {
-		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : value.toString());
-		}
-	});
-
-	const stringifiedParams = normalizedParams.toString();
-
-	return stringifiedParams.length > 0
-		? `/api/background_data/${backgroundDatasetId}?${stringifiedParams}`
-		: `/api/background_data/${backgroundDatasetId}`;
-};
-
-export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGet = async (
-	backgroundDatasetId: number,
-	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams,
-	options?: RequestInit
-): Promise<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse> => {
-	return customFetch<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse>(
-		getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl(backgroundDatasetId, params),
-		{
-			...options,
-			method: 'GET'
-		}
-	);
-};
-
-/**
- * Explain a DM reference point using SHAP and background data stored in the database.
- * @summary Explain Reference Point
- */
-export type explainReferencePointBackgroundDataExplainPostResponse200 = {
-	data: BackgroundDatasetExplainResponse;
-	status: 200;
-};
-
-export type explainReferencePointBackgroundDataExplainPostResponse422 = {
-	data: HTTPValidationError;
-	status: 422;
-};
-
-export type explainReferencePointBackgroundDataExplainPostResponseSuccess =
-	explainReferencePointBackgroundDataExplainPostResponse200 & {
-		headers: Headers;
-	};
-export type explainReferencePointBackgroundDataExplainPostResponseError =
-	explainReferencePointBackgroundDataExplainPostResponse422 & {
-		headers: Headers;
-	};
-
-export type explainReferencePointBackgroundDataExplainPostResponse =
-	| explainReferencePointBackgroundDataExplainPostResponseSuccess
-	| explainReferencePointBackgroundDataExplainPostResponseError;
-
-export const getExplainReferencePointBackgroundDataExplainPostUrl = () => {
-	return `/api/background_data/explain`;
-};
-
-export const explainReferencePointBackgroundDataExplainPost = async (
-	backgroundDatasetExplainRequest: BackgroundDatasetExplainRequest,
-	options?: RequestInit
-): Promise<explainReferencePointBackgroundDataExplainPostResponse> => {
-	return customFetch<explainReferencePointBackgroundDataExplainPostResponse>(
-		getExplainReferencePointBackgroundDataExplainPostUrl(),
-		{
-			...options,
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(backgroundDatasetExplainRequest)
+			body: JSON.stringify(constrainedVariantRequest)
 		}
 	);
 };
 
 /**
  * Creates a new interactive session.
+
+If ``target_user_id`` is provided, the session is created on behalf of that user.
+Only analysts and admins may use this parameter.
  * @summary Create New Session
  */
 export type createNewSessionSessionNewPostResponse200 = {
@@ -3433,7 +3493,7 @@ export const createNewSessionSessionNewPost = async (
 };
 
 /**
- * Return an interactive session with a current user.
+ * Return an interactive session. Analysts and admins may access any session.
  * @summary Get Session
  */
 export type getSessionSessionGetSessionIdGetResponse200 = {
@@ -3477,7 +3537,7 @@ export const getSessionSessionGetSessionIdGet = async (
 };
 
 /**
- * Return all interactive sessions of the current user.
+ * Return interactive sessions. Analysts and admins see all users' sessions; others see only their own.
  * @summary Get All Sessions
  */
 export type getAllSessionsSessionGetAllGetResponse200 = {
@@ -3508,7 +3568,7 @@ export const getAllSessionsSessionGetAllGet = async (
 };
 
 /**
- * Delete an interactive session and all its related states.
+ * Delete an interactive session and all its related states. Analysts and admins may delete any session.
  * @summary Delete Session
  */
 export type deleteSessionSessionSessionIdDeleteResponse204 = {
@@ -5743,6 +5803,149 @@ export const getSessionTreeMethodEnautilusSessionTreeSessionIdGet = async (
 };
 
 /**
+ * Run E-NAUTILUS greedily from a state to completion.
+
+Given a starting state, this endpoint greedily selects the best intermediate
+point for the preferred objective at each iteration until iterations_left == 0,
+then projects to the Pareto front. No database writes are performed.
+ * @summary Simulate
+ */
+export type simulateMethodEnautilusSimulatePostResponse200 = {
+	data: ENautilusSimulateResponse;
+	status: 200;
+};
+
+export type simulateMethodEnautilusSimulatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type simulateMethodEnautilusSimulatePostResponseSuccess =
+	simulateMethodEnautilusSimulatePostResponse200 & {
+		headers: Headers;
+	};
+export type simulateMethodEnautilusSimulatePostResponseError =
+	simulateMethodEnautilusSimulatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type simulateMethodEnautilusSimulatePostResponse =
+	| simulateMethodEnautilusSimulatePostResponseSuccess
+	| simulateMethodEnautilusSimulatePostResponseError;
+
+export const getSimulateMethodEnautilusSimulatePostUrl = () => {
+	return `http://localhost:8000/method/enautilus/simulate`;
+};
+
+export const simulateMethodEnautilusSimulatePost = async (
+	eNautilusSimulateRequest: ENautilusSimulateRequest,
+	options?: RequestInit
+): Promise<simulateMethodEnautilusSimulatePostResponse> => {
+	return customFetch<simulateMethodEnautilusSimulatePostResponse>(
+		getSimulateMethodEnautilusSimulatePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(eNautilusSimulateRequest)
+		}
+	);
+};
+
+/**
+ * Store site selection metadata for a problem.
+
+The authenticated user must own the problem.
+ * @summary Load Metadata
+ */
+export type loadMetadataSiteSelectionLoadMetadataPostResponse200 = {
+	data: SiteSelectionMetaData;
+	status: 200;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponseSuccess =
+	loadMetadataSiteSelectionLoadMetadataPostResponse200 & {
+		headers: Headers;
+	};
+export type loadMetadataSiteSelectionLoadMetadataPostResponseError =
+	loadMetadataSiteSelectionLoadMetadataPostResponse422 & {
+		headers: Headers;
+	};
+
+export type loadMetadataSiteSelectionLoadMetadataPostResponse =
+	| loadMetadataSiteSelectionLoadMetadataPostResponseSuccess
+	| loadMetadataSiteSelectionLoadMetadataPostResponseError;
+
+export const getLoadMetadataSiteSelectionLoadMetadataPostUrl = () => {
+	return `http://localhost:8000/site-selection/load_metadata`;
+};
+
+export const loadMetadataSiteSelectionLoadMetadataPost = async (
+	siteSelectionMetaDataRequest: SiteSelectionMetaDataRequest,
+	options?: RequestInit
+): Promise<loadMetadataSiteSelectionLoadMetadataPostResponse> => {
+	return customFetch<loadMetadataSiteSelectionLoadMetadataPostResponse>(
+		getLoadMetadataSiteSelectionLoadMetadataPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(siteSelectionMetaDataRequest)
+		}
+	);
+};
+
+/**
+ * Build Leaflet-compatible map data from a site selection solution.
+
+Reads site selection metadata from the DB and extracts variable values
+from the provided solution to determine node colors and coverage edges.
+ * @summary Build Map
+ */
+export type buildMapSiteSelectionMapPostResponse200 = {
+	data: SiteSelectionMapResponse;
+	status: 200;
+};
+
+export type buildMapSiteSelectionMapPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type buildMapSiteSelectionMapPostResponseSuccess =
+	buildMapSiteSelectionMapPostResponse200 & {
+		headers: Headers;
+	};
+export type buildMapSiteSelectionMapPostResponseError = buildMapSiteSelectionMapPostResponse422 & {
+	headers: Headers;
+};
+
+export type buildMapSiteSelectionMapPostResponse =
+	| buildMapSiteSelectionMapPostResponseSuccess
+	| buildMapSiteSelectionMapPostResponseError;
+
+export const getBuildMapSiteSelectionMapPostUrl = () => {
+	return `http://localhost:8000/site-selection/map`;
+};
+
+export const buildMapSiteSelectionMapPost = async (
+	siteSelectionMapRequest: SiteSelectionMapRequest,
+	options?: RequestInit
+): Promise<buildMapSiteSelectionMapPostResponse> => {
+	return customFetch<buildMapSiteSelectionMapPostResponse>(getBuildMapSiteSelectionMapPostUrl(), {
+		...options,
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', ...options?.headers },
+		body: JSON.stringify(siteSelectionMapRequest)
+	});
+};
+
+/**
  * Vote for a band using this endpoint.
 
 Args:
@@ -6094,4 +6297,28 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 			body: JSON.stringify(sCOREBandsGDMConfig)
 		}
 	);
+};
+
+/**
+ * @summary Health
+ */
+export type healthHealthGetResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type healthHealthGetResponseSuccess = healthHealthGetResponse200 & {
+	headers: Headers;
+};
+export type healthHealthGetResponse = healthHealthGetResponseSuccess;
+
+export const getHealthHealthGetUrl = () => {
+	return `http://localhost:8000/health`;
+};
+
+export const healthHealthGet = async (options?: RequestInit): Promise<healthHealthGetResponse> => {
+	return customFetch<healthHealthGetResponse>(getHealthHealthGetUrl(), {
+		...options,
+		method: 'GET'
+	});
 };
