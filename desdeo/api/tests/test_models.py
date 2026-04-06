@@ -1,9 +1,14 @@
 """Tests related to the SQLModels."""
 
 import numpy as np
+import pytest
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from desdeo.api.models import (
+    BackgroundDatasetCreateRequest,
+    BackgroundDatasetDB,
+    ProblemBackgroundDatasetLink,
     Bounds,
     ConstantDB,
     ConstraintDB,
@@ -34,10 +39,19 @@ from desdeo.api.models import (
     UserSavedSolutionDB,
     VariableDB,
 )
+from desdeo.api.utils.database import (
+    create_background_dataset,
+    list_background_datasets,
+)
 from desdeo.api.models.gdm.gnimbus import (
     OptimizationPreference,
 )
-from desdeo.mcdm import enautilus_step, generate_starting_point, rpm_solve_solutions, solve_sub_problems
+from desdeo.mcdm import (
+    enautilus_step,
+    generate_starting_point,
+    rpm_solve_solutions,
+    solve_sub_problems,
+)
 from desdeo.problem.schema import (
     Constant,
     Constraint,
@@ -111,7 +125,12 @@ def compare_models(
     dict_2 = model_2.model_dump()
 
     for field in unordered_fields:
-        if field in dict_1 and field in dict_2 and isinstance(dict_1[field], list) and isinstance(dict_2[field], list):
+        if (
+            field in dict_1
+            and field in dict_2
+            and isinstance(dict_1[field], list)
+            and isinstance(dict_2[field], list)
+        ):
             if len(dict_1[field]) != len(dict_2[field]):
                 return False
 
@@ -134,7 +153,9 @@ def test_tensor_constant(session_and_user: dict[str, Session | list[User]]):
     """Test that a tensor constant can be transformed to an SQLModel and back after adding it to the database."""
     session = session_and_user["session"]
 
-    t_tensor = TensorConstant(name="tensor", symbol="T", shape=[2, 2], values=[[1, 2], [3, 4]])
+    t_tensor = TensorConstant(
+        name="tensor", symbol="T", shape=[2, 2], values=[[1, 2], [3, 4]]
+    )
     t_tensor_dump = t_tensor.model_dump()
     t_tensor_dump["problem_id"] = 1
 
@@ -153,6 +174,84 @@ def test_tensor_constant(session_and_user: dict[str, Session | list[User]]):
     t_tensor_validated = TensorConstant.model_validate(from_db_tensor_dump)
 
     assert t_tensor_validated == t_tensor
+
+
+def test_background_dataset_storage(session_and_user: dict[str, Session | list[User]]):
+    """Test that background datasets can be stored and linked to multiple problems."""
+    session = session_and_user["session"]
+
+    problem_db_1 = session.exec(
+        select(ProblemDB).where(ProblemDB.name == river_pollution_problem().name)
+    ).first()
+    problem_db_2 = session.exec(
+        select(ProblemDB).where(ProblemDB.name == "dtlz2")
+    ).first()
+    assert problem_db_1 is not None
+    assert problem_db_2 is not None
+
+    request = BackgroundDatasetCreateRequest(
+        problem_ids=[problem_db_1.id, problem_db_2.id],
+        name="rximo background sample",
+        kind="rximo_background_pool",
+        num_samples=2,
+        preference_values={"z_f_1": [5.0, 5.2], "z_f_2": [3.0, 3.1]},
+        objective_values={"f_1": [5.1, 5.3], "f_2": [3.0, 3.1]},
+    )
+
+    stored = create_background_dataset(request, session)
+    assert stored.id is not None
+
+    from_db = session.get(BackgroundDatasetDB, stored.id)
+    assert from_db is not None
+    assert from_db.kind == "rximo_background_pool"
+    assert from_db.num_samples == request.num_samples
+    assert sorted(problem.id for problem in from_db.problems) == sorted(
+        request.problem_ids
+    )
+    assert from_db.preference_values == request.preference_values
+    assert from_db.objective_values == request.objective_values
+
+    links = list(session.exec(select(ProblemBackgroundDatasetLink)).all())
+    assert any(
+        link.problem_id == problem_db_1.id and link.background_dataset_id == stored.id
+        for link in links
+    )
+    assert any(
+        link.problem_id == problem_db_2.id and link.background_dataset_id == stored.id
+        for link in links
+    )
+
+    queried = list_background_datasets(problem_db_1.id, session)
+    assert any(item.id == stored.id for item in queried)
+
+    queried = list_background_datasets(problem_db_2.id, session)
+    assert any(item.id == stored.id for item in queried)
+
+
+def test_background_dataset_rejects_mismatched_sample_lengths():
+    """Test that background datasets reject columns with mismatched lengths."""
+    with pytest.raises(ValidationError):
+        BackgroundDatasetCreateRequest(
+            problem_ids=[1],
+            name="invalid background sample",
+            kind="rximo_background_pool",
+            num_samples=2,
+            preference_values={"z_f_1": [5.0, 5.2]},
+            objective_values={"f_1": [5.1]},
+        )
+
+
+def test_background_dataset_rejects_duplicate_problem_ids():
+    """Test that linked problem ids must be unique."""
+    with pytest.raises(ValidationError):
+        BackgroundDatasetCreateRequest(
+            problem_ids=[1, 1],
+            name="duplicate problem ids",
+            kind="rximo_background_pool",
+            num_samples=2,
+            preference_values={"z_f_1": [5.0, 5.2]},
+            objective_values={"f_1": [5.1, 5.3]},
+        )
 
 
 def test_constant(session_and_user: dict[str, Session | list[User]]):
@@ -238,7 +337,9 @@ def test_tensor_variable(session_and_user: dict[str, Session | list[User]]):
 
     assert db_t_variable == from_db_t_variable
 
-    from_db_t_variable_dump = from_db_t_variable.model_dump(exclude={"id", "problem_id"})
+    from_db_t_variable_dump = from_db_t_variable.model_dump(
+        exclude={"id", "problem_id"}
+    )
     t_variable_validated = TensorVariable.model_validate(from_db_t_variable_dump)
 
     assert t_variable_validated == t_variable
@@ -314,7 +415,9 @@ def test_constraint(session_and_user: dict[str, Session | list[User]]):
 
     assert db_constraint == from_db_constraint
 
-    from_db_constraint_dump = from_db_constraint.model_dump(exclude={"id", "problem_id"})
+    from_db_constraint_dump = from_db_constraint.model_dump(
+        exclude={"id", "problem_id"}
+    )
     constraint_validated = Constraint.model_validate(from_db_constraint_dump)
 
     assert constraint_validated == constraint
@@ -331,7 +434,12 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
         is_convex=True,
         is_linear=True,
         is_twice_differentiable=False,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt"],
+        scenario_keys=[
+            "Abloy",
+            "MasterLock",
+            "MasterLockToOpenMasterLock",
+            "MyHandsHurt",
+        ],
     )
 
     scalarization_dump = scalarization.model_dump()
@@ -347,8 +455,12 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
 
     assert db_scalarization == from_db_scalarization
 
-    from_db_scalarization_dump = from_db_scalarization.model_dump(exclude={"id", "problem_id"})
-    scalarization_validated = ScalarizationFunction.model_validate(from_db_scalarization_dump)
+    from_db_scalarization_dump = from_db_scalarization.model_dump(
+        exclude={"id", "problem_id"}
+    )
+    scalarization_validated = ScalarizationFunction.model_validate(
+        from_db_scalarization_dump
+    )
 
     assert scalarization_validated == scalarization
 
@@ -364,7 +476,13 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
         is_convex=False,
         is_linear=False,
         is_twice_differentiable=True,
-        scenario_keys=["Abloy", "MasterLock", "MasterLockToOpenMasterLock", "MyHandsHurt", "RunningOutOfIdeas"],
+        scenario_keys=[
+            "Abloy",
+            "MasterLock",
+            "MasterLockToOpenMasterLock",
+            "MyHandsHurt",
+            "RunningOutOfIdeas",
+        ],
     )
 
     extra_dump = extra.model_dump()
@@ -606,7 +724,9 @@ def test_preference_models(session_and_user: dict[str, Session | list[User]]):
     reference_point = ReferencePoint(aspiration_levels=aspiration_levels)
     bounds = Bounds(lower_bounds=lower_bounds, upper_bounds=upper_bounds)
 
-    reference_point_db = PreferenceDB(user_id=user.id, problem_id=problem.id, preference=reference_point)
+    reference_point_db = PreferenceDB(
+        user_id=user.id, problem_id=problem.id, preference=reference_point
+    )
     bounds_db = PreferenceDB(user_id=user.id, problem_id=problem.id, preference=bounds)
 
     session.add(reference_point_db)
@@ -675,7 +795,10 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
     )
 
     state_1 = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=rpm_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=rpm_state,
     )
 
     session.add(state_1)
@@ -762,7 +885,12 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     representative_name = "Test solutions"
     representative_description = "These solutions are used for testing"
     representative_variables = {"x_1": [1.1, 2.2, 3.3], "x_2": [-1.1, -2.2, -3.3]}
-    representative_objectives = {"f_1": [0.1, 0.5, 0.9], "f_2": [-0.1, 0.2, 199.2], "f_1_min": [], "f_2_min": []}
+    representative_objectives = {
+        "f_1": [0.1, 0.5, 0.9],
+        "f_2": [-0.1, 0.2, 199.2],
+        "f_1_min": [],
+        "f_2_min": [],
+    }
     solution_data = representative_variables | representative_objectives
     representative_ideal = {"f_1": 0.1, "f_2": -0.1}
     representative_nadir = {"f_1": 0.9, "f_2": 199.2}
@@ -798,7 +926,9 @@ def test_problem_metadata(session_and_user: dict[str, Session | list[User]]):
     session.refresh(forest_metadata)
     session.refresh(repr_metadata)
 
-    statement = select(ProblemMetaDataDB).where(ProblemMetaDataDB.problem_id == problem.id)
+    statement = select(ProblemMetaDataDB).where(
+        ProblemMetaDataDB.problem_id == problem.id
+    )
     from_db_metadata = session.exec(statement).first()
 
     assert from_db_metadata.id is not None
@@ -1064,7 +1194,10 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     nimbus_init_state = NIMBUSInitializationState(solver_results=results_1)
 
     state_1 = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_init_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_init_state,
     )
 
     session.add(state_1)
@@ -1084,7 +1217,10 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     aspirations = {"f_1": 0.1, "f_2": 0.9, "f_3": 0.6}
 
     results_2 = solve_sub_problems(
-        problem=problem, current_objectives=results_1.optimal_objectives, reference_point=aspirations, num_desired=4
+        problem=problem,
+        current_objectives=results_1.optimal_objectives,
+        reference_point=aspirations,
+        num_desired=4,
     )
     nimbus_classification_state = NIMBUSClassificationState(
         preferences=ReferencePoint(aspiration_levels=aspirations),
@@ -1094,7 +1230,10 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     )
 
     state_2 = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_classification_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_classification_state,
     )
 
     session.add(state_2)
@@ -1105,7 +1244,9 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
 
     assert type(actual_state_2) is NIMBUSClassificationState
     assert np.allclose(
-        [x for _, x in actual_state_2.preferences.aspiration_levels.items()], [x for _, x in aspirations.items()], 0.001
+        [x for _, x in actual_state_2.preferences.aspiration_levels.items()],
+        [x for _, x in aspirations.items()],
+        0.001,
     )
     assert np.allclose(
         [x for _, x in actual_state_2.solver_results[0].optimal_objectives.items()],
@@ -1118,11 +1259,14 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     nimbus_final_state = NIMBUSFinalState(
         solution_origin_state_id=state_2.state.id,
         solution_result_index=0,
-        solver_results=results_2[0]
+        solver_results=results_2[0],
     )
 
     state_3 = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_final_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_final_state,
     )
 
     session.add(state_3)
@@ -1143,7 +1287,9 @@ def test_nimbus_models(session_and_user: dict[str, Session | list[User]]):
     )
 
 
-def test_nimbus_initialize_w_multidimensional_constraints(session_and_user: dict[str, Session | list[User]]):
+def test_nimbus_initialize_w_multidimensional_constraints(
+    session_and_user: dict[str, Session | list[User]],
+):
     """Test that the NIMBUS initialization model works with multidimensional constraints."""
     session: Session = session_and_user["session"]
     user: User = session_and_user["user"]
@@ -1162,7 +1308,10 @@ def test_nimbus_initialize_w_multidimensional_constraints(session_and_user: dict
     nimbus_init_state = NIMBUSInitializationState(solver_results=results_1)
 
     state_1 = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=isession.id, state=nimbus_init_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=isession.id,
+        state=nimbus_init_state,
     )
 
     session.add(state_1)

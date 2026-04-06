@@ -8,6 +8,7 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 from .problem import ProblemDB
 
 if TYPE_CHECKING:
+    from .background_data import BackgroundDatasetDB
     from .user import User
 
 
@@ -24,7 +25,11 @@ class PreferenceType(TypeDecorator):
         """Preference to JSON."""
         if isinstance(
             value,
-            Bounds | ReferencePoint | PreferredRanges | PreferredSolutions | NonPreferredSolutions,
+            Bounds
+            | ReferencePoint
+            | PreferredRanges
+            | PreferredSolutions
+            | NonPreferredSolutions,
         ):
             return value.model_dump()
 
@@ -68,7 +73,9 @@ class PreferenceBase(SQLModel):
 class ReferencePoint(PreferenceBase):
     """Model for representing a reference point type of preference."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "reference_point"}
+    __mapper_args__: ClassVar[dict[str, str]] = {
+        "polymorphic_identity": "reference_point"
+    }
 
     preference_type: Literal["reference_point"] = "reference_point"
     aspiration_levels: dict[str, float] = Field(sa_column=Column(JSON, nullable=False))
@@ -82,36 +89,52 @@ class Bounds(PreferenceBase):
     preference_type: Literal["bounds"] = "bounds"
 
     # Bound can also be None, indicating that it is not bound
-    lower_bounds: dict[str, float | None] = Field(sa_column=Column(JSON, nullable=False))
-    upper_bounds: dict[str, float | None] = Field(sa_column=Column(JSON, nullable=False))
+    lower_bounds: dict[str, float | None] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
+    upper_bounds: dict[str, float | None] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
 
 
 class PreferredRanges(PreferenceBase):
     """Model for representing desired upper and lower bounds for objective functions."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "preferred_ranges"}
+    __mapper_args__: ClassVar[dict[str, str]] = {
+        "polymorphic_identity": "preferred_ranges"
+    }
 
     preference_type: Literal["preferred_ranges"] = "preferred_ranges"
 
-    preferred_ranges: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
+    preferred_ranges: dict[str, list[float]] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
 
 
 class PreferredSolutions(PreferenceBase):
     """Model for representing a preferred solution type of preference."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "preferred_solutions"}
+    __mapper_args__: ClassVar[dict[str, str]] = {
+        "polymorphic_identity": "preferred_solutions"
+    }
 
     preference_type: Literal["preferred_solutions"] = "preferred_solutions"
-    preferred_solutions: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
+    preferred_solutions: dict[str, list[float]] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
 
 
 class NonPreferredSolutions(PreferenceBase):
     """Model for representing a non-preferred solution type of preference."""
 
-    __mapper_args__: ClassVar[dict[str, str]] = {"polymorphic_identity": "non_preferred_solutions"}
+    __mapper_args__: ClassVar[dict[str, str]] = {
+        "polymorphic_identity": "non_preferred_solutions"
+    }
 
     preference_type: Literal["non_preferred_solutions"] = "non_preferred_solutions"
-    non_preferred_solutions: dict[str, list[float]] = Field(sa_column=Column(JSON, nullable=False))
+    non_preferred_solutions: dict[str, list[float]] = Field(
+        sa_column=Column(JSON, nullable=False)
+    )
 
 
 class PreferenceDB(SQLModel, table=True):
@@ -121,7 +144,9 @@ class PreferenceDB(SQLModel, table=True):
     user_id: int | None = Field(foreign_key="user.id", default=None)
     problem_id: int | None = Field(foreign_key="problemdb.id", default=None)
 
-    preference: PreferenceBase | None = Field(sa_column=Column(PreferenceType), default=None)
+    preference: PreferenceBase | None = Field(
+        sa_column=Column(PreferenceType), default=None
+    )
 
     # Back populates
     problem: "ProblemDB" = Relationship(back_populates="preferences")

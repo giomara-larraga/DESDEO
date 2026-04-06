@@ -5,7 +5,11 @@ import numpy as np
 
 
 def generate_biased_mean_data(
-    data: np.ndarray, target_means: np.ndarray, min_size: int = 2, max_size: int | None = None, solver: str = "SCIP"
+    data: np.ndarray,
+    target_means: np.ndarray,
+    min_size: int = 2,
+    max_size: int | None = None,
+    solver: str = "SCIP",
 ) -> list | None:
     r"""Finds a subset of the provided data that has a mean value close to provided target values.
 
@@ -69,11 +73,17 @@ def generate_biased_mean_data(
     # Define the constraints
     constraints = [
         # Sets the value of phi
-        *[cp.sum(phi[:, col]) == cp.sum(cp.multiply(x, data[:, col])) for col in range(n_cols)],
+        *[
+            cp.sum(phi[:, col]) == cp.sum(cp.multiply(x, data[:, col]))
+            for col in range(n_cols)
+        ],
         # Constraints the values of phi using big M, in practice setting z to be the mean values
         *[phi[:, col] <= cp.multiply(big_m[col], x) for col in range(n_cols)],
         *[phi[:, col] <= z[col] for col in range(n_cols)],
-        *[phi[:, col] >= z[col] - cp.multiply(big_m[col], 1 - x) for col in range(n_cols)],
+        *[
+            phi[:, col] >= z[col] - cp.multiply(big_m[col], 1 - x)
+            for col in range(n_cols)
+        ],
         phi >= 0,
         # Bounds the size of the set: min_size <= k <= max_size
         cp.sum(x) >= min_size,
@@ -87,4 +97,6 @@ def generate_biased_mean_data(
     problem.solve(solver=solver)
 
     # Return the indices of the found subset
+    if x.value is None:
+        return None
     return [i for i in range(n_rows) if x.value[i] == 1]

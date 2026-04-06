@@ -1,6 +1,12 @@
 """Model exports."""
 
 __all__ = [  # noqa: RUF022
+    "BackgroundDatasetCreateRequest",
+    "BackgroundDatasetDB",
+    "BackgroundDatasetExplainRequest",
+    "BackgroundDatasetExplainResponse",
+    "BackgroundDatasetInfo",
+    "ProblemBackgroundDatasetLink",
     "Bounds",
     "ConstantDB",
     "ConstraintDB",
@@ -66,6 +72,8 @@ __all__ = [  # noqa: RUF022
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
     "RPMState",
+    "RXIMOExplainRequest",
+    "RXIMOExplainResponse",
     "SavedSolutionReference",
     "ScalarizationFunctionDB",
     "SimulatorDB",
@@ -134,6 +142,14 @@ __all__ = [  # noqa: RUF022
 ]
 
 
+from .background_data import (
+    BackgroundDatasetCreateRequest,
+    BackgroundDatasetDB,
+    BackgroundDatasetExplainRequest,
+    BackgroundDatasetExplainResponse,
+    BackgroundDatasetInfo,
+    ProblemBackgroundDatasetLink,
+)
 from .archive import UserSavedEMOResults
 from .emo import (
     EMOFetchRequest,
@@ -253,6 +269,7 @@ from .problem import (
     VariableDB,
 )
 from .reference_point_method import RPMSolveRequest
+from .rximo import RXIMOExplainRequest, RXIMOExplainResponse
 from .session import (
     CreateSessionRequest,
     InteractiveSessionBase,

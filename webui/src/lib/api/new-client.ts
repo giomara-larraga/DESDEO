@@ -6,12 +6,16 @@ const getBody = async <T>(c: Response | Request): Promise<T> => {
   }
 
   const contentType = c.headers.get('content-type');
+  console.error(`[getBody] contentType: ${contentType}, status: ${c instanceof Response ? c.status : 'N/A'}`);
 
   if (contentType && contentType.includes('application/json')) {
     // Avoid JSON.parse errors on empty bodies
     const text = await (c as Response).text?.() ?? '';
+    console.error(`[getBody] json text length: ${text.length}`);
     if (!text) return null as T;
-    return JSON.parse(text) as T;
+    const parsed = JSON.parse(text) as T;
+    console.error(`[getBody] parsed:`, parsed);
+    return parsed;
   }
 
   if (contentType && contentType.includes('application/pdf')) {
@@ -23,14 +27,21 @@ const getBody = async <T>(c: Response | Request): Promise<T> => {
 
 // NOTE: Update just base url
 const getUrl = (contextUrl: string): string => {
-  const url = new URL(contextUrl);
-  const origin = url.origin;
-  const pathname = url.pathname;
-  const search = url.search;
-
-  const requestUrl = new URL(`${origin}${pathname}${search}`);
-
-  return requestUrl.toString();
+  // Handle relative URLs
+  if (contextUrl.startsWith('/')) {
+    if (typeof window !== 'undefined') {
+      // Browser context - construct full URL with current origin
+      return new URL(contextUrl, window.location.origin).toString();
+    } else {
+      // Server-side context - construct full URL with API backend
+      // Remove /api prefix since backend doesn't have it, then add full origin
+      const pathWithoutApiPrefix = contextUrl.replace(/^\/api/, '');
+      return `http://localhost:8000${pathWithoutApiPrefix}`;
+    }
+  }
+  
+  // Absolute URL - parse as-is
+  return new URL(contextUrl).toString();
 };
 
 const getHeaders = (headers?: HeadersInit): HeadersInit => {
