@@ -3311,6 +3311,140 @@ export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostRespo
 	.describe('Response after creating a constrained variant.');
 
 /**
+ * Create a background dataset linked to one or more problems owned by the current user.
+ * @summary Add Background Dataset
+ */
+export const addBackgroundDatasetBackgroundDataAddPostBodyKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostBody = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostBodyKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Request model for creating a background dataset entry.');
+
+export const addBackgroundDatasetBackgroundDataAddPostResponseKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * List background datasets for a problem.
+ * @summary Get Problem Background Datasets
+ */
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams = zod.object({
+	problem_id: zod.number()
+});
+
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault = `rximo_background`;
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(
+				getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin
+			),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse = zod.array(
+	GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem
+);
+
+/**
+ * Fetch a single background dataset if it belongs to one of the current user's problems.
+ * @summary Get Background Dataset
+ */
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = zod.object({
+	background_dataset_id: zod.number()
+});
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional(),
+	session_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault = `rximo_background`;
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * Explain a DM reference point using SHAP and background data stored in the database.
+ * @summary Explain Reference Point
+ */
+export const ExplainReferencePointBackgroundDataExplainPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		reference_point: zod.record(zod.string(), zod.number())
+	})
+	.describe('Request for explaining a DM reference point with a stored background dataset.');
+
+export const ExplainReferencePointBackgroundDataExplainPostResponse = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		input_symbols: zod.array(zod.string()),
+		output_symbols: zod.array(zod.string()),
+		reference_point: zod.record(zod.string(), zod.number()),
+		explained_objective_values: zod.record(zod.string(), zod.number()),
+		base_values: zod.record(zod.string(), zod.number()),
+		shap_values: zod.record(zod.string(), zod.record(zod.string(), zod.number()))
+	})
+	.describe('SHAP explanation response for a single reference point.');
+
+/**
  * Creates a new interactive session.
 
 If ``target_user_id`` is provided, the session is created on behalf of that user.

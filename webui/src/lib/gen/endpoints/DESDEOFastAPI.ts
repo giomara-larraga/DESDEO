@@ -2020,10 +2020,6 @@ export type GetProblemJsonProblemProblemIdJsonGetParams = {
 	session_id?: number | null;
 };
 
-export type GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams = {
-	session_id?: number | null;
-};
-
 export type GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = {
 	problem_id?: number | null;
 	session_id?: number | null;
@@ -2189,7 +2185,7 @@ export type getCurrentUserInfoUserInfoGetResponseSuccess =
 export type getCurrentUserInfoUserInfoGetResponse = getCurrentUserInfoUserInfoGetResponseSuccess;
 
 export const getGetCurrentUserInfoUserInfoGetUrl = () => {
-	return `/api/user_info`;
+	return `http://localhost:8000/user_info`;
 };
 
 export const getCurrentUserInfoUserInfoGet = async (
@@ -2243,7 +2239,9 @@ export const getLoginLoginPostUrl = (params?: LoginLoginPostParams) => {
 
 	const stringifiedParams = normalizedParams.toString();
 
-	return stringifiedParams.length > 0 ? `/api/login?${stringifiedParams}` : `/api/login`;
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/login?${stringifiedParams}`
+		: `http://localhost:8000/login`;
 };
 
 export const loginLoginPost = async (
@@ -2296,7 +2294,7 @@ export type logoutLogoutPostResponseSuccess = logoutLogoutPostResponse200 & {
 export type logoutLogoutPostResponse = logoutLogoutPostResponseSuccess;
 
 export const getLogoutLogoutPostUrl = () => {
-	return `/api/logout`;
+	return `http://localhost:8000/logout`;
 };
 
 export const logoutLogoutPost = async (
@@ -2345,7 +2343,7 @@ export type refreshAccessTokenRefreshPostResponse =
 	| refreshAccessTokenRefreshPostResponseError;
 
 export const getRefreshAccessTokenRefreshPostUrl = () => {
-	return `/api/refresh`;
+	return `http://localhost:8000/refresh`;
 };
 
 export const refreshAccessTokenRefreshPost = async (
@@ -2395,7 +2393,7 @@ export type addNewDmAddNewDmPostResponse =
 	| addNewDmAddNewDmPostResponseError;
 
 export const getAddNewDmAddNewDmPostUrl = () => {
-	return `/api/add_new_dm`;
+	return `http://localhost:8000/add_new_dm`;
 };
 
 export const addNewDmAddNewDmPost = async (
@@ -2475,7 +2473,7 @@ export type addNewAnalystAddNewAnalystPostResponse =
 	| addNewAnalystAddNewAnalystPostResponseError;
 
 export const getAddNewAnalystAddNewAnalystPostUrl = () => {
-	return `/api/add_new_analyst`;
+	return `http://localhost:8000/add_new_analyst`;
 };
 
 export const addNewAnalystAddNewAnalystPost = async (
@@ -2540,7 +2538,7 @@ export type getProblemsProblemAllGetResponseSuccess = getProblemsProblemAllGetRe
 export type getProblemsProblemAllGetResponse = getProblemsProblemAllGetResponseSuccess;
 
 export const getGetProblemsProblemAllGetUrl = () => {
-	return `/api/problem/all`;
+	return `http://localhost:8000/problem/all`;
 };
 
 export const getProblemsProblemAllGet = async (
@@ -2576,7 +2574,7 @@ export type getProblemsInfoProblemAllInfoGetResponse =
 	getProblemsInfoProblemAllInfoGetResponseSuccess;
 
 export const getGetProblemsInfoProblemAllInfoGetUrl = () => {
-	return `/api/problem/all_info`;
+	return `http://localhost:8000/problem/all_info`;
 };
 
 export const getProblemsInfoProblemAllInfoGet = async (
@@ -2643,8 +2641,8 @@ export const getGetProblemProblemProblemIdGetUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/${problemId}?${stringifiedParams}`
-		: `/api/problem/${problemId}`;
+		? `http://localhost:8000/problem/${problemId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/${problemId}`;
 };
 
 export const getProblemProblemProblemIdGet = async (
@@ -2706,8 +2704,8 @@ export const getDeleteProblemProblemProblemIdDeleteUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/${problemId}?${stringifiedParams}`
-		: `/api/problem/${problemId}`;
+		? `http://localhost:8000/problem/${problemId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/${problemId}`;
 };
 
 export const deleteProblemProblemProblemIdDelete = async (
@@ -2776,8 +2774,8 @@ export const getAddProblemProblemAddPostUrl = (params?: AddProblemProblemAddPost
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/add?${stringifiedParams}`
-		: `/api/problem/add`;
+		? `http://localhost:8000/problem/add?${stringifiedParams}`
+		: `http://localhost:8000/problem/add`;
 };
 
 export const addProblemProblemAddPost = async (
@@ -2851,8 +2849,8 @@ export const getAddProblemJsonProblemAddJsonPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/add_json?${stringifiedParams}`
-		: `/api/problem/add_json`;
+		? `http://localhost:8000/problem/add_json?${stringifiedParams}`
+		: `http://localhost:8000/problem/add_json`;
 };
 
 export const addProblemJsonProblemAddJsonPost = async (
@@ -2938,8 +2936,8 @@ export const getGetMetadataProblemGetMetadataPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/get_metadata?${stringifiedParams}`
-		: `/api/problem/get_metadata`;
+		? `http://localhost:8000/problem/get_metadata?${stringifiedParams}`
+		: `http://localhost:8000/problem/get_metadata`;
 };
 
 export const getMetadataProblemGetMetadataPost = async (
@@ -2975,7 +2973,7 @@ export type getAvailableSolversProblemAssignSolverGetResponse =
 	getAvailableSolversProblemAssignSolverGetResponseSuccess;
 
 export const getGetAvailableSolversProblemAssignSolverGetUrl = () => {
-	return `/api/problem/assign/solver`;
+	return `http://localhost:8000/problem/assign/solver`;
 };
 
 export const getAvailableSolversProblemAssignSolverGet = async (
@@ -3041,8 +3039,8 @@ export const getSelectSolverProblemAssignSolverPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/assign_solver?${stringifiedParams}`
-		: `/api/problem/assign_solver`;
+		? `http://localhost:8000/problem/assign_solver?${stringifiedParams}`
+		: `http://localhost:8000/problem/assign_solver`;
 };
 
 export const selectSolverProblemAssignSolverPost = async (
@@ -3105,7 +3103,7 @@ export type addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutio
 export const getAddRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPostUrl = (
 	problemId: number | null
 ) => {
-	return `/api/problem/${problemId}/add_representative_solution_set`;
+	return `http://localhost:8000/problem/${problemId}/add_representative_solution_set`;
 };
 
 export const addRepresentativeSolutionSetProblemProblemIdAddRepresentativeSolutionSetPost = async (
@@ -3172,8 +3170,8 @@ export const getGetAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativ
 		const stringifiedParams = normalizedParams.toString();
 
 		return stringifiedParams.length > 0
-			? `/api/problem/${problemId}/all_representative_solution_sets?${stringifiedParams}`
-			: `/api/problem/${problemId}/all_representative_solution_sets`;
+			? `http://localhost:8000/problem/${problemId}/all_representative_solution_sets?${stringifiedParams}`
+			: `http://localhost:8000/problem/${problemId}/all_representative_solution_sets`;
 	};
 
 export const getAllRepresentativeSolutionSetsProblemProblemIdAllRepresentativeSolutionSetsGet =
@@ -3236,8 +3234,8 @@ export const getGetRepresentativeSolutionSetProblemRepresentativeSolutionSetSetI
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/representative_solution_set/${setId}?${stringifiedParams}`
-		: `/api/problem/representative_solution_set/${setId}`;
+		? `http://localhost:8000/problem/representative_solution_set/${setId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/representative_solution_set/${setId}`;
 };
 
 export const getRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdGet = async (
@@ -3298,8 +3296,8 @@ export const getDeleteRepresentativeSolutionSetProblemRepresentativeSolutionSetS
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/representative_solution_set/${setId}?${stringifiedParams}`
-		: `/api/problem/representative_solution_set/${setId}`;
+		? `http://localhost:8000/problem/representative_solution_set/${setId}?${stringifiedParams}`
+		: `http://localhost:8000/problem/representative_solution_set/${setId}`;
 };
 
 export const deleteRepresentativeSolutionSetProblemRepresentativeSolutionSetSetIdDelete = async (
@@ -3358,8 +3356,8 @@ export const getGetProblemJsonProblemProblemIdJsonGetUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/problem/${problemId}/json?${stringifiedParams}`
-		: `/api/problem/${problemId}/json`;
+		? `http://localhost:8000/problem/${problemId}/json?${stringifiedParams}`
+		: `http://localhost:8000/problem/${problemId}/json`;
 };
 
 export const getProblemJsonProblemProblemIdJsonGet = async (
@@ -3429,6 +3427,204 @@ export const createConstrainedVariantProblemProblemIdConstrainedVariantPost = as
 };
 
 /**
+ * Create a background dataset linked to one or more problems owned by the current user.
+ * @summary Add Background Dataset
+ */
+export type addBackgroundDatasetBackgroundDataAddPostResponse200 = {
+	data: BackgroundDatasetInfo;
+	status: 200;
+};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponseSuccess =
+	addBackgroundDatasetBackgroundDataAddPostResponse200 & {
+		headers: Headers;
+	};
+export type addBackgroundDatasetBackgroundDataAddPostResponseError =
+	addBackgroundDatasetBackgroundDataAddPostResponse422 & {
+		headers: Headers;
+	};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponse =
+	| addBackgroundDatasetBackgroundDataAddPostResponseSuccess
+	| addBackgroundDatasetBackgroundDataAddPostResponseError;
+
+export const getAddBackgroundDatasetBackgroundDataAddPostUrl = () => {
+	return `http://localhost:8000/background_data/add`;
+};
+
+export const addBackgroundDatasetBackgroundDataAddPost = async (
+	backgroundDatasetCreateRequest: BackgroundDatasetCreateRequest,
+	options?: RequestInit
+): Promise<addBackgroundDatasetBackgroundDataAddPostResponse> => {
+	return customFetch<addBackgroundDatasetBackgroundDataAddPostResponse>(
+		getAddBackgroundDatasetBackgroundDataAddPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(backgroundDatasetCreateRequest)
+		}
+	);
+};
+
+/**
+ * List background datasets for a problem.
+ * @summary Get Problem Background Datasets
+ */
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 = {
+	data: BackgroundDatasetInfo[];
+	status: 200;
+};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess =
+	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError =
+	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse =
+	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess
+	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError;
+
+export const getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl = (
+	problemId: number
+) => {
+	return `http://localhost:8000/background_data/problem/${problemId}`;
+};
+
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet = async (
+	problemId: number,
+	options?: RequestInit
+): Promise<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse> => {
+	return customFetch<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse>(
+		getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl(problemId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Fetch a single background dataset if it belongs to one of the current user's problems.
+ * @summary Get Background Dataset
+ */
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 = {
+	data: BackgroundDatasetInfo;
+	status: 200;
+};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess =
+	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError =
+	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse =
+	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess
+	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError;
+
+export const getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl = (
+	backgroundDatasetId: number,
+	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/background_data/${backgroundDatasetId}?${stringifiedParams}`
+		: `http://localhost:8000/background_data/${backgroundDatasetId}`;
+};
+
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGet = async (
+	backgroundDatasetId: number,
+	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams,
+	options?: RequestInit
+): Promise<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse> => {
+	return customFetch<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse>(
+		getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl(backgroundDatasetId, params),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Explain a DM reference point using SHAP and background data stored in the database.
+ * @summary Explain Reference Point
+ */
+export type explainReferencePointBackgroundDataExplainPostResponse200 = {
+	data: BackgroundDatasetExplainResponse;
+	status: 200;
+};
+
+export type explainReferencePointBackgroundDataExplainPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type explainReferencePointBackgroundDataExplainPostResponseSuccess =
+	explainReferencePointBackgroundDataExplainPostResponse200 & {
+		headers: Headers;
+	};
+export type explainReferencePointBackgroundDataExplainPostResponseError =
+	explainReferencePointBackgroundDataExplainPostResponse422 & {
+		headers: Headers;
+	};
+
+export type explainReferencePointBackgroundDataExplainPostResponse =
+	| explainReferencePointBackgroundDataExplainPostResponseSuccess
+	| explainReferencePointBackgroundDataExplainPostResponseError;
+
+export const getExplainReferencePointBackgroundDataExplainPostUrl = () => {
+	return `http://localhost:8000/background_data/explain`;
+};
+
+export const explainReferencePointBackgroundDataExplainPost = async (
+	backgroundDatasetExplainRequest: BackgroundDatasetExplainRequest,
+	options?: RequestInit
+): Promise<explainReferencePointBackgroundDataExplainPostResponse> => {
+	return customFetch<explainReferencePointBackgroundDataExplainPostResponse>(
+		getExplainReferencePointBackgroundDataExplainPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(backgroundDatasetExplainRequest)
+		}
+	);
+};
+
+/**
  * Creates a new interactive session.
 
 If ``target_user_id`` is provided, the session is created on behalf of that user.
@@ -3472,8 +3668,8 @@ export const getCreateNewSessionSessionNewPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/session/new?${stringifiedParams}`
-		: `/api/session/new`;
+		? `http://localhost:8000/session/new?${stringifiedParams}`
+		: `http://localhost:8000/session/new`;
 };
 
 export const createNewSessionSessionNewPost = async (
@@ -3520,7 +3716,7 @@ export type getSessionSessionGetSessionIdGetResponse =
 	| getSessionSessionGetSessionIdGetResponseError;
 
 export const getGetSessionSessionGetSessionIdGetUrl = (sessionId: number) => {
-	return `/api/session/get/${sessionId}`;
+	return `http://localhost:8000/session/get/${sessionId}`;
 };
 
 export const getSessionSessionGetSessionIdGet = async (
@@ -3552,7 +3748,7 @@ export type getAllSessionsSessionGetAllGetResponseSuccess =
 export type getAllSessionsSessionGetAllGetResponse = getAllSessionsSessionGetAllGetResponseSuccess;
 
 export const getGetAllSessionsSessionGetAllGetUrl = () => {
-	return `/api/session/get_all`;
+	return `http://localhost:8000/session/get_all`;
 };
 
 export const getAllSessionsSessionGetAllGet = async (
@@ -3595,7 +3791,7 @@ export type deleteSessionSessionSessionIdDeleteResponse =
 	| deleteSessionSessionSessionIdDeleteResponseError;
 
 export const getDeleteSessionSessionSessionIdDeleteUrl = (sessionId: number) => {
-	return `/api/session/${sessionId}`;
+	return `http://localhost:8000/session/${sessionId}`;
 };
 
 export const deleteSessionSessionSessionIdDelete = async (
@@ -3661,8 +3857,8 @@ export const getSolveSolutionsMethodRpmSolvePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/rpm/solve?${stringifiedParams}`
-		: `/api/method/rpm/solve`;
+		? `http://localhost:8000/method/rpm/solve?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/solve`;
 };
 
 export const solveSolutionsMethodRpmSolvePost = async (
@@ -3722,8 +3918,8 @@ export const getExplainReferencePointMethodRximoExplainPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/rximo/explain?${stringifiedParams}`
-		: `/api/method/rximo/explain`;
+		? `http://localhost:8000/method/rximo/explain?${stringifiedParams}`
+		: `http://localhost:8000/method/rximo/explain`;
 };
 
 export const explainReferencePointMethodRximoExplainPost = async (
@@ -3783,8 +3979,8 @@ export const getSolveSolutionsMethodNimbusSolvePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/solve?${stringifiedParams}`
-		: `/api/method/nimbus/solve`;
+		? `http://localhost:8000/method/nimbus/solve?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/solve`;
 };
 
 export const solveSolutionsMethodNimbusSolvePost = async (
@@ -3844,8 +4040,8 @@ export const getInitializeMethodNimbusInitializePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/initialize?${stringifiedParams}`
-		: `/api/method/nimbus/initialize`;
+		? `http://localhost:8000/method/nimbus/initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/initialize`;
 };
 
 export const initializeMethodNimbusInitializePost = async (
@@ -3901,8 +4097,8 @@ export const getSaveMethodNimbusSavePostUrl = (params?: SaveMethodNimbusSavePost
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/save?${stringifiedParams}`
-		: `/api/method/nimbus/save`;
+		? `http://localhost:8000/method/nimbus/save?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/save`;
 };
 
 export const saveMethodNimbusSavePost = async (
@@ -3959,8 +4155,8 @@ export const getSolveNimbusIntermediateMethodNimbusIntermediatePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/intermediate?${stringifiedParams}`
-		: `/api/method/nimbus/intermediate`;
+		? `http://localhost:8000/method/nimbus/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/intermediate`;
 };
 
 export const solveNimbusIntermediateMethodNimbusIntermediatePost = async (
@@ -4024,8 +4220,8 @@ export const getGetOrInitializeMethodNimbusGetOrInitializePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/get-or-initialize?${stringifiedParams}`
-		: `/api/method/nimbus/get-or-initialize`;
+		? `http://localhost:8000/method/nimbus/get-or-initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/get-or-initialize`;
 };
 
 export const getOrInitializeMethodNimbusGetOrInitializePost = async (
@@ -4095,8 +4291,8 @@ export const getFinalizeNimbusMethodNimbusFinalizePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/finalize?${stringifiedParams}`
-		: `/api/method/nimbus/finalize`;
+		? `http://localhost:8000/method/nimbus/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/finalize`;
 };
 
 export const finalizeNimbusMethodNimbusFinalizePost = async (
@@ -4166,8 +4362,8 @@ export const getDeleteSaveMethodNimbusDeleteSavePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/delete_save?${stringifiedParams}`
-		: `/api/method/nimbus/delete_save`;
+		? `http://localhost:8000/method/nimbus/delete_save?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/delete_save`;
 };
 
 export const deleteSaveMethodNimbusDeleteSavePost = async (
@@ -4227,8 +4423,8 @@ export const getGetMultipliersInfoMethodNimbusGetMultipliersInfoPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/nimbus/get-multipliers-info?${stringifiedParams}`
-		: `/api/method/nimbus/get-multipliers-info`;
+		? `http://localhost:8000/method/nimbus/get-multipliers-info?${stringifiedParams}`
+		: `http://localhost:8000/method/nimbus/get-multipliers-info`;
 };
 
 export const getMultipliersInfoMethodNimbusGetMultipliersInfoPost = async (
@@ -4288,8 +4484,8 @@ export const getSolveSolutionsMethodXnimbusSolvePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/solve?${stringifiedParams}`
-		: `/api/method/xnimbus/solve`;
+		? `http://localhost:8000/method/xnimbus/solve?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/solve`;
 };
 
 export const solveSolutionsMethodXnimbusSolvePost = async (
@@ -4349,8 +4545,8 @@ export const getInitializeMethodXnimbusInitializePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/initialize?${stringifiedParams}`
-		: `/api/method/xnimbus/initialize`;
+		? `http://localhost:8000/method/xnimbus/initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/initialize`;
 };
 
 export const initializeMethodXnimbusInitializePost = async (
@@ -4406,8 +4602,8 @@ export const getSaveMethodXnimbusSavePostUrl = (params?: SaveMethodXnimbusSavePo
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/save?${stringifiedParams}`
-		: `/api/method/xnimbus/save`;
+		? `http://localhost:8000/method/xnimbus/save?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/save`;
 };
 
 export const saveMethodXnimbusSavePost = async (
@@ -4464,8 +4660,8 @@ export const getSolveXnimbusIntermediateMethodXnimbusIntermediatePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/intermediate?${stringifiedParams}`
-		: `/api/method/xnimbus/intermediate`;
+		? `http://localhost:8000/method/xnimbus/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/intermediate`;
 };
 
 export const solveXnimbusIntermediateMethodXnimbusIntermediatePost = async (
@@ -4529,8 +4725,8 @@ export const getGetOrInitializeMethodXnimbusGetOrInitializePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/get-or-initialize?${stringifiedParams}`
-		: `/api/method/xnimbus/get-or-initialize`;
+		? `http://localhost:8000/method/xnimbus/get-or-initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/get-or-initialize`;
 };
 
 export const getOrInitializeMethodXnimbusGetOrInitializePost = async (
@@ -4590,8 +4786,8 @@ export const getFinalizeXnimbusMethodXnimbusFinalizePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/finalize?${stringifiedParams}`
-		: `/api/method/xnimbus/finalize`;
+		? `http://localhost:8000/method/xnimbus/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/finalize`;
 };
 
 export const finalizeXnimbusMethodXnimbusFinalizePost = async (
@@ -4651,8 +4847,8 @@ export const getDeleteSaveMethodXnimbusDeleteSavePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/delete_save?${stringifiedParams}`
-		: `/api/method/xnimbus/delete_save`;
+		? `http://localhost:8000/method/xnimbus/delete_save?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/delete_save`;
 };
 
 export const deleteSaveMethodXnimbusDeleteSavePost = async (
@@ -4712,8 +4908,8 @@ export const getGetMultipliersInfoMethodXnimbusGetMultipliersInfoPostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/xnimbus/get-multipliers-info?${stringifiedParams}`
-		: `/api/method/xnimbus/get-multipliers-info`;
+		? `http://localhost:8000/method/xnimbus/get-multipliers-info?${stringifiedParams}`
+		: `http://localhost:8000/method/xnimbus/get-multipliers-info`;
 };
 
 export const getMultipliersInfoMethodXnimbusGetMultipliersInfoPost = async (
@@ -4778,8 +4974,8 @@ export const getSolveIntermediateMethodGenericIntermediatePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/generic/intermediate?${stringifiedParams}`
-		: `/api/method/generic/intermediate`;
+		? `http://localhost:8000/method/generic/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/generic/intermediate`;
 };
 
 export const solveIntermediateMethodGenericIntermediatePost = async (
@@ -4826,7 +5022,7 @@ export type calculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataPo
 	| calculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataPostResponseError;
 
 export const getCalculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataPostUrl = () => {
-	return `/api/method/generic/score-bands-obj-data`;
+	return `http://localhost:8000/method/generic/score-bands-obj-data`;
 };
 
 export const calculateScoreBandsFromObjectiveDataMethodGenericScoreBandsObjDataPost = async (
@@ -4890,7 +5086,9 @@ export const getGetUtopiaDataUtopiaPostUrl = (params?: GetUtopiaDataUtopiaPostPa
 
 	const stringifiedParams = normalizedParams.toString();
 
-	return stringifiedParams.length > 0 ? `/api/utopia/?${stringifiedParams}` : `/api/utopia/`;
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/utopia/?${stringifiedParams}`
+		: `http://localhost:8000/utopia/`;
 };
 
 export const getUtopiaDataUtopiaPost = async (
@@ -4945,7 +5143,7 @@ export type createGroupGdmCreateGroupPostResponse =
 	| createGroupGdmCreateGroupPostResponseError;
 
 export const getCreateGroupGdmCreateGroupPostUrl = () => {
-	return `/api/gdm/create_group`;
+	return `http://localhost:8000/gdm/create_group`;
 };
 
 export const createGroupGdmCreateGroupPost = async (
@@ -4999,7 +5197,7 @@ export type deleteGroupGdmDeleteGroupPostResponse =
 	| deleteGroupGdmDeleteGroupPostResponseError;
 
 export const getDeleteGroupGdmDeleteGroupPostUrl = () => {
-	return `/api/gdm/delete_group`;
+	return `http://localhost:8000/gdm/delete_group`;
 };
 
 export const deleteGroupGdmDeleteGroupPost = async (
@@ -5051,7 +5249,7 @@ export type addToGroupGdmAddToGroupPostResponse =
 	| addToGroupGdmAddToGroupPostResponseError;
 
 export const getAddToGroupGdmAddToGroupPostUrl = () => {
-	return `/api/gdm/add_to_group`;
+	return `http://localhost:8000/gdm/add_to_group`;
 };
 
 export const addToGroupGdmAddToGroupPost = async (
@@ -5105,7 +5303,7 @@ export type removeFromGroupGdmRemoveFromGroupPostResponse =
 	| removeFromGroupGdmRemoveFromGroupPostResponseError;
 
 export const getRemoveFromGroupGdmRemoveFromGroupPostUrl = () => {
-	return `/api/gdm/remove_from_group`;
+	return `http://localhost:8000/gdm/remove_from_group`;
 };
 
 export const removeFromGroupGdmRemoveFromGroupPost = async (
@@ -5161,7 +5359,7 @@ export type getGroupInfoGdmGetGroupInfoPostResponse =
 	| getGroupInfoGdmGetGroupInfoPostResponseError;
 
 export const getGetGroupInfoGdmGetGroupInfoPostUrl = () => {
-	return `/api/gdm/get_group_info`;
+	return `http://localhost:8000/gdm/get_group_info`;
 };
 
 export const getGroupInfoGdmGetGroupInfoPost = async (
@@ -5207,7 +5405,7 @@ export type gnimbusInitializeGnimbusInitializePostResponse =
 	| gnimbusInitializeGnimbusInitializePostResponseError;
 
 export const getGnimbusInitializeGnimbusInitializePostUrl = () => {
-	return `/api/gnimbus/initialize`;
+	return `http://localhost:8000/gnimbus/initialize`;
 };
 
 export const gnimbusInitializeGnimbusInitializePost = async (
@@ -5266,7 +5464,7 @@ export type getLatestResultsGnimbusGetLatestResultsPostResponse =
 	| getLatestResultsGnimbusGetLatestResultsPostResponseError;
 
 export const getGetLatestResultsGnimbusGetLatestResultsPostUrl = () => {
-	return `/api/gnimbus/get_latest_results`;
+	return `http://localhost:8000/gnimbus/get_latest_results`;
 };
 
 export const getLatestResultsGnimbusGetLatestResultsPost = async (
@@ -5325,7 +5523,7 @@ export type fullIterationGnimbusAllIterationsPostResponse =
 	| fullIterationGnimbusAllIterationsPostResponseError;
 
 export const getFullIterationGnimbusAllIterationsPostUrl = () => {
-	return `/api/gnimbus/all_iterations`;
+	return `http://localhost:8000/gnimbus/all_iterations`;
 };
 
 export const fullIterationGnimbusAllIterationsPost = async (
@@ -5371,7 +5569,7 @@ export type switchPhaseGnimbusTogglePhasePostResponse =
 	| switchPhaseGnimbusTogglePhasePostResponseError;
 
 export const getSwitchPhaseGnimbusTogglePhasePostUrl = () => {
-	return `/api/gnimbus/toggle_phase`;
+	return `http://localhost:8000/gnimbus/toggle_phase`;
 };
 
 export const switchPhaseGnimbusTogglePhasePost = async (
@@ -5415,7 +5613,7 @@ export type getPhaseGnimbusGetPhasePostResponse =
 	| getPhaseGnimbusGetPhasePostResponseError;
 
 export const getGetPhaseGnimbusGetPhasePostUrl = () => {
-	return `/api/gnimbus/get_phase`;
+	return `http://localhost:8000/gnimbus/get_phase`;
 };
 
 export const getPhaseGnimbusGetPhasePost = async (
@@ -5469,7 +5667,7 @@ export type revertIterationGnimbusRevertIterationPostResponse =
 	| revertIterationGnimbusRevertIterationPostResponseError;
 
 export const getRevertIterationGnimbusRevertIterationPostUrl = () => {
-	return `/api/gnimbus/revert_iteration`;
+	return `http://localhost:8000/gnimbus/revert_iteration`;
 };
 
 export const revertIterationGnimbusRevertIterationPost = async (
@@ -5524,8 +5722,8 @@ export const getStepMethodEnautilusStepPostUrl = (params?: StepMethodEnautilusSt
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/enautilus/step?${stringifiedParams}`
-		: `/api/method/enautilus/step`;
+		? `http://localhost:8000/method/enautilus/step?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/step`;
 };
 
 export const stepMethodEnautilusStepPost = async (
@@ -5572,7 +5770,7 @@ export type getStateMethodEnautilusGetStateStateIdGetResponse =
 	| getStateMethodEnautilusGetStateStateIdGetResponseError;
 
 export const getGetStateMethodEnautilusGetStateStateIdGetUrl = (stateId: number) => {
-	return `/api/method/enautilus/get_state/${stateId}`;
+	return `http://localhost:8000/method/enautilus/get_state/${stateId}`;
 };
 
 export const getStateMethodEnautilusGetStateStateIdGet = async (
@@ -5636,7 +5834,7 @@ export type getRepresentativeMethodEnautilusGetRepresentativeStateIdGetResponse 
 export const getGetRepresentativeMethodEnautilusGetRepresentativeStateIdGetUrl = (
 	stateId: number
 ) => {
-	return `/api/method/enautilus/get_representative/${stateId}`;
+	return `http://localhost:8000/method/enautilus/get_representative/${stateId}`;
 };
 
 export const getRepresentativeMethodEnautilusGetRepresentativeStateIdGet = async (
@@ -5712,8 +5910,8 @@ export const getFinalizeEnautilusMethodEnautilusFinalizePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/enautilus/finalize?${stringifiedParams}`
-		: `/api/method/enautilus/finalize`;
+		? `http://localhost:8000/method/enautilus/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/finalize`;
 };
 
 export const finalizeEnautilusMethodEnautilusFinalizePost = async (
@@ -5784,8 +5982,8 @@ export const getGetSessionTreeMethodEnautilusSessionTreeSessionIdGetUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/method/enautilus/session_tree/${sessionId}?${stringifiedParams}`
-		: `/api/method/enautilus/session_tree/${sessionId}`;
+		? `http://localhost:8000/method/enautilus/session_tree/${sessionId}?${stringifiedParams}`
+		: `http://localhost:8000/method/enautilus/session_tree/${sessionId}`;
 };
 
 export const getSessionTreeMethodEnautilusSessionTreeSessionIdGet = async (
@@ -5984,7 +6182,7 @@ export type voteForABandGdmScoreBandsVotePostResponse =
 	| voteForABandGdmScoreBandsVotePostResponseError;
 
 export const getVoteForABandGdmScoreBandsVotePostUrl = () => {
-	return `/api/gdm-score-bands/vote`;
+	return `http://localhost:8000/gdm-score-bands/vote`;
 };
 
 export const voteForABandGdmScoreBandsVotePost = async (
@@ -6041,7 +6239,7 @@ export type confirmVoteGdmScoreBandsConfirmPostResponse =
 	| confirmVoteGdmScoreBandsConfirmPostResponseError;
 
 export const getConfirmVoteGdmScoreBandsConfirmPostUrl = () => {
-	return `/api/gdm-score-bands/confirm`;
+	return `http://localhost:8000/gdm-score-bands/confirm`;
 };
 
 export const confirmVoteGdmScoreBandsConfirmPost = async (
@@ -6101,7 +6299,7 @@ export type getOrInitializeGdmScoreBandsGetOrInitializePostResponse =
 	| getOrInitializeGdmScoreBandsGetOrInitializePostResponseError;
 
 export const getGetOrInitializeGdmScoreBandsGetOrInitializePostUrl = () => {
-	return `/api/gdm-score-bands/get-or-initialize`;
+	return `http://localhost:8000/gdm-score-bands/get-or-initialize`;
 };
 
 export const getOrInitializeGdmScoreBandsGetOrInitializePost = async (
@@ -6158,7 +6356,7 @@ export type getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse =
 	| getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponseError;
 
 export const getGetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostUrl = () => {
-	return `/api/gdm-score-bands/get-votes-and-confirms`;
+	return `http://localhost:8000/gdm-score-bands/get-votes-and-confirms`;
 };
 
 export const getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPost = async (
@@ -6214,7 +6412,7 @@ export type revertGdmScoreBandsRevertPostResponse =
 	| revertGdmScoreBandsRevertPostResponseError;
 
 export const getRevertGdmScoreBandsRevertPostUrl = () => {
-	return `/api/gdm-score-bands/revert`;
+	return `http://localhost:8000/gdm-score-bands/revert`;
 };
 
 export const revertGdmScoreBandsRevertPost = async (
@@ -6279,8 +6477,8 @@ export const getConfigureGdmGdmScoreBandsConfigurePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `/api/gdm-score-bands/configure?${stringifiedParams}`
-		: `/api/gdm-score-bands/configure`;
+		? `http://localhost:8000/gdm-score-bands/configure?${stringifiedParams}`
+		: `http://localhost:8000/gdm-score-bands/configure`;
 };
 
 export const configureGdmGdmScoreBandsConfigurePost = async (
