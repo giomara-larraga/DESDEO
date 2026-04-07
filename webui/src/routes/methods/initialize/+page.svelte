@@ -66,9 +66,9 @@
 	// Base methods without group parameters
 	const baseMethods: Method[] = [
 		{
-			name: 'RXIMO',
-			path: '/interactive_methods/RXIMO',
-			description: 'RXIMO method for MOO.',
+			name: 'RPM',
+			path: '/interactive_methods/RPM',
+			description: 'RPM method for MOO.',
 			preferencesType: ['reference point']
 		},
 		{
