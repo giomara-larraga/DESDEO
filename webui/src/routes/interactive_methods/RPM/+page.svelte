@@ -69,7 +69,7 @@
 	 *    - Removes sidebar and controls, presenting just the final results
 	 */
 	// Layout and core components
-	import { BaseLayout } from '$lib/components/custom/method_layout/index.js';
+	import { ExplainableLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
@@ -91,6 +91,7 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
+	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar.svelte';
 
 	// Utility functions
 	import {
@@ -106,6 +107,7 @@
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
+	let enable_explanation = $state(true);
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -149,7 +151,8 @@
 	let selected_intermediate_indexes: number[] = $state([]);
 	let current_num_intermediate_solutions: number = $state(1);
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
-
+	let current_SHAP_values: Record<string, Record<string, number>> = $state({}); // SHAP values for the selected solution (only for iteration mode)
+	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
 		if (mode === 'intermediate') {
@@ -166,6 +169,7 @@
 
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
+	let background_dataset_id: number | null = $state(null);
 
 	// Variables for showing the map for UTOPIA - stores maps for all solutions
 	let mapStates: MapState[] = $state([]);
@@ -257,7 +261,9 @@
 		handle_save as handleSaveRequest,
 		handle_remove_saved as handleRemoveSavedRequest,
 		handle_finish as handleFinishRequest,
+		fetchBackgroundDatasets,
 		get_maps as getMapsRequest,
+		explainWithRXIMO
 	} from './handlers';
 	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
@@ -411,6 +417,7 @@
 			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
+			fetch_SHAP_values(current_preference);
 		}
 	}
 
@@ -533,6 +540,37 @@
 		);
 	}
 
+	async function fetch_SHAP_values(referencePoint: number[]) {
+		// This function can be implemented to fetch SHAP values for the given reference point, if needed for the explanation sidebar. It would likely call an API endpoint similar to explainWithRXIMO, but specifically for SHAP values.
+		if (!problem) {
+			console.error('No problem selected');
+			return;
+		}
+		if (referencePoint.length === 0) {
+			console.error('No reference point set');
+			return;
+		}
+		if(background_dataset_id === null) {
+			console.error('No background dataset available for fetching SHAP values');
+			return;
+		}
+
+		const dictReferencePoint = problem.objectives.map((obj, index) => ({
+			[obj.symbol]: referencePoint[index]
+		})).reduce((acc, curr) => ({ ...acc, ...curr }), {});
+
+		is_fetching_explanation = true;
+		const result = await explainWithRXIMO(problem.id, dictReferencePoint, background_dataset_id);
+		is_fetching_explanation = false;
+		if (result) {
+			current_SHAP_values = result.shap_values;
+		}
+		else {
+			console.error('Failed to fetch SHAP values for explanation');
+			current_SHAP_values = {};
+		}
+	}
+
 	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
 			problem = problem_list.find(
@@ -544,6 +582,20 @@
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
+				// Check there is a background dataset for the problem, if not, show an error message
+				const backgroundDatasets = await fetchBackgroundDatasets(problem);	
+				if ( backgroundDatasets !== null && backgroundDatasets.length === 0) {
+					$errorMessage = "No background dataset found for this problem.";
+				} else {
+					if (backgroundDatasets !== null) {
+						background_dataset_id = backgroundDatasets[0].id;
+						console.log(`Background dataset ID for problem ${problem.id}: ${background_dataset_id}`);
+					}
+					else {
+						$errorMessage = "Failed to fetch background datasets for this problem.";
+					}
+			
+				}
 				// Initialize NIMBUS state from the API
 				//await initialize_nimbus_state(problem.id);
 
@@ -691,7 +743,7 @@
 {:else}
 	<BaseLayout
 		showLeftSidebar={!!problem}
-		showRightSidebar={false}
+		showRightSidebar={enable_explanation && background_dataset_id !== null}
 		bottomPanelTitle={selected_type_solutions_label}
 	>
 		{#snippet leftSidebar()}
@@ -834,6 +886,17 @@
 								]
 							: []
 						: []}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet rightSidebar()}
+			{#if problem && chosen_solutions.length > 0 && selected_type_solutions === 'current' && current_SHAP_values}
+				<RximoSidebar
+					{problem}
+					preferenceValues={current_preference}
+					solutions={chosen_solutions}
+					SHAP_values={current_SHAP_values}
+					isLoading={is_fetching_explanation}
 				/>
 			{/if}
 		{/snippet}

@@ -750,3 +750,26 @@ class ENautilusFinalState(ResultInterface, SQLModel, table=True):
     def num_solutions(self) -> int:
         """Number of solutions stored in the state."""
         return 1
+
+
+class RXIMOExplainState(SQLModel, table=True):
+    """RXIMO: explain state."""
+
+    id: int | None = Field(
+        sa_column=Column(
+            Integer, ForeignKey("states.id", ondelete="CASCADE"), primary_key=True
+        )
+    )
+
+    # inputs
+    reference_point: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+    solution_to_explain: dict[str, float] | None = Field(
+        sa_column=Column(JSON), default=None
+    )
+
+    # results
+    explanation: dict[str, str] | None = Field(
+        sa_column=Column(JSON), default=None, description="The generated explanation."
+    )

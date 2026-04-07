@@ -10,7 +10,9 @@ import {
 	deleteSaveMethodRpmDeleteSavePost,
 	finalizeNimbusMethodRpmFinalizePost,
 	solveNimbusIntermediateMethodRpmIntermediatePost,
-	getUtopiaDataUtopiaPost
+	getUtopiaDataUtopiaPost,
+	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet,
+	explainReferencePointMethodRximoExplainPost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type {
 	RPMSolveRequest,
@@ -18,7 +20,10 @@ import type {
 	RPMDeleteSaveRequest,
 	RPMFinalizeRequest,
 	IntermediateSolutionRequest,
-	SolutionInfo
+	SolutionInfo,
+	BackgroundDatasetInfo,
+	RXIMOExplainResponse,
+	
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
@@ -303,5 +308,68 @@ export async function get_maps(
 		return null;
 	} finally {
 		isLoading.set(false);
+	}
+}
+export async function fetchBackgroundDatasets(
+	problem: ProblemInfo,
+): Promise<BackgroundDatasetInfo[] | null> {
+	isLoading.set(true);
+	errorMessage.set(null);
+
+	try {
+		const response = await getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet(problem.id);
+
+		if (response.status !== 200) {
+			errorMessage.set(`Finalize failed with status ${response.status}`);
+			console.error('RPM finalize failed:', response.status);
+			return null;
+		}
+		const data = response.data as unknown as BackgroundDatasetInfo[];
+
+		return data;
+	} catch (err) {
+		errorMessage.set(err instanceof Error ? err.message : 'Unknown error while fetching background data.');
+		return null;
+	} finally {
+		isLoading.set(false);
+	}
+}
+
+export async function explainWithRXIMO(
+	problemId: number,
+	referencePoint: Record<string, number>,
+	backgroundDatasetId?: number | null
+): Promise<RXIMOExplainResponse | null> {
+	// Do NOT set global isLoading here — SHAP computation is slow and runs in the
+	// background after iterate completes. Use a separate per-component loading state instead.
+	errorMessage.set(null);
+
+	try {
+		const payload = {
+			problem_id: problemId,
+			background_dataset_id: backgroundDatasetId ?? undefined,
+			preference: {
+				preference_type: 'reference_point',
+				aspiration_levels: referencePoint
+			} as ReferencePoint
+		};
+
+		
+		const response = await explainReferencePointMethodRximoExplainPost(payload);
+
+
+		if (response.status !== 200) {
+			errorMessage.set(`RXIMO explanation failed with status ${response.status}`);
+			console.error('RXIMO explanation failed:', response.status);
+			return null;
+		}
+
+
+		const data = response.data as unknown as RXIMOExplainResponse;
+		console.log('RXIMO explanation response:', data);
+		return data.shap_values ? data : null;
+	} catch (err) {
+		errorMessage.set(err instanceof Error ? err.message : 'Unknown error while getting RXIMO explanation.');
+		return null;
 	}
 }

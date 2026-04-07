@@ -72,6 +72,12 @@
 			preferencesType: ['reference point']
 		},
 		{
+			name: 'RXIMO',
+			path: '/interactive_methods/RXIMO',
+			description: 'RXIMO method for MOO.',
+			preferencesType: ['reference point']
+		},
+		{
 			name: 'NIMBUS',
 			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',

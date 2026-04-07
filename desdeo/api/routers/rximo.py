@@ -10,7 +10,7 @@ from desdeo.api.models import (
     RXIMOExplainRequest,
     RXIMOExplainResponse,
 )
-from desdeo.explanations import ShapExplainer
+from desdeo.explanations import ShapExplainer, generate_biased_mean_data
 
 from .utils import ContextField, SessionContext, SessionContextGuard
 
@@ -133,7 +133,46 @@ def explain_reference_point(
         input_symbols=input_symbols,
         output_symbols=output_symbols,
     )
-    explainer.setup(background_data=problem_data)
+
+    # Bias the SHAP background around the DM's objective-space reference point.
+    # If subset generation fails, use the full background data as a safe fallback.
+    target = np.asarray(
+        [normalized_reference_point[symbol] for symbol in output_symbols],
+        dtype=float,
+    )
+
+    try:
+        # Pre-filter to the closest MIQP_INPUT_SIZE rows by Euclidean distance before
+        # solving the MIQP.  This caps binary-variable count regardless of dataset size
+        # (200 rows → 200 binary vars is slow; 40 rows → 40 binary vars is fast).
+        MIQP_INPUT_SIZE = 40
+        obj_array = problem_data[output_symbols].to_numpy()
+        if len(obj_array) > MIQP_INPUT_SIZE:
+            distances = np.linalg.norm(obj_array - target, axis=1)
+            nearest_indices = np.argpartition(distances, MIQP_INPUT_SIZE)[
+                :MIQP_INPUT_SIZE
+            ]
+            miqp_data = obj_array[nearest_indices]
+        else:
+            nearest_indices = np.arange(len(obj_array))
+            miqp_data = obj_array
+
+        # Cap max_size to keep the MIQP tractable – the biased subset only needs
+        # to be representative, not exhaustive. Larger values grow solve time fast.
+        local_subset = generate_biased_mean_data(miqp_data, target, max_size=20)
+        # Map local indices back to global problem_data indices
+        background_subset = (
+            nearest_indices[local_subset].tolist() if local_subset is not None else None
+        )
+    except Exception:
+        background_subset = None
+
+    if background_subset is None or len(background_subset) < 2:  # noqa: PLR2004
+        background_data = problem_data
+    else:
+        background_data = problem_data[background_subset]
+
+    explainer.setup(background_data=background_data)
 
     to_be_explained = pl.DataFrame(
         {f"z_{symbol}": [value] for symbol, value in normalized_reference_point.items()}
