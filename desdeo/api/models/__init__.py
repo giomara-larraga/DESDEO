@@ -76,7 +76,17 @@ __all__ = [  # noqa: RUF022
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
-    "RPMState",
+    "RPMSolveResponse",
+    "RPMSolveState",
+    "RPMSaveState",
+    "RPMSaveRequest",
+    "RPMSaveResponse",
+    "RPMFinalState",
+    "RPMFinalizeRequest",
+    "RPMFinalizeResponse",
+    "RPMDeleteSaveRequest",
+    "RPMDeleteSaveResponse",
+    "RPMIntermediateSolutionResponse",
     "RXIMOExplainRequest",
     "RXIMOExplainResponse",
     "SavedSolutionReference",
@@ -282,7 +292,17 @@ from .problem import (
     VariableDB,
     VariableFixing,
 )
-from .reference_point_method import RPMSolveRequest
+from .reference_point_method import (
+    RPMSolveRequest,
+    RPMSolveResponse,
+    RPMDeleteSaveRequest,
+    RPMDeleteSaveResponse,
+    RPMFinalizeRequest,
+    RPMFinalizeResponse,
+    RPMIntermediateSolutionResponse,
+    RPMSaveRequest,
+    RPMSaveResponse,
+)
 from .rximo import RXIMOExplainRequest, RXIMOExplainResponse
 from .session import (
     CreateSessionRequest,
@@ -303,7 +323,9 @@ from .state import (
     NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMState,
+    RPMSolveState,
+    RPMSaveState,
+    RPMFinalState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

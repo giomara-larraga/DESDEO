@@ -33,7 +33,9 @@ from .state import (
     NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMState,
+    RPMSolveState,
+    RPMSaveState,
+    RPMFinalState,
 )
 from .user import User
 
@@ -52,6 +54,8 @@ class StateKind(str, Enum):
     """
 
     RPM_SOLVE = "reference_point_method.solve_candidates"
+    RPM_FINAL = "reference_point_method.final"
+    RPM_SAVE = "reference_point_method.save_solutions"
     NIMBUS_SOLVE = "nimbus.solve_candidates"
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
@@ -189,7 +193,9 @@ class StateDB(SQLModel, table=True):
 
 
 KIND_TO_TABLE: dict[StateKind, SQLModel] = {
-    StateKind.RPM_SOLVE: RPMState,
+    StateKind.RPM_SOLVE: RPMSolveState,
+    StateKind.RPM_FINAL: RPMFinalState,
+    StateKind.RPM_SAVE: RPMSaveState,
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
@@ -211,7 +217,9 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
-    RPMState: StateKind.RPM_SOLVE,
+    RPMSolveState: StateKind.RPM_SOLVE,
+    RPMSaveState: StateKind.RPM_SAVE,
+    RPMFinalState: StateKind.RPM_FINAL,
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,

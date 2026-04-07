@@ -29,7 +29,7 @@ from desdeo.api.models import (
     ProblemMetaDataDB,
     ReferencePoint,
     RepresentativeNonDominatedSolutions,
-    RPMState,
+    RPMSolveState,
     ScalarizationFunctionDB,
     SimulatorDB,
     StateDB,
@@ -786,12 +786,13 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
 
     # create state
 
-    rpm_state = RPMState(
+    rpm_state = RPMSolveState(
         preferences=rp_1,
         scalarization_options=scalarization_options,
         solver=solver,
         solver_options=solver_options,
         solver_results=results,
+        previous_preferences=rp_1,
     )
 
     state_1 = StateDB.create(
@@ -819,27 +820,19 @@ def test_rpm_state(session_and_user: dict[str, Session | list[User]]):
         solver_options=solver_options,
     )
 
-    # create state
-
-    rpm_state = RPMState(
-        scalarization_options=scalarization_options,
-        solver=solver,
-        solver_options=solver_options,
-        solver_results=results,
-    )
-
     # create preferences
 
     rp_2 = ReferencePoint(aspiration_levels=asp_levels_2)
 
     # create state
 
-    rpm_state = RPMState(
+    rpm_state = RPMSolveState(
         preferences=rp_2,
         scalarization_options=scalarization_options,
         solver=solver,
         solver_options=solver_options,
         solver_results=results,
+        previous_preferences=rp_2,
     )
 
     state_2 = StateDB.create(
