@@ -74,7 +74,10 @@ def rpm_solve_solutions(
     _add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
     problem_w_asf, target = _add_asf(
-        problem, "_asf", reference_point, **scalarization_options if scalarization_options is not None else {}
+        problem,
+        "_asf",
+        reference_point,
+        **scalarization_options if scalarization_options is not None else {},
     )
 
     # setup solver
@@ -88,21 +91,23 @@ def rpm_solve_solutions(
     # using the found solution, perturb the reference point to get
     # k (num of objectives) perturbed reference points
 
-    initial_objective_vector = objective_dict_to_numpy_array(problem, initial_solution.optimal_objectives)
-    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
-
-    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
-    unit_vectors = np.eye(len(initial_objective_vector))
-
-    perturbed_reference_point_vectors = reference_point_vector + (distance * unit_vectors)
-
-    perturbed_reference_points = [numpy_array_to_objective_dict(problem, v) for v in perturbed_reference_point_vectors]
+    initial_objective_vector = objective_dict_to_numpy_array(
+        problem, initial_solution.optimal_objectives
+    )
+    perturbed_reference_points = get_perturbed_reference_points(
+        problem, initial_objective_vector, reference_point
+    )
 
     # scalarize the problem using the appropriate ASF variant and the perturbed
     # reference points
 
     perturbed_problems_and_targets = [
-        _add_asf(problem, "_asf", rp, **scalarization_options if scalarization_options is not None else {})
+        _add_asf(
+            problem,
+            "_asf",
+            rp,
+            **scalarization_options if scalarization_options is not None else {},
+        )
         for rp in perturbed_reference_points
     ]
 
@@ -114,6 +119,37 @@ def rpm_solve_solutions(
 
     # return the original solution and the solutions found with the perturbed reference points
     return [initial_solution, *perturbed_solutions]
+
+
+def get_perturbed_reference_points(
+    problem: Problem,
+    initial_objective_vector: np.ndarray,
+    reference_point: dict[str, float],
+) -> list[dict[str, float]]:
+    """Generates perturbed reference points based on a given reference point and solution.
+
+    The reference point is perturbed by calculating the distance between the reference point and the solution in the
+    objective space, and then adding this distance multiplied by the unit vectors to the original reference point.
+    This results in k (num of objectives) perturbed reference points.
+
+    Returns:
+        list[dict[str, float]]: a list of perturbed reference points.
+    """
+    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
+
+    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
+    unit_vectors = np.eye(len(initial_objective_vector))
+
+    perturbed_reference_point_vectors = reference_point_vector + (
+        distance * unit_vectors
+    )
+
+    perturbed_reference_points = [
+        numpy_array_to_objective_dict(problem, v)
+        for v in perturbed_reference_point_vectors
+    ]
+
+    return perturbed_reference_points
 
 
 def rpm_intermediate_solutions(  # noqa: PLR0913
@@ -161,7 +197,9 @@ def rpm_intermediate_solutions(  # noqa: PLR0913
         raise ReferencePointError(msg)
 
     init_solver = guess_best_solver(problem) if solver is None else solver
-    _solver_options = None if solver_options is None or solver is None else solver_options
+    _solver_options = (
+        None if solver_options is None or solver is None else solver_options
+    )
 
     # Find intermediate solutions by dividing the distance between the two Pareto points into num_desired+1 steps,
     # calculate the solutions found in between the points, because we don't want to find the original solutions
@@ -169,12 +207,15 @@ def rpm_intermediate_solutions(  # noqa: PLR0913
 
     for i in range(num_desired):
         rp = {
-            key: ((i + 1) * solution_1[key] + (num_desired - i) * solution_2[key]) / (num_desired + 1)
+            key: ((i + 1) * solution_1[key] + (num_desired - i) * solution_2[key])
+            / (num_desired + 1)
             for key in solution_1.keys()  # noqa: SIM118
         }
         # add scalarization
         add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
-        asf_problem, target = add_asf(problem, "target", rp, **(scalarization_options or {}))
+        asf_problem, target = add_asf(
+            problem, "target", rp, **(scalarization_options or {})
+        )
 
         solver = init_solver(asf_problem, _solver_options)
 

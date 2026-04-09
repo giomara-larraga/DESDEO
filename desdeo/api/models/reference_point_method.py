@@ -65,6 +65,9 @@ class RPMSolveResponse(SQLModel):
     previous_preference: ReferencePoint = Field(
         description="The previous preference used."
     )
+    perturbed_reference_points: list[ReferencePoint] = Field(
+        description="The perturbed reference points used to generate the current solutions."
+    )
     current_solutions: list[SolutionReferenceResponse] = Field(
         description="The solutions from the current iteration of nimbus."
     )

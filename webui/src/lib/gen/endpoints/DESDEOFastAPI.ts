@@ -1827,6 +1827,8 @@ export interface RPMSolveResponse {
 	state_id: number | null;
 	/** The previous preference used. */
 	previous_preference: ReferencePoint;
+	/** The perturbed reference points used to generate the current solutions. */
+	perturbed_reference_points: ReferencePoint[];
 	/** The solutions from the current iteration of nimbus. */
 	current_solutions: SolutionReferenceResponse[];
 	/** The best candidate solutions saved by the decision maker. */

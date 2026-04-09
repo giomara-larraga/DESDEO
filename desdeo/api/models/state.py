@@ -113,6 +113,9 @@ class RPMSolveState(ResultInterface, SQLModel, table=True):
 
     # inputs
     preferences: ReferencePoint = Field(sa_column=Column(PreferenceType))
+    perturbed_reference_points: list[dict[str, float]] = Field(
+        sa_column=Column(JSON), default_factory=list
+    )
     scalarization_options: dict[str, float | str | bool] | None = Field(
         sa_column=Column(JSON), default=None
     )

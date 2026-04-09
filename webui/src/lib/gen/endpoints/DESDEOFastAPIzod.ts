@@ -3560,6 +3560,7 @@ export const SolveSolutionsMethodRpmSolvePostBody = zod
 
 export const solveSolutionsMethodRpmSolvePostResponseResponseTypeDefault = `rpm.solve`;
 export const solveSolutionsMethodRpmSolvePostResponsePreviousPreferencePreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault = `reference_point`;
 
 export const SolveSolutionsMethodRpmSolvePostResponse = zod
 	.object({
@@ -3575,6 +3576,20 @@ export const SolveSolutionsMethodRpmSolvePostResponse = zod
 				aspiration_levels: zod.record(zod.string(), zod.number())
 			})
 			.describe('The previous preference used.'),
+		perturbed_reference_points: zod
+			.array(
+				zod
+					.object({
+						preference_type: zod
+							.literal('reference_point')
+							.default(
+								solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault
+							),
+						aspiration_levels: zod.record(zod.string(), zod.number())
+					})
+					.describe('Model for representing a reference point type of preference.')
+			)
+			.describe('The perturbed reference points used to generate the current solutions.'),
 		current_solutions: zod
 			.array(
 				zod

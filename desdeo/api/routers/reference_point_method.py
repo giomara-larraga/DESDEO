@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from desdeo.api.models import (
     IntermediateSolutionRequest,
+    ReferencePoint,
     RPMSolveRequest,
     RPMSolveResponse,
     RPMSolveState,
@@ -30,8 +31,8 @@ from desdeo.api.models import (
 from desdeo.api.models.nimbus import NIMBUSClassificationResponse
 from desdeo.api.routers.generic import solve_intermediate
 from desdeo.api.routers.problem import check_solver
-from desdeo.mcdm import rpm_solve_solutions
-from desdeo.problem import Problem
+from desdeo.mcdm import rpm_solve_solutions, get_perturbed_reference_points
+from desdeo.problem import Problem, objective_dict_to_numpy_array
 from desdeo.tools import SolverResults
 
 from .utils import ContextField, SessionContext, SessionContextGuard
@@ -155,9 +156,24 @@ def solve_solutions(
         request.solver_options,
     )
 
+    initial_objective_vector = objective_dict_to_numpy_array(
+        problem, solver_results[0].optimal_objectives
+    )
+    perturbed_reference_points = [
+        ReferencePoint(aspiration_levels=rp)
+        for rp in get_perturbed_reference_points(
+            problem=problem,
+            initial_objective_vector=initial_objective_vector,
+            reference_point=request.preference.aspiration_levels,
+        )
+    ]
+
     # create state and add to DB
     rpm_state = RPMSolveState(
         preferences=request.preference,
+        perturbed_reference_points=[
+            rp.aspiration_levels for rp in perturbed_reference_points
+        ],
         scalarization_options=request.scalarization_options,
         solver=request.solver,
         solver_options=request.solver_options,
@@ -188,6 +204,7 @@ def solve_solutions(
     return RPMSolveResponse(
         state_id=state.id,
         previous_preference=request.preference,
+        perturbed_reference_points=perturbed_reference_points,
         current_solutions=current_solutions,
         saved_solutions=saved_solutions,
         all_solutions=all_solutions,
