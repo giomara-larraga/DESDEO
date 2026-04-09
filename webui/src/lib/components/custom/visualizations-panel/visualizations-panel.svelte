@@ -101,9 +101,11 @@
 		referenceDataLabels?: {
 			currentRefLabel?: string;
 			previousRefLabel?: string;
+			perturbedRefLabels?: string[];
 			previousSolutionLabels?: string[];
 			otherSolutionLabels?: string[];
 		};
+		perturbedReferencePointValues?: number[][];
 	}
 
 	const {
@@ -120,7 +122,8 @@
 		externalSelectedIndex = null,
 		externalSelectedIndexes = null,
 		lineLabels = {},
-		referenceDataLabels = {}
+		referenceDataLabels = {},
+		perturbedReferencePointValues
 	}: Props = $props();
 
 	/**
@@ -145,6 +148,7 @@
 			problem,
 			previousObjectiveValues,
 			otherObjectiveValues,
+			perturbedReferencePointValues,
 			referenceDataLabels
 		);
 		data ? (data.preferredRanges = undefined) : () => []; // Disable preferred ranges display

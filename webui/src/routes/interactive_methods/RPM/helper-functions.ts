@@ -11,13 +11,15 @@
 
 import type {
 	ProblemInfo,
+	ReferencePoint,
 	SolutionReferenceResponse,
-	RPMSolveResponse,
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 // Type definitions for NIMBUS components
 type Solution = SolutionReferenceResponse;
-type Response = RPMSolveResponse;
+type ResponseWithPreference = {
+	previous_preference?: ReferencePoint;
+};
 
 /**
  * Checks if a problem has utopia metadata for map visualization
@@ -54,13 +56,30 @@ export function mapSolutionsToObjectiveValues(solutions: Solution[], problem: Pr
 }
 
 /**
+ * Maps RPM reference points to arrays suitable for visualization components.
+ * The output order follows problem objectives.
+ */
+export function mapReferencePointsToObjectiveValues(
+	referencePoints: ReferencePoint[] | undefined,
+	problem: ProblemInfo | null
+): number[][] {
+	if (!problem || !referencePoints || referencePoints.length === 0) {
+		return [];
+	}
+
+	return referencePoints.map((rp) =>
+		problem.objectives.map((obj) => rp.aspiration_levels?.[obj.symbol] ?? 0)
+	);
+}
+
+/**
  * Initialize preferences from previous state or ideal values
  * @param state The current NIMBUS response state
  * @param problem The current problem
  * @returns Array of preference values
  */
 export function updatePreferencesFromState(
-	state: Response | null,
+	state: ResponseWithPreference | null,
 	problem: ProblemInfo | null
 ): number[] {
 	if (!problem) return [];

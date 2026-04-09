@@ -11,6 +11,7 @@ export type Solution = {
 export type ReferenceData = {
 	referencePoint?: Solution;
 	previousReferencePoints?: Solution[];
+	perturbedReferencePoints?: Solution[];
 	preferredRanges?: { [key: string]: { min: number; max: number } };
 	preferredSolutions?: Solution[];
 	nonPreferredSolutions?: Solution[];

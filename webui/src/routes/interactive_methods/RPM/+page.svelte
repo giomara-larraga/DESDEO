@@ -97,6 +97,7 @@
 	import {
 		checkUtopiaMetadata,
 		mapSolutionsToObjectiveValues,
+		mapReferencePointsToObjectiveValues,
 		updatePreferencesFromState,
 		processPreviousObjectiveValues,
 		updateSolutionNames
@@ -161,6 +162,71 @@
 			// Both "iterate" and "final" modes use the same index list
 			return selected_iteration_index;
 		}
+	});
+
+	type PerturbedPointDisplayMode = 'all' | 'selected' | 'none';
+	let perturbed_points_mode: PerturbedPointDisplayMode = $state('all');
+
+	let perturbed_reference_point_values_for_plot = $derived.by(() => {
+		if (!problem || selected_type_solutions !== 'current') {
+			return [];
+		}
+
+		const allPerturbed = mapReferencePointsToObjectiveValues(
+			current_state.perturbed_reference_points,
+			problem
+		);
+
+		if (perturbed_points_mode === 'none') {
+			return [];
+		}
+
+		if (perturbed_points_mode === 'all') {
+			return allPerturbed;
+		}
+
+		const selectedIndex = selectedIndexes[0];
+		if (selectedIndex === undefined || selectedIndex <= 0) {
+			return [];
+		}
+
+		const perturbedIndex = selectedIndex - 1;
+		return allPerturbed[perturbedIndex] ? [allPerturbed[perturbedIndex]] : [];
+	});
+
+	let perturbed_reference_point_labels_for_plot = $derived.by(() => {
+		if (!problem || selected_type_solutions !== 'current') {
+			return [];
+		}
+
+		const allPerturbed = mapReferencePointsToObjectiveValues(
+			current_state.perturbed_reference_points,
+			problem
+		);
+
+		if (allPerturbed.length === 0 || perturbed_points_mode === 'none') {
+			return [];
+		}
+
+		const currentSolutions = current_state.current_solutions ?? [];
+		const labelForSolution = (solutionIndex: number) => {
+			const solution = currentSolutions[solutionIndex];
+			const solutionLabel = solution?.name?.trim()
+				? solution.name
+				: `Solution #${solutionIndex + 1}`;
+			return `Perturbed RP for ${solutionLabel}`;
+		};
+
+		if (perturbed_points_mode === 'all') {
+			return allPerturbed.map((_, perturbedIndex) => labelForSolution(perturbedIndex + 1));
+		}
+
+		const selectedIndex = selectedIndexes[0];
+		if (selectedIndex === undefined || selectedIndex <= 0) {
+			return [];
+		}
+
+		return [labelForSolution(selectedIndex)];
 	});
 	// currentPreference is initialized from previous preference or ideal values
 	let current_preference: number[] = $state([]);
@@ -511,7 +577,10 @@
 	// Helper function to initialize preferences from previous state or ideal values
 	function update_preferences_from_state(state: Response | null) {
 		if (!problem) return;
-		current_preference = updatePreferencesFromState(state, problem);
+		current_preference = updatePreferencesFromState(
+			state as { previous_preference?: import('./types').ReferencePoint } | null,
+			problem
+		);
 		last_iterated_preference = [...current_preference];
 	}
 
@@ -698,6 +767,10 @@
 								previousPreferenceType={type_preferences}
 								currentPreferenceValues={[]}
 								currentPreferenceType={type_preferences}
+								perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
+								referenceDataLabels={{
+									perturbedRefLabels: perturbed_reference_point_labels_for_plot
+								}}
 								solutionsObjectiveValues={problem
 									? mapSolutionsToObjectiveValues(
 											[chosen_solutions[selected_iteration_index[0]]],
@@ -751,7 +824,7 @@
 				<AppSidebar
 					{problem}
 					preferenceTypes={[PREFERENCE_TYPES.Classification]}
-					showNumSolutions={true}
+					showNumSolutions={false}
 					numSolutions={current_num_iteration_solutions}
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}
@@ -792,6 +865,17 @@
 				onChange={handle_type_solutions_change}
 			/>
 
+			<span class="ml-4">Perturbed points:</span>
+			<SegmentedControl
+				bind:value={perturbed_points_mode}
+				options={[
+					{ value: 'all', label: 'All' },
+					{ value: 'selected', label: 'Selected solution' },
+					{ value: 'none', label: 'None' }
+				]}
+				class="mr-10"
+			/>
+
 			<span
 				class="inline-block"
 				title={selectedIndexes.length !== 1
@@ -823,6 +907,10 @@
 								currentPreferenceValues={current_preference}
 								previousPreferenceType={type_preferences}
 								currentPreferenceType={type_preferences}
+								perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
+								referenceDataLabels={{
+									perturbedRefLabels: perturbed_reference_point_labels_for_plot
+								}}
 								solutionsObjectiveValues={problem
 									? mapSolutionsToObjectiveValues(chosen_solutions, problem)
 									: []}

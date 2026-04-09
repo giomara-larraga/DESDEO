@@ -12,6 +12,7 @@ export type ObjectiveValues = {
 export type Response = BaseMethodResponse & {
 	response_type: 'rpm.solve'  | 'rpm.intermediate' | 'rpm.finalize';
     previous_preference?: ReferencePoint;
+    perturbed_reference_points?: ReferencePoint[];
     previous_objectives?: ObjectiveValues;
     reference_solution_1?: ObjectiveValues;
     reference_solution_2?: ObjectiveValues;

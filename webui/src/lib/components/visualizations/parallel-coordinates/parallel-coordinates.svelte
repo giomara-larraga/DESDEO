@@ -266,6 +266,16 @@
 			});
 		}
 
+		// Draw perturbed reference points (orange, dashed)
+		if (referenceData?.perturbedReferencePoints) {
+			referenceData.perturbedReferencePoints.forEach((perturbedPoint) => {
+				drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, perturbedPoint, {
+					groupClass: 'perturbed-reference-point',
+					color: '#fb923c' // orange-400
+				}, options.strokeWidth, addTooltip);
+			});
+		}
+
 		// Draw reference visualizations (on top of data lines)
 		// Draw current reference point (red)
 		drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, referenceData?.referencePoint, {
@@ -484,6 +494,18 @@
 	:global(.reference-point circle) {
 		pointer-events: auto;
 		cursor: default; /* Shows regular cursor instead of pointer */
+	}
+
+	/* Perturbed reference point styling */
+	:global(.perturbed-reference-point path) {
+		pointer-events: auto;
+		cursor: default;
+		stroke-dasharray: 6, 3;
+	}
+
+	:global(.perturbed-reference-point circle) {
+		pointer-events: auto;
+		cursor: default;
 	}
 
 	/* Allow hover events but prevent clicks */
