@@ -1,107 +1,57 @@
 <script lang="ts">
 	/**
 	 * ParallelCoordinates.svelte
-	 * --------------------------------
-	 * Responsive parallel coordinates plot component using D3.
+	 * Responsive parallel coordinates plot using D3.
 	 *
 	 * @author Giomara Larraga <glarragw@jyu.fi>
-	 * @author Stina Palomäki <palomakistina@gmail.com> (Multi-selection support, label tooltips)
+	 * @author Stina Palomaki <palomakistina@gmail.com> (Multi-selection support, label tooltips)
 	 * @created June 2025
-	 * @updated November 2025
+	 * @updated April 2026
 	 *
-	 * @description
-	 * Renders a responsive parallel coordinates plot using D3.js.
-	 * Each line represents a solution/data point, and each vertical axis represents a dimension/objective.
-	 * Supports additional reference information like reference points, preferred ranges, and different solution gatecories.
-	 * Features both single and multiple line selection modes, axis brushing for filtering, and optional
-	 * tooltips displaying customizable labels for each line.
-	 *
-	 * @props
-	 * - data: Array<{ [key: string]: number }> — Array of data points where each object has values for each dimension
-	 * - dimensions: Array<{ symbol: string; name: string; min?: number; max?: number; direction?: 'max' | 'min' }> — Dimension definitions with optional constraints
-	 * - referenceData?: {
-	 *     referencePoint?: { [key: string]: number }; // Current reference point values for each dimension
-	 *     previousReferencePoint?: { [key: string]: number }; // Previous reference point values for comparison
-	 *     preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred ranges for each dimension (disabled by default)
-	 *     preferredSolutions?: Array<{ [key: string]: number }>; // Array of preferred solutions (e.g., user's previous solutions)
-	 *     nonPreferredSolutions?: Array<{ [key: string]: number }>; // Array of non-preferred solutions
-	 * 	   otherSolutions?: Array<{ [key: string]: number }>; // Array of additional solutions (e.g., other users' solutions in GNIMBUS)
-	 *   }
-	 * - options: {
-	 *     showAxisLabels: boolean; // Whether to show dimension names above axes
-	 *     highlightOnHover: boolean; // Whether to highlight lines on mouse hover
-	 *     strokeWidth: number; // Thickness of data lines
-	 *     opacity: number; // Opacity of non-selected lines
-	 *     enableBrushing: boolean; // Whether to enable axis brushing for filtering
-	 *   }
-	 * - lineLabels: { [key: string]: string } - Map of data indexes to custom labels displayed in tooltips
-	 * - selectedIndex: number | null — Index of selected line in single selection mode
-	 * - multipleSelectedIndexes: number[] | null — Indexes of selected lines in multi-selection mode
-	 * - brushFilters: { [dimension: string]: [number, number] } — Brush filter ranges for each dimension
-	 * - onLineSelect?: (index: number | null, data: any | null) => void — Callback when line is selected/deselected
-	 * - onBrushFilter?: (filters: { [dimension: string]: [number, number] }) => void — Callback when brush filters change
-	 *
-	 * @features
-	 * - Interactive line highlighting on hover
-	 * - Both single and multiple line selection modes
-	 * - Axis brushing for range filtering
-	 * - Custom color palette for different data points
-	 * - Responsive to container size (ResizeObserver)
-	 * - Customizable axis ranges and directions
-	 * - Reference point visualization (dashed line)
-	 * - Preferred ranges visualization (colored bands)
-	 * - Preferred/non-preferred and other solutions (different line styles)
-	 * - Customizable optional line labels with tooltips
-	 * - Click-to-select functionality with multi-selection support for main data lines
+	 * Responsibilities:
+	 * - render axes and line geometry from the given dimensions and data
+	 * - support hover/click interactions and optional brushing
+	 * - overlay reference-point related visuals and tooltips
+	 * - react to container resizing and prop/state updates
 	 */
 
-	// --- Import required libraries ---
-	import { onMount, onDestroy } from 'svelte';
-	import * as d3 from 'd3'; // D3.js for data visualization
-	import { COLOR_PALETTE } from '../utils/colors'; // Custom color palette for styling
+	import * as d3 from 'd3';
+	import { onDestroy, onMount } from 'svelte';
 
-	// --- Type Definitions ---
-	type Solution = {
-		values: { [key: string]: number };
-		label?: string;
-	};
-	/**
-	 * Type definition for reference data structure
-	 * Contains optional reference information for enhanced visualization
-	 */
-	type ReferenceData = {
-		referencePoint?: Solution; // Single reference point across all dimensions
-		previousReferencePoints?: Solution[]; // Array of previous reference points for comparison
-		preferredRanges?: { [key: string]: { min: number; max: number } }; // Preferred value ranges per dimension
-		preferredSolutions?: Array<Solution>; // Array of preferred solution points
-		nonPreferredSolutions?: Array<Solution>; // Array of non-preferred solution points
-		otherSolutions?: Array<Solution>; // Array of solution points that dont fit other categories, for any additional need
-	};
+	import { COLOR_PALETTE } from '../utils/colors';
+
+	import { setupAxisBrushing as setupAxisBrushingImpl } from './brushing';
+	import { createLineGenerator, createScales, passesFilters } from './chart-utils';
+	import {
+		attachClickInteraction,
+		attachHoverInteractions,
+		updateLineVisibility as updateLineVisibilityImpl
+	} from './line-interactions';
+	import {
+		drawGenericReferencePoint as drawGenericReferencePointImpl,
+		drawPreferredRanges as drawPreferredRangesImpl,
+		drawReferenceSolutions as drawReferenceSolutionsImpl
+	} from './reference-renderers';
+	import type {
+		BrushFilters,
+		DataPoint,
+		DimensionDefinition,
+		ParallelCoordinatesOptions,
+		ReferenceData
+	} from './types';
 
 	// --- Component Props ---
 	// Main data array - each object represents one solution/data point
-	export let data: { [key: string]: number }[] = [];
+	export let data: DataPoint[] = [];
 
 	// Dimension definitions - describes each axis with optional constraints
-	export let dimensions: {
-		symbol: string;
-		name: string;
-		min?: number;
-		max?: number;
-		direction?: 'max' | 'min';
-	}[] = [];
+	export let dimensions: DimensionDefinition[] = [];
 
 	// Optional reference data for enhanced visualization
 	export let referenceData: ReferenceData | undefined = undefined;
 
 	// Chart configuration options
-	export let options: {
-		showAxisLabels: boolean; // Whether to show dimension names above axes
-		highlightOnHover: boolean; // Whether to highlight lines on mouse hover
-		strokeWidth: number; // Thickness of data lines
-		opacity: number; // Opacity of non-selected lines
-		enableBrushing: boolean; // Whether to enable axis brushing for filtering
-	} = {
+	export let options: ParallelCoordinatesOptions = {
 		showAxisLabels: true,
 		highlightOnHover: true,
 		strokeWidth: 2,
@@ -131,13 +81,13 @@
 	}
 
 	// Active brush filters - maps dimension name to [y1, y2] pixel coordinates
-	export let brushFilters: { [dimension: string]: [number, number] } = {};
+	export let brushFilters: BrushFilters = {};
 
 	// Callback functions for parent component communication
-	export let onLineSelect: ((index: number | null, data: any | null) => void) | undefined =
+	export let onLineSelect: ((index: number | null, data: DataPoint | null) => void) | undefined =
 		undefined;
 	export let onBrushFilter:
-		| ((filters: { [dimension: string]: [number, number] }) => void)
+		| ((filters: BrushFilters) => void)
 		| undefined = undefined;
 
 	// --- Internal State Variables ---
@@ -150,95 +100,10 @@
 	let scales: { [key: string]: d3.ScaleLinear<number, number> } = {}; // D3 scales for each dimension
 	let tooltip: d3.Selection<HTMLDivElement, unknown, null, undefined>; // Single tooltip for all uses
 
-	/**
-	 * Creates linear scales for each dimension
-	 * Scales map data values to pixel coordinates on the y-axis
-	 *
-	 * @param innerHeight - Available height for the chart area
-	 * @param margin - Margin object with top/bottom spacing
-	 * @returns Object mapping dimension names to D3 linear scales
-	 */
-	function createScales(innerHeight: number, margin: { top: number; bottom: number }) {
-		const newScales: { [key: string]: d3.ScaleLinear<number, number> } = {};
-
-		dimensions.forEach((dim) => {
-			// Extract all values for this dimension from the dataset
-			const values = data.map((d) => d[dim.symbol]).filter((v) => v !== undefined && v !== null);
-
-			// Determine the domain (data range) for this dimension
-			let domain: [number, number];
-			if (dim.min !== undefined && dim.max !== undefined) {
-				// Use predefined min/max if provided
-				domain = [dim.min, dim.max];
-			} else {
-				// Calculate min/max from actual data
-				const extent = d3.extent(values) as [number, number];
-				domain = extent || [0, 1]; // Fallback to [0,1] if no data
-			}
-
-			// Create linear scale mapping data domain to pixel range
-			newScales[dim.symbol] = d3
-				.scaleLinear()
-				.domain(domain) // Data values
-				.range([innerHeight - margin.bottom, margin.top]); // Pixel coordinates (bottom to top)
-		});
-
-		// Store scales for use in other functions
-		scales = newScales;
-		return newScales;
-	}
-
-	/**
-	 * Creates a D3 line generator for drawing parallel coordinate lines
-	 * Each line connects data points across all dimensions
-	 *
-	 * @param scales - Scale functions for each dimension
-	 * @param xScale - Scale for positioning dimensions horizontally
-	 * @returns D3 line generator function
-	 */
-	function createLineGenerator(
-		scales: { [key: string]: d3.ScaleLinear<number, number> },
-		xScale: d3.ScalePoint<string>
-	) {
-		return d3
-			.line<[string, number]>() // Line generator for [dimension, value] tuples
-			.x(([dimension]) => xScale(dimension)!) // X position based on dimension
-			.y(([dimension, value]) => scales[dimension](value)) // Y position based on scaled value
-			.curve(d3.curveLinear); // Use straight lines between points
-	}
-
-	/**
-	 * Checks if a data point passes all active brush filters
-	 * Used to determine which lines should be visible
-	 *
-	 * @param dataPoint - Single data point to test
-	 * @returns true if the point passes all filters, false otherwise
-	 */
-	function passesFilters(dataPoint: { [key: string]: number }): boolean {
-		// Check each active brush filter
-		for (const [dimension, [min, max]] of Object.entries(brushFilters)) {
-			const value = dataPoint[dimension];
-			if (value === undefined || value === null) continue; // Skip missing values
-
-			// Get the scale for this dimension
-			const scale = scales[dimension];
-			if (!scale) continue; // Skip if no scale available
-
-			// Convert brush pixel coordinates back to data values
-			const dataMin = scale.invert(max); // Note: inverted because y-axis goes bottom-to-top
-			const dataMax = scale.invert(min);
-
-			// Check if data value falls within the brush range
-			if (value < dataMin || value > dataMax) {
-				return false; // Point is outside this filter
-			}
-		}
-		return true; // Point passes all filters
-	}
 
 	// Helper function to add tooltip functionality to a path
 	function addTooltip(
-		path: d3.Selection<SVGPathElement, unknown, null, undefined>,
+		path: d3.Selection<SVGPathElement, any, any, any>,
 		label?: string
 	) {
 		if (!label) return path; // If no label, return path without tooltip
@@ -256,171 +121,6 @@
 			});
 	}
 
-	/**
-	 * Updates the visibility and styling of all data lines
-	 * Handles filtering, selection highlighting, and opacity
-	 *
-	 * @param lines - D3 selection of path elements representing data lines
-	 */
-	function updateLineVisibility(
-		lines: d3.Selection<SVGPathElement, { [key: string]: number }, SVGGElement, unknown>
-	) {
-		lines
-			// Hide/show lines based on brush filters
-			.style('display', (d, i) => {
-				const passes = passesFilters(d);
-				return passes ? null : 'none'; // null = visible, 'none' = hidden
-			})
-			// Set opacity - selected line is fully opaque, others use default opacity
-			.attr('opacity', (d, i) => {
-				const passes = passesFilters(d);
-				if (!passes) return 0; // Hidden lines have 0 opacity
-
-				if (isSelected(i)) return 1; // Selected line is fully opaque
-				return options.opacity; // Other lines use configured opacity
-			})
-			// Set stroke color - selected lines get theme color, other lines are thinner and color lighter variant
-			.attr('stroke', (d, i) => {
-				const passes = passesFilters(d);
-				if (!passes) return '#93c5fd'; // Hidden lines are lighter color, tailwind sky 700
-
-				if (isSelected(i)) return '#3b82f6'; // Selected line uses primary color, tailwind blue 500
-				return '#93c5fd'; // Non-selected lines are lighter color
-			})
-			// Set stroke width - selected line is slightly thicker
-			.attr('stroke-width', (d, i) => {
-				if (isSelected(i)) return options.strokeWidth + 1; // Selected line is thicker
-				return options.strokeWidth; // Normal thickness for others
-			});
-		// Move selected lines to front by reordering DOM
-		lines.each(function (d, i) {
-			if (isSelected(i)) {
-				this.parentNode.appendChild(this); // Move to end = bring to front
-			}
-		});
-	}
-
-	/**
-	 * Sets up brushing interaction for a single axis
-	 * Allows users to drag vertically to filter data within a range
-	 *
-	 * @param svgElement - Parent SVG group element
-	 * @param dimension - Name of the dimension this brush controls
-	 * @param xPos - X coordinate of the axis
-	 * @param innerHeight - Height of the chart area
-	 * @param lines - D3 selection of data lines to update when brushing
-	 */
-	function setupAxisBrushing(
-		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
-		dimension: string,
-		xPos: number,
-		innerHeight: number,
-		lines: d3.Selection<SVGPathElement, { [key: string]: number }, SVGGElement, unknown>
-	) {
-		if (!options.enableBrushing) return; // Skip if brushing is disabled
-
-		// Create D3 brush behavior for vertical brushing
-		const brush = d3
-			.brushY() // Vertical brush only
-			.extent([
-				[xPos - 10, 0], // Brush area: 20px wide centered on axis
-				[xPos + 10, innerHeight]
-			])
-			// Handle brush events during dragging (real-time feedback)
-			.on('brush', function (event) {
-				const brushGroup = d3.select(this.parentNode);
-
-				if (event.selection) {
-					const [y1, y2] = event.selection as [number, number];
-
-					// Remove previous highlight rectangle
-					brushGroup.select('.brush-highlight').remove();
-
-					// Add new highlight rectangle showing brush area
-					brushGroup
-						.append('rect')
-						.attr('class', 'brush-highlight')
-						.attr('x', xPos - 15) // Slightly wider than brush for visibility
-						.attr('y', y1)
-						.attr('width', 30)
-						.attr('height', y2 - y1)
-						.attr('fill', '#4a90e2') // Blue fill
-						.attr('opacity', 0.2)
-						.attr('stroke', '#4a90e2') // Blue border
-						.attr('stroke-width', 2)
-						.attr('stroke-dasharray', '3,3') // Dashed border
-						.style('pointer-events', 'none'); // Don't interfere with brushing
-				}
-			})
-			// Handle brush end events (when user releases mouse)
-			.on('end', function (event) {
-				const brushGroup = d3.select(this.parentNode);
-
-				if (!event.selection) {
-					// No selection = brush was cleared
-					delete brushFilters[dimension]; // Remove filter for this dimension
-					brushGroup.select('.brush-highlight').remove(); // Remove highlight rectangle
-				} else {
-					// Brush selection exists = update filter
-					const [y1, y2] = event.selection as [number, number];
-					brushFilters[dimension] = [y1, y2]; // Store filter coordinates
-
-					// Ensure highlight rectangle is present
-					brushGroup.select('.brush-highlight').remove();
-					brushGroup
-						.append('rect')
-						.attr('class', 'brush-highlight')
-						.attr('x', xPos - 15)
-						.attr('y', y1)
-						.attr('width', 30)
-						.attr('height', y2 - y1)
-						.attr('fill', '#4a90e2')
-						.attr('opacity', 0.2)
-						.attr('stroke', '#4a90e2')
-						.attr('stroke-width', 2)
-						.attr('stroke-dasharray', '3,3')
-						.style('pointer-events', 'none');
-				}
-
-				// Update line visibility based on new filters
-				updateLineVisibility(lines);
-
-				// Notify parent component of filter changes
-				onBrushFilter?.(brushFilters);
-			});
-
-		// Store brush behavior for this dimension
-		brushes[dimension] = brush;
-
-		// Create brush group and apply brush behavior
-		const brushGroup = svgElement
-			.append('g')
-			.attr('class', `brush brush-${dimension}`)
-			.attr('transform', `translate(0, 0)`)
-			.call(brush);
-
-		// Style the brush selection area (semi-transparent blue)
-		brushGroup
-			.selectAll('.selection')
-			.style('fill', '#4a90e2')
-			.style('opacity', 0.15)
-			.style('stroke', '#4a90e2')
-			.style('stroke-width', 1);
-
-		// Style the brush handles (resize handles at top/bottom)
-		brushGroup
-			.selectAll('.handle')
-			.style('fill', '#4a90e2')
-			.style('stroke', '#4a90e2')
-			.style('stroke-width', 2)
-			.style('cursor', 'ns-resize'); // North-south resize cursor
-
-		// Restore existing brush if it exists in brushFilters
-		if (brushFilters[dimension]) {
-			const [y1, y2] = brushFilters[dimension];
-			brush.move(brushGroup, [y1, y2]); // Apply saved brush selection
-		}
-	}
 
 	/**
 	 * Handles line selection when user clicks on a data line
@@ -429,7 +129,7 @@
 	 * @param index - Index of the clicked line in the data array
 	 * @param dataPoint - The actual data object for the clicked line
 	 */
-	function handleLineClick(index: number, dataPoint: { [key: string]: number }) {
+	function handleLineClick(index: number, dataPoint: DataPoint) {
 		// If we're in multi-selection mode
 		if (multipleSelectedIndexes !== null) {
 			// Let the parent component handle selection/deselection logic
@@ -446,281 +146,6 @@
 			// Select new item
 			selectedIndex = index;
 			onLineSelect?.(index, dataPoint);
-		}
-	}
-
-	/**
-	 * Draws preferred ranges as colored bands behind the axes
-	 * Shows visually which value ranges are preferred for each dimension
-	 *
-	 * @param svgElement - Parent SVG group element
-	 * @param scales - Scale functions for each dimension
-	 * @param xScale - Scale for positioning dimensions horizontally
-	 */
-	function drawPreferredRanges(
-		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
-		scales: { [key: string]: d3.ScaleLinear<number, number> },
-		xScale: d3.ScalePoint<string>
-	) {
-		if (!referenceData?.preferredRanges) return; // Skip if no preferred ranges defined
-
-		// Create group for all preferred range visualizations
-		const rangesGroup = svgElement.append('g').attr('class', 'preferred-ranges');
-
-		// Draw a colored band for each dimension that has preferred ranges
-		Object.entries(referenceData.preferredRanges).forEach(([dimName, range]) => {
-			const x = xScale(dimName); // Get x position of this dimension's axis
-			if (x === undefined || !scales[dimName]) return; // Skip if position/scale not available
-
-			// Convert data range to pixel coordinates
-			const yMin = scales[dimName](range.max); // Top of range (higher values)
-			const yMax = scales[dimName](range.min); // Bottom of range (lower values)
-
-			// Draw semi-transparent rectangle showing preferred range
-			rangesGroup
-				.append('rect')
-				.attr('class', `preferred-range-${dimName}`)
-				.attr('x', x - 10) // Center on axis, 20px wide
-				.attr('y', yMin)
-				.attr('width', 20)
-				.attr('height', yMax - yMin)
-				.attr('fill', '#e6f3ff') // Light blue fill
-				.attr('stroke', '#4a90e2') // Blue border
-				.attr('stroke-width', 1)
-				.attr('opacity', 0.3);
-
-			// Note: Preferred preference label is commented out to reduce visual clutter
-			// rangesGroup
-			// 	.append('text')
-			// 	.attr('x', x + 15) // Position to the right of the axis
-			// 	.attr('y', yMin + (yMax - yMin) / 2) // Center vertically in the range
-			// 	.attr('text-anchor', 'start')
-			// 	.style('font-size', '9px')
-			// 	.style('fill', '#4a90e2')
-			// 	.text('preferred');
-		});
-	}
-
-	/**
-	 * Draws a reference point as a line across all dimensions with configurable styling
-	 *
-	 * @param svgElement - Parent SVG group element
-	 * @param scales - Scale functions for each dimension
-	 * @param xScale - Scale for positioning dimensions horizontally
-	 * @param line - D3 line generator for drawing the path
-	 * @param pointData - The reference point data to draw
-	 * @param modifiedOptions - Styling options for the reference point
-	 */
-	function drawGenericReferencePoint(
-		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
-		scales: { [key: string]: d3.ScaleLinear<number, number> },
-		xScale: d3.ScalePoint<string>,
-		line: d3.Line<[string, number]>,
-		pointData: Solution | undefined,
-		modifiedOptions: {
-			groupClass: string;
-			color: string;
-		}
-	) {
-		if (!pointData) return; // Skip if no point data defined
-
-		// Create group for reference point visualization
-		const referenceGroup = svgElement.append('g').attr('class', modifiedOptions.groupClass);
-
-		// Convert reference point data to line format
-		const refLineData: [string, number][] = dimensions
-			.map((dim) => [dim.symbol, pointData.values[dim.symbol]])
-			.filter(([, value]) => value !== undefined && value !== null);
-
-		if (refLineData.length > 0) {
-			// Draw line connecting reference values across all dimensions
-			const path = referenceGroup
-				.append('path')
-				.datum(refLineData)
-				.attr('d', line) // Use line generator to create path
-				.attr('fill', 'none')
-				.attr('stroke', modifiedOptions.color) // Red color for reference
-				.attr('stroke-width', options.strokeWidth + 1) // Slightly thicker than data lines
-				.attr('stroke-dasharray', '8,4') // Dashed pattern
-				.attr('opacity', 0.8);
-
-			// Add circles at each axis to highlight reference values
-			refLineData.forEach(([dimName, value]) => {
-				const x = xScale(dimName);
-				const y = scales[dimName](value);
-				if (x !== undefined && !isNaN(y)) {
-					referenceGroup
-						.append('circle')
-						.attr('cx', x)
-						.attr('cy', y)
-						.attr('r', 4) // Small circle radius
-						.attr('fill', modifiedOptions.color) // Same red as line
-						.attr('stroke', '#fff') // White border for visibility
-						.attr('stroke-width', 2)
-						.attr('opacity', 0.8);
-				}
-			});
-			addTooltip(path, pointData.label);
-
-			// Note: Reference point label is commented out to reduce visual clutter
-			/*referenceGroup
-                .append('text')
-                .attr('x', 10)
-                .attr('y', -10)
-                .style('font-size', '11px')
-                .style('fill', '#ff6b6b')
-                .style('font-weight', 'bold')
-                .text('Reference Point');*/
-		}
-	}
-
-	/**
-	 * Draws preferred and non-preferred solutions with distinct visual styles
-	 * Shows example solutions that are considered good or bad
-	 *
-	 * @param svgElement - Parent SVG group element
-	 * @param scales - Scale functions for each dimension
-	 * @param xScale - Scale for positioning dimensions horizontally
-	 * @param line - D3 line generator for drawing paths
-	 */
-	function drawReferenceSolutions(
-		svgElement: d3.Selection<SVGGElement, unknown, null, undefined>,
-		scales: { [key: string]: d3.ScaleLinear<number, number> },
-		xScale: d3.ScalePoint<string>,
-		line: d3.Line<[string, number]>
-	) {
-		// Draw other solutions first (they should be in the background)
-		if (referenceData?.otherSolutions) {
-			const otherGroup = svgElement.append('g').attr('class', 'other-solutions');
-
-			referenceData.otherSolutions.forEach((solution, index) => {
-				// Convert solution data to line format
-				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
-					.filter(([, value]) => value !== undefined && value !== null);
-
-				if (solutionData.length > 0) {
-					// Draw thin dashed line for other solutions
-					const path = otherGroup
-						.append('path')
-						.datum(solutionData)
-						.attr('d', line)
-						.attr('fill', 'none')
-						.attr('stroke', '#9ca3af') // Gray color, tailwind gray 400
-						.attr('stroke-width', options.strokeWidth)
-						.attr('stroke-dasharray', '3,3') // Dashed pattern
-						.attr('opacity', 0.6);
-
-					addTooltip(path, solution.label);
-				}
-			});
-		}
-
-		// Draw preferred solutions (good examples)
-		if (referenceData?.preferredSolutions) {
-			const preferredGroup = svgElement.append('g').attr('class', 'preferred-solutions');
-			referenceData.preferredSolutions.forEach((solution, index) => {
-				// Convert solution data to line format
-				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
-					.filter(([, value]) => value !== undefined && value !== null);
-
-				if (solutionData.length > 0) {
-					// Draw dashed line for preferred solution
-					const path = preferredGroup
-						.append('path')
-						.datum(solutionData)
-						.attr('d', line)
-						.attr('fill', 'none')
-						.attr('stroke', '#10b981') // Tailwind Emerald 500 color for preferred
-						.attr('stroke-width', options.strokeWidth + 1) // Thicker than otherSolutions
-						.attr('stroke-dasharray', '4,2') // Different dash pattern
-						.attr('opacity', 0.6);
-
-					addTooltip(path, solution.label);
-
-					// Add triangle markers at each axis point
-					solutionData.forEach(([dimName, value]) => {
-						const x = xScale(dimName);
-						const y = scales[dimName](value);
-						if (x !== undefined && !isNaN(y)) {
-							preferredGroup
-								.append('polygon')
-								.attr('points', `${x},${y - 4} ${x + 4},${y + 3} ${x - 4},${y + 3}`) // Triangle shape
-								.attr('fill', '#10b981')
-								.attr('stroke', '#fff')
-								.attr('stroke-width', 1);
-						}
-					});
-				}
-			});
-
-			// Note: Preferred solutions label is commented out to reduce visual clutter
-			/*if (referenceData.preferredSolutions.length > 0) {
-                svgElement
-                    .append('text')
-                    .attr('x', 10)
-                    .attr('y', 10)
-                    .style('font-size', '11px')
-                    .style('fill', '#10b981')
-                    .style('font-weight', 'bold')
-                    .text(`${referenceData.preferredSolutions.length} Preferred Solution(s)`);
-            }*/
-		}
-
-		// Draw non-preferred solutions (bad examples)
-		if (referenceData?.nonPreferredSolutions) {
-			const nonPreferredGroup = svgElement.append('g').attr('class', 'non-preferred-solutions');
-
-			referenceData.nonPreferredSolutions.forEach((solution, index) => {
-				// Convert solution data to line format
-				const solutionData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, solution.values[dim.symbol]])
-					.filter(([, value]) => value !== undefined && value !== null);
-
-				if (solutionData.length > 0) {
-					// Draw dashed line for non-preferred solution
-					const path = nonPreferredGroup
-						.append('path')
-						.datum(solutionData)
-						.attr('d', line)
-						.attr('fill', 'none')
-						.attr('stroke', '#e74c3c') // Red color for non-preferred
-						.attr('stroke-width', options.strokeWidth + 1)
-						.attr('stroke-dasharray', '2,3') // Dense dash pattern
-						.attr('opacity', 0.6);
-
-					addTooltip(path, solution.label);
-
-					// Add X markers at each axis point
-					solutionData.forEach(([dimName, value]) => {
-						const x = xScale(dimName);
-						const y = scales[dimName](value);
-						if (x !== undefined && !isNaN(y)) {
-							nonPreferredGroup
-								.append('path')
-								.attr(
-									'd',
-									`M${x - 3},${y - 3} L${x + 3},${y + 3} M${x + 3},${y - 3} L${x - 3},${y + 3}` // X shape
-								)
-								.attr('stroke', '#e74c3c')
-								.attr('stroke-width', 2);
-						}
-					});
-				}
-			});
-
-			// Note: Non-preferred solutions label is commented out to reduce visual clutter
-			/*if (referenceData.nonPreferredSolutions.length > 0) {
-                svgElement
-                    .append('text')
-                    .attr('x', 10)
-                    .attr('y', 30)
-                    .style('font-size', '11px')
-                    .style('fill', '#e74c3c')
-                    .style('font-weight', 'bold')
-                    .text(`${referenceData.nonPreferredSolutions.length} Non-Preferred Solution(s)`);
-            }*/
 		}
 	}
 
@@ -752,7 +177,8 @@
 			.attr('transform', `translate(${margin.left}, ${margin.top})`); // Offset by margins
 
 		// Create scales for mapping data values to pixel coordinates
-		const newScales = createScales(innerHeight, margin);
+		const newScales = createScales(dimensions, data, innerHeight, margin);
+		scales = newScales;
 
 		// Create scale for positioning dimensions horizontally
 		const xScale = d3
@@ -771,7 +197,7 @@
 			.range(COLOR_PALETTE); // Use predefined color palette
 
 		// Draw preferred ranges first (behind everything else)
-		drawPreferredRanges(svgElement, newScales, xScale);
+		drawPreferredRangesImpl(svgElement, newScales, xScale, referenceData?.preferredRanges);
 
 		// Draw axes and labels
 		dimensions.forEach((dim) => {
@@ -833,33 +259,42 @@
 		// Draw previous reference points (light red, multiple)
 		if (referenceData?.previousReferencePoints) {
 			referenceData.previousReferencePoints.forEach((prevPoint) => {
-				drawGenericReferencePoint(svgElement, newScales, xScale, line, prevPoint, {
+				drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, prevPoint, {
 					groupClass: `reference-point`,
 					color: '#fecaca' // light red color, tailwind red 200
-				});
+				}, options.strokeWidth, addTooltip);
 			});
 		}
 
 		// Draw reference visualizations (on top of data lines)
 		// Draw current reference point (red)
-		drawGenericReferencePoint(svgElement, newScales, xScale, line, referenceData?.referencePoint, {
+		drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, referenceData?.referencePoint, {
 			groupClass: 'reference-point',
 			color: '#f87171' // Red color, tailwind red 400
-		});
+		}, options.strokeWidth, addTooltip);
 
-		drawReferenceSolutions(svgElement, newScales, xScale, line);
+		drawReferenceSolutionsImpl(
+			svgElement,
+			newScales,
+			xScale,
+			line,
+			dimensions,
+			referenceData,
+			options.strokeWidth,
+			addTooltip
+		);
 
 		// Draw main data lines
 		const lines = svgElement
 			.append('g')
 			.attr('class', 'data-lines')
-			.selectAll('path')
+			.selectAll<SVGPathElement, DataPoint>('path')
 			.data(data) // Bind data array
 			.join('path') // Create path element for each data point
 			.attr('d', (d, i) => {
 				// Convert data point to line coordinates
 				const lineData: [string, number][] = dimensions
-					.map((dim) => [dim.symbol, d[dim.symbol]])
+					.map((dim) => [dim.symbol, d[dim.symbol]] as [string, number])
 					.filter(([, value]) => value !== undefined && value !== null);
 				return line(lineData); // Generate SVG path string
 			})
@@ -867,61 +302,64 @@
 			.attr('class', (d, i) => `line line-${i}`) // Unique class for each line
 			.style('cursor', 'pointer'); // Show pointer cursor to indicate clickability
 
+		const updateVisibleLines = (
+			targetLines: d3.Selection<SVGPathElement, DataPoint, SVGGElement, unknown>
+		) => {
+			updateLineVisibilityImpl(
+				targetLines,
+				options,
+				isSelected,
+				(d) => passesFilters(d, brushFilters, scales)
+			);
+		};
+
 		// Set up brushing for each axis (must be done before line updates)
 		dimensions.forEach((dim) => {
 			const x = xScale(dim.symbol)!;
-			setupAxisBrushing(svgElement, dim.symbol, x, innerHeight, lines);
+			const brush = setupAxisBrushingImpl({
+				svgElement,
+				dimension: dim.symbol,
+				xPos: x,
+				innerHeight,
+				lines,
+				enableBrushing: options.enableBrushing,
+				brushFilters,
+				onUpdateLines: updateVisibleLines,
+				onBrushFilter
+			});
+
+			if (brush) {
+				brushes[dim.symbol] = brush;
+			}
 		});
 
 		// Apply initial line styling based on current state
-		updateLineVisibility(lines);
+		updateVisibleLines(lines);
 
-		// Add hover effects if enabled
-		if (options.highlightOnHover) {
-			lines
-				.on('mouseover', function (event, d) {
-					if (!passesFilters(d)) return; // Only highlight visible lines
+		attachHoverInteractions(
+			lines,
+			options.highlightOnHover,
+			options,
+			data,
+			lineLabels,
+			tooltip,
+			isSelected,
+			(d) => passesFilters(d, brushFilters, scales)
+		);
 
-					const index = data.indexOf(d);
-					// Temporarily increase stroke width on hover
-					d3.select(this).attr('stroke-width', options.strokeWidth + 2);
-
-					// Only show tooltip if there's a label
-					if (lineLabels[index]) {
-						tooltip.transition().duration(200).style('opacity', 0.9);
-						tooltip
-							.html(lineLabels[index])
-							.style('left', event.pageX + 10 + 'px')
-							.style('top', event.pageY - 28 + 'px');
-					}
-				})
-				.on('mouseout', function (event, d) {
-					const index = data.indexOf(d);
-
-					// Restore original stroke width
-					d3.select(this).attr(
-						'stroke-width',
-						isSelected(index) ? options.strokeWidth + 1 : options.strokeWidth
-					);
-					// Hide tooltip
-					tooltip.transition().duration(500).style('opacity', 0);
-				});
-		}
-
-		// Add click handler for line selection
-		lines.on('click', function (event, d) {
-			if (!passesFilters(d)) return; // Only allow clicking on visible lines
-
-			const index = data.indexOf(d);
-			handleLineClick(index, d); // Handle selection logic
-
-			updateLineVisibility(lines); // Update visual state
-		});
+		attachClickInteraction(
+			lines,
+			(d) => passesFilters(d, brushFilters, scales),
+			(index, d) => {
+				handleLineClick(index, d);
+				updateVisibleLines(lines);
+			}
+		);
 
 		// Add filter status information at the bottom
 		const activeFilters = Object.keys(brushFilters).length;
 		if (activeFilters > 0) {
-			const visibleLines = data.filter(passesFilters).length;
+			const visibleLines = data.filter((d) => passesFilters(d, brushFilters, scales)).length;
 			svgElement
 				.append('text')
 				.attr('class', 'filter-info')
