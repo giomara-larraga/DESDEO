@@ -84,6 +84,7 @@
 	 * @property {number | null} externalSelectedIndex - Optional index of solution to highlight from external source
 	 */
 	interface Props {
+		height?: number; // Height in pixels from parent container
 		problem: ProblemInfo | null;
 		previousPreferenceValues?: number[][];
 		previousObjectiveValues?: number[][];
@@ -109,6 +110,7 @@
 	}
 
 	const {
+		height = undefined,
 		problem,
 		previousPreferenceValues = [],
 		previousObjectiveValues,
@@ -217,16 +219,12 @@
 	// Current visualization type state
 	let visualizationType = $state<VisualizationType>('parallel');
 
-	// Calculate dynamic height for visualizations
-	const plotHeight = $derived(() => {
-		// Reserve space for header with visualization selector, instructions, and table
-		const reservedSpace = 50; // Increased to accommodate the visualization selector, adjust based on your layout, maybe a prop? TODO
-		return Math.max(containerSize.height - reservedSpace, 10);
-	});
+	// Use the height passed from parent
+	const plotHeight = $derived(height || Math.max(containerSize.height - 50, 10)); // Reserve 50px for controls, ensure minimum height of 10px
+
 </script>
 
 <!--
-/**
  * Component Template
  *
  * The visualization components handle their own internal resizing,
@@ -237,7 +235,7 @@
 <div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
-		<div class="mb-2 flex items-center justify-between">
+<!-- 		<div class="mb-2 flex items-center justify-between">
 			<h3>Visualization</h3>
 			<SegmentedControl
 				bind:value={visualizationType}
@@ -247,11 +245,10 @@
 				]}
 				class="invisible justify-end"
 			/>
-			<!--To implement the bar chart, remove the invisible class above and add the visualization below-->
-		</div>
+		</div> -->
 
 		<!-- Visualization Container with dynamic height -->
-		<div class="w-full border-t border-gray-200" style="height: {plotHeight()}px;">
+		<div class="w-full border-gray-200" style="height: {plotHeight}px;">
 			{#if visualizationType === 'parallel'}
 				<ParallelCoordinates
 					data={objectiveData()}

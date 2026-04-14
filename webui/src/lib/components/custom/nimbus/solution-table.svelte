@@ -560,7 +560,7 @@
 				<SolutionTableToolbar {table} />
 			{/if}
 		{/if}
-		<div class="overflow-auto rounded border shadow-sm">
+		<div class="w-full overflow-auto rounded border shadow-sm">
 			<!-- Header and previous solutions -->
 			<Table.Root>
 				<Table.Header>
@@ -635,3 +635,10 @@
 		{/if}
 	</div>
 {/if}
+<style>
+	:global(table) {
+		table-layout: fixed;
+		width: 100%;
+	}
+
+</style>

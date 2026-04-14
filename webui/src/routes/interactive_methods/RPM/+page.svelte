@@ -69,7 +69,7 @@
 	 *    - Removes sidebar and controls, presenting just the final results
 	 */
 	// Layout and core components
-	import { ExplainableLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
+	import { RXIMOLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
@@ -165,7 +165,7 @@
 	});
 
 	type PerturbedPointDisplayMode = 'all' | 'selected' | 'none';
-	let perturbed_points_mode: PerturbedPointDisplayMode = $state('all');
+	let perturbed_points_mode: PerturbedPointDisplayMode = $state('selected'); // Default to showing only the selected perturbed point
 
 	let perturbed_reference_point_values_for_plot = $derived.by(() => {
 		if (!problem || selected_type_solutions !== 'current') {
@@ -177,13 +177,13 @@
 			problem
 		);
 
-		if (perturbed_points_mode === 'none') {
+		/*if (perturbed_points_mode === 'none') {
 			return [];
 		}
 
 		if (perturbed_points_mode === 'all') {
 			return allPerturbed;
-		}
+		}*/
 
 		const selectedIndex = selectedIndexes[0];
 		if (selectedIndex === undefined || selectedIndex <= 0) {
@@ -204,7 +204,7 @@
 			problem
 		);
 
-		if (allPerturbed.length === 0 || perturbed_points_mode === 'none') {
+		if (allPerturbed.length === 0) {
 			return [];
 		}
 
@@ -217,9 +217,9 @@
 			return `Perturbed RP for ${solutionLabel}`;
 		};
 
-		if (perturbed_points_mode === 'all') {
+		/*if (perturbed_points_mode === 'all') {
 			return allPerturbed.map((_, perturbedIndex) => labelForSolution(perturbedIndex + 1));
-		}
+		}*/
 
 		const selectedIndex = selectedIndexes[0];
 		if (selectedIndex === undefined || selectedIndex <= 0) {
@@ -236,6 +236,14 @@
 	// Variable to track if problem has utopia metadata
 	let hasUtopiaMetadata = $state(false);
 	let background_dataset_id: number | null = $state(null);
+	let isLeftSidebarCollapsed = $state(false);
+	let isRightSidebarCollapsed = $state(false);
+
+	let canShowLeftSidebar = $derived(!!problem);
+	let canShowRightSidebar = $derived(enable_explanation && background_dataset_id !== null);
+	let hasRightSidebarContent = $derived(
+		canShowRightSidebar && mode === 'iterate' && !!problem && chosen_solutions.length > 0
+	);
 
 	// Variables for showing the map for UTOPIA - stores maps for all solutions
 	let mapStates: MapState[] = $state([]);
@@ -753,7 +761,7 @@
 					Regret and continue
 				</Button>
 		{/snippet} -->
-		{#snippet visualizationArea()}
+		{#snippet visualizationArea(height)}
 			{#if problem && selected_iteration_index.length > 0}
 				<!-- Resizable layout for visualizations -->
 				<div class="h-full">
@@ -762,6 +770,7 @@
 						<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
 							<!-- Visualization panel showing only the final selected solution -->
 							<VisualizationsPanel
+								{height}
 								{problem}
 								previousPreferenceValues={[last_iterated_preference]}
 								previousPreferenceType={type_preferences}
@@ -815,41 +824,54 @@
 	</BaseLayout>
 {:else}
 	<BaseLayout
-		showLeftSidebar={!!problem}
-		showRightSidebar={enable_explanation && background_dataset_id !== null}
+		showLeftSidebar={canShowLeftSidebar && !isLeftSidebarCollapsed}
+		showRightSidebar={hasRightSidebarContent && !isRightSidebarCollapsed}
 		bottomPanelTitle={selected_type_solutions_label}
 	>
 		{#snippet leftSidebar()}
-			{#if problem && mode === 'iterate'}
-				<AppSidebar
-					{problem}
-					preferenceTypes={[PREFERENCE_TYPES.Classification]}
-					showNumSolutions={false}
-					numSolutions={current_num_iteration_solutions}
-					typePreferences={type_preferences}
-					preferenceValues={current_preference}
-					objectiveValues={Object.values(selected_iteration_objectives)}
-					minNumSolutions={1}
-					maxNumSolutions={4}
-					lastIteratedPreference={last_iterated_preference}
-					onPreferenceChange={handle_preference_change}
-					onIterate={handle_iterate}
-					isFinishButton={false}
-				/>
-			{:else if problem && mode === 'intermediate'}
-				<div class="flex flex-col">
-					<IntermediateSidebar
-						currentSolutions={selected_solutions_for_intermediate}
-						bind:numSolutions={current_num_intermediate_solutions}
-						minNumSolutions={1}
-						maxNumSolutions={4}
-						onClick={handle_intermediate}
+			<div class="relative h-full">
+				<Button
+					onclick={() => (isLeftSidebarCollapsed = true)}
+					variant="outline"
+					size="icon"
+					class="absolute -right-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
+					aria-label="Hide left panel"
+					title="Hide left panel"
+				>
+					&lt;
+				</Button>
+
+				{#if problem && mode === 'iterate'}
+					<AppSidebar
+						{problem}
+						preferenceTypes={[PREFERENCE_TYPES.ReferencePoint]}
+						showNumSolutions={false}
+						numSolutions={current_num_iteration_solutions}
+						typePreferences={type_preferences}
+						preferenceValues={current_preference}
+						objectiveValues={Object.values(selected_iteration_objectives)}
+						lastIteratedPreference={last_iterated_preference}
+						onPreferenceChange={handle_preference_change}
+						onIterate={handle_iterate}
+						isFinishButton={false}
+						
 					/>
-				</div>
-			{/if}
+				{:else if problem && mode === 'intermediate'}
+					<div class="flex flex-col">
+						<IntermediateSidebar
+							currentSolutions={selected_solutions_for_intermediate}
+							bind:numSolutions={current_num_intermediate_solutions}
+							minNumSolutions={1}
+							maxNumSolutions={4}
+							onClick={handle_intermediate}
+						/>
+					</div>
+				{/if}
+			</div>
 		{/snippet}
 
 		{#snippet explorerControls()}
+			<div class="relative h-full flex-row flex items-center px-4">
 			<SegmentedControl
 				bind:value={mode}
 				options={[
@@ -865,7 +887,7 @@
 				onChange={handle_type_solutions_change}
 			/>
 
-			<span class="ml-4">Perturbed points:</span>
+<!-- 			<span class="ml-4">Perturbed points:</span>
 			<SegmentedControl
 				bind:value={perturbed_points_mode}
 				options={[
@@ -874,7 +896,7 @@
 					{ value: 'none', label: 'None' }
 				]}
 				class="mr-10"
-			/>
+			/> -->
 
 			<span
 				class="inline-block"
@@ -891,17 +913,47 @@
 					Finish
 				</Button>
 			</span>
+			</div>
 		{/snippet}
 
-		{#snippet visualizationArea()}
+		{#snippet visualizationArea(height)}
 			{#if problem && current_state}
 				<!-- Resizable layout for visualizations side by side -->
-				<div class="h-full">
+				<div class="relative h-full">
+					{#if canShowLeftSidebar}
+						<Button
+							onclick={() => (isLeftSidebarCollapsed = false)}
+							variant="outline"
+							size="icon"
+							class="fixed left-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
+							aria-label={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
+							title={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
+							hidden={!isLeftSidebarCollapsed}
+						>
+							&gt;
+						</Button>
+					{/if}
+
+					{#if hasRightSidebarContent}
+						<Button
+							onclick={() => (isRightSidebarCollapsed = false)}
+							variant="outline"
+							size="icon"
+							class="fixed right-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
+							aria-label={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
+							title={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
+							hidden={!isRightSidebarCollapsed}
+						>
+							&lt;
+						</Button>
+					{/if}
+
 					<Resizable.PaneGroup direction="horizontal" class="h-full">
 						<!-- Left side: VisualizationsPanel with constrained height -->
 						<Resizable.Pane defaultSize={65} minSize={40} maxSize={80} class="h-full">
 							<!-- Visualization panel that adapts to current mode -->
 							<VisualizationsPanel
+								{height}
 								{problem}
 								previousPreferenceValues={[last_iterated_preference]}
 								currentPreferenceValues={current_preference}
@@ -948,6 +1000,7 @@
 		{/snippet}
 		{#snippet numericalValues()}
 			{#if problem && chosen_solutions.length > 0}
+			<div class="relative h-full flex-row flex items-center px-4">
 				<SolutionTable
 					{problem}
 					solverResults={chosen_solutions}
@@ -975,17 +1028,31 @@
 							: []
 						: []}
 				/>
+				</div>
 			{/if}
 		{/snippet}
 		{#snippet rightSidebar()}
-			{#if problem && chosen_solutions.length > 0 && selected_type_solutions === 'current' && current_SHAP_values}
-				<RximoSidebar
-					{problem}
-					preferenceValues={current_preference}
-					solutions={chosen_solutions}
-					SHAP_values={current_SHAP_values}
-					isLoading={is_fetching_explanation}
-				/>
+			{#if hasRightSidebarContent && problem}
+				<div class="relative h-full">
+					<Button
+						onclick={() => (isRightSidebarCollapsed = true)}
+						variant="outline"
+						size="icon"
+						class="absolute -left-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
+						aria-label="Hide right panel"
+						title="Hide right panel"
+					>
+						&gt;
+					</Button>
+
+					<RximoSidebar
+						{problem}
+						preferenceValues={current_preference}
+						solutions={chosen_solutions}
+						SHAP_values={current_SHAP_values}
+						isLoading={is_fetching_explanation}
+					/>
+				</div>
 			{/if}
 		{/snippet}
 	</BaseLayout>
