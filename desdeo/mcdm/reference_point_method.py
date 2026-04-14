@@ -125,6 +125,7 @@ def get_perturbed_reference_points(
     problem: Problem,
     initial_objective_vector: np.ndarray,
     reference_point: dict[str, float],
+    clip_to_bounds: bool = True,
 ) -> list[dict[str, float]]:
     """Generates perturbed reference points based on a given reference point and solution.
 
@@ -137,12 +138,63 @@ def get_perturbed_reference_points(
     """
     reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
 
-    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
-    unit_vectors = np.eye(len(initial_objective_vector))
+    # if ideal and nadir are available, use them to determine the bounds for normalization. If not, use the initial solution and reference point to determine the bounds.
+    if not all(
+        obj.ideal is not None and obj.nadir is not None for obj in problem.objectives
+    ):
+        # Compute without normalization, assuming the reference point and initial solution are in a reasonable range.
+        distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
+        unit_vectors = np.eye(len(initial_objective_vector))
+        perturbed_reference_point_vectors = np.array(
+            [
+                reference_point_vector + (distance * unit_vectors[i])
+                for i in range(len(initial_objective_vector))
+            ]
+        )
+        if clip_to_bounds:
+            perturbed_reference_point_vectors = np.clip(
+                perturbed_reference_point_vectors,
+                np.minimum(reference_point_vector, initial_objective_vector),
+                np.maximum(reference_point_vector, initial_objective_vector),
+            )
 
-    perturbed_reference_point_vectors = reference_point_vector + (
-        distance * unit_vectors
-    )
+    else:
+        lower_bounds = np.zeros(len(problem.objectives), dtype=float)
+        upper_bounds = np.zeros(len(problem.objectives), dtype=float)
+
+        for idx, objective in enumerate(problem.objectives):
+            if objective.ideal is not None and objective.nadir is not None:
+                lower_bounds[idx] = min(float(objective.ideal), float(objective.nadir))
+                upper_bounds[idx] = max(float(objective.ideal), float(objective.nadir))
+            else:
+                # Fall back to local bounds if ideal/nadir are unavailable.
+                lower_bounds[idx] = min(
+                    reference_point_vector[idx], initial_objective_vector[idx]
+                )
+                upper_bounds[idx] = max(
+                    reference_point_vector[idx], initial_objective_vector[idx]
+                )
+
+        ranges = upper_bounds - lower_bounds
+        ranges = np.where(ranges == 0.0, 1.0, ranges)
+
+        normalized_reference = (reference_point_vector - lower_bounds) / ranges
+        normalized_initial = (initial_objective_vector - lower_bounds) / ranges
+
+        distance = np.linalg.norm(normalized_reference - normalized_initial)
+
+        unit_vectors = np.eye(len(initial_objective_vector))
+
+        normalized_perturbed_reference_point_vectors = normalized_reference + (
+            distance * unit_vectors
+        )
+        if clip_to_bounds:
+            normalized_perturbed_reference_point_vectors = np.clip(
+                normalized_perturbed_reference_point_vectors, 0.0, 1.0
+            )
+        perturbed_reference_point_vectors = (
+            normalized_perturbed_reference_point_vectors * ranges + lower_bounds
+        )
 
     perturbed_reference_points = [
         numpy_array_to_objective_dict(problem, v)
