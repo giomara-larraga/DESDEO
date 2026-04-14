@@ -413,17 +413,27 @@
 		}
 	}
 	// Function to handle removing saved solution with confirmation
-	function confirm_remove_saved(solution: Solution) {
+	function confirm_remove_saved(solution: Solution, rowIndex?: number) {
+		const normalizedSolution: Solution = {
+			...solution,
+			solution_index: solution.solution_index ?? rowIndex ?? null
+		};
+
 		openConfirmDialog({
 			title: 'Remove Saved Solution',
 			description: `Are you sure you want to remove ${solution.name || 'this solution'} from saved solutions?`,
 			confirmText: 'Remove',
 			cancelText: 'Cancel',
-			onConfirm: () => handle_remove_saved(solution)
+			onConfirm: () => handle_remove_saved(normalizedSolution)
 		});
 	}
 	// Actual function to remove the saved solution after confirmation
 	async function handle_remove_saved(solution: Solution) {
+		if (solution.solution_index === undefined || solution.solution_index === null) {
+			console.error('Cannot remove saved solution without a solution index.');
+			return;
+		}
+
 		const success = await handleRemoveSavedRequest(problem, solution);
 
 		if (success) {
@@ -435,12 +445,25 @@
 					)
 			);
 
+			const syncNamesWithSavedSolutions = (list: Solution[]) =>
+				list.map((item) => {
+					const matchingSaved = updatedSavedSolutions.find(
+						(saved) =>
+							saved.state_id === item.state_id && saved.solution_index === item.solution_index
+					);
+
+					return {
+						...item,
+						name: matchingSaved?.name ?? null
+					};
+				});
+
 			// Update state with removed solution
 			current_state = {
 				...current_state,
-				saved_solutions: updatedSavedSolutions
-				// No need to update current_solutions or all_solutions as they should remain unchanged
-				// We just need to remove the solution from saved_solutions
+				current_solutions: syncNamesWithSavedSolutions(current_state.current_solutions),
+				saved_solutions: updatedSavedSolutions,
+				all_solutions: syncNamesWithSavedSolutions(current_state.all_solutions)
 			};
 		}
 	}

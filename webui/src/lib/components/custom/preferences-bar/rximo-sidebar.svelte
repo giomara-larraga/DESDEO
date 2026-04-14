@@ -111,33 +111,11 @@
 						/>
 					</div>
 
-					<Tabs.Root value="guide" class="w-full">
+					<Tabs.Root value="influences" class="w-full">
 						<Tabs.List class="grid w-full grid-cols-3">
-							<Tabs.Trigger value="guide">Guide</Tabs.Trigger>
 							<Tabs.Trigger value="influences">Influences</Tabs.Trigger>
 							<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 						</Tabs.List>
-
-						<Tabs.Content value="guide" class="mt-3 w-full">
-							<div>
-								<div class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600">
-									<span>Next reference point</span>
-									<Tooltip.Root>
-										<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
-											<InfoIcon class="h-3.5 w-3.5" />
-										</Tooltip.Trigger>
-										<Tooltip.Content sideOffset={6} class="max-w-64">
-											This guide ranks aspirations for the selected outcome and suggests whether to tighten or relax each one when setting the next reference point.
-										</Tooltip.Content>
-									</Tooltip.Root>
-								</div>
-								<ShapReferenceGuide
-									shapRow={selectedRow}
-									selectedOutputSymbol={selectedObjectiveSymbol}
-									{problem}
-								/>
-							</div>
-						</Tabs.Content>
 
 						<Tabs.Content value="influences" class="mt-3 w-full">
 							<div>

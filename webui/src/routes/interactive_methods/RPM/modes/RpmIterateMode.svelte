@@ -6,7 +6,7 @@
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
-	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
+	import SolutionTable from '$lib/components/custom/expandible-solution-table/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar.svelte';
@@ -90,9 +90,27 @@
 		confirm_finish: () => void;
 		handle_save: (solution: Solution, name: string | undefined) => Promise<void>;
 		handle_change: (solution: Solution) => void;
-		confirm_remove_saved: (solution: Solution) => void;
+		confirm_remove_saved: (solution: Solution, rowIndex?: number) => void;
 		isSaved: (solution: Solution) => boolean;
 	} = $props();
+
+	let primary_table_solution = $derived.by(() =>
+		chosen_solutions.length > 0 ? [chosen_solutions[0]] : []
+	);
+	let collapsed_solutions = $derived.by(() => chosen_solutions.slice(1));
+	let collapsed_solution_indexes = $derived.by(() =>
+		collapsed_solutions.map((_, index) => index + 1)
+	);
+	let use_expandable_rows = $derived(selected_type_solutions === 'current');
+	let table_solver_results = $derived.by(() =>
+		use_expandable_rows ? primary_table_solution : chosen_solutions
+	);
+	let table_expanded_rows = $derived.by(() =>
+		use_expandable_rows ? collapsed_solutions : []
+	);
+	let table_expanded_row_indexes = $derived.by(() =>
+		use_expandable_rows ? collapsed_solution_indexes : []
+	);
 </script>
 
 <BaseLayout
@@ -247,7 +265,9 @@
 			<div class="relative h-full flex-row flex items-center px-4">
 				<SolutionTable
 					{problem}
-					solverResults={chosen_solutions}
+					solverResults={table_solver_results}
+					expandedRowsData={table_expanded_rows}
+					expandedRowIndexes={table_expanded_row_indexes}
 					selectedSolutions={selectedIndexes}
 					{handle_save}
 					{handle_change}

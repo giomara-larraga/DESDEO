@@ -6,8 +6,8 @@
 	 *
 	 * X axis  = reference-point aspirations (input symbols, e.g. "z_f1")
 	 * Y axis  = SHAP value
-	 * Color   = red (#C00000) positive, dark-blue (#00008B) negative
-	 * Black   = the bar corresponding to the selected objective's own aspiration
+	 * Color   = blue for improving effects, red for impairing effects
+	 * Highlight = the selected objective's own aspiration gets a dark outline
 	 */
 	import * as d3 from 'd3';
 	import { onMount, onDestroy } from 'svelte';
@@ -31,14 +31,18 @@
 		Object.fromEntries(problem.objectives.map((o) => [o.symbol, o.maximize ?? false]))
 	);
 
+	const selectedOutputMaximize = $derived(objMaximizeMap[selectedOutputSymbol] ?? false);
+
 	const entries = $derived(
 		Object.entries(shapRow).map(([inputSym, value]) => {
 			const outSym = inputSym.startsWith('z_') ? inputSym.slice(2) : inputSym;
+			const helpful = selectedOutputMaximize ? value > 0 : value < 0;
 			return {
 				inputSym,
 				outSym,
 				name: objNameMap[outSym] ?? outSym,
 				value,
+				helpful,
 				isSelected: outSym === selectedOutputSymbol
 			};
 		})
@@ -51,13 +55,13 @@
 		return maximize ? ownVal < 0 : ownVal > 0;
 	});
 
-	/** Name of the most helpful lever (aspiration) for the selected objective */
-	const bestLeverName = $derived(() => {
+	/** Aspiration to relax first: most impairing, or least improving if all are improving */
+	const relaxFirstName = $derived(() => {
 		const maximize = objMaximizeMap[selectedOutputSymbol] ?? false;
 		if (entries.length === 0) return '';
-		// For minimize: most negative SHAP is best; for maximize: most positive
+		// For maximize, smaller SHAP values are worse. For minimize, larger SHAP values are worse.
 		const sorted = [...entries].sort((a, b) =>
-			maximize ? b.value - a.value : a.value - b.value
+			maximize ? a.value - b.value : b.value - a.value
 		);
 		return sorted[0].name;
 	});
@@ -97,20 +101,14 @@
 		const yMax = Math.max(0, d3.max(vals) ?? 1e-9);
 		const y = d3.scaleLinear().domain([yMin, yMax]).range([ih, 0]).nice();
 
-		const _impaired = isImpaired();
-		const _best = bestLeverName();
+		const _relaxFirst = relaxFirstName();
 
 		// Bars
 		for (const e of entries) {
-			const isOwnImpaired = e.isSelected && _impaired;
-			const isBestLever = e.name === _best;
-			const fill = isOwnImpaired
-				? '#d97706'
-				: e.isSelected
-					? '#111827'
-					: e.value >= 0
-						? '#C00000'
-						: '#00008B';
+			const isRelaxFirst = e.name === _relaxFirst;
+			const fill = e.helpful ? '#1d4ed8' : '#C00000';
+			const stroke = e.isSelected ? '#111827' : 'none';
+			const strokeWidth = e.isSelected ? 2 : 0;
 
 			const bx = x(e.name) ?? 0;
 			const by = e.value >= 0 ? y(e.value) : y(0);
@@ -122,14 +120,17 @@
 				.attr('width', x.bandwidth())
 				.attr('height', bh)
 				.attr('fill', fill)
+				.attr('stroke', stroke)
+				.attr('stroke-width', strokeWidth)
 				.attr('rx', 2)
 				.on('mouseover', (ev: MouseEvent) => {
 					tooltipX = ev.pageX;
 					tooltipY = ev.pageY;
 					const label = e.isSelected ? `${e.name} (own aspiration)` : e.name;
-					const warn = isOwnImpaired ? ' ⚠ relaxing this may help' : '';
-					const star = isBestLever && !e.isSelected ? ' ★ most helpful aspiration' : '';
-					tooltipContent = `${label}: ${e.value.toFixed(3)}${warn}${star}`;
+					const impact = e.helpful ? ' improving effect' : ' impairing effect';
+					const warn = e.isSelected && !e.helpful ? ' ⚠ relaxing this may help' : '';
+					const star = isRelaxFirst ? ' ★ relax this aspiration first' : '';
+					tooltipContent = `${label}: ${e.value.toFixed(3)}${impact}${warn}${star}`;
 					tooltipVisible = true;
 				})
 				.on('mousemove', (ev: MouseEvent) => {
@@ -140,8 +141,8 @@
 					tooltipVisible = false;
 				});
 
-			// Best-lever star glyph above bar
-			if (isBestLever) {
+			// Relax-first star glyph above bar
+			if (isRelaxFirst) {
 				const starY = e.value >= 0 ? by - 3 : by + bh + 10;
 				g.append('text')
 					.attr('x', bx + x.bandwidth() / 2)
@@ -213,14 +214,19 @@
 	{#if isImpaired()}
 		<p class="mt-0.5 text-[10px] text-amber-600">
 			⚠ This aspiration may be too strict.
-			{#if bestLeverName()}
-				Most helpful aspiration: <strong>{bestLeverName()}</strong>
+			{#if relaxFirstName()}
+				Relax first: <strong>{relaxFirstName()}</strong>
 				<span class="text-green-700">★</span>
 			{/if}
 		</p>
-	{:else if bestLeverName()}
+		<p class="mt-0.5 text-[10px] text-amber-600/90">
+			Even if this target is still below its theoretical best value, the rest of the reference point may
+			already place the outcome near a local ceiling. Tightening it further can then have an impairing effect.
+		</p>
+	{:else if relaxFirstName()}
 		<p class="mt-0.5 text-[10px] text-gray-500">
-			★ Most helpful aspiration: <span class="font-medium text-green-700">{bestLeverName()}</span>
+			★ If you need to relax one aspiration to improve this outcome, start with
+			<span class="font-medium text-green-700"> {relaxFirstName()}</span>
 		</p>
 	{/if}
 	{#if tooltipVisible}

@@ -6,12 +6,11 @@
 	 *
 	 * Rows    = objective outcomes  (output symbols, e.g. "f1")
 	 * Columns = reference-point aspirations (input symbols, e.g. "z_f1")
-	 * Color   = diverging RdBu scale centred at 0
+	 * Color   = blue for improving effects, red for impairing effects
 	 * Text    = SHAP value formatted to 2 decimal places
 	 */
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import * as d3 from 'd3';
 	import type { ProblemInfo } from '$lib/types';
 
 	interface Props {
@@ -42,37 +41,38 @@
 		})
 	);
 
-	// ── Color scale (RdBu diverging, centred at 0) ───────────────────────────
+	// ── Color intensity scale ────────────────────────────────────────────────
 	const allValues = $derived(
 		rowSymbols.flatMap((r) => colSymbols.map((c) => shapValues[r][c]))
 	);
 	const absMax = $derived(Math.max(1e-9, ...allValues.map(Math.abs)));
 
-	// d3.interpolateRdBu: 0 = red, 1 = blue  →  domain [+absMax, -absMax]
-	const colorScale = $derived(
-		d3.scaleSequential(d3.interpolateRdBu).domain([absMax, -absMax])
-	);
-
 	// ── SVG layout constants ─────────────────────────────────────────────────
 	const CELL = 52;
 	const LABEL_W = 88; // left margin for row labels
 	const TOP_MARGIN = 86; // top margin for rotated column labels
-	const LEGEND_GAP = 28;
-	const LEGEND_H = 14;
-	const LEGEND_LABEL_H = 14;
 
 	const svgWidth = $derived(LABEL_W + colSymbols.length * CELL);
-	const svgHeight = $derived(
-		TOP_MARGIN + rowSymbols.length * CELL + LEGEND_GAP + LEGEND_H + LEGEND_LABEL_H + 4
-	);
+	const svgHeight = $derived(TOP_MARGIN + rowSymbols.length * CELL + 8);
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	function fmt(v: number): string {
 		return v.toFixed(2);
 	}
 
+	function cellIsImproving(row: string, col: string): boolean {
+		const maximize = objMaximizeMap[row] ?? false;
+		const value = shapValues[row][col];
+		return maximize ? value > 0 : value < 0;
+	}
+
 	function cellFill(row: string, col: string): string {
-		return colorScale(shapValues[row][col]);
+		const value = shapValues[row][col];
+		const intensity = Math.min(1, Math.abs(value) / absMax);
+		const channel = Math.round(245 - intensity * 110);
+		return cellIsImproving(row, col)
+			? `rgb(${channel}, ${channel + 5}, 255)`
+			: `rgb(255, ${channel}, ${channel})`;
 	}
 
 	/** Use white text on strongly-coloured cells, dark text on pale ones */
@@ -92,15 +92,15 @@
 	);
 
 	/**
-	 * For a given output symbol, return the input symbol that is the best lever:
-	 * most helpful = most negative SHAP for minimise, most positive for maximise.
+	 * For a given output symbol, return the aspiration to relax first:
+	 * most impairing, or least improving if none are impairing.
 	 */
-	function bestLeverCol(rowSym: string): string {
+	function relaxFirstCol(rowSym: string): string {
 		const maximize = objMaximizeMap[rowSym] ?? false;
 		const row = shapValues[rowSym];
 		let best = colSymbols[0];
 		for (const col of colSymbols) {
-			if (maximize ? row[col] > row[best] : row[col] < row[best]) best = col;
+			if (maximize ? row[col] < row[best] : row[col] > row[best]) best = col;
 		}
 		return best;
 	}
@@ -116,21 +116,9 @@
 		return maximize ? v < 0 : v > 0;
 	}
 
-	// Legend gradient stops
-	const GRADIENT_ID = 'shap-legend-gradient';
-	const STOPS = 12;
-	const legendStops = $derived(
-		Array.from({ length: STOPS + 1 }, (_, i) => {
-			const t = i / STOPS;
-			const val = -absMax + 2 * absMax * t;
-			return { pct: t * 100, color: colorScale(val) };
-		})
-	);
-
 	// SVG coordinates computed here so they can be used in templates without {@const}
 	const axisX = 7;
 	const axisY = $derived(TOP_MARGIN + (rowSymbols.length * CELL) / 2);
-	const legendY = $derived(TOP_MARGIN + rowSymbols.length * CELL + LEGEND_GAP);
 </script>
 
 <div class="w-full">
@@ -140,14 +128,6 @@
 		class="block h-auto w-full"
 		aria-label="SHAP values heatmap"
 	>
-		<defs>
-			<linearGradient id={GRADIENT_ID} x1="0%" y1="0%" x2="100%" y2="0%">
-				{#each legendStops as stop}
-					<stop offset="{stop.pct}%" stop-color={stop.color} />
-				{/each}
-			</linearGradient>
-		</defs>
-
 		<!-- ── Column headers (rotated -45°) ──────────────────────────────── -->
 		{#each colSymbols as col, ci}
 			{@const cx = LABEL_W + ci * CELL + CELL / 2}
@@ -180,7 +160,7 @@
 		<!-- ── Rows ──────────────────────────────────────────────────────── -->
 		{#each rowSymbols as row, ri}
 			{@const cy = TOP_MARGIN + ri * CELL + CELL / 2}
-			{@const best = bestLeverCol(row)}
+			{@const best = relaxFirstCol(row)}
 			{@const impairs = diagonalImpairs(row)}
 
 			<!-- Row label – amber if diagonal impairs -->
@@ -214,7 +194,7 @@
 					stroke-width={isDiag ? 2.5 : 2}
 					rx="3"
 				>
-					<title>{rowLabels[ri]} ← {colLabels[ci]}: {fmt(shapValues[row][col])}{isDiag ? ' (own aspiration)' : ''}{isBest ? ' ★ most helpful aspiration' : ''}</title>
+					<title>{rowLabels[ri]} ← {colLabels[ci]}: {fmt(shapValues[row][col])} ({cellIsImproving(row, col) ? 'improving' : 'impairing'} effect){isDiag ? ' (own aspiration)' : ''}{isBest ? ' ★ relax this aspiration first' : ''}</title>
 				</rect>
 
 				<text
@@ -265,47 +245,15 @@
 		>
 			← Outcomes
 		</text>
-
-		<!-- ── Legend ────────────────────────────────────────────────────── -->
-		<rect
-			x={LABEL_W}
-			y={legendY}
-			width={colSymbols.length * CELL}
-			height={LEGEND_H}
-			fill="url(#{GRADIENT_ID})"
-			rx="3"
-		/>
-		<!-- Legend tick labels -->
-		<text x={LABEL_W} y={legendY + LEGEND_H + 11} font-size="9" fill="#6b7280" text-anchor="start">
-			{fmt(-absMax)}
-		</text>
-		<text
-			x={LABEL_W + (colSymbols.length * CELL) / 2}
-			y={legendY + LEGEND_H + 11}
-			font-size="9"
-			fill="#6b7280"
-			text-anchor="middle"
-		>
-			0
-		</text>
-		<text
-			x={LABEL_W + colSymbols.length * CELL}
-			y={legendY + LEGEND_H + 11}
-			font-size="9"
-			fill="#6b7280"
-			text-anchor="end"
-		>
-			{fmt(absMax)}
-		</text>
 	</svg>
 	<div class="mt-2 flex items-start gap-1 text-[11px] text-gray-500">
-		<span>Heatmap values show relative impact, not how many units to change an aspiration.</span>
+		<span>Blue cells improve the outcome, red cells impair it. Color intensity shows relative impact, not how many units to change an aspiration.</span>
 		<Tooltip.Root>
 			<Tooltip.Trigger class="mt-0.5 inline-flex items-center text-gray-400 hover:text-gray-600">
 				<InfoIcon class="h-3.5 w-3.5" />
 			</Tooltip.Trigger>
 			<Tooltip.Content sideOffset={6} class="max-w-72">
-				Each cell value is an explanation score that compares how strongly an aspiration affects an outcome. It is not a recommended unit change for the next reference point.
+				Each cell value is an explanation score that compares how strongly an aspiration affects an outcome. Blue means the aspiration currently supports that outcome; red means it currently works against it. The number is not a recommended unit change for the next reference point.
 			</Tooltip.Content>
 		</Tooltip.Root>
 	</div>
