@@ -69,37 +69,27 @@
 	 *    - Removes sidebar and controls, presenting just the final results
 	 */
 	// Layout and core components
-	import { RXIMOLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage, isLoading } from '../../../stores/uiState';
 	import { onMount } from 'svelte';
 	import LoadingSpinner from '$lib/components/custom/notifications/loading-spinner.svelte';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
-
-	// UI Components
-	import { Combobox } from '$lib/components/ui/combobox';
-	import { SegmentedControl } from '$lib/components/custom/segmented-control';
-	import * as Resizable from '$lib/components/ui/resizable/index.js';
-	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import { openConfirmDialog, openInputDialog } from '$lib/components/custom/dialogs/dialogs';
 
-	// Reference Point specific components
-	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
-	import IntermediateSidebar from '$lib/components/custom/nimbus/intermediate-sidebar.svelte';
-	import SolutionTable from '$lib/components/custom/nimbus/solution-table.svelte';
-	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
-	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
+	// Mode UI components
+	import RpmFinalMode from './modes/RpmFinalMode.svelte';
+	import RpmHistoryMode from './modes/RpmHistoryMode.svelte';
+	import RpmIterateMode from './modes/RpmIterateMode.svelte';
+	import RpmIntermediateMode from './modes/RpmIntermediateMode.svelte';
+
+	// Reference Point specific constants
 	import { PREFERENCE_TYPES } from '$lib/constants';
-	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar.svelte';
 
 	// Utility functions
 	import {
 		checkUtopiaMetadata,
-		mapSolutionsToObjectiveValues,
 		mapReferencePointsToObjectiveValues,
 		updatePreferencesFromState,
-		processPreviousObjectiveValues,
 		updateSolutionNames
 	} from './helper-functions';
 
@@ -114,7 +104,7 @@
 	const { data } = $props<{ data: ProblemInfo[] }>();
 	let problem_list = $derived(data.problems ?? []);
 	// user can choose from three types of solutions: current, best, or all
-	let selected_type_solutions = $state('current');
+	let selected_type_solutions: SolutionType = $state('current');
 	const frameworks = [
 		{ value: 'current', label: 'Current solutions' },
 		{ value: 'best', label: 'Best candidate solutions' },
@@ -242,7 +232,7 @@
 	let canShowLeftSidebar = $derived(!!problem);
 	let canShowRightSidebar = $derived(enable_explanation && background_dataset_id !== null);
 	let hasRightSidebarContent = $derived(
-		canShowRightSidebar && mode === 'iterate' && !!problem && chosen_solutions.length > 0
+		canShowRightSidebar && (mode === 'iterate' ) && !!problem && chosen_solutions.length > 0
 	);
 
 	// Variables for showing the map for UTOPIA - stores maps for all solutions
@@ -339,7 +329,6 @@
 		get_maps as getMapsRequest,
 		explainWithRXIMO
 	} from './handlers';
-	import EndStateView from '../GNIMBUS/components/EndStateView.svelte';
 
 	// Handle intermediate solutions generation
 	async function handle_intermediate() {
@@ -729,6 +718,80 @@
 		type_preferences = data.typePreferences;
 		current_preference = [...data.preferenceValues];
 	}
+
+	let finalModeProps = $derived.by(() => ({
+		problem,
+		selected_iteration_index,
+		chosen_solutions,
+		hasUtopiaMetadata,
+		mapState,
+		last_iterated_preference,
+		type_preferences,
+		perturbed_reference_point_values_for_plot: perturbed_reference_point_values_for_plot as any,
+		perturbed_reference_point_labels_for_plot
+	}));
+
+	let historyModeProps = $derived.by(() => ({
+		problem,
+		hasRightSidebarContent
+	}));
+
+	let intermediateModeProps = $derived.by(() => ({
+		problem,
+		current_state,
+		selected_type_solutions,
+		frameworks,
+		selected_type_solutions_label,
+		canShowLeftSidebar,
+		selected_solutions_for_intermediate,
+		last_iterated_preference,
+		type_preferences,
+		current_preference,
+		chosen_solutions,
+		selectedIndexes,
+		perturbed_reference_point_values_for_plot: perturbed_reference_point_values_for_plot as any,
+		perturbed_reference_point_labels_for_plot,
+		handle_type_solutions_change,
+		handle_intermediate,
+		handle_solution_click,
+		confirm_finish,
+		handle_save,
+		handle_change,
+		confirm_remove_saved,
+		isSaved
+	}));
+
+	let iterateModeProps = $derived.by(() => ({
+		problem,
+		current_state,
+		selected_type_solutions,
+		frameworks,
+		selected_type_solutions_label,
+		canShowLeftSidebar,
+		hasRightSidebarContent,
+		current_num_iteration_solutions,
+		type_preferences,
+		current_preference,
+		selected_iteration_objectives,
+		last_iterated_preference,
+		chosen_solutions,
+		selectedIndexes,
+		hasUtopiaMetadata,
+		mapState,
+		perturbed_reference_point_values_for_plot: perturbed_reference_point_values_for_plot as any,
+		perturbed_reference_point_labels_for_plot,
+		current_SHAP_values,
+		is_fetching_explanation,
+		handle_type_solutions_change,
+		handle_preference_change,
+		handle_iterate,
+		handle_solution_click,
+		confirm_finish,
+		handle_save,
+		handle_change,
+		confirm_remove_saved,
+		isSaved
+	}));
 </script>
 
 <svelte:head>
@@ -749,311 +812,28 @@
 {/if}
 
 {#if mode === 'final'}
-	<BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
-		<!-- This commented-out button exists so that it is easy to implement reverting back from final solution, if need be. It works. -->
-		<!-- {#snippet explorerControls()}
-				<Button
-					onclick={()=> mode = 'iterate'}
-					disabled={selectedIndexes.length !== 1}
-					variant="destructive"
-					class="ml-10"
-				>
-					Regret and continue
-				</Button>
-		{/snippet} -->
-		{#snippet visualizationArea(height)}
-			{#if problem && selected_iteration_index.length > 0}
-				<!-- Resizable layout for visualizations -->
-				<div class="h-full">
-					<Resizable.PaneGroup direction="horizontal" class="h-full">
-						<!-- Left side: VisualizationsPanel with constrained height -->
-						<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
-							<!-- Visualization panel showing only the final selected solution -->
-							<VisualizationsPanel
-								{height}
-								{problem}
-								previousPreferenceValues={[last_iterated_preference]}
-								previousPreferenceType={type_preferences}
-								currentPreferenceValues={[]}
-								currentPreferenceType={type_preferences}
-								perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
-								referenceDataLabels={{
-									perturbedRefLabels: perturbed_reference_point_labels_for_plot
-								}}
-								solutionsObjectiveValues={problem
-									? mapSolutionsToObjectiveValues(
-											[chosen_solutions[selected_iteration_index[0]]],
-											problem
-										)
-									: []}
-								externalSelectedIndexes={selected_iteration_index}
-								onSelectSolution={() => {}}
-							/>
-						</Resizable.Pane>
-
-						<!-- Right side: Decision space placeholder, only shown for problems with utopia metadata -->
-						{#if hasUtopiaMetadata}
-							<!-- Resizable handle between panels with custom styling -->
-							<ResizableHandle withHandle class="border-l border-gray-200 shadow-sm" />
-
-							<!-- Map visualization -->
-							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
-								<UtopiaMap
-									mapOptions={mapState.mapOptions}
-									bind:selectedPeriod={mapState.selectedPeriod}
-									yearlist={mapState.yearlist}
-									geoJSON={mapState.geoJSON}
-									mapName={mapState.mapName}
-									mapDescription={mapState.mapDescription}
-								/>
-							</Resizable.Pane>
-						{/if}
-					</Resizable.PaneGroup>
-				</div>
-			{:else}
-				<div class="flex h-full items-center justify-center text-gray-500">
-					No problem data available for visualization
-				</div>
-			{/if}
-		{/snippet}
-		{#snippet numericalValues()}
-			{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
-				<EndStateView {problem} tableData={[chosen_solutions[selected_iteration_index[0]] as any]} />
-			{/if}
-		{/snippet}
-	</BaseLayout>
+	<RpmFinalMode {...finalModeProps} />
+{:else if mode === 'history'}
+	<RpmHistoryMode
+		{...historyModeProps}
+		bind:mode={mode}
+		bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
+		bind:isRightSidebarCollapsed={isRightSidebarCollapsed}
+	/>
 {:else}
-	<BaseLayout
-		showLeftSidebar={canShowLeftSidebar && !isLeftSidebarCollapsed}
-		showRightSidebar={hasRightSidebarContent && !isRightSidebarCollapsed}
-		bottomPanelTitle={selected_type_solutions_label}
-	>
-		{#snippet leftSidebar()}
-			<div class="relative h-full">
-				<Button
-					onclick={() => (isLeftSidebarCollapsed = true)}
-					variant="outline"
-					size="icon"
-					class="absolute -right-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-					aria-label="Hide left panel"
-					title="Hide left panel"
-				>
-					&lt;
-				</Button>
-
-				{#if problem && mode === 'iterate'}
-					<AppSidebar
-						{problem}
-						preferenceTypes={[PREFERENCE_TYPES.ReferencePoint]}
-						showNumSolutions={false}
-						numSolutions={current_num_iteration_solutions}
-						typePreferences={type_preferences}
-						preferenceValues={current_preference}
-						objectiveValues={Object.values(selected_iteration_objectives)}
-						lastIteratedPreference={last_iterated_preference}
-						onPreferenceChange={handle_preference_change}
-						onIterate={handle_iterate}
-						isFinishButton={false}
-						
-					/>
-				{:else if problem && mode === 'intermediate'}
-					<div class="flex flex-col">
-						<IntermediateSidebar
-							currentSolutions={selected_solutions_for_intermediate}
-							bind:numSolutions={current_num_intermediate_solutions}
-							minNumSolutions={1}
-							maxNumSolutions={4}
-							onClick={handle_intermediate}
-						/>
-					</div>
-				{/if}
-			</div>
-		{/snippet}
-
-		{#snippet explorerControls()}
-			<div class="relative h-full flex-row flex items-center px-4">
-			<SegmentedControl
-				bind:value={mode}
-				options={[
-					{ value: 'iterate', label: 'Iterate' },
-					{ value: 'intermediate', label: 'Find intermediate' }
-				]}
-				class="mr-10"
-			/>
-			<span>View: </span>
-			<Combobox
-				options={frameworks}
-				defaultSelected={selected_type_solutions}
-				onChange={handle_type_solutions_change}
-			/>
-
-<!-- 			<span class="ml-4">Perturbed points:</span>
-			<SegmentedControl
-				bind:value={perturbed_points_mode}
-				options={[
-					{ value: 'all', label: 'All' },
-					{ value: 'selected', label: 'Selected solution' },
-					{ value: 'none', label: 'None' }
-				]}
-				class="mr-10"
-			/> -->
-
-			<span
-				class="inline-block"
-				title={selectedIndexes.length !== 1
-					? 'Please select exactly one solution to finish with it.'
-					: 'Select final solution and finish the NIMBUS method with it'}
-			>
-				<Button
-					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
-					disabled={selectedIndexes.length !== 1 || current_state.response_type === 'rpm.finalize'}
-					variant="destructive"
-					class="ml-10"
-				>
-					Finish
-				</Button>
-			</span>
-			</div>
-		{/snippet}
-
-		{#snippet visualizationArea(height)}
-			{#if problem && current_state}
-				<!-- Resizable layout for visualizations side by side -->
-				<div class="relative h-full">
-					{#if canShowLeftSidebar}
-						<Button
-							onclick={() => (isLeftSidebarCollapsed = false)}
-							variant="outline"
-							size="icon"
-							class="fixed left-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-							aria-label={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-							title={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-							hidden={!isLeftSidebarCollapsed}
-						>
-							&gt;
-						</Button>
-					{/if}
-
-					{#if hasRightSidebarContent}
-						<Button
-							onclick={() => (isRightSidebarCollapsed = false)}
-							variant="outline"
-							size="icon"
-							class="fixed right-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-							aria-label={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-							title={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-							hidden={!isRightSidebarCollapsed}
-						>
-							&lt;
-						</Button>
-					{/if}
-
-					<Resizable.PaneGroup direction="horizontal" class="h-full">
-						<!-- Left side: VisualizationsPanel with constrained height -->
-						<Resizable.Pane defaultSize={65} minSize={40} maxSize={80} class="h-full">
-							<!-- Visualization panel that adapts to current mode -->
-							<VisualizationsPanel
-								{height}
-								{problem}
-								previousPreferenceValues={[last_iterated_preference]}
-								currentPreferenceValues={current_preference}
-								previousPreferenceType={type_preferences}
-								currentPreferenceType={type_preferences}
-								perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
-								referenceDataLabels={{
-									perturbedRefLabels: perturbed_reference_point_labels_for_plot
-								}}
-								solutionsObjectiveValues={problem
-									? mapSolutionsToObjectiveValues(chosen_solutions, problem)
-									: []}
-								previousObjectiveValues={selected_type_solutions === 'current'
-									? processPreviousObjectiveValues(current_state, problem)
-									: []}
-								externalSelectedIndexes={selectedIndexes}
-								onSelectSolution={handle_solution_click}
-							/>
-						</Resizable.Pane>
-
-						{#if mode === 'iterate' && hasUtopiaMetadata}
-							<!-- Resizable handle between panels -->
-							<ResizableHandle withHandle class=" border-4 border-gray-200 shadow-sm" />
-
-							<!-- Right side: Decision space placeholder, for UTOPIA it is a map -->
-							<Resizable.Pane defaultSize={35} minSize={20} class="h-full">
-								<UtopiaMap
-									mapOptions={mapState.mapOptions}
-									bind:selectedPeriod={mapState.selectedPeriod}
-									yearlist={mapState.yearlist}
-									geoJSON={mapState.geoJSON}
-									mapName={mapState.mapName}
-									mapDescription={mapState.mapDescription}
-								/>
-							</Resizable.Pane>
-						{/if}
-					</Resizable.PaneGroup>
-				</div>
-			{:else}
-				<div class="flex h-full items-center justify-center text-gray-500">
-					No problem data available for visualization
-				</div>
-			{/if}
-		{/snippet}
-		{#snippet numericalValues()}
-			{#if problem && chosen_solutions.length > 0}
-			<div class="relative h-full flex-row flex items-center px-4">
-				<SolutionTable
-					{problem}
-					solverResults={chosen_solutions}
-					selectedSolutions={selectedIndexes}
-					{handle_save}
-					{handle_change}
-					handle_remove_saved={confirm_remove_saved}
-					handle_row_click={handle_solution_click}
-					{isSaved}
-					{selected_type_solutions}
-					secondaryObjectiveValues={selected_type_solutions === 'current'
-						? problem
-							? [
-									// Add previous_objectives if it exists
-									...(current_state.previous_objectives ? [current_state.previous_objectives] : []),
-									// Add reference_solution_1 if it exists
-									...(current_state.reference_solution_1
-										? [current_state.reference_solution_1]
-										: []),
-									// Add reference_solution_2 if it exists
-									...(current_state.reference_solution_2
-										? [current_state.reference_solution_2]
-										: [])
-								]
-							: []
-						: []}
-				/>
-				</div>
-			{/if}
-		{/snippet}
-		{#snippet rightSidebar()}
-			{#if hasRightSidebarContent && problem}
-				<div class="relative h-full">
-					<Button
-						onclick={() => (isRightSidebarCollapsed = true)}
-						variant="outline"
-						size="icon"
-						class="absolute -left-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-						aria-label="Hide right panel"
-						title="Hide right panel"
-					>
-						&gt;
-					</Button>
-
-					<RximoSidebar
-						{problem}
-						preferenceValues={current_preference}
-						solutions={chosen_solutions}
-						SHAP_values={current_SHAP_values}
-						isLoading={is_fetching_explanation}
-					/>
-				</div>
-			{/if}
-		{/snippet}
-	</BaseLayout>
+	{#if mode === 'intermediate'}
+		<RpmIntermediateMode
+			{...intermediateModeProps}
+			bind:mode={mode}
+			bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
+			bind:current_num_intermediate_solutions={current_num_intermediate_solutions}
+		/>
+	{:else}
+		<RpmIterateMode
+			{...iterateModeProps}
+			bind:mode={mode}
+			bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
+			bind:isRightSidebarCollapsed={isRightSidebarCollapsed}
+		/>
+	{/if}
 {/if}
