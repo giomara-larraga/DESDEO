@@ -20,10 +20,10 @@ from desdeo.mcdm.reference_point_method import rpm_solve_solutions
 from desdeo.problem import Problem, get_ideal_dict, get_nadir_dict
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
 
-problems = [river_pollution_problem()]
+problems = [river_pollution_problem(five_objective_variant=False)]
 
 BACKGROUND_DATA_METHOD = "reference_point_method"
-BACKGROUND_DATA_NUM_SAMPLES = 200
+BACKGROUND_DATA_NUM_SAMPLES = 300
 SUPPORTED_BACKGROUND_DATA_METHODS = {
     "reference_point_method",
     "random_reference_points",

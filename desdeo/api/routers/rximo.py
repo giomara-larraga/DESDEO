@@ -128,54 +128,50 @@ def explain_reference_point(
         }
     )
 
+    # Normalize all columns to [0, 1] so the KD-tree uses fair Euclidean distances.
+    # Ideal/nadir are preferred as bounds; fall back to dataset min/max when not set.
+    all_symbols = input_symbols + output_symbols
+    col_min: dict[str, float] = {}
+    col_max: dict[str, float] = {}
+    for objective in problem_db.objectives:
+        sym = objective.symbol
+        z_sym = f"z_{sym}"
+        lo = (
+            min(float(objective.ideal), float(objective.nadir))
+            if objective.ideal is not None and objective.nadir is not None
+            else float(problem_data[z_sym].min())
+        )
+        hi = (
+            max(float(objective.ideal), float(objective.nadir))
+            if objective.ideal is not None and objective.nadir is not None
+            else float(problem_data[z_sym].max())
+        )
+        col_min[z_sym] = col_min[sym] = lo
+        col_max[z_sym] = col_max[sym] = hi
+    col_range = {col: (col_max[col] - col_min[col]) or 1.0 for col in all_symbols}
+    norm_problem_data = problem_data.with_columns(
+        [
+            ((pl.col(col) - col_min[col]) / col_range[col]).alias(col)
+            for col in all_symbols
+        ]
+    )
+
     explainer = ShapExplainer(
-        problem_data=problem_data,
+        problem_data=norm_problem_data,
         input_symbols=input_symbols,
         output_symbols=output_symbols,
     )
 
-    # Bias the SHAP background around the DM's objective-space reference point.
-    # If subset generation fails, use the full background data as a safe fallback.
-    target = np.asarray(
-        [normalized_reference_point[symbol] for symbol in output_symbols],
-        dtype=float,
-    )
+    # If the problem data needs to be filtered, the code for that should be put here.
+    # For now, we assume use the entire dataset as background data.
 
-    try:
-        # Pre-filter to the closest MIQP_INPUT_SIZE rows by Euclidean distance before
-        # solving the MIQP.  This caps binary-variable count regardless of dataset size
-        # (200 rows → 200 binary vars is slow; 40 rows → 40 binary vars is fast).
-        MIQP_INPUT_SIZE = 40
-        obj_array = problem_data[output_symbols].to_numpy()
-        if len(obj_array) > MIQP_INPUT_SIZE:
-            distances = np.linalg.norm(obj_array - target, axis=1)
-            nearest_indices = np.argpartition(distances, MIQP_INPUT_SIZE)[
-                :MIQP_INPUT_SIZE
-            ]
-            miqp_data = obj_array[nearest_indices]
-        else:
-            nearest_indices = np.arange(len(obj_array))
-            miqp_data = obj_array
-
-        # Cap max_size to keep the MIQP tractable – the biased subset only needs
-        # to be representative, not exhaustive. Larger values grow solve time fast.
-        local_subset = generate_biased_mean_data(miqp_data, target, max_size=20)
-        # Map local indices back to global problem_data indices
-        background_subset = (
-            nearest_indices[local_subset].tolist() if local_subset is not None else None
-        )
-    except Exception:
-        background_subset = None
-
-    if background_subset is None or len(background_subset) < 2:  # noqa: PLR2004
-        background_data = problem_data
-    else:
-        background_data = problem_data[background_subset]
-
-    explainer.setup(background_data=background_data)
+    explainer.setup(background_data=norm_problem_data)
 
     to_be_explained = pl.DataFrame(
-        {f"z_{symbol}": [value] for symbol, value in normalized_reference_point.items()}
+        {
+            f"z_{symbol}": [(value - col_min[f"z_{symbol}"]) / col_range[f"z_{symbol}"]]
+            for symbol, value in normalized_reference_point.items()
+        }
     )
     explanation = explainer.explain_input(to_be_explained)
 
@@ -189,6 +185,13 @@ def explain_reference_point(
     explained_output_array = np.asarray(
         explainer.evaluate(to_be_explained[input_symbols].to_numpy())
     ).reshape(-1)
+
+    # Denormalize outputs back to original scale
+    output_ranges = np.array([col_range[s] for s in output_symbols])
+    output_mins = np.array([col_min[s] for s in output_symbols])
+    explained_output_array = explained_output_array * output_ranges + output_mins
+    base_values_array = base_values_array * output_ranges + output_mins
+    shap_matrix = shap_matrix * output_ranges[:, np.newaxis]
 
     return RXIMOExplainResponse(
         problem_id=request.problem_id,
