@@ -28,6 +28,8 @@ import type {
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
 import { errorMessage, isLoading } from '../../../stores/uiState';
+import { fetch_sessions, create_session } from '../../methods/sessions/handler';
+export { fetch_sessions, create_session };
 
 /** Convert a Solution (SolutionReferenceResponse) to a SolutionInfo for API requests. */
 function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo {
@@ -44,7 +46,9 @@ function toSolutionInfo(solution: Solution, name?: string | null): SolutionInfo 
 export async function handle_intermediate(
 	problem: ProblemInfo | null,
 	selected_solutions: Solution[],
-	num_desired: number
+	num_desired: number,
+	session_id?: number | null,
+	parent_state_id?: number | null
 ): Promise<Response | null> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -65,7 +69,9 @@ export async function handle_intermediate(
 			problem_id: problem.id,
 			reference_solution_1: toSolutionInfo(selected_solutions[0]),
 			reference_solution_2: toSolutionInfo(selected_solutions[1]),
-			num_desired: num_desired
+			num_desired: num_desired,
+			...(session_id != null ? { session_id } : {}),
+			...(parent_state_id != null ? { parent_state_id } : {})
 		};
 
 		const response = await solveNimbusIntermediateMethodRpmIntermediatePost(request);
@@ -93,6 +99,8 @@ export async function handle_intermediate(
 export async function handle_iterate(
 	problem: ProblemInfo,
 	current_preference: number[],
+	session_id?: number | null,
+	parent_state_id?: number | null
 ): Promise<Response | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
@@ -111,7 +119,9 @@ export async function handle_iterate(
 
 		const request: RPMSolveRequest = {
 			problem_id: problem.id,
-			preference: preference
+			preference: preference,
+			...(session_id != null ? { session_id } : {}),
+			...(parent_state_id != null ? { parent_state_id } : {})
 		};
 
 		const response = await solveSolutionsMethodRpmSolvePost(request);
@@ -223,7 +233,9 @@ export async function handle_remove_saved(
 export async function handle_finish(
 	problem: ProblemInfo | null,
 	solution: Solution,
-	preferences: ReferencePoint
+	preferences: ReferencePoint,
+	session_id?: number | null,
+	parent_state_id?: number | null
 ): Promise<boolean> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
@@ -237,7 +249,9 @@ export async function handle_finish(
 	try {
 		const request: RPMFinalizeRequest = {
 			problem_id: problem.id,
-			solution_info: toSolutionInfo(solution)
+			solution_info: toSolutionInfo(solution),
+			...(session_id != null ? { session_id } : {}),
+			...(parent_state_id != null ? { parent_state_id } : {})
 		};
 
 		const response = await finalizeNimbusMethodRpmFinalizePost(request);

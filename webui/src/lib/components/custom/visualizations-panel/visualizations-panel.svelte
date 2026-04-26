@@ -232,7 +232,7 @@
  */
 -->
 
-<div bind:this={containerElement} class="flex h-full w-full flex-col space-y-4 overflow-hidden">
+<div bind:this={containerElement} class="flex h-full w-full flex-col p-4 overflow-hidden">
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
 <!-- 		<div class="mb-2 flex items-center justify-between">

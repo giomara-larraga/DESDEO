@@ -85,6 +85,9 @@
 	// Reference Point specific constants
 	import { PREFERENCE_TYPES } from '$lib/constants';
 
+	// Session handling (auto-creates sessions)
+	import { create_session, fetch_sessions } from './handlers';
+
 	// Utility functions
 	import {
 		checkUtopiaMetadata,
@@ -99,6 +102,12 @@
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
 	let enable_explanation = $state(true);
+
+	// Session management (auto-created, not user-selectable)
+	let selectedSessionId = $state<number | null>(null);
+	let stateHistory = $state<Response[]>([]); // Track all states for back navigation
+	let currentStateIndex = $state<number>(-1); // Track position in history
+	let iterationNames = $state<Record<number, string>>({});
 
 	let problem: ProblemInfo | null = $state(null);
 	const { data } = $props<{ data: ProblemInfo[] }>();
@@ -153,6 +162,7 @@
 			return selected_iteration_index;
 		}
 	});
+	
 
 	type PerturbedPointDisplayMode = 'all' | 'selected' | 'none';
 	let perturbed_points_mode: PerturbedPointDisplayMode = $state('selected'); // Default to showing only the selected perturbed point
@@ -308,11 +318,22 @@
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference);
+		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference, selectedSessionId, current_state.state_id);
 		if (response) {
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
 			selected_iteration_index = [index];
+
+			// Add finalized state to history
+			const finalizedState = {
+				...current_state,
+				response_type: 'rpm.finalize' as const,
+				state_id: current_state.state_id ?? null
+			};
+			addToStateHistory(finalizedState);
+
+			// Persist the finalized session
+			persistSessionToLocalStorage();
 
 			// Set mode to final after updating the indexes
 			mode = 'final';
@@ -335,12 +356,15 @@
 		const result = await handleIntermediateRequest(
 			problem,
 			selected_solutions_for_intermediate,
-			current_num_intermediate_solutions
+			current_num_intermediate_solutions,
+			selectedSessionId,
+			current_state.state_id
 		);
 
 		if (result) {
 			// Update the current state with the intermediate solutions response
 			current_state = result;
+			addToStateHistory(result);
 
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
@@ -486,11 +510,14 @@
 		const result = await handleIterateRequest(
 			problem,
 			current_preference,
+			selectedSessionId,
+			current_state.state_id
 		);
 
 		if (result) {
 			// Store the preference values that were just used for iteration
 			current_state = result;
+			addToStateHistory(result);
 
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
@@ -660,6 +687,190 @@
 		}
 	}
 
+	// Session management functions
+	// Check for unfinished sessions and prompt user
+	async function initializeSession() {
+		try {
+			// Fetch all sessions
+			const sessions = await fetch_sessions();
+			if (!sessions || sessions.length === 0) {
+				// No sessions exist, create a new one
+				await createNewSession();
+				return;
+			}
+
+			// Find the most recent session (assuming higher ID = more recent)
+			const mostRecentSession = sessions.reduce((prev, current) => 
+				(current.id ?? 0) > (prev.id ?? 0) ? current : prev
+			);
+
+			if (!mostRecentSession.id) {
+				await createNewSession();
+				return;
+			}
+
+			// Check if there's persisted state for this session
+			const stored = localStorage.getItem(`rpm_session_${mostRecentSession.id}`);
+			if (stored) {
+				try {
+					const sessionData = JSON.parse(stored);
+					// Check if last state is not finalized
+					if (sessionData.stateHistory && sessionData.stateHistory.length > 0) {
+						const lastState = sessionData.stateHistory[sessionData.stateHistory.length - 1];
+						const isFinished = lastState.response_type === 'rpm.finalize';
+						
+						if (!isFinished) {
+							// Ask user if they want to continue
+							openConfirmDialog({
+								title: 'Continue Previous Session?',
+								description: 'An unfinished session was found. Would you like to continue where you left off?',
+								confirmText: 'Continue',
+								cancelText: 'Start Fresh',
+								onConfirm: () => {
+									selectedSessionId = mostRecentSession.id;
+									restoreSessionFromLocalStorage(mostRecentSession.id!);
+								},
+								onCancel: async () => {
+									clearSessionFromLocalStorage(mostRecentSession.id!);
+									await createNewSession();
+								}
+							});
+							return;
+						}
+					}
+				} catch (err) {
+					console.error('Error checking persisted session:', err);
+				}
+			}
+
+			// Session exists but is finished or not persisted, create a new one
+			await createNewSession();
+		} catch (err) {
+			console.error('Error during session initialization:', err);
+			await createNewSession();
+		}
+	}
+
+	// Create a new session
+	async function createNewSession() {
+		try {
+			const created = await create_session(null);
+			if (created && created.id != null) {
+				selectedSessionId = created.id;
+				stateHistory = [];
+				currentStateIndex = -1;
+				iterationNames = {};
+				console.log(`Created RPM session: ${created.id}`);
+			} else {
+				console.error('Failed to create RPM session');
+			}
+		} catch (err) {
+			console.error('Error creating RPM session:', err);
+		}
+	}
+
+	// Add state to history for back navigation
+	function addToStateHistory(state: Response) {
+		// Remove any future states if we're navigating from middle of history
+		if (currentStateIndex < stateHistory.length - 1) {
+			stateHistory = stateHistory.slice(0, currentStateIndex + 1);
+		}
+		stateHistory = [...stateHistory, state];
+		currentStateIndex = stateHistory.length - 1;
+		
+		// Persist to localStorage
+		persistSessionToLocalStorage();
+	}
+
+	// Persist session state to localStorage
+	function persistSessionToLocalStorage() {
+		if (selectedSessionId !== null && problem) {
+			const sessionData = {
+				sessionId: selectedSessionId,
+				problemId: problem.id,
+				stateHistory: stateHistory,
+				currentStateIndex: currentStateIndex,
+				iterationNames,
+				mode: mode,
+				timestamp: Date.now()
+			};
+			localStorage.setItem(`rpm_session_${selectedSessionId}`, JSON.stringify(sessionData));
+		}
+	}
+
+	// Restore session state from localStorage
+	function restoreSessionFromLocalStorage(sessionId: number): boolean {
+		const stored = localStorage.getItem(`rpm_session_${sessionId}`);
+		if (!stored) return false;
+		
+		try {
+			const sessionData = JSON.parse(stored);
+			if (sessionData.problemId !== problem?.id) return false; // Different problem
+			
+			stateHistory = sessionData.stateHistory;
+			currentStateIndex = sessionData.currentStateIndex;
+			iterationNames = sessionData.iterationNames ?? {};
+			if (stateHistory.length > currentStateIndex && currentStateIndex >= 0) {
+				current_state = stateHistory[currentStateIndex];
+				selected_iteration_index = [0];
+				update_iteration_selection(current_state);
+				return true;
+			}
+		} catch (err) {
+			console.error('Failed to restore session from localStorage:', err);
+		}
+		return false;
+	}
+
+	// Clear session from localStorage
+	function clearSessionFromLocalStorage(sessionId: number) {
+		localStorage.removeItem(`rpm_session_${sessionId}`);
+	}
+
+	function setIterationName(index: number, name: string) {
+		const cleaned = name.trim();
+		if (cleaned.length === 0) {
+			const { [index]: _removed, ...rest } = iterationNames;
+			iterationNames = rest;
+		} else {
+			iterationNames = {
+				...iterationNames,
+				[index]: cleaned
+			};
+		}
+		persistSessionToLocalStorage();
+	}
+
+	function applyHistoryIteration(index: number) {
+		if (index < 0 || index >= stateHistory.length) return;
+
+		const selectedState = stateHistory[index];
+		current_state = selectedState;
+		currentStateIndex = index;
+		selected_iteration_index = [0];
+		update_iteration_selection(current_state);
+		update_preferences_from_state(current_state);
+		mode = 'iterate';
+		persistSessionToLocalStorage();
+	}
+
+	// Navigate back one state
+	async function handleBack() {
+		if (currentStateIndex <= 0) return;
+		
+		currentStateIndex = currentStateIndex - 1;
+		const previousState = stateHistory[currentStateIndex];
+		
+		if (previousState) {
+			current_state = previousState;
+			selected_iteration_index = [0];
+			update_iteration_selection(current_state);
+		}
+	}
+
+	// Check if back navigation is available
+	let canGoBack = $derived(currentStateIndex > 0);
+
 	onMount(async () => {
 		if ($methodSelection.selectedProblemId) {
 			problem = problem_list.find(
@@ -667,6 +878,9 @@
 			);
 
 			if (problem) {
+				// Initialize a new session for this RPM interaction
+				await initializeSession();
+
 				// Check if problem has utopia metadata (this only needs to be done once)
 				// Using the imported utility function
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
@@ -756,7 +970,12 @@
 
 	let historyModeProps = $derived.by(() => ({
 		problem,
-		hasRightSidebarContent
+		hasRightSidebarContent: stateHistory.length > 0,
+		stateHistory,
+		currentStateIndex,
+		iterationNames,
+		onApplyIteration: applyHistoryIteration,
+		onRenameIteration: setIterationName
 	}));
 
 	let intermediateModeProps = $derived.by(() => ({
