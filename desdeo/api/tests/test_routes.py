@@ -1322,6 +1322,41 @@ def test_group_operations(client: TestClient):
     assert 1 not in user.group_ids
 
 
+def test_dm_can_get_group_shared_problem(client: TestClient):
+    """A DM in a group can access the group's problem endpoint."""
+    analyst_token = login(client=client, username="analyst", password="analyst")  # noqa: S106
+
+    create_group_response = post_json(
+        client=client,
+        endpoint="/gdm/create_group",
+        json=GroupCreateRequest(group_name="sharedProblemGroup", problem_id=2).model_dump(),
+        access_token=analyst_token,
+    )
+    assert create_group_response.status_code == status.HTTP_201_CREATED
+
+    add_dm_response = client.post(
+        "/add_new_dm",
+        data={"username": "shared_dm", "password": "shared_dm", "grant_type": "password"},
+        headers={"Authorization": f"Bearer {analyst_token}", "content-type": "application/x-www-form-urlencoded"},
+    )
+    assert add_dm_response.status_code == status.HTTP_201_CREATED
+
+    add_to_group_response = post_json(
+        client=client,
+        endpoint="/gdm/add_to_group",
+        json=GroupModifyRequest(group_id=1, user_id=2).model_dump(),
+        access_token=analyst_token,
+    )
+    assert add_to_group_response.status_code == status.HTTP_200_OK
+
+    dm_token = login(client=client, username="shared_dm", password="shared_dm")  # noqa: S106
+    get_problem_response = client.get(
+        "/problem/2",
+        headers={"Authorization": f"Bearer {dm_token}"},
+    )
+    assert get_problem_response.status_code == status.HTTP_200_OK
+
+
 def test_preferred_solver(client: TestClient):
     """Test that setting a preferred solver for the problem is ok."""
     access_token = login(client)
