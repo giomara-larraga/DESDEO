@@ -32,6 +32,13 @@ __all__ = [  # noqa: RUF022
     "ENautilusStepResponse",
     "ENautilusTreeNodeResponse",
     "ExtraFunctionDB",
+    "NautilusNavigatorInitializationState",
+    "NautilusNavigatorInitRequest",
+    "NautilusNavigatorInitResponse",
+    "NautilusNavigatorNavigateRequest",
+    "NautilusNavigatorNavigateResponse",
+    "NautilusNavigatorNavigationState",
+    "NautilusNavigatorStep",
     "ForestProblemMetaData",
     "GenericIntermediateSolutionResponse",
     "GNIMBUSOptimizationState",
@@ -241,6 +248,15 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
+)
+from .nautilus_navigator import (
+    NautilusNavigatorInitializationState,
+    NautilusNavigatorInitRequest,
+    NautilusNavigatorInitResponse,
+    NautilusNavigatorNavigateRequest,
+    NautilusNavigatorNavigateResponse,
+    NautilusNavigatorNavigationState,
+    NautilusNavigatorStep,
 )
 from .nimbus import (
     NIMBUSClassificationRequest,
