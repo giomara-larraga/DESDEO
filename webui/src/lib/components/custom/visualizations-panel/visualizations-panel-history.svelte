@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ParallelCoordinatesHistory } from '$lib/components/visualizations/parallel-coordinates';
+	import ParallelCoordinatesHistory from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates-history.svelte';
 
 	type DataPoint = Record<string, number>;
 	type HistoryIteration = {
@@ -23,9 +23,17 @@
 		height?: number;
 		iterations?: HistoryIteration[];
 		dimensions?: HistoryDimension[];
+		selectedIterationIndexes?: number[];
+		onSelectIteration?: (index: number) => void;
 	}
 
-	const { height = undefined, iterations = [], dimensions = [] }: Props = $props();
+	const {
+		height = undefined,
+		iterations = [],
+		dimensions = [],
+		selectedIterationIndexes = [],
+		onSelectIteration
+	}: Props = $props();
 
 	let containerElement: HTMLDivElement;
 	let containerSize = $state({ width: 0, height: 0 });
@@ -59,6 +67,8 @@
 			<ParallelCoordinatesHistory
 				{iterations}
 				{dimensions}
+				{selectedIterationIndexes}
+				onIterationSelect={onSelectIteration}
 			/>
 		</div>
 	{:else}

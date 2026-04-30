@@ -135,6 +135,16 @@
 		}
 	});
 
+	let current_base_solutions = $derived.by(() => {
+		const currentSolutions = current_state.current_solutions || [];
+		return currentSolutions.length > 0 ? [currentSolutions[0]] : [];
+	});
+
+	let current_perturbed_solutions = $derived.by(() => {
+		const currentSolutions = current_state.current_solutions || [];
+		return currentSolutions.length > 1 ? currentSolutions.slice(1) : [];
+	});
+
 	// Get the label for the selected solution type from frameworks
 	let selected_type_solutions_label = $derived.by(() => {
 		const framework = frameworks.find((f) => f.value === selected_type_solutions);
@@ -1017,6 +1027,7 @@
 		selected_iteration_objectives,
 		last_iterated_preference,
 		chosen_solutions,
+		current_perturbed_solutions,
 		selectedIndexes,
 		hasUtopiaMetadata,
 		mapState,

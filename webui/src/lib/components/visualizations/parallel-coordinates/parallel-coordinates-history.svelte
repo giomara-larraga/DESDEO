@@ -19,6 +19,8 @@
 	export let lineOpacity = 0.55;
 	export let lineWidth = 1.8;
 	export let showAxisLabels = true;
+	export let selectedIterationIndexes: number[] = [];
+	export let onIterationSelect: ((index: number) => void) | undefined = undefined;
 
 	let width = 700;
 	let height = 420;
@@ -26,6 +28,7 @@
 	let container: HTMLDivElement;
 	let resizeObserver: ResizeObserver;
 	let tooltip: d3.Selection<HTMLDivElement, unknown, null, undefined>;
+	const SELECTED_BLUE = '#3b82f6';
 
 	const markerNames = ['square', 'triangle', 'diamond', 'cross', 'star', 'wye', 'slash'] as const;
 	type MarkerName = (typeof markerNames)[number];
@@ -182,10 +185,19 @@
 			}
 		});
 
+		const selectedIterationIndex = selectedIterationIndexes.length > 0
+			? selectedIterationIndexes[selectedIterationIndexes.length - 1]
+			: null;
+
 		series.forEach(({ iteration, originalIndex }) => {
 			const color = resolveIterationColor(iteration, originalIndex, iterations.length);
 			const marker = markerForIteration(originalIndex);
 			const iterName = iteration.name ?? `Iteration ${originalIndex + 1}`;
+			const isSelectedIteration =
+				selectedIterationIndex !== null && originalIndex === selectedIterationIndex;
+			const highlightColor = isSelectedIteration ? SELECTED_BLUE : color;
+			const resolvedLineOpacity = isSelectedIteration ? 1 : lineOpacity;
+			const resolvedLineWidth = isSelectedIteration ? lineWidth + 1 : lineWidth;
 
 			const iterGroup = g.append('g').attr('class', `iteration-${originalIndex}`);
 
@@ -199,9 +211,15 @@
 					.append('path')
 					.attr('d', line(lineData))
 					.attr('fill', 'none')
-					.attr('stroke', color)
-					.attr('stroke-width', lineWidth)
-					.attr('opacity', lineOpacity)
+					.attr('stroke', highlightColor)
+					.attr('stroke-width', resolvedLineWidth)
+					.attr('opacity', resolvedLineOpacity)
+					.style('cursor', 'pointer')
+					.on('click', () => {
+						if (onIterationSelect) {
+							onIterationSelect(originalIndex);
+						}
+					})
 					.on('mouseover', (event) => {
 						tooltip.transition().duration(120).style('opacity', 0.95);
 						tooltip
@@ -216,15 +234,15 @@
 					const y = yScales[dimKey](val);
 
 					if (isSlashMarker(marker)) {
-						drawSlashMarker(iterGroup, x, y, color);
+						drawSlashMarker(iterGroup, x, y, highlightColor);
 					} else {
 						iterGroup
 							.append('path')
 							.attr('d', markerPath(marker, 34))
 							.attr('transform', `translate(${x},${y})`)
-							.attr('fill', color)
+							.attr('fill', highlightColor)
 							.attr('stroke', '#ffffff')
-							.attr('stroke-width', 0.7)
+							.attr('stroke-width', isSelectedIteration ? 1.8 : 0.7)
 							.attr('opacity', 0.95);
 					}
 				});
@@ -240,10 +258,16 @@
 						.append('path')
 						.attr('d', line(refLineData))
 						.attr('fill', 'none')
-						.attr('stroke', color)
-						.attr('stroke-width', Math.max(2.8, lineWidth + 1.2))
+						.attr('stroke', highlightColor)
+						.attr('stroke-width', Math.max(2.8, resolvedLineWidth + 1.2))
 						.attr('stroke-dasharray', '6,3')
 						.attr('opacity', 0.95)
+						.style('cursor', 'pointer')
+						.on('click', () => {
+							if (onIterationSelect) {
+								onIterationSelect(originalIndex);
+							}
+						})
 						.on('mouseover', (event) => {
 							tooltip.transition().duration(120).style('opacity', 0.95);
 							tooltip
@@ -262,8 +286,14 @@
 							.attr('cy', y)
 							.attr('r', 4.2)
 							.attr('fill', '#ffffff')
-							.attr('stroke', color)
-							.attr('stroke-width', 2.2);
+							.attr('stroke', highlightColor)
+							.attr('stroke-width', isSelectedIteration ? 3 : 2.2)
+							.style('cursor', 'pointer')
+							.on('click', () => {
+								if (onIterationSelect) {
+									onIterationSelect(originalIndex);
+								}
+							});
 					});
 				}
 			}
@@ -290,7 +320,7 @@
 		tooltip?.remove();
 	});
 
-	$: iterations, dimensions, iterationColors, lineOpacity, lineWidth, showAxisLabels, width, height, drawChart();
+	$: iterations, dimensions, iterationColors, lineOpacity, lineWidth, showAxisLabels, selectedIterationIndexes, width, height, drawChart();
 </script>
 
 <div bind:this={container} style="height: 100%; width: 100%;">

@@ -5,10 +5,11 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import HistorySidebar from '$lib/components/custom/preferences-bar/history-sidebar.svelte';
-	import { VisualizationsPanelHistory } from '$lib/components/custom/visualizations-panel';
+	import VisualizationsPanelHistory from '$lib/components/custom/visualizations-panel/visualizations-panel-history.svelte';
+	import SolutionTable from '$lib/components/custom/expandible-solution-table/solution-table.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 
-	import type { MethodMode, ProblemInfo } from '$lib/types';
+	import type { MethodMode, ProblemInfo, Solution } from '$lib/types';
 	import type { Response } from '../types';
 	import { updatePreferencesFromState } from '../helper-functions';
 
@@ -41,6 +42,7 @@
 	let selectedPreviewIndex = $state<number>(-1);
 	let selectedIterationIndexes = $state<number[]>([]);
 	let iterationDisplayModes = $state<Record<number, IterationDisplayMode>>({});
+	let selectedHistoryTableIndexes = $state<number[]>([]);
 
 	$effect(() => {
 		if (stateHistory.length === 0) {
@@ -70,6 +72,13 @@
 		if (Object.keys(validModes).length !== Object.keys(iterationDisplayModes).length) {
 			iterationDisplayModes = validModes;
 		}
+
+		const validSelectedRows = selectedHistoryTableIndexes.filter(
+			(idx) => idx >= 0 && idx < historyTableSolutions.length
+		);
+		if (validSelectedRows.length !== selectedHistoryTableIndexes.length) {
+			selectedHistoryTableIndexes = validSelectedRows;
+		}
 	});
 
 	let previewState = $derived.by(() => {
@@ -77,7 +86,12 @@
 		return stateHistory[selectedPreviewIndex] ?? null;
 	});
 
-	let previewSolutions = $derived(previewState?.current_solutions ?? []);
+	function getBaseSolutions(state: Response | null): NonNullable<Response['current_solutions']> {
+		const currentSolutions = state?.current_solutions ?? [];
+		return currentSolutions.length > 0 ? [currentSolutions[0]] : [];
+	}
+
+	let previewSolutions = $derived.by(() => getBaseSolutions(previewState));
 
 	let previewPreferenceValues = $derived.by(() => {
 		if (!problem || !previewState) return [];
@@ -109,7 +123,7 @@
 
 		return stateHistory.map((state, index) => {
 			const displayMode = iterationDisplayModes[index] ?? 'both';
-			const values = (state.current_solutions ?? []).map((solution) => {
+			const values = getBaseSolutions(state).map((solution) => {
 				const point: Record<string, number> = {};
 				problem.objectives.forEach((obj) => {
 					const raw = solution.objective_values?.[obj.symbol];
@@ -138,6 +152,60 @@
 			};
 		});
 	});
+
+	let historyTableSolutions = $derived.by(() => {
+		if (!problem || stateHistory.length === 0) return [];
+
+		return [...selectedIterationIndexes]
+			.sort((a, b) => a - b)
+			.flatMap((iterationIndex) => {
+				if (iterationIndex < 0 || iterationIndex >= stateHistory.length) {
+					return [];
+				}
+
+				const displayMode = iterationDisplayModes[iterationIndex] ?? 'both';
+				if (displayMode === 'reference') {
+					return [];
+				}
+
+				const baseSolution = getBaseSolutions(stateHistory[iterationIndex])[0];
+				if (!baseSolution) {
+					return [];
+				}
+
+				const tableRow: Solution = {
+					...baseSolution,
+					name: baseSolution.name?.trim() || getIterationLabel(iterationIndex)
+				};
+
+				return [tableRow];
+			});
+	});
+
+	let historyTableIterationIndexes = $derived.by(() => {
+		if (!problem || stateHistory.length === 0) return [];
+
+		return [...selectedIterationIndexes]
+			.sort((a, b) => a - b)
+			.filter((iterationIndex) => {
+				if (iterationIndex < 0 || iterationIndex >= stateHistory.length) {
+					return false;
+				}
+
+				const displayMode = iterationDisplayModes[iterationIndex] ?? 'both';
+				if (displayMode === 'reference') {
+					return false;
+				}
+
+				return getBaseSolutions(stateHistory[iterationIndex]).length > 0;
+			});
+	});
+
+	let selectedHistoryIterationIndexesForPlot = $derived.by(() =>
+		selectedHistoryTableIndexes
+			.map((tableIndex) => historyTableIterationIndexes[tableIndex])
+			.filter((idx): idx is number => idx != null)
+	);
 
 	function handlePreviewPreferenceChange() {
 		// History sidebar preferences are preview-only and do not mutate active iteration.
@@ -174,6 +242,19 @@
 			modes[index] = 'reference';
 		});
 		iterationDisplayModes = modes;
+	}
+
+	function handleHistoryTableRowClick(index: number) {
+		selectedHistoryTableIndexes = [index];
+	}
+
+	function handleHistoryPlotIterationClick(iterationIndex: number) {
+		const tableIndex = historyTableIterationIndexes.findIndex((idx) => idx === iterationIndex);
+		if (tableIndex < 0) {
+			return;
+		}
+
+		handleHistoryTableRowClick(tableIndex);
 	}
 
 	function getIterationLabel(index: number): string {
@@ -269,6 +350,8 @@
 							{height}
 							iterations={historyIterationsForPlot}
 							dimensions={historyDimensions}
+							selectedIterationIndexes={selectedHistoryIterationIndexesForPlot}
+							onSelectIteration={handleHistoryPlotIterationClick}
 						/>
 					</Resizable.Pane>
 				</Resizable.PaneGroup>
@@ -281,34 +364,24 @@
 	{/snippet}
 
 	{#snippet numericalValues()}
-		{#if problem && previewState && previewSolutions.length > 0}
-			<div class="h-full overflow-auto p-3">
-				<table class="w-full text-sm">
-					<thead>
-						<tr class="border-b bg-gray-50">
-							<th class="px-2 py-2 text-left font-semibold">Solution</th>
-							{#each problem.objectives as obj}
-								<th class="px-2 py-2 text-right font-semibold">{obj.symbol}</th>
-							{/each}
-						</tr>
-					</thead>
-					<tbody>
-						{#each previewSolutions as solution, idx}
-							<tr class="border-b border-gray-100">
-								<td class="px-2 py-2">{solution.name?.trim() || `Solution #${idx + 1}`}</td>
-								{#each problem.objectives as obj}
-									{@const raw = solution.objective_values?.[obj.symbol]}
-									{@const value = Array.isArray(raw) ? raw[0] : raw}
-									<td class="px-2 py-2 text-right font-mono">{value ?? '-'}</td>
-								{/each}
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+		{#if problem && historyTableSolutions.length > 0}
+			<div class="relative h-full w-full px-4">
+				<div class="h-full w-full">
+					<SolutionTable
+						{problem}
+						preferences={[]}
+						solverResults={historyTableSolutions}
+						selectedSolutions={selectedHistoryTableIndexes}
+						handle_row_click={handleHistoryTableRowClick}
+						savingEnabled={false}
+						selected_type_solutions="current"
+						isFrozen={false}
+					/>
+				</div>
 			</div>
 		{:else}
 			<div class="flex h-full items-center justify-center text-gray-500">
-				No iteration preview selected.
+				No shown iterations with solutions.
 			</div>
 		{/if}
 	{/snippet}

@@ -34,6 +34,7 @@
 		selected_iteration_objectives,
 		last_iterated_preference,
 		chosen_solutions,
+		current_perturbed_solutions,
 		selectedIndexes,
 		hasUtopiaMetadata,
 		mapState,
@@ -67,6 +68,7 @@
 		selected_iteration_objectives: Record<string, number>;
 		last_iterated_preference: number[];
 		chosen_solutions: Solution[];
+		current_perturbed_solutions: Solution[];
 		selectedIndexes: number[];
 		hasUtopiaMetadata: boolean;
 		mapState: MapState;
@@ -97,7 +99,9 @@
 	let primary_table_solution = $derived.by(() =>
 		chosen_solutions.length > 0 ? [chosen_solutions[0]] : []
 	);
-	let collapsed_solutions = $derived.by(() => chosen_solutions.slice(1));
+	let collapsed_solutions = $derived.by(() =>
+		selected_type_solutions === 'current' ? current_perturbed_solutions : chosen_solutions.slice(1)
+	);
 	let collapsed_solution_indexes = $derived.by(() =>
 		collapsed_solutions.map((_, index) => index + 1)
 	);
@@ -229,7 +233,7 @@
 							referenceDataLabels={{
 								perturbedRefLabels: perturbed_reference_point_labels_for_plot
 							}}
-							solutionsObjectiveValues={mapSolutionsToObjectiveValues(chosen_solutions, problem)}
+							solutionsObjectiveValues={mapSolutionsToObjectiveValues(primary_table_solution, problem)}
 							previousObjectiveValues={selected_type_solutions === 'current'
 								? processPreviousObjectiveValues(current_state, problem)
 								: []}
@@ -265,6 +269,8 @@
 			<div class="relative h-full flex-row flex items-center px-4">
 				<SolutionTable
 					{problem}
+					preferences={last_iterated_preference}
+					expandable={false}
 					solverResults={table_solver_results}
 					expandedRowsData={table_expanded_rows}
 					expandedRowIndexes={table_expanded_row_indexes}
@@ -305,6 +311,7 @@
 					{problem}
 					preferenceValues={current_preference}
 					solutions={chosen_solutions}
+					perturbedReferencePoints={current_state.perturbed_reference_points ?? []}
 					SHAP_values={current_SHAP_values}
 					isLoading={is_fetching_explanation}
 				/>

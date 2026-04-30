@@ -28,6 +28,7 @@
 	 * @property {boolean} [isFrozen=false] - Whether the table is in read-only mode
 	 * @property {number | null} [personalResultIndex] - Index of user's personal result, used in group nimbus
 	 * @property {boolean} [isDecisionMaker] - Whether current user is a decision maker, used in group nimbus
+	 * @property {boolean} [expandable=true] - Whether the expandable section and expand controls are rendered
 	 * @property {number} [expandableRowCount=0] - Number of child rows to show when a row is expanded
 	 * @property {Solution[]} [expandedRowsData=[]] - Concrete rows rendered inside the collapsible section
 	 * @property {number[]} [expandedRowIndexes=[]] - Source indexes for expandedRowsData, used for selection and row-click callbacks
@@ -104,7 +105,7 @@
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import SolutionTableToolbar from './solution-table-toolbar.svelte';
-	import PreviousSolutions from './solution-table-prev-solutions.svelte';
+	import PreviousPreferences from './solution-table-preferences.svelte';
 
 	// Types matching your original solution-table
 
@@ -117,6 +118,7 @@
 	// Props matching your original solution-table for compatibility
 	let {
 		problem,
+		preferences = [],
 		solverResults,
 		selectedSolutions,
 		handle_save = () => {},
@@ -131,11 +133,13 @@
 		isFrozen = false,
 		personalResultIndex,
 		isDecisionMaker,
+		expandable = true,
 		expandableRowCount = 0,
 		expandedRowsData = [],
 		expandedRowIndexes = [],
 	}: {
 		problem: ProblemInfo;
+		preferences: number[];
 		solverResults: Array<Solution>;
 		selectedSolutions: number[];
 		handle_save?: (solution: Solution, name: string | undefined) => void;
@@ -150,6 +154,7 @@
 		isFrozen?: boolean;
 		personalResultIndex?: number | null;
 		isDecisionMaker?: boolean;
+		expandable?: boolean;
 		expandableRowCount?: number;
 		expandedRowsData?: Array<Solution>;
 		expandedRowIndexes?: number[];
@@ -157,9 +162,11 @@
 
 	// Get the display accuracy
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
-	let totalSolutionsCount = $derived.by(() => solverResults.length + expandedRowsData.length);
+	let totalSolutionsCount = $derived.by(() =>
+		solverResults.length + (expandable ? expandedRowsData.length : 0)
+	);
 	let effectiveExpandedCount = $derived.by(() =>
-		expandedRowsData.length > 0 ? expandedRowsData.length : expandableRowCount
+		expandable ? (expandedRowsData.length > 0 ? expandedRowsData.length : expandableRowCount) : 0
 	);
 	let effectiveExpandedIndexes = $derived.by(() =>
 		expandedRowsData.length > 0 && expandedRowIndexes.length === expandedRowsData.length
@@ -174,6 +181,7 @@
 			let indexSuffix = (totalSolutionsCount > 1 && idx !== null) ? idx + 1 : '';
 			return `Solution ${indexSuffix}`;
 		}
+		
 
 		// For GNIMBUS, use switch for clear case handling
 		switch (selected_type_solutions) {
@@ -211,7 +219,7 @@
 	const COLUMN_WIDTHS = {
 		expand: 52,
 		saved: 56,
-		name: 80,
+		name: 64,
 		edit: 56,
 		iteration: 96,
 		objective: 130
@@ -220,20 +228,25 @@
 	// Define columns for the table
 	const columns: ColumnDef<Solution>[] = $derived.by(() => {
 		return [
-			{
-				id: 'expand',
-				size: COLUMN_WIDTHS.expand,
-				minSize: COLUMN_WIDTHS.expand,
-				maxSize: COLUMN_WIDTHS.expand,
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: '' }),
-				cell: ({ row }) =>
-					renderSnippet(ExpandCell, {
-						rowId: row.id,
-						canExpand: expandedRowsData.length > 0 ? row.index === 0 : effectiveExpandedCount > 0,
-						isExpanded: expandedRowIds.has(row.id)
-					}),
-				enableSorting: false
-			},
+			...(expandable
+				? [
+						{
+							id: 'expand',
+							size: COLUMN_WIDTHS.expand,
+							minSize: COLUMN_WIDTHS.expand,
+							maxSize: COLUMN_WIDTHS.expand,
+							header: ({ column }: { column: Column<Solution> }) =>
+								renderSnippet(ColumnHeader, { column, title: '' }),
+							cell: ({ row }: { row: Row<Solution> }) =>
+								renderSnippet(ExpandCell, {
+									rowId: row.id,
+									canExpand: expandedRowsData.length > 0 ? row.index === 0 : effectiveExpandedCount > 0,
+									isExpanded: expandedRowIds.has(row.id)
+								}),
+							enableSorting: false
+						}
+					]
+				: []),
 			// First column - Bookmark/Save icon
 			{
 				accessorKey: 'saved',
@@ -370,7 +383,7 @@
 	}
 
 	function toggleExpandedRow(rowId: string) {
-		if (effectiveExpandedCount <= 0 || isFrozen) {
+		if (!expandable || effectiveExpandedCount <= 0 || isFrozen) {
 			return;
 		}
 
@@ -381,6 +394,24 @@
 			next.add(rowId);
 		}
 		expandedRowIds = next;
+	}
+
+	function computeDifferenceFromCurrentSolution(
+		preferences: number[],
+		currentSolution: Solution
+	): number[] {
+		if (!currentSolution || !currentSolution.objective_values) {
+			return [];
+		}
+
+		return problem.objectives.map((objective) => {
+			const currentValue = currentSolution.objective_values?.[objective.symbol];
+			const prefValue = preferences[problem.objectives.findIndex(obj => obj.symbol === objective.symbol)];
+			if (currentValue == null || prefValue == null) {
+				return 0; // or some default value if missing
+			}
+			return currentValue - prefValue;
+		});
 	}
 </script>
 
@@ -704,7 +735,7 @@
 								</Table.Cell>
 							{/each}
 						</Table.Row>
-						{#if effectiveExpandedCount > 0 && expandedRowIds.has(row.id)}
+						{#if expandable && effectiveExpandedCount > 0 && expandedRowIds.has(row.id)}
 							{#if expandedRowsData.length > 0}
 								{#each expandedRowsData as expandedSolution, expandedIndex (`${row.id}-expanded-${expandedIndex}`)}
 									{@const expandedSourceIndex = effectiveExpandedIndexes[expandedIndex] ?? expandedIndex + 1}
@@ -777,10 +808,11 @@
 						</Table.Row>
 					{/each}
 					{#if selected_type_solutions === 'current'}
-						{#if secondaryObjectiveValues.length > 0}
-							<PreviousSolutions
+						{#if preferences.length > 0}
+							<PreviousPreferences
 								{problem}
-								previousObjectiveValues={secondaryObjectiveValues}
+								previousPreferences={[preferences]}
+								differenceFromSolution={computeDifferenceFromCurrentSolution(preferences, solverResults[selectedSolutions[0]])}
 								displayAccuracy={displayAccuracy}
 								columnsLength={columns.length}
 							/>
