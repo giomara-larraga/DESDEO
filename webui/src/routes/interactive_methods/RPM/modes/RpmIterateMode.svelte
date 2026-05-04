@@ -9,7 +9,7 @@
 	import SolutionTable from '$lib/components/custom/expandible-solution-table/solution-table.svelte';
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
-	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar.svelte';
+	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar/RXIMOSidebar.svelte';
 	import { PREFERENCE_TYPES } from '$lib/constants';
 
 	import { mapSolutionsToObjectiveValues, processPreviousObjectiveValues } from '../helper-functions';
@@ -41,6 +41,7 @@
 		perturbed_reference_point_values_for_plot,
 		perturbed_reference_point_labels_for_plot,
 		current_SHAP_values,
+		current_SHAP_baseline,
 		is_fetching_explanation,
 		handle_type_solutions_change,
 		handle_preference_change,
@@ -75,6 +76,7 @@
 		perturbed_reference_point_values_for_plot: number[][];
 		perturbed_reference_point_labels_for_plot: string[];
 		current_SHAP_values: Record<string, Record<string, number>>;
+		current_SHAP_baseline: Record<string, number>;
 		is_fetching_explanation: boolean;
 		handle_type_solutions_change: (event: { value: string }) => void;
 		handle_preference_change: (data: {
@@ -313,6 +315,7 @@
 					solutions={chosen_solutions}
 					perturbedReferencePoints={current_state.perturbed_reference_points ?? []}
 					SHAP_values={current_SHAP_values}
+					SHAP_baseline={current_SHAP_baseline}
 					isLoading={is_fetching_explanation}
 				/>
 			</div>

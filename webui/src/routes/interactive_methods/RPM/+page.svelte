@@ -162,6 +162,7 @@
 	let current_num_intermediate_solutions: number = $state(1);
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 	let current_SHAP_values: Record<string, Record<string, number>> = $state({}); // SHAP values for the selected solution (only for iteration mode)
+	let current_SHAP_baseline: Record<string, number> = $state({}); // SHAP baseline values for the selected solution (only for iteration mode)
 	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -690,10 +691,12 @@
 		is_fetching_explanation = false;
 		if (result) {
 			current_SHAP_values = result.shap_values;
+			current_SHAP_baseline = result.base_values;
 		}
 		else {
 			console.error('Failed to fetch SHAP values for explanation');
 			current_SHAP_values = {};
+			current_SHAP_baseline = {};
 		}
 	}
 
@@ -1034,6 +1037,7 @@
 		perturbed_reference_point_values_for_plot: perturbed_reference_point_values_for_plot as any,
 		perturbed_reference_point_labels_for_plot,
 		current_SHAP_values,
+		current_SHAP_baseline,
 		is_fetching_explanation,
 		handle_type_solutions_change,
 		handle_preference_change,
