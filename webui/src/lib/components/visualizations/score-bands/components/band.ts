@@ -25,9 +25,9 @@ export function drawPreCalculatedCluster(
 
 	// Get band and median data for this cluster
 	const clusterBands = bandsData[clusterKey]; // Record<string, [number, number]>
-	const clusterMedians = mediansData[clusterKey]; // Record<string, number>
+	const clusterMedians = mediansData[clusterKey]; // Record<string, number> | undefined
 
-	if (!clusterBands || !clusterMedians) {
+	if (!clusterBands) {
 		console.warn(`No data for cluster ${clusterId} (key: ${clusterKey})`);
 		return;
 	}
@@ -39,8 +39,10 @@ export function drawPreCalculatedCluster(
 
 	for (let axisIndex = 0; axisIndex < axisNames.length; axisIndex++) {
 		const axisName = axisNames[axisIndex];
-		const [rawMinVal, rawMaxVal] = clusterBands[axisName] || [0, 1];
-		const rawMedianVal = clusterMedians[axisName] ?? 0.5;
+		const [rawBandA, rawBandB] = clusterBands[axisName] || [0, 1];
+		const rawMinVal = Math.min(rawBandA, rawBandB);
+		const rawMaxVal = Math.max(rawBandA, rawBandB);
+		const rawMedianVal = clusterMedians?.[axisName] ?? (rawMinVal + rawMaxVal) / 2;
 
 		const sign = axisSigns[axisIndex] || 1;
 

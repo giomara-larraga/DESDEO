@@ -173,8 +173,8 @@ export function generate_axis_options(
  * Calculate axis scales for SCORE bands visualization
  *
  * Determines the min/max range for each axis using a priority order:
- * 1. Problem definition (ideal/nadir from objectives)
- * 2. API-provided scales from result.options.scales
+ * 1. API-provided scales from result.options.scales
+ * 2. Problem definition (ideal/nadir from objectives)
  * 3. Fallback: calculate from actual bands and medians data
  *
  * TODO: When API scales functionality is fully implemented, prioritize using
@@ -189,7 +189,12 @@ export function calculateScales(
 	problem: ProblemInfo,
 	result: SCOREBandsResult
 ): Record<string, [number, number]> {
-	// First, try to use ideal and nadir from problem definition
+	// First, use scales from API if available.
+	if (result.options?.scales && Object.keys(result.options.scales).length > 0) {
+		return result.options.scales;
+	}
+
+	// Second, try to use ideal and nadir from problem definition
 	const scales: Record<string, [number, number]> = {};
 	let allObjectivesHaveScales = true;
 
@@ -207,11 +212,6 @@ export function calculateScales(
 	// Only use problem scales if ALL objectives have complete ideal/nadir values
 	if (allObjectivesHaveScales && Object.keys(scales).length === problem.objectives.length) {
 		return scales;
-	}
-
-	// Second, try to use scales from API
-	if (result.options?.scales) {
-		return result.options.scales;
 	}
 
 	// Fallback: calculate scales from bands data
