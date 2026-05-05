@@ -4,6 +4,8 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import type { ProblemInfo, Solution } from '$lib/types';
+	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
+
 	import { ShapHeatmap, ShapBarchart } from '$lib/components/visualizations/shap-heatmap';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
@@ -32,6 +34,8 @@
 
 	type ExplanationTab = 'why' | 'how' | 'compare';
 	let explanationTab = $state<ExplanationTab>('why');
+	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
+
 
 	const objectiveOptions = $derived(
 		problem.objectives.map((o) => ({ value: o.symbol, label: o.name ?? o.symbol }))
@@ -292,9 +296,6 @@
 	<Sidebar.Header>
 		<div>
 			<span class="text-sm font-semibold">Explanations</span>
-			<p class="mt-0.5 text-xs text-gray-500">
-				Understand why this solution was found and what to change next.
-			</p>
 		</div>
 	</Sidebar.Header>
 
@@ -306,9 +307,9 @@
 				<div class="py-8 text-center text-sm text-gray-500">No solution details available yet.</div>
 			{:else}
 				<div class="space-y-4">
-					<div>
-						<div class="mb-1 flex items-center gap-1 text-xs font-medium text-gray-600">
-							<span>Focus outcome</span>
+					<div class="flex items-center gap-3">
+						<div class="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-600">
+							<span>Target</span>
 							<Tooltip.Root>
 								<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
 									<InfoIcon class="h-3.5 w-3.5" />
@@ -319,25 +320,27 @@
 							</Tooltip.Root>
 						</div>
 
-						<Combobox
-							options={objectiveOptions}
-							defaultSelected={selectedObjectiveSymbol}
-							onChange={(e) => (selectedObjectiveSymbol = e.value)}
-						/>
+						<div class="min-w-0 max-w-xs">
+							<Combobox
+								options={objectiveOptions}
+								defaultSelected={selectedObjectiveSymbol}
+								onChange={(e) => (selectedObjectiveSymbol = e.value)}
+							/>
+						</div>
 					</div>
 
 					<Tabs.Root bind:value={explanationTab} class="w-full">
 						<Tabs.List class="grid w-full grid-cols-3">
-							<Tabs.Trigger value="why">Why?</Tabs.Trigger>
-							<Tabs.Trigger value="how">How?</Tabs.Trigger>
-							<Tabs.Trigger value="compare">Compare</Tabs.Trigger>
+							<Tabs.Trigger value="why">Breakdown</Tabs.Trigger>
+							<Tabs.Trigger value="how">Improve</Tabs.Trigger>
+							<Tabs.Trigger value="compare">Overview</Tabs.Trigger>
 						</Tabs.List>
 
 						<Tabs.Content value="why" class="mt-3 w-full">
 							<div class="space-y-3">
 								<div class="rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-gray-700">
 									<div class="mb-1 font-semibold text-gray-900">
-										Why is {selectedObjectiveName} = {selectedSolutionValue}?
+										Why is {selectedObjectiveName} = {formatNumber(selectedSolutionValue, displayAccuracy[selectedObjectiveSymbol])}?
 									</div>
 
 									<ul class="list-disc space-y-1 pl-4">
@@ -598,5 +601,5 @@
 		</Tooltip.Provider>
 	</Sidebar.Content>
 
-	<Sidebar.Rail />
+	
 </Sidebar.Root>

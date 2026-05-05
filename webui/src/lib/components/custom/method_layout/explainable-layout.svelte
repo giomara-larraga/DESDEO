@@ -30,7 +30,7 @@
 		showRightSidebar = true,
 		leftSidebarWidth = '24em',
 		leftSidebarMinWidth = '24rem',
-		rightSidebarWidth = 'auto',
+		rightSidebarWidth = '24rem',
 		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
 		leftSidebar,
 		explorerTitle,
@@ -63,7 +63,7 @@
 	style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;"
 >
 	<div
-		class="grid min-h-[calc(100vh-3rem)] w-full gap-2"
+		class="grid min-h-[calc(100vh-3rem)] w-full "
 		style={`grid-template-columns: ${gridTemplateColumns};`}
 	>
 		<!-- Left Sidebar: Preferences and Controls -->
@@ -101,7 +101,7 @@
 						>
 							<!-- Main Visualization Area -->
 							<div class="h-full w-full">
-								<div class="grid h-full w-full gap-4 xl:grid-cols-1">
+								<div class="grid h-full w-full gap-2 xl:grid-cols-1">
 									<div class="h-full flex-1 rounded">
 										{#if visualizationArea}
 											{@render visualizationArea(visualizationHeight)}

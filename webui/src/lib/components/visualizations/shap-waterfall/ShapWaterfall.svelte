@@ -1,5 +1,14 @@
 <script lang="ts">
+	/**
+	 * ShapWaterfall.svelte
+	 * --------------------------------
+	 * Waterfall view for one selected SHAP row.
+	 *
+	 * Bars are classified as improving/impairing using the selected objective
+	 * direction (maximize/minimize), matching the other SHAP visualizations.
+	 */
 	import type { ProblemInfo } from '$lib/types';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 
 	interface Props {
 		shapRow: Record<string, number>;
@@ -31,16 +40,45 @@
 		return obj?.name ?? normalized;
 	}
 
-	const width = 330;
-	const nearZeroThreshold = 0.005;
+	function sumContributions(row: Record<string, number> | undefined): number {
+		return Object.values(row ?? {}).reduce((sum, value) => sum + Number(value ?? 0), 0);
+	}
 
-	const helpColor = '#2563eb';
-	const hurtColor = '#ef4444';
-	const darkColor = '#0f172a';
+	const WIDTH = 330;
+	const NEAR_ZERO_THRESHOLD = 0.005;
+	const MISMATCH_TOLERANCE = 0.01;
 
-	const contributionTotal = $derived.by(() => {
-		return Object.values(shapRow ?? {}).reduce((sum, value) => sum + Number(value ?? 0), 0);
-	});
+	const IMPROVING_COLOR = '#2563eb';
+	const IMPAIRING_COLOR = '#ef4444';
+	const DARK_COLOR = '#0f172a';
+
+	const objMaximizeMap = $derived(
+		Object.fromEntries(problem.objectives.map((o) => [o.symbol, o.maximize ?? false]))
+	);
+
+	const selectedOutputMaximize = $derived(
+		objMaximizeMap[normalizeObjectiveSymbol(selectedOutputSymbol)] ?? false
+	);
+
+	const objectiveColorMap = $derived(
+		Object.fromEntries(
+			problem.objectives.map((objective, index) => [
+				objective.symbol,
+				COLOR_PALETTE[index % COLOR_PALETTE.length]
+			])
+		)
+	);
+
+	function isImproving(value: number): boolean {
+		return selectedOutputMaximize ? value > 0 : value < 0;
+	}
+
+	function objectiveColor(symbol: string): string {
+		const normalized = normalizeObjectiveSymbol(symbol);
+		return objectiveColorMap[normalized] ?? '#94a3b8';
+	}
+
+	const contributionTotal = $derived.by(() => sumContributions(shapRow));
 
 	const waterfallAchieved = $derived(baseline + contributionTotal);
 	const totalChange = $derived(waterfallAchieved - baseline);
@@ -51,6 +89,7 @@
 				symbol,
 				name: label(symbol),
 				value: Number(value ?? 0),
+				isImproving: isImproving(Number(value ?? 0)),
 				isOwn: normalizeObjectiveSymbol(symbol) === normalizeObjectiveSymbol(selectedOutputSymbol)
 			}))
 			.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
@@ -59,18 +98,21 @@
 	const hasNegative = $derived(entries.some((e) => e.value < 0));
 
 	const margin = $derived.by(() => ({
-		top: hasNegative ? 14 : 22,
+		top: hasNegative ? 8 : 12,
 		right: 28,
 		bottom: 46,
 		left: 34
 	}));
 
-	const strongestPositiveSymbol = $derived.by(() => {
-		return entries.filter((e) => e.value > 0).sort((a, b) => b.value - a.value)[0]?.symbol;
+	const strongestImprovingSymbol = $derived.by(() => {
+		return entries.filter((e) => e.isImproving).sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0]
+			?.symbol;
 	});
 
-	const strongestNegativeSymbol = $derived.by(() => {
-		return entries.filter((e) => e.value < 0).sort((a, b) => a.value - b.value)[0]?.symbol;
+	const strongestImpairingSymbol = $derived.by(() => {
+		return entries
+			.filter((e) => !e.isImproving && Math.abs(e.value) >= NEAR_ZERO_THRESHOLD)
+			.sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0]?.symbol;
 	});
 
 	const steps = $derived.by(() => {
@@ -87,9 +129,9 @@
 				end,
 				low: Math.min(start, end),
 				high: Math.max(start, end),
-				isStrongestPositive: entry.symbol === strongestPositiveSymbol,
-				isStrongestNegative: entry.symbol === strongestNegativeSymbol,
-				isNearZero: Math.abs(entry.value) < nearZeroThreshold
+				isStrongestImproving: entry.symbol === strongestImprovingSymbol,
+				isStrongestImpairing: entry.symbol === strongestImpairingSymbol,
+				isNearZero: Math.abs(entry.value) < NEAR_ZERO_THRESHOLD
 			};
 		});
 	});
@@ -107,10 +149,8 @@
 	const paddedMinY = $derived(minY - Math.abs(maxY - minY || 1) * 0.14);
 	const paddedMaxY = $derived(maxY + Math.abs(maxY - minY || 1) * 0.14);
 
-	const plotWidth = $derived(width - margin.left - margin.right);
+	const plotWidth = $derived(WIDTH - margin.left - margin.right);
 	const plotHeight = $derived(height - margin.top - margin.bottom);
-
-	const mismatch = $derived(Math.abs(achieved - waterfallAchieved) > 0.01);
 
 	function x(index: number): number {
 		const count = Math.max(steps.length, 1);
@@ -133,23 +173,6 @@
 		if (value < 0) return `-${fixed}`;
 		return '0.00';
 	}
-
-    $effect(() => {
-	const shapSum = Object.values(shapRow ?? {}).reduce(
-		(sum, value) => sum + Number(value ?? 0),
-		0
-	);
-
-	console.log('Waterfall debug', {
-		selectedOutputSymbol,
-		baseline,
-		shapSum,
-		reconstructed: baseline + shapSum,
-		achieved,
-		difference: achieved - (baseline + shapSum),
-		shapRow
-	});
-});
 </script>
 
 <div class="waterfall">
@@ -169,14 +192,9 @@
 			{formatSigned(totalChange)}
 		</div>
 
-		{#if mismatch}
-			<div class="mismatch-note">
-				Shown result is reconstructed from the bars.
-			</div>
-		{/if}
 	</div>
 
-	<svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Waterfall plot">
+	<svg viewBox={`0 0 ${WIDTH} ${height}`} role="img" aria-label="Waterfall plot">
 		{#each [0, 1, 2] as band}
 			<rect
 				x={margin.left}
@@ -206,9 +224,12 @@
 		{#each steps as step, i}
 			{@const bw = barWidth()}
 			{@const cx = x(i)}
+			{@const axisColor = objectiveColor(step.symbol)}
+			{@const shortName = step.name.length > 7 ? `${step.name.slice(0, 7)}…` : step.name}
 			{@const topY = y(step.high)}
 			{@const bottomY = y(step.low)}
 			{@const barH = Math.max(2, bottomY - topY)}
+			{@const markerY = step.value >= 0 ? Math.max(margin.top + 8, topY - 17) : Math.max(margin.top + 8, topY - 6)}
 
 			{#if step.isNearZero}
 				<line
@@ -216,7 +237,7 @@
 					x2={cx + bw / 2}
 					y1={y(step.end)}
 					y2={y(step.end)}
-					stroke={step.value >= 0 ? helpColor : hurtColor}
+					stroke={step.isImproving ? IMPROVING_COLOR : IMPAIRING_COLOR}
 					stroke-width="2"
 					opacity="0.8"
 				/>
@@ -227,19 +248,39 @@
 					width={bw}
 					height={barH}
 					rx="4"
-					fill={step.value >= 0 ? helpColor : hurtColor}
+					fill={step.isImproving ? IMPROVING_COLOR : IMPAIRING_COLOR}
 					opacity={step.isOwn ? 1 : 0.9}
-					stroke={step.isStrongestPositive || step.isStrongestNegative ? darkColor : 'transparent'}
-					stroke-width={step.isStrongestPositive || step.isStrongestNegative ? 1.25 : 0}
+					stroke={step.isStrongestImproving || step.isStrongestImpairing ? DARK_COLOR : 'transparent'}
+					stroke-width={step.isStrongestImproving || step.isStrongestImpairing ? 1.25 : 0}
 				/>
 			{/if}
 
-			{#if step.isStrongestNegative}
-				<text x={cx} y={topY - 2} text-anchor="middle" font-size="11">⚠</text>
+			{#if step.isStrongestImpairing}
+				<circle cx={cx} cy={markerY} r="6.2" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.1" />
+				<text
+					x={cx}
+					y={markerY + 3.2}
+					text-anchor="middle"
+					font-size="10"
+					font-weight="700"
+					fill="#b45309"
+				>
+					!
+				</text>
 			{/if}
 
-			{#if step.isStrongestPositive}
-				<text x={cx} y={topY - 2} text-anchor="middle" font-size="11">★</text>
+			{#if step.isStrongestImproving}
+				<circle cx={cx} cy={markerY} r="6.2" fill="#eff6ff" stroke="#2563eb" stroke-width="1.1" />
+				<text
+					x={cx}
+					y={markerY + 3.25}
+					text-anchor="middle"
+					font-size="10"
+					font-weight="700"
+					fill="#1d4ed8"
+				>
+					★
+				</text>
 			{/if}
 
 			{#if !step.isNearZero}
@@ -247,36 +288,59 @@
 					x={cx}
 					y={step.value >= 0 ? topY - 4 : bottomY + 12}
 					text-anchor="middle"
-					font-size="9"
-					font-weight={step.isStrongestPositive || step.isStrongestNegative ? '700' : '500'}
+					font-size="10"
+					font-weight={step.isStrongestImproving || step.isStrongestImpairing ? '700' : '500'}
 					fill="#334155"
 				>
 					{formatSigned(step.value)}
 				</text>
 			{/if}
 
+			<rect
+				x={cx - 18}
+				y={height - 29}
+				width="7"
+				height="7"
+				rx="1.5"
+				fill={axisColor}
+				stroke="#334155"
+				stroke-width="0.5"
+			/>
+
 			<text
-				x={cx}
+				x={cx - 8}
 				y={height - 22}
-				text-anchor="middle"
-				font-size="9"
-				fill={step.isStrongestPositive || step.isStrongestNegative ? darkColor : '#475569'}
-				font-weight={step.isStrongestPositive || step.isStrongestNegative ? '700' : '400'}
+				text-anchor="start"
+				font-size="0.75rem"
+				fill={step.isStrongestImproving || step.isStrongestImpairing ? DARK_COLOR : '#475569'}
+				font-weight={step.isStrongestImproving || step.isStrongestImpairing ? '700' : '400'}
 			>
-				{step.name.length > 7 ? `${step.name.slice(0, 7)}…` : step.name}
+				{shortName}
 			</text>
 
 			{#if step.isOwn}
-				<circle cx={cx} cy={height - 13} r="2.5" fill={darkColor} opacity="0.55" />
+				<circle cx={cx} cy={height - 13} r="2.5" fill={DARK_COLOR} opacity="0.55" />
 			{/if}
 		{/each}
 	</svg>
 
 	<div class="legend">
-		<span><i class="positive"></i> Helps</span>
-		<span><i class="negative"></i> Hurts</span>
-		<span class="legend-symbol">★ strongest help</span>
-		<span class="legend-symbol">⚠ strongest limit</span>
+		<span class="legend-item">
+			<i class="swatch positive"></i>
+			Improving effect
+		</span>
+		<span class="legend-item">
+			<i class="swatch negative"></i>
+			Impairing effect
+		</span>
+		<span class="legend-item legend-item-symbol">
+			<i class="marker-star">★</i>
+			Strongest improving
+		</span>
+		<span class="legend-item legend-item-symbol">
+			<i class="marker-warning">!</i>
+			Strongest impairing
+		</span>
 	</div>
 </div>
 
@@ -288,14 +352,14 @@
 	}
 
 	.result-strip {
-		padding: 0.25rem 0.25rem 0.35rem;
+		padding: 0.25rem 0.25rem 0.15rem;
 	}
 
 	.strip-labels {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		font-size: 0.7rem;
+		font-size: 0.75rem;
 		color: #64748b;
 	}
 
@@ -364,13 +428,6 @@
 		color: #ef4444;
 	}
 
-	.mismatch-note {
-		margin-top: 0.2rem;
-		text-align: center;
-		font-size: 0.65rem;
-		color: #94a3b8;
-	}
-
 	svg {
 		width: 100%;
 		height: auto;
@@ -382,26 +439,39 @@
 		flex-wrap: wrap;
 		gap: 0.55rem;
 		align-items: center;
-		padding: 0.25rem 0.25rem 0;
+		padding: 0.35rem 0.25rem 0;
 		font-size: 0.68rem;
 		color: #64748b;
 	}
 
-	.legend span {
+	.legend-item {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.legend-symbol {
+		gap: 0.35rem;
+		padding: 0.18rem 0.48rem;
+		border: 1px solid #e2e8f0;
+		border-radius: 999px;
+		background: #f8fafc;
 		color: #475569;
+		line-height: 1;
 	}
 
-	i {
+	.legend-item-symbol {
+		font-weight: 600;
+	}
+
+	.swatch,
+	.marker-star,
+	.marker-warning {
 		display: inline-block;
+		flex: 0 0 auto;
+}
+
+	.swatch {
 		width: 0.65rem;
 		height: 0.65rem;
 		border-radius: 0.15rem;
+		border: 1px solid rgba(51, 65, 85, 0.2);
 	}
 
 	.positive {
@@ -410,5 +480,33 @@
 
 	.negative {
 		background: #ef4444;
+	}
+
+	.marker-star {
+		width: 0.95rem;
+		height: 0.95rem;
+		border-radius: 999px;
+		background: #eff6ff;
+		border: 1px solid #2563eb;
+		text-align: center;
+		font-style: normal;
+		font-size: 0.72rem;
+		font-weight: 700;
+		line-height: 0.9rem;
+		color: #1d4ed8;
+	}
+
+	.marker-warning {
+		width: 0.95rem;
+		height: 0.95rem;
+		border-radius: 999px;
+		background: #fff7ed;
+		border: 1px solid #f59e0b;
+		color: #b45309;
+		font-style: normal;
+		font-size: 0.72rem;
+		font-weight: 700;
+		line-height: 0.9rem;
+		text-align: center;
 	}
 </style>
