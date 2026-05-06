@@ -9,6 +9,7 @@
 	 */
 	import type { ProblemInfo } from '$lib/types';
 	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
+	import { IMPROVING_COLOR, IMPAIRING_COLOR } from '$lib/constants';
 
 	interface Props {
 		shapRow: Record<string, number>;
@@ -48,8 +49,6 @@
 	const NEAR_ZERO_THRESHOLD = 0.005;
 	const MISMATCH_TOLERANCE = 0.01;
 
-	const IMPROVING_COLOR = '#2563eb';
-	const IMPAIRING_COLOR = '#ef4444';
 	const DARK_COLOR = '#0f172a';
 
 	const objMaximizeMap = $derived(

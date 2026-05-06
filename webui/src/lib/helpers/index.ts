@@ -62,12 +62,24 @@ export type PreferenceType = keyof typeof PREFERENCE_TYPES;
 export type PreferenceValue = typeof PREFERENCE_TYPES[PreferenceType];
 
 
-export function formatNumber(value: number, digits: number = SIGNIFICANT_DIGITS): string {
-  return value.toFixed(digits); // toFixed or toPrecision?
+export function formatNumber(
+  value: number | null | undefined,
+  digits: number = SIGNIFICANT_DIGITS
+): string {
+  const safeDigits = Number.isInteger(digits)
+    ? Math.max(0, Math.min(100, digits))
+    : SIGNIFICANT_DIGITS;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '—';
+  return numericValue.toFixed(safeDigits);
 }
 
-export function formatNumberArray(values: number[], digits: number = SIGNIFICANT_DIGITS): string {
-  return values.map(v => formatNumber(v, digits)).join(', ');
+export function formatNumberArray(
+  values: Array<number | null | undefined> | null | undefined,
+  digits: number = SIGNIFICANT_DIGITS
+): string {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  return values.map((v) => formatNumber(v, digits)).join(', ');
 }
 
 /**

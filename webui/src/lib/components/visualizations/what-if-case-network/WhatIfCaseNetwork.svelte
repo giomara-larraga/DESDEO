@@ -1,18 +1,71 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
+    import { IMPAIRING_COLOR, IMPROVING_COLOR } from '$lib/constants';
 
+	/**
+	 * Component: WhatIfCaseNetwork
+	 * Author: Giomara Larraga (glarragw@jyu.fi)
+	 * Note: Some parts of this component were fine-tuned with GitHub Copilot.
+	 * Created on: May 2026
+     * Modified on: May 2026
+     * 
+	 * Summary:
+	 * Renders a directed objective-to-objective network for What-if Cases.
+	 * Each edge represents the aggregated effect of impairing one objective on another
+	 * across all available cases.
+	 *
+	 * Parameters:
+	 * - objectives: ObjectiveNode[]
+	 *   List of problem objectives used to create graph nodes. Each objective provides
+	 *   a required symbol (id) and an optional display name.
+	 *
+	 * - cases: WhatIfCase[]
+	 *   List of what-if simulations. Each case defines which objective was impaired and
+	 *   the resulting deltas for all objectives.
+	 *
+	 * - mode: 'value' | 'percent'
+	 *   Controls which metric is visualized on edges and labels:
+	 *   'value' uses absolute delta, 'percent' uses normalized percent delta.
+	 *
+	 * Internal visual settings:
+	 * - width, height: SVG viewBox dimensions.
+	 * - nodeRadius: Radius of each objective node.
+	 * - activeNodeSymbol: Optional focus state for highlighting outgoing effects from
+	 *   one selected objective.
+	 *
+	 * Visual encoding:
+	 * - Blue solid edge: positive aggregated effect.
+	 * - Red dashed edge: negative aggregated effect.
+	 * - Edge width: magnitude of effect.
+	 * - Node click: toggles focused source objective.
+	 *
+	 * TODO (pending):
+	 * - Add legend UI inside the component (color, line style, and width meaning).
+	 * - Add tooltip details per node.
+	 * - Add optional responsiveness based on parent container size.
+	 */
+
+	/** Graph node representing one objective in the problem. */
 	type ObjectiveNode = {
 		symbol: string;
 		name?: string;
 	};
 
+	/**
+	 * Change observed for one objective under a what-if case.
+	 * `delta` is absolute change and `percentDelta` is normalized change in percent.
+	 */
 	type CaseDelta = {
 		symbol: string;
 		delta: number;
 		percentDelta: number | null;
 	};
 
+	/**
+	 * One simulated case where a single objective preference was impaired.
+	 * The case stores the resulting changes for all objectives.
+	 */
 	type WhatIfCase = {
 		impairedSymbol: string;
 		deltas: CaseDelta[];
@@ -35,6 +88,7 @@
 	let svgEl: SVGSVGElement | undefined;
 	let activeNodeSymbol = $state<string | null>(null);
 
+	/** Formats edge labels as signed values based on the selected display mode. */
 	function formatSigned(value: number): string {
 		const abs = Math.abs(value);
 		if (mode === 'percent') {
@@ -72,6 +126,7 @@
 
 		const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
+		// Aggregate links across all cases so each source-target pair is rendered once.
 		const linkAccumulator = new Map<string, { source: string; target: string; value: number }>();
 
 		for (const caseItem of cases) {
@@ -121,6 +176,7 @@
 			.y((d) => d[1])
 			.curve(d3.curveBasis);
 
+		// Offset path endpoints so arrows start/end at node borders instead of node centers.
 		function shortenLine(source: { x: number; y: number }, target: { x: number; y: number }) {
 			const dx = target.x - source.x;
 			const dy = target.y - source.y;
@@ -162,10 +218,11 @@
 				]);
 			})
 			.attr('fill', 'none')
-			.attr('stroke', (d) => (d.value >= 0 ? '#16a34a' : '#dc2626'))
+			.attr('stroke', (d) => (d.value >= 0 ? IMPROVING_COLOR : IMPAIRING_COLOR))
 			.attr('stroke-width', (d) => strokeWidth(Math.abs(d.value)))
 			.attr('stroke-dasharray', (d) => (d.value < 0 ? '6 4' : null))
 			.attr('marker-end', 'url(#what-if-arrow)')
+			// When focused, keep only outgoing effects from the selected source objective prominent.
 			.attr('opacity', (d) => {
 				if (!activeNodeSymbol) return 0.9;
 				return d.source === activeNodeSymbol ? 1 : 0.15;
@@ -218,6 +275,7 @@
 				return hasOutgoing ? 1 : 0.35;
 			})
 			.style('cursor', 'pointer')
+			// Clicking a node toggles focus for that objective's outgoing effects.
 			.on('click', (_, d) => {
 				activeNodeSymbol = activeNodeSymbol === d.id ? null : d.id;
 			});
@@ -236,6 +294,7 @@
 		renderGraph();
 	});
 
+	// Re-render when inputs or selection state change.
 	$effect(() => {
 		objectives;
 		cases;
@@ -259,7 +318,7 @@
 		{/if}
 	</div>
 	<div class="mb-2 text-[12px] text-gray-500">
-		Click a node to highlight its effects across all What-if Cases.
+		Click a node to highlight the possible effects of worsening the corresponding objective.
 	</div>
 	<svg
 		bind:this={svgEl}

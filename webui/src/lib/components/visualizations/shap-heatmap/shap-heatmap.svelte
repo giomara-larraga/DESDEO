@@ -170,8 +170,8 @@
 				text-anchor="end"
 				dominant-baseline="middle"
 				font-size="10"
-				fill={impairs ? '#b45309' : '#374151'}
-				font-weight={impairs ? 'bold' : 'normal'}
+				fill={'#374151'}
+				font-weight={'normal'}
 			>
 				<title>{rowLabels[ri]}{impairs ? ' ⚠ this aspiration is making the outcome harder to improve' : ''}</title>
 				{truncate(rowLabels[ri], 11)}
@@ -181,7 +181,7 @@
 			{#each colSymbols as col, ci}
 				{@const rx = LABEL_W + ci * CELL}
 				{@const ry = TOP_MARGIN + ri * CELL}
-				{@const isDiag = col === `z_${row}`}
+				{@const isDiag = false}
 				{@const isBest = col === best}
 
 				<rect
@@ -210,7 +210,7 @@
 				</text>
 
 				<!-- Best-lever star -->
-				{#if isBest && !isDiag}
+<!-- 				{#if isBest && !isDiag}
 					<text
 						x={rx + CELL - 5}
 						y={ry + 10}
@@ -219,7 +219,7 @@
 						text-anchor="middle"
 						pointer-events="none"
 					>★</text>
-				{/if}
+				{/if} -->
 
 				<!-- Diagonal corner triangle (small top-left notch) -->
 				{#if isDiag}

@@ -99,6 +99,14 @@
 	);
 
 	const selectedObjectiveName = $derived(selectedObjective?.name ?? selectedObjectiveSymbol);
+	const selectedObjectiveIndex = $derived(
+		problem.objectives.findIndex((o) => o.symbol === selectedObjectiveSymbol)
+	);
+	const selectedObjectiveDigits = $derived.by(() => {
+		if (selectedObjectiveIndex < 0) return 3;
+		const digits = displayAccuracy[selectedObjectiveIndex];
+		return Number.isInteger(digits) ? digits : 3;
+	});
 
 	type InfluenceRow = {
 		symbol: string;
@@ -360,7 +368,7 @@
 							<div class="space-y-3">
 								<div class="rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-gray-700">
 									<div class="mb-1 font-semibold text-gray-900">
-										Why is {selectedObjectiveName} = {formatNumber(selectedSolutionValue, displayAccuracy[selectedObjectiveSymbol])}?
+										Why is {selectedObjectiveName} = {formatNumber(achievedValueNumber, selectedObjectiveDigits)}?
 									</div>
 
 									<ul class="list-disc space-y-1 pl-4">
@@ -408,7 +416,7 @@
 									/>
 								</div>
 
-								<details class="rounded-md border border-gray-200 bg-white p-3">
+<!-- 								<details class="rounded-md border border-gray-200 bg-white p-3">
 									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
 										Show full SHAP matrix
 									</summary>
@@ -416,7 +424,7 @@
 									<div class="mt-3">
 										<ShapHeatmap shapValues={SHAP_values} {problem} />
 									</div>
-								</details>
+								</details> -->
 							</div>
 						</Tabs.Content>
 
@@ -436,7 +444,7 @@
 										<div class="mt-2 rounded bg-white px-2 py-1 text-xs text-gray-600">
 											Main non-own rival:
 											<strong>{rival.name}</strong>
-											<span class={rival.isHelpful ? 'text-emerald-700' : 'text-rose-700'}>
+											<span class={rival.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}>
 												({formatSigned(rival.helpScore)})
 											</span>
 										</div>
@@ -540,7 +548,7 @@
 
 																<div class="h-2 overflow-hidden rounded bg-gray-100">
 																	<div
-																		class={`h-full ${delta.isImprovement ? 'bg-emerald-500' : 'bg-rose-500'}`}
+																		class={`h-full ${delta.isImprovement ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
 																		style={`width: ${scenarioDiffDisplayMode === 'percent'
 																			? (Math.abs(delta.percentDelta ?? 0) / maxAbsScenarioPercent) * 100
 																			: (Math.abs(delta.delta) / maxAbsScenarioDelta) * 100}%`}
@@ -548,7 +556,7 @@
 																</div>
 
 																<div
-																	class={`text-right font-mono ${delta.isImprovement ? 'text-emerald-700' : 'text-rose-700'}`}
+																	class={`text-right font-mono ${delta.isImprovement ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
 																>
 																	{scenarioDiffDisplayMode === 'percent'
 																		? formatSignedPercent(delta.percentDelta)
@@ -576,21 +584,21 @@
 										{#if mainHurter}
 											<div class="flex items-center justify-between gap-3">
 												<span>Largest non-own conflict</span>
-												<strong class="text-rose-700">{mainHurter.name}</strong>
+												<strong class="text-[#DC3220]">{mainHurter.name}</strong>
 											</div>
 										{/if}
 
 										{#if mainHelper}
 											<div class="flex items-center justify-between gap-3">
 												<span>Largest support</span>
-												<strong class="text-emerald-700">{mainHelper.name}</strong>
+												<strong class="text-[#0C7BDC]">{mainHelper.name}</strong>
 											</div>
 										{/if}
 
 										{#if ownInfluence}
 											<div class="flex items-center justify-between gap-3">
 												<span>Own aspiration effect</span>
-												<strong class={ownInfluence.isHelpful ? 'text-emerald-700' : 'text-rose-700'}>
+												<strong class={ownInfluence.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}>
 													{formatSigned(ownInfluence.helpScore)}
 												</strong>
 											</div>
@@ -629,13 +637,13 @@
 
 												<div class="h-2 overflow-hidden rounded bg-gray-100">
 													<div
-														class={`h-full ${row.isHelpful ? 'bg-emerald-500' : 'bg-rose-500'}`}
+														class={`h-full ${row.isHelpful ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
 														style={`width: ${(Math.abs(row.helpScore) / maxAbsInfluence) * 100}%`}
 													></div>
 												</div>
 
 												<div
-													class={`text-right font-mono ${row.isHelpful ? 'text-emerald-700' : 'text-rose-700'}`}
+													class={`text-right font-mono ${row.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
 												>
 													{formatSigned(row.helpScore)}
 												</div>
