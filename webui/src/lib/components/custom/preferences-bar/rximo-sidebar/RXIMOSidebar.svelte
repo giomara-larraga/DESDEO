@@ -10,6 +10,8 @@
 	import { ShapHeatmap, ShapBarchart } from '$lib/components/visualizations/shap-heatmap';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
+	import WhatIfCaseNetwork from '$lib/components/visualizations/what-if-case-network/WhatIfCaseNetwork.svelte';
+	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
 
 	interface Props {
 		problem: ProblemInfo;
@@ -494,6 +496,19 @@
 												No perturbed cases available yet.
 											</div>
 										{:else}
+											<WhatIfCaseNetwork
+												objectives={problem.objectives.map((o) => ({ symbol: o.symbol, name: o.name }))}
+												cases={hypotheticalScenarios.map((caseItem) => ({
+													impairedSymbol: caseItem.impairedSymbol,
+													deltas: caseItem.deltas.map((delta) => ({
+														symbol: delta.symbol,
+														delta: delta.delta,
+														percentDelta: delta.percentDelta
+													}))
+												}))}
+												mode={scenarioDiffDisplayMode}
+											/>
+
 											{#each hypotheticalScenarios as scenario}
 												<div class="rounded-md border border-gray-200 bg-white p-3">
 													<div class="mb-2 text-xs text-gray-700">
@@ -587,6 +602,18 @@
 										</div>
 									</div>
 								</div>
+
+								<ShapCaseRelationshipNetwork
+									objectives={problem.objectives.map((o) => ({
+										symbol: o.symbol,
+										name: o.name,
+										maximize: o.maximize
+									}))}
+									preferenceValues={preferenceValues}
+									achievedValues={baselineObjectiveValues}
+									shapValues={SHAP_values}
+									threshold={0}
+								/>
 
 								<div class="rounded-md border border-gray-200 bg-white p-3">
 									<div class="mb-2 text-xs font-semibold text-gray-700">
