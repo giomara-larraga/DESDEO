@@ -312,10 +312,18 @@
 				<RximoSidebar
 					{problem}
 					preferenceValues={current_preference}
+					scenarioReferenceValues={last_iterated_preference}
 					solutions={chosen_solutions}
 					perturbedReferencePoints={current_state.perturbed_reference_points ?? []}
 					SHAP_values={current_SHAP_values}
 					SHAP_baseline={current_SHAP_baseline}
+					onApplyScenarioPreferences={(values) =>
+						handle_preference_change({
+							numSolutions: current_num_iteration_solutions,
+							typePreferences: type_preferences,
+							preferenceValues: values,
+							objectiveValues: Object.values(selected_iteration_objectives)
+						})}
 					isLoading={is_fetching_explanation}
 				/>
 			</div>

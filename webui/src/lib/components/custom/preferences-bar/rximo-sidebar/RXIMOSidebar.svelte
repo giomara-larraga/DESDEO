@@ -3,6 +3,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import Button from '$lib/components/ui/button/button.svelte';
 	import type { ProblemInfo, Solution } from '$lib/types';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 
@@ -13,10 +14,12 @@
 	interface Props {
 		problem: ProblemInfo;
 		preferenceValues: number[];
+		scenarioReferenceValues?: number[];
 		solutions: Array<Solution>;
 		perturbedReferencePoints?: Array<{ aspiration_levels?: Record<string, number> }>;
 		SHAP_values: Record<string, Record<string, number>> | null;
 		SHAP_baseline: Record<string, number>;
+		onApplyScenarioPreferences?: (values: number[]) => void;
 		isLoading?: boolean;
 		ref?: HTMLElement | null;
 	}
@@ -24,10 +27,12 @@
 	let {
 		problem,
 		preferenceValues,
+		scenarioReferenceValues = preferenceValues,
 		solutions,
 		perturbedReferencePoints = [],
 		SHAP_values,
 		SHAP_baseline,
+		onApplyScenarioPreferences,
 		isLoading = false,
 		ref = null
 	}: Props = $props();
@@ -172,9 +177,11 @@
 
 	type HypotheticalScenario = {
 		key: string;
-		improvedSymbol: string;
-		improvedName: string;
-		improvementMagnitude: number;
+		impairedSymbol: string;
+		impairedName: string;
+		impairmentMagnitude: number;
+		impairedTargetValue: number;
+		scenarioPreferenceValues: number[];
 		deltas: ScenarioDelta[];
 	};
 
@@ -195,27 +202,36 @@
 			const scenarioSolution = solutions[perturbedIndex + 1];
 			if (!scenarioSolution?.objective_values) return;
 
-			let bestImprovedSymbol = '';
-			let bestImprovedName = '';
-			let bestImprovedMagnitude = 0;
+			let bestImpairedSymbol = '';
+			let bestImpairedName = '';
+			let bestImpairedMagnitude = 0;
+			let bestImpairedTargetValue = 0;
 
 			problem.objectives.forEach((obj, idx) => {
-				const basePref = preferenceValues[idx];
+				const basePref = scenarioReferenceValues[idx];
 				const perturbedPref = aspirationLevels[obj.symbol] ?? aspirationLevels[`z_${obj.symbol}`];
 				if (basePref == null || perturbedPref == null) return;
 
 				const diff = perturbedPref - basePref;
-				const preferredDirectionShift = obj.maximize ? diff : -diff;
-				if (preferredDirectionShift <= 0) return;
+				// Nadir direction: minimization nadir is larger (+diff), maximization nadir is smaller (-diff)
+				const nadirDirectionShift = obj.maximize ? -diff : diff;
+				if (nadirDirectionShift <= 0) return;
 
-				if (preferredDirectionShift > bestImprovedMagnitude) {
-					bestImprovedSymbol = obj.symbol;
-					bestImprovedName = obj.name ?? obj.symbol;
-					bestImprovedMagnitude = preferredDirectionShift;
+				if (nadirDirectionShift > bestImpairedMagnitude) {
+					bestImpairedSymbol = obj.symbol;
+					bestImpairedName = obj.name ?? obj.symbol;
+					bestImpairedMagnitude = nadirDirectionShift;
+					bestImpairedTargetValue = Number(perturbedPref);
 				}
 			});
 
-			if (!bestImprovedSymbol) return;
+			if (!bestImpairedSymbol) return;
+
+			const scenarioPreferenceValues = problem.objectives.map((obj, idx) => {
+				const perturbedPref = aspirationLevels[obj.symbol] ?? aspirationLevels[`z_${obj.symbol}`];
+				const fallback = scenarioReferenceValues[idx] ?? preferenceValues[idx] ?? 0;
+				return Number(perturbedPref ?? fallback);
+			});
 
 			const deltas: ScenarioDelta[] = problem.objectives.map((obj) => {
 				const baseValRaw = baselineObjectiveValues[obj.symbol];
@@ -248,10 +264,12 @@
 			});
 
 			scenarios.push({
-				key: `${bestImprovedSymbol}-${perturbedIndex}`,
-				improvedSymbol: bestImprovedSymbol,
-				improvedName: bestImprovedName,
-				improvementMagnitude: bestImprovedMagnitude,
+				key: `${bestImpairedSymbol}-${perturbedIndex}`,
+				impairedSymbol: bestImpairedSymbol,
+				impairedName: bestImpairedName,
+				impairmentMagnitude: bestImpairedMagnitude,
+				impairedTargetValue: bestImpairedTargetValue,
+				scenarioPreferenceValues,
 				deltas
 			});
 		});
@@ -449,7 +467,7 @@
 
 								<details class="rounded-md border border-gray-200 bg-white p-3">
 									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
-										Show hypothetical scenarios
+										Show What-if Cases
 									</summary>
 
 									<div class="mt-3 space-y-3">
@@ -473,14 +491,29 @@
 
 										{#if hypotheticalScenarios.length === 0}
 											<div class="rounded border bg-gray-50 p-3 text-xs text-gray-500">
-												No perturbed scenarios available yet.
+												No perturbed cases available yet.
 											</div>
 										{:else}
 											{#each hypotheticalScenarios as scenario}
 												<div class="rounded-md border border-gray-200 bg-white p-3">
 													<div class="mb-2 text-xs text-gray-700">
-														If preference improves <strong>{scenario.improvedName}</strong>, the
+														If <strong>{scenario.impairedName}</strong> is impaired by
+														<strong>{scenario.impairmentMagnitude.toFixed(3)}</strong>
+														(to target value
+														<strong>{scenario.impairedTargetValue.toFixed(3)}</strong>),
+														the
 														observed effects are:
+													</div>
+
+													<div class="mb-2">
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onclick={() => onApplyScenarioPreferences?.(scenario.scenarioPreferenceValues)}
+														>
+															Set preferences to this case
+														</Button>
 													</div>
 
 													<div class="space-y-1.5">

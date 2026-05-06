@@ -138,6 +138,12 @@ def get_perturbed_reference_points(
     """
     reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
 
+    # Direction toward nadir: +1 for minimization (nadir is numerically larger),
+    # -1 for maximization (nadir is numerically smaller).
+    nadir_direction = np.array(
+        [-1.0 if obj.maximize else 1.0 for obj in problem.objectives]
+    )
+
     # if ideal and nadir are available, use them to determine the bounds for normalization. If not, use the initial solution and reference point to determine the bounds.
     if not all(
         obj.ideal is not None and obj.nadir is not None for obj in problem.objectives
@@ -147,7 +153,7 @@ def get_perturbed_reference_points(
         unit_vectors = np.eye(len(initial_objective_vector))
         perturbed_reference_point_vectors = np.array(
             [
-                reference_point_vector + (distance * unit_vectors[i])
+                reference_point_vector + (distance * nadir_direction * unit_vectors[i])
                 for i in range(len(initial_objective_vector))
             ]
         )
@@ -185,8 +191,10 @@ def get_perturbed_reference_points(
 
         unit_vectors = np.eye(len(initial_objective_vector))
 
+        # In normalized space: minimization nadir is at 1.0, maximization nadir is at 0.0.
+        # nadir_direction (+1/-1) ensures each perturbation moves toward the nadir.
         normalized_perturbed_reference_point_vectors = normalized_reference + (
-            distance * unit_vectors
+            distance * nadir_direction * unit_vectors
         )
         if clip_to_bounds:
             normalized_perturbed_reference_point_vectors = np.clip(
