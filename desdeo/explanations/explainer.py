@@ -1,15 +1,85 @@
 """Explainers are defined here."""
 
+from collections.abc import Callable
+
 import numpy as np
 import polars as pl
 import shap
 from scipy.spatial import cKDTree
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
+
+
+def make_gp_surrogate(
+    input_array: np.ndarray,
+    output_array: np.ndarray,
+    *,
+    length_scale: float = 1.0,
+    length_scale_bounds: tuple[float, float] = (1e-2, 1e2),
+    noise_level: float = 1e-6,
+    normalize_y: bool = True,
+) -> Callable[[np.ndarray], np.ndarray]:
+    r"""Build a smooth Gaussian-process surrogate for a multi-output mapping.
+
+    Fits one independent `sklearn.gaussian_process.GaussianProcessRegressor`
+    per output column. Hyperparameters are learned by maximum marginal
+    likelihood. The returned callable accepts a 1D array of shape ``(k,)``
+    or a 2D array of shape ``(n, k)`` and returns predictions of shape
+    ``(n, m)`` where ``m`` is the number of output columns. With small
+    twice-differentiable problems a GP is a much better proxy for the
+    underlying scalarization solver than a 1-NN lookup: it is smooth between
+    samples, extrapolates gracefully outside the training cloud, and yields
+    less step-discontinuous SHAP values.
+
+    Args:
+        input_array (np.ndarray): training inputs of shape ``(n, k)``.
+        output_array (np.ndarray): training outputs of shape ``(n, m)``.
+        length_scale (float): initial RBF length scale; refit by MLE.
+        length_scale_bounds (tuple[float, float]): MLE bounds on the
+            length scale per dimension.
+        noise_level (float): white-noise floor of the kernel.
+        normalize_y (bool): center each output column before fitting.
+
+    Returns:
+        Callable[[np.ndarray], np.ndarray]: a function suitable for
+            ``ShapExplainer.evaluate``.
+    """
+    # Local import to keep the optional sklearn dependency optional.
+
+    kernel = ConstantKernel(1.0) * RBF(length_scale=length_scale, length_scale_bounds=length_scale_bounds)
+    kernel = kernel + WhiteKernel(noise_level=noise_level, noise_level_bounds=(1e-10, 1e-1))
+
+    gps = []
+    for i in range(output_array.shape[1]):
+        gp = GaussianProcessRegressor(
+            kernel=kernel,
+            alpha=1e-10,
+            normalize_y=normalize_y,
+            n_restarts_optimizer=2,
+        )
+        gp.fit(input_array, output_array[:, i])
+        gps.append(gp)
+
+    def predict(x: np.ndarray) -> np.ndarray:
+        arr = np.asarray(x, dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        return np.column_stack([gp.predict(arr) for gp in gps])
+
+    return predict
 
 
 class ShapExplainer:
     """Defines a SHAP explainer for reference point based methods."""
 
-    def __init__(self, problem_data: pl.DataFrame, input_symbols: list[str], output_symbols: list[str]):
+    def __init__(
+        self,
+        problem_data: pl.DataFrame,
+        input_symbols: list[str],
+        output_symbols: list[str],
+        *,
+        surrogate_model: Callable[[np.ndarray], np.ndarray] | None = None,
+    ):
         """Initialize the explainer.
 
         Initializes the explainer with given data, and input and output symbols.
@@ -30,6 +100,12 @@ class ShapExplainer:
                 These symbols represent the inputs to the method.
             output_symbols (list[str]): the output symbols present in `data`.
                 These symbols represent the outputs of the method.
+            surrogate_model (Callable | None): optional smooth surrogate
+                taking inputs of shape ``(n, k)`` and returning outputs of
+                shape ``(n, m)``. When ``None``, ``evaluate`` falls back to
+                a piecewise-constant nearest-neighbor lookup over
+                ``problem_data``. See :func:`make_gp_surrogate` for a
+                ready-made Gaussian-process surrogate.
         """
         self.data = problem_data
         self.input_symbols = input_symbols
@@ -37,6 +113,7 @@ class ShapExplainer:
         self.input_array = self.data[self.input_symbols].to_numpy()
         self.output_array = self.data[self.output_symbols].to_numpy()
         self.to_output_tree = cKDTree(self.input_array)
+        self.surrogate_model = surrogate_model
         self.explainer = None
 
     def setup(self, background_data: pl.DataFrame):
@@ -128,9 +205,13 @@ class ShapExplainer:
         """Evaluates the multiobjective optimization method represented by the data.
 
         Note:
-            Evaluation happens by finding the closest matching input array in the
-            `self.input_array` and then using that value's corresponding output
-            as the evaluation result. Closest means lowest Euclidean distance.
+            When a ``surrogate_model`` was passed to the constructor, the
+            evaluation delegates to it (the surrogate is expected to return
+            an array of shape ``(n, m)`` for an input of shape ``(n, k)``).
+            Otherwise the evaluation falls back to a piecewise-constant
+            nearest-neighbor lookup: it finds the closest matching input
+            array in ``self.input_array`` (lowest Euclidean distance) and
+            returns the corresponding stored output.
 
         Args:
             evaluate_array (np.ndarray): the inputs to the method represented by the data.
@@ -140,6 +221,13 @@ class ShapExplainer:
         Returns:
             np.ndarray: the evaluated output(s) corresponding to the input data.
         """
+        if self.surrogate_model is not None:
+            arr = np.asarray(evaluate_array, dtype=float)
+            single = arr.ndim == 1
+            if single:
+                arr = arr.reshape(1, -1)
+            out = np.asarray(self.surrogate_model(arr))
+            return out[0] if single else out
         _, indices = self.to_output_tree.query(evaluate_array)
 
         return self.output_array[indices]

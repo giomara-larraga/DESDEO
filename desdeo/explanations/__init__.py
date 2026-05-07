@@ -10,11 +10,12 @@ __all__ = [
     "find_rival",
     "generate_biased_mean_data",
     "generate_reference_point_data",
+    "make_gp_surrogate",
     "run_rximo",
     "why_objective_i",
 ]
 
-from .explainer import ShapExplainer
+from .explainer import ShapExplainer, make_gp_surrogate
 from .lagrange import (
     compute_tradeoffs,
     determine_active_objectives,
