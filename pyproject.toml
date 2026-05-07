@@ -212,6 +212,13 @@ max-complexity = 15
     "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
     "PLR2004", # Magic value used in comparison, ...
 ]
+# Notebooks routinely use print statements and zip without strict=; tutorial style.
+"**/*.ipynb" = [
+    "T201",
+    "B905",
+    "D103",
+    "E501",
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -251,6 +258,7 @@ markers = [
     "simulator_support: tests related to simulator and surrogate support",
     "explainer: tests related to explainers and related functionalities.",
     "explanation_utils: tests related to explanations module utilities.",
+    "rximo: tests related to the R-XIMO method.",
     "ea: tests related to evolutionary methods.",
     "indicators: tests related to indicators.",
     "testproblem: tests related to test problems.",

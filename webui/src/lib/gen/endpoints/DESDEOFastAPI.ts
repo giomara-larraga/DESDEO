@@ -6,6 +6,85 @@
  * OpenAPI spec version: 0.1.0
  */
 import { customFetch } from '../../api/new-client';
+export type BackgroundDatasetCreateRequestPreferenceValues = { [key: string]: number[] } | null;
+
+export type BackgroundDatasetCreateRequestObjectiveValues = { [key: string]: number[] };
+
+/**
+ * Request model for creating a background dataset entry.
+ */
+export interface BackgroundDatasetCreateRequest {
+	name?: string | null;
+	kind?: string;
+	/** @exclusiveMinimum 0 */
+	num_samples: number;
+	preference_values?: BackgroundDatasetCreateRequestPreferenceValues;
+	objective_values: BackgroundDatasetCreateRequestObjectiveValues;
+	problem_ids: number[];
+}
+
+export type BackgroundDatasetExplainRequestReferencePoint = { [key: string]: number };
+
+export type BackgroundDatasetExplainRequestCurrentSolution = { [key: string]: number } | null;
+
+/**
+ * Request for explaining a DM reference point with a stored background dataset.
+ */
+export interface BackgroundDatasetExplainRequest {
+	problem_id: number;
+	background_dataset_id: number;
+	reference_point: BackgroundDatasetExplainRequestReferencePoint;
+	target_objective_symbol?: string | null;
+	current_solution?: BackgroundDatasetExplainRequestCurrentSolution;
+}
+
+export type BackgroundDatasetExplainResponseReferencePoint = { [key: string]: number };
+
+export type BackgroundDatasetExplainResponseExplainedObjectiveValues = { [key: string]: number };
+
+export type BackgroundDatasetExplainResponseBaseValues = { [key: string]: number };
+
+export type BackgroundDatasetExplainResponseShapValues = {
+	[key: string]: { [key: string]: number };
+};
+
+export type BackgroundDatasetExplainResponseRximoResults = {
+	[key: string]: { [key: string]: unknown };
+} | null;
+
+/**
+ * SHAP explanation response for a single reference point.
+ */
+export interface BackgroundDatasetExplainResponse {
+	problem_id: number;
+	background_dataset_id: number;
+	input_symbols: string[];
+	output_symbols: string[];
+	reference_point: BackgroundDatasetExplainResponseReferencePoint;
+	explained_objective_values: BackgroundDatasetExplainResponseExplainedObjectiveValues;
+	base_values: BackgroundDatasetExplainResponseBaseValues;
+	shap_values: BackgroundDatasetExplainResponseShapValues;
+	rximo_results?: BackgroundDatasetExplainResponseRximoResults;
+}
+
+export type BackgroundDatasetInfoPreferenceValues = { [key: string]: number[] } | null;
+
+export type BackgroundDatasetInfoObjectiveValues = { [key: string]: number[] };
+
+/**
+ * Response model for background dataset entries.
+ */
+export interface BackgroundDatasetInfo {
+	name?: string | null;
+	kind?: string;
+	/** @exclusiveMinimum 0 */
+	num_samples: number;
+	preference_values?: BackgroundDatasetInfoPreferenceValues;
+	objective_values: BackgroundDatasetInfoObjectiveValues;
+	id: number;
+	problem_ids: number[];
+}
+
 export interface BodyAddNewAnalystAddNewAnalystPost {
 	grant_type?: string | null;
 	username: string;
@@ -152,6 +231,7 @@ export interface ConstantDB {
 	value: number;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -208,7 +288,6 @@ export const ConstraintTypeEnum = {
  */
 export interface ConstraintDB {
 	func: unknown[];
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** Descriptive name of the constraint. This can be used in UI and visualizations. Example: 'maximum length'. */
@@ -225,6 +304,7 @@ export interface ConstraintDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -602,7 +682,6 @@ export interface EndProcessPreference {
  */
 export interface ExtraFunctionDB {
 	func: unknown[];
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** Descriptive name of the function. Example: 'normalization'. */
@@ -617,6 +696,7 @@ export interface ExtraFunctionDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 export type ForestProblemMetaDataScheduleDict = { [key: string]: unknown };
@@ -812,6 +892,19 @@ Defaults to None.
 export type SCOREBandsConfigAxisPositions = { [key: string]: number } | null;
 
 /**
+ * Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the
+same as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.
+
+Valid plotly color strings include:
+    - A hex string (e.g. '#ff0000')
+    - An rgb/rgba string (e.g. 'rgb(255,0,0)')
+    - An hsl/hsla string (e.g. 'hsl(0,100%,50%)')
+    - An hsv/hsva string (e.g. 'hsv(0,100%,100%)')
+    - A named CSS color: see https://plotly.com/python/css-colors/ for a list
+ */
+export type SCOREBandsConfigAxisColours = { [key: string]: string } | null;
+
+/**
  * Optional dictionary specifying the min and max values for each objective. The keys should be the
 objective names (i.e., column names in the data), and the values should be tuples of (min, max).
 If not provided, the min and max will be calculated from the data.
@@ -836,8 +929,21 @@ export interface SCOREBandsConfig {
   manually set the axis positions. If None, the axis positions are calculated automatically based on correlations.
   Defaults to None. */
 	axis_positions?: SCOREBandsConfigAxisPositions;
-	/** Clustering algorithm to use. Currently supported options: "GMM", "DBSCAN",
-      and "KMeans". Defaults to "DBSCAN". */
+	/** Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the
+  same as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.
+
+  Valid plotly color strings include:
+      - A hex string (e.g. '#ff0000')
+      - An rgb/rgba string (e.g. 'rgb(255,0,0)')
+      - An hsl/hsla string (e.g. 'hsl(0,100%,50%)')
+      - An hsv/hsva string (e.g. 'hsv(0,100%,100%)')
+      - A named CSS color: see https://plotly.com/python/css-colors/ for a list */
+	axis_colours?: SCOREBandsConfigAxisColours;
+	/** Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.
+  If a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a
+  pattern fill in the band. */
+	highlight_cluster?: number | null;
+	/** Clustering algorithm to use. Currently supports one of `ClusteringOptions`. */
 	clustering_algorithm?:
 		| GMMOptions
 		| DBSCANOptions
@@ -867,6 +973,18 @@ export interface SCOREBandsConfig {
   If not provided, the min and max will be calculated from the data. */
 	scales?: SCOREBandsConfigScales;
 }
+
+/**
+ * Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.
+If None, the cluster IDs themselves are used as names. Defaults to None.
+ */
+export type SCOREBandsResultClusterNames = { [key: string]: string } | null;
+
+/**
+ * Optional dictionary mapping cluster IDs to hover information for display in the visualization.
+If None, no additional hover information is displayed. Defaults to None.
+ */
+export type SCOREBandsResultClusterHoverInfo = { [key: string]: string } | null;
 
 /**
  * Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
@@ -901,6 +1019,12 @@ export interface SCOREBandsResult {
 	ordered_dimensions: string[];
 	/** List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs. */
 	clusters: number[];
+	/** Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.
+  If None, the cluster IDs themselves are used as names. Defaults to None. */
+	cluster_names?: SCOREBandsResultClusterNames;
+	/** Optional dictionary mapping cluster IDs to hover information for display in the visualization.
+  If None, no additional hover information is displayed. Defaults to None. */
+	cluster_hover_info?: SCOREBandsResultClusterHoverInfo;
 	/** Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first
   objective is at position 0.0, and the last objective is at position 1.0. */
 	axis_positions: SCOREBandsResultAxisPositions;
@@ -1129,14 +1253,10 @@ export interface GroupRevertRequest {
 	state_id: number;
 }
 
-export type ValidationErrorCtx = { [key: string]: unknown };
-
 export interface ValidationError {
 	loc: (string | number)[];
 	msg: string;
 	type: string;
-	input?: unknown;
-	ctx?: ValidationErrorCtx;
 }
 
 export interface HTTPValidationError {
@@ -1490,7 +1610,6 @@ export const ObjectiveTypeEnum = {
  */
 export interface ObjectiveDB {
 	func: unknown[] | null;
-	scenario_keys?: string[] | null;
 	surrogates?: string[] | null;
 	simulator_path?: string | Url | null;
 	/** A longer description of the objective function. This can be used in UI and visualizations.             Meant to have longer text than what name should have. */
@@ -1517,6 +1636,7 @@ export interface ObjectiveDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1544,6 +1664,7 @@ export interface TensorConstantDB {
 	symbol: string;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1575,6 +1696,7 @@ export interface VariableDB {
 	initial_value?: number | null;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1593,6 +1715,7 @@ export interface TensorVariableDB {
 	variable_type: VariableTypeEnum;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 /**
@@ -1600,7 +1723,6 @@ export interface TensorVariableDB {
  */
 export interface ScalarizationFunctionDB {
 	func: unknown[];
-	scenario_keys: string[];
 	/** Name of the scalarization function. */
 	name: string;
 	/** Optional symbol to represent the scalarization function. This may be used in UIs and visualizations. */
@@ -1613,6 +1735,7 @@ export interface ScalarizationFunctionDB {
 	is_twice_differentiable?: boolean;
 	id?: number | null;
 	problem_id?: number | null;
+	scenario_model_id?: number | null;
 }
 
 export type SimulatorDBParameterOptions = { [key: string]: unknown } | null;
@@ -1713,7 +1836,6 @@ export interface ProblemInfo {
 	is_convex: boolean | null;
 	is_linear: boolean | null;
 	is_twice_differentiable: boolean | null;
-	scenario_keys: string[] | null;
 	variable_domain: VariableDomainTypeEnum;
 	id: number;
 	user_id: number;
@@ -1739,7 +1861,6 @@ export interface ProblemInfoSmall {
 	is_convex: boolean | null;
 	is_linear: boolean | null;
 	is_twice_differentiable: boolean | null;
-	scenario_keys: string[] | null;
 	variable_domain: VariableDomainTypeEnum;
 	id: number;
 	user_id: number;
@@ -1760,24 +1881,161 @@ export interface ProblemMetaDataGetRequest {
 export interface ProblemSelectSolverRequest {
 	/** ID of the problem that the solver is assigned to. */
 	problem_id: number;
-	/** One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent'] */
+	/** One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent', 'cvxpy'] */
 	solver_string_representation: string;
 }
 
-export type RPMStateScalarizationOptions = { [key: string]: number | string | boolean } | null;
-
-export type RPMStateSolverOptions = { [key: string]: number | string | boolean } | null;
+/**
+ * Request model for deletion of a saved solution.
+ */
+export interface RPMDeleteSaveRequest {
+	/** The ID of the save state. */
+	state_id: number;
+	/** The ID of the solution within the above state. */
+	solution_index: number;
+	/** The ID of the problem. */
+	problem_id: number;
+}
 
 /**
- * Reference Point Method (k+1 candidates).
+ * Response of RPM save deletion.
  */
-export interface RPMState {
-	id: number | null;
-	preferences: ReferencePoint;
-	scalarization_options?: RPMStateScalarizationOptions;
-	solver?: string | null;
-	solver_options?: RPMStateSolverOptions;
-	solver_results: SolverResults[];
+export interface RPMDeleteSaveResponse {
+	response_type?: string;
+	message?: string | null;
+}
+
+/**
+ * Request model for finalizing the RPM procedure.
+ */
+export interface RPMFinalizeRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	solution_info: SolutionInfo;
+}
+
+/**
+ * The response from RPM finalize endpoint.
+ */
+export interface RPMFinalizeResponse {
+	response_type?: 'rpm.finalize';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The final solution. We do not need the other current solutions. */
+	final_solution: SolutionReferenceResponse;
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by RPM in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * The first solution used when computing intermediate points.
+ */
+export type RPMIntermediateSolutionResponseReferenceSolution1 = { [key: string]: number };
+
+/**
+ * The second solution used when computing intermediate points.
+ */
+export type RPMIntermediateSolutionResponseReferenceSolution2 = { [key: string]: number };
+
+/**
+ * The response from RPM classification endpoint.
+ */
+export interface RPMIntermediateSolutionResponse {
+	response_type?: 'rpm.intermediate';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The first solution used when computing intermediate points. */
+	reference_solution_1: RPMIntermediateSolutionResponseReferenceSolution1;
+	/** The second solution used when computing intermediate points. */
+	reference_solution_2: RPMIntermediateSolutionResponseReferenceSolution2;
+	/** The solutions from the current iteration of RPM. */
+	current_solutions: SolutionReferenceResponse[];
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by RPM in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+/**
+ * Request model for saving solutions from any method's state.
+ */
+export interface RPMSaveRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	solution_info: SolutionInfo[];
+}
+
+/**
+ * The response from RPM save endpoint.
+ */
+export interface RPMSaveResponse {
+	response_type?: 'rpm.save';
+	/** The id of the newest state */
+	state_id: number | null;
+}
+
+/**
+ * The response from RPM solve endpoint.
+ */
+export interface RPMSolveResponse {
+	response_type?: 'rpm.solve';
+	/** The newly created state id */
+	state_id: number | null;
+	/** The previous preference used. */
+	previous_preference: ReferencePoint;
+	/** The perturbed reference points used to generate the current solutions. */
+	perturbed_reference_points?: ReferencePoint[];
+	/** The solutions from the current iteration of nimbus. */
+	current_solutions: SolutionReferenceResponse[];
+	/** The best candidate solutions saved by the decision maker. */
+	saved_solutions: SolutionReferenceResponse[];
+	/** All solutions generated by NIMBUS in all iterations. */
+	all_solutions: SolutionReferenceResponse[];
+}
+
+export type RXIMOExplainRequestCurrentSolution = { [key: string]: number } | null;
+
+/**
+ * Request model for SHAP explanations in the RXIMO method.
+ */
+export interface RXIMOExplainRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	preference?: ReferencePoint;
+	background_dataset_id?: number | null;
+	target_objective_symbol?: string | null;
+	current_solution?: RXIMOExplainRequestCurrentSolution;
+}
+
+export type RXIMOExplainResponseReferencePoint = { [key: string]: number };
+
+export type RXIMOExplainResponseExplainedObjectiveValues = { [key: string]: number };
+
+export type RXIMOExplainResponseBaseValues = { [key: string]: number };
+
+export type RXIMOExplainResponseShapValues = { [key: string]: { [key: string]: number } };
+
+export type RXIMOExplainResponseRximoResults = { [key: string]: { [key: string]: unknown } } | null;
+
+/**
+ * Response model for SHAP explanations in the RXIMO method.
+ */
+export interface RXIMOExplainResponse {
+	response_type?: 'rximo.explain';
+	problem_id: number;
+	background_dataset_id: number;
+	input_symbols: string[];
+	output_symbols: string[];
+	reference_point: RXIMOExplainResponseReferencePoint;
+	explained_objective_values: RXIMOExplainResponseExplainedObjectiveValues;
+	base_values: RXIMOExplainResponseBaseValues;
+	shap_values: RXIMOExplainResponseShapValues;
+	rximo_results?: RXIMOExplainResponseRximoResults;
 }
 
 export type RepresentativeSolutionSetBaseSolutionData = { [key: string]: number[] };
@@ -2025,12 +2283,37 @@ export type GetProblemJsonProblemProblemIdJsonGetParams = {
 	session_id?: number | null;
 };
 
+export type GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = {
+	problem_id?: number | null;
+	session_id?: number | null;
+};
+
 export type CreateNewSessionSessionNewPostParams = {
 	target_user_id?: number | null;
 	problem_id?: number | null;
 };
 
 export type SolveSolutionsMethodRpmSolvePostParams = {
+	problem_id?: number | null;
+};
+
+export type SaveMethodRpmSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type SolveNimbusIntermediateMethodRpmIntermediatePostParams = {
+	problem_id?: number | null;
+};
+
+export type FinalizeNimbusMethodRpmFinalizePostParams = {
+	problem_id?: number | null;
+};
+
+export type DeleteSaveMethodRpmDeleteSavePostParams = {
+	problem_id?: number | null;
+};
+
+export type ExplainReferencePointMethodRximoExplainPostParams = {
 	problem_id?: number | null;
 };
 
@@ -3449,6 +3732,204 @@ export const createConstrainedVariantProblemProblemIdConstrainedVariantPost = as
 };
 
 /**
+ * Create a background dataset linked to one or more problems owned by the current user.
+ * @summary Add Background Dataset
+ */
+export type addBackgroundDatasetBackgroundDataAddPostResponse200 = {
+	data: BackgroundDatasetInfo;
+	status: 200;
+};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponseSuccess =
+	addBackgroundDatasetBackgroundDataAddPostResponse200 & {
+		headers: Headers;
+	};
+export type addBackgroundDatasetBackgroundDataAddPostResponseError =
+	addBackgroundDatasetBackgroundDataAddPostResponse422 & {
+		headers: Headers;
+	};
+
+export type addBackgroundDatasetBackgroundDataAddPostResponse =
+	| addBackgroundDatasetBackgroundDataAddPostResponseSuccess
+	| addBackgroundDatasetBackgroundDataAddPostResponseError;
+
+export const getAddBackgroundDatasetBackgroundDataAddPostUrl = () => {
+	return `http://localhost:8000/background_data/add`;
+};
+
+export const addBackgroundDatasetBackgroundDataAddPost = async (
+	backgroundDatasetCreateRequest: BackgroundDatasetCreateRequest,
+	options?: RequestInit
+): Promise<addBackgroundDatasetBackgroundDataAddPostResponse> => {
+	return customFetch<addBackgroundDatasetBackgroundDataAddPostResponse>(
+		getAddBackgroundDatasetBackgroundDataAddPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(backgroundDatasetCreateRequest)
+		}
+	);
+};
+
+/**
+ * List background datasets for a problem.
+ * @summary Get Problem Background Datasets
+ */
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 = {
+	data: BackgroundDatasetInfo[];
+	status: 200;
+};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess =
+	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError =
+	getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse =
+	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseSuccess
+	| getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseError;
+
+export const getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl = (
+	problemId: number
+) => {
+	return `http://localhost:8000/background_data/problem/${problemId}`;
+};
+
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet = async (
+	problemId: number,
+	options?: RequestInit
+): Promise<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse> => {
+	return customFetch<getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse>(
+		getGetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetUrl(problemId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Fetch a single background dataset if it belongs to one of the current user's problems.
+ * @summary Get Background Dataset
+ */
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 = {
+	data: BackgroundDatasetInfo;
+	status: 200;
+};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess =
+	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError =
+	getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse =
+	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseSuccess
+	| getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseError;
+
+export const getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl = (
+	backgroundDatasetId: number,
+	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/background_data/${backgroundDatasetId}?${stringifiedParams}`
+		: `http://localhost:8000/background_data/${backgroundDatasetId}`;
+};
+
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGet = async (
+	backgroundDatasetId: number,
+	params?: GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams,
+	options?: RequestInit
+): Promise<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse> => {
+	return customFetch<getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse>(
+		getGetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetUrl(backgroundDatasetId, params),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Explain a DM reference point using SHAP and background data stored in the database.
+ * @summary Explain Reference Point
+ */
+export type explainReferencePointBackgroundDataExplainPostResponse200 = {
+	data: BackgroundDatasetExplainResponse;
+	status: 200;
+};
+
+export type explainReferencePointBackgroundDataExplainPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type explainReferencePointBackgroundDataExplainPostResponseSuccess =
+	explainReferencePointBackgroundDataExplainPostResponse200 & {
+		headers: Headers;
+	};
+export type explainReferencePointBackgroundDataExplainPostResponseError =
+	explainReferencePointBackgroundDataExplainPostResponse422 & {
+		headers: Headers;
+	};
+
+export type explainReferencePointBackgroundDataExplainPostResponse =
+	| explainReferencePointBackgroundDataExplainPostResponseSuccess
+	| explainReferencePointBackgroundDataExplainPostResponseError;
+
+export const getExplainReferencePointBackgroundDataExplainPostUrl = () => {
+	return `http://localhost:8000/background_data/explain`;
+};
+
+export const explainReferencePointBackgroundDataExplainPost = async (
+	backgroundDatasetExplainRequest: BackgroundDatasetExplainRequest,
+	options?: RequestInit
+): Promise<explainReferencePointBackgroundDataExplainPostResponse> => {
+	return customFetch<explainReferencePointBackgroundDataExplainPostResponse>(
+		getExplainReferencePointBackgroundDataExplainPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(backgroundDatasetExplainRequest)
+		}
+	);
+};
+
+/**
  * Creates a new interactive session.
 
 If ``target_user_id`` is provided, the session is created on behalf of that user.
@@ -3640,12 +4121,12 @@ Args:
     context (Annotated[SessionContext, Depends): the current session context.
 
 Returns:
-    RPMState: a state with information on the results of iterating the reference point method
+    RPMSolveResponse: a response with information on the results of iterating the reference point method
         once.
  * @summary Solve Solutions
  */
 export type solveSolutionsMethodRpmSolvePostResponse200 = {
-	data: RPMState;
+	data: RPMSolveResponse;
 	status: 200;
 };
 
@@ -3697,6 +4178,324 @@ export const solveSolutionsMethodRpmSolvePost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(rPMSolveRequest)
+		}
+	);
+};
+
+/**
+ * Save solutions.
+ * @summary Save
+ */
+export type saveMethodRpmSavePostResponse200 = {
+	data: RPMSaveResponse;
+	status: 200;
+};
+
+export type saveMethodRpmSavePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type saveMethodRpmSavePostResponseSuccess = saveMethodRpmSavePostResponse200 & {
+	headers: Headers;
+};
+export type saveMethodRpmSavePostResponseError = saveMethodRpmSavePostResponse422 & {
+	headers: Headers;
+};
+
+export type saveMethodRpmSavePostResponse =
+	| saveMethodRpmSavePostResponseSuccess
+	| saveMethodRpmSavePostResponseError;
+
+export const getSaveMethodRpmSavePostUrl = (params?: SaveMethodRpmSavePostParams) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rpm/save?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/save`;
+};
+
+export const saveMethodRpmSavePost = async (
+	rPMSaveRequest: RPMSaveRequest,
+	params?: SaveMethodRpmSavePostParams,
+	options?: RequestInit
+): Promise<saveMethodRpmSavePostResponse> => {
+	return customFetch<saveMethodRpmSavePostResponse>(getSaveMethodRpmSavePostUrl(params), {
+		...options,
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json', ...options?.headers },
+		body: JSON.stringify(rPMSaveRequest)
+	});
+};
+
+/**
+ * Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.
+ * @summary Solve Nimbus Intermediate
+ */
+export type solveNimbusIntermediateMethodRpmIntermediatePostResponse200 = {
+	data: RPMIntermediateSolutionResponse;
+	status: 200;
+};
+
+export type solveNimbusIntermediateMethodRpmIntermediatePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type solveNimbusIntermediateMethodRpmIntermediatePostResponseSuccess =
+	solveNimbusIntermediateMethodRpmIntermediatePostResponse200 & {
+		headers: Headers;
+	};
+export type solveNimbusIntermediateMethodRpmIntermediatePostResponseError =
+	solveNimbusIntermediateMethodRpmIntermediatePostResponse422 & {
+		headers: Headers;
+	};
+
+export type solveNimbusIntermediateMethodRpmIntermediatePostResponse =
+	| solveNimbusIntermediateMethodRpmIntermediatePostResponseSuccess
+	| solveNimbusIntermediateMethodRpmIntermediatePostResponseError;
+
+export const getSolveNimbusIntermediateMethodRpmIntermediatePostUrl = (
+	params?: SolveNimbusIntermediateMethodRpmIntermediatePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rpm/intermediate?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/intermediate`;
+};
+
+export const solveNimbusIntermediateMethodRpmIntermediatePost = async (
+	intermediateSolutionRequest: IntermediateSolutionRequest,
+	params?: SolveNimbusIntermediateMethodRpmIntermediatePostParams,
+	options?: RequestInit
+): Promise<solveNimbusIntermediateMethodRpmIntermediatePostResponse> => {
+	return customFetch<solveNimbusIntermediateMethodRpmIntermediatePostResponse>(
+		getSolveNimbusIntermediateMethodRpmIntermediatePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(intermediateSolutionRequest)
+		}
+	);
+};
+
+/**
+ * An endpoint for finishing up the nimbus process.
+
+Args:
+    request (RPMFinalizeRequest): The request containing the final solution, etc.
+    context (Annotated[SessionContext, SessionContextGuard): The current context.
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMFinalizeResponse: Response containing info on the final solution.
+ * @summary Finalize Nimbus
+ */
+export type finalizeNimbusMethodRpmFinalizePostResponse200 = {
+	data: RPMFinalizeResponse;
+	status: 200;
+};
+
+export type finalizeNimbusMethodRpmFinalizePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type finalizeNimbusMethodRpmFinalizePostResponseSuccess =
+	finalizeNimbusMethodRpmFinalizePostResponse200 & {
+		headers: Headers;
+	};
+export type finalizeNimbusMethodRpmFinalizePostResponseError =
+	finalizeNimbusMethodRpmFinalizePostResponse422 & {
+		headers: Headers;
+	};
+
+export type finalizeNimbusMethodRpmFinalizePostResponse =
+	| finalizeNimbusMethodRpmFinalizePostResponseSuccess
+	| finalizeNimbusMethodRpmFinalizePostResponseError;
+
+export const getFinalizeNimbusMethodRpmFinalizePostUrl = (
+	params?: FinalizeNimbusMethodRpmFinalizePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rpm/finalize?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/finalize`;
+};
+
+export const finalizeNimbusMethodRpmFinalizePost = async (
+	rPMFinalizeRequest: RPMFinalizeRequest,
+	params?: FinalizeNimbusMethodRpmFinalizePostParams,
+	options?: RequestInit
+): Promise<finalizeNimbusMethodRpmFinalizePostResponse> => {
+	return customFetch<finalizeNimbusMethodRpmFinalizePostResponse>(
+		getFinalizeNimbusMethodRpmFinalizePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(rPMFinalizeRequest)
+		}
+	);
+};
+
+/**
+ * Endpoint for deleting saved solutions.
+
+Args:
+    request (RPMDeleteSaveRequest): request containing necessary information for deleting a save
+    context (Annotated[SessionContext, Depends): session context
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+ * @summary Delete Save
+ */
+export type deleteSaveMethodRpmDeleteSavePostResponse200 = {
+	data: RPMDeleteSaveResponse;
+	status: 200;
+};
+
+export type deleteSaveMethodRpmDeleteSavePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type deleteSaveMethodRpmDeleteSavePostResponseSuccess =
+	deleteSaveMethodRpmDeleteSavePostResponse200 & {
+		headers: Headers;
+	};
+export type deleteSaveMethodRpmDeleteSavePostResponseError =
+	deleteSaveMethodRpmDeleteSavePostResponse422 & {
+		headers: Headers;
+	};
+
+export type deleteSaveMethodRpmDeleteSavePostResponse =
+	| deleteSaveMethodRpmDeleteSavePostResponseSuccess
+	| deleteSaveMethodRpmDeleteSavePostResponseError;
+
+export const getDeleteSaveMethodRpmDeleteSavePostUrl = (
+	params?: DeleteSaveMethodRpmDeleteSavePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rpm/delete_save?${stringifiedParams}`
+		: `http://localhost:8000/method/rpm/delete_save`;
+};
+
+export const deleteSaveMethodRpmDeleteSavePost = async (
+	rPMDeleteSaveRequest: RPMDeleteSaveRequest,
+	params?: DeleteSaveMethodRpmDeleteSavePostParams,
+	options?: RequestInit
+): Promise<deleteSaveMethodRpmDeleteSavePostResponse> => {
+	return customFetch<deleteSaveMethodRpmDeleteSavePostResponse>(
+		getDeleteSaveMethodRpmDeleteSavePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(rPMDeleteSaveRequest)
+		}
+	);
+};
+
+/**
+ * Explain an RPM reference point with SHAP values using stored background data.
+ * @summary Explain Reference Point
+ */
+export type explainReferencePointMethodRximoExplainPostResponse200 = {
+	data: RXIMOExplainResponse;
+	status: 200;
+};
+
+export type explainReferencePointMethodRximoExplainPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type explainReferencePointMethodRximoExplainPostResponseSuccess =
+	explainReferencePointMethodRximoExplainPostResponse200 & {
+		headers: Headers;
+	};
+export type explainReferencePointMethodRximoExplainPostResponseError =
+	explainReferencePointMethodRximoExplainPostResponse422 & {
+		headers: Headers;
+	};
+
+export type explainReferencePointMethodRximoExplainPostResponse =
+	| explainReferencePointMethodRximoExplainPostResponseSuccess
+	| explainReferencePointMethodRximoExplainPostResponseError;
+
+export const getExplainReferencePointMethodRximoExplainPostUrl = (
+	params?: ExplainReferencePointMethodRximoExplainPostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : value.toString());
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/rximo/explain?${stringifiedParams}`
+		: `http://localhost:8000/method/rximo/explain`;
+};
+
+export const explainReferencePointMethodRximoExplainPost = async (
+	rXIMOExplainRequest: RXIMOExplainRequest,
+	params?: ExplainReferencePointMethodRximoExplainPostParams,
+	options?: RequestInit
+): Promise<explainReferencePointMethodRximoExplainPostResponse> => {
+	return customFetch<explainReferencePointMethodRximoExplainPostResponse>(
+		getExplainReferencePointMethodRximoExplainPostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(rXIMOExplainRequest)
 		}
 	);
 };

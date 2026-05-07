@@ -162,7 +162,6 @@ export const GetProblemsProblemAllGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -319,7 +318,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -341,7 +339,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -372,7 +371,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -408,7 +408,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -471,7 +472,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -481,7 +483,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -563,7 +564,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -572,7 +574,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -631,7 +632,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -642,7 +644,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -673,7 +674,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -684,7 +686,6 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -734,7 +735,8 @@ export const GetProblemsInfoProblemAllInfoGetResponseItem = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -968,7 +970,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -990,7 +991,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1021,7 +1023,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1057,7 +1060,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1120,7 +1124,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1130,7 +1135,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1212,7 +1216,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1221,7 +1226,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1280,7 +1284,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -1291,7 +1296,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -1322,7 +1326,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -1333,7 +1338,6 @@ export const GetProblemProblemProblemIdGetResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -1383,7 +1387,8 @@ export const GetProblemProblemProblemIdGetResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -1720,7 +1725,6 @@ export const AddProblemProblemAddPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -1742,7 +1746,8 @@ export const AddProblemProblemAddPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -1773,7 +1778,8 @@ export const AddProblemProblemAddPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -1809,7 +1815,8 @@ export const AddProblemProblemAddPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -1872,7 +1879,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -1882,7 +1890,6 @@ export const AddProblemProblemAddPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -1962,7 +1969,8 @@ export const AddProblemProblemAddPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -1971,7 +1979,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2030,7 +2037,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2041,7 +2049,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2068,7 +2075,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2079,7 +2087,6 @@ export const AddProblemProblemAddPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2129,7 +2136,8 @@ export const AddProblemProblemAddPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -2454,7 +2462,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 		is_convex: zod.union([zod.boolean(), zod.null()]),
 		is_linear: zod.union([zod.boolean(), zod.null()]),
 		is_twice_differentiable: zod.union([zod.boolean(), zod.null()]),
-		scenario_keys: zod.union([zod.array(zod.string()), zod.null()]),
 		variable_domain: zod
 			.enum(['continuous', 'binary', 'integer', 'mixed'])
 			.describe('An enumerator for the possible variable type domains of a problem.'),
@@ -2476,7 +2483,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							),
 						value: zod.number().describe('The value of the constant.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constant`.')
 			),
@@ -2507,7 +2515,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								"Symbol to represent the constant. This will be used in the rest of the problem definition. Notice that the elements of the tensor will be represented with the symbol followed by indices. E.g., the first element of the third element of a 2-dimensional tensor, is represented by 'x_1_3', where 'x' is the symbol given to the TensorVariable. Note that indexing starts from 1."
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorConstant`.')
 			),
@@ -2543,7 +2552,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							.optional()
 							.describe('Initial value of the variable. This is optional.'),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Variable`.')
 			),
@@ -2606,7 +2616,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Type of the variable. Can be real, integer, or binary. Note that each element of a TensorVariable is assumed to be of the same type.'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `TensorVariable`.')
 			),
@@ -2616,7 +2627,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 			zod
 				.object({
 					func: zod.union([zod.array(zod.unknown()), zod.null()]),
-					scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 					simulator_path: zod
 						.union([
@@ -2698,7 +2708,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 							'Whether the function expression is twice differentiable or not. Defaults to `False`'
 						),
 					id: zod.union([zod.number(), zod.null()]).optional(),
-					problem_id: zod.union([zod.number(), zod.null()]).optional()
+					problem_id: zod.union([zod.number(), zod.null()]).optional(),
+					scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 				})
 				.describe('The SQLModel equivalent to `Objective`.')
 		),
@@ -2707,7 +2718,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2766,7 +2776,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `Constraint`.')
 			),
@@ -2777,7 +2788,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.array(zod.string()),
 						name: zod.string().describe('Name of the scalarization function.'),
 						symbol: zod
 							.union([zod.string(), zod.null()])
@@ -2808,7 +2818,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ScalarizationFunction`.')
 			),
@@ -2819,7 +2830,6 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 				zod
 					.object({
 						func: zod.array(zod.unknown()),
-						scenario_keys: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						surrogates: zod.union([zod.array(zod.string()), zod.null()]).optional(),
 						simulator_path: zod
 							.union([
@@ -2869,7 +2879,8 @@ export const AddProblemJsonProblemAddJsonPostResponse = zod
 								'Whether the function expression is twice differentiable or not. Defaults to `False`'
 							),
 						id: zod.union([zod.number(), zod.null()]).optional(),
-						problem_id: zod.union([zod.number(), zod.null()]).optional()
+						problem_id: zod.union([zod.number(), zod.null()]).optional(),
+						scenario_model_id: zod.union([zod.number(), zod.null()]).optional()
 					})
 					.describe('The SQLModel equivalent to `ExtraFunction`.')
 			),
@@ -3210,7 +3221,7 @@ export const SelectSolverProblemAssignSolverPostBody = zod
 		solver_string_representation: zod
 			.string()
 			.describe(
-				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent']"
+				"One of the following: ['scipy_minimize', 'scipy_de', 'proximal', 'nevergrad', 'pyomo_bonmin', 'pyomo_cbc', 'pyomo_ipopt', 'pyomo_gurobi', 'gurobipy', 'gurobipy_persistent', 'cvxpy']"
 			)
 	})
 	.describe('Model to request a specific solver for a problem.');
@@ -3359,6 +3370,145 @@ export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostRespo
 	.describe('Response after creating a constrained variant.');
 
 /**
+ * Create a background dataset linked to one or more problems owned by the current user.
+ * @summary Add Background Dataset
+ */
+export const addBackgroundDatasetBackgroundDataAddPostBodyKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostBody = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostBodyKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Request model for creating a background dataset entry.');
+
+export const addBackgroundDatasetBackgroundDataAddPostResponseKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * List background datasets for a problem.
+ * @summary Get Problem Background Datasets
+ */
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams = zod.object({
+	problem_id: zod.number()
+});
+
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault = `rximo_background`;
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(
+				getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin
+			),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse = zod.array(
+	GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem
+);
+
+/**
+ * Fetch a single background dataset if it belongs to one of the current user's problems.
+ * @summary Get Background Dataset
+ */
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = zod.object({
+	background_dataset_id: zod.number()
+});
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional(),
+	session_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault = `rximo_background`;
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * Explain a DM reference point using SHAP and background data stored in the database.
+ * @summary Explain Reference Point
+ */
+export const ExplainReferencePointBackgroundDataExplainPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		reference_point: zod.record(zod.string(), zod.number()),
+		target_objective_symbol: zod.union([zod.string(), zod.null()]).optional(),
+		current_solution: zod.union([zod.record(zod.string(), zod.number()), zod.null()]).optional()
+	})
+	.describe('Request for explaining a DM reference point with a stored background dataset.');
+
+export const ExplainReferencePointBackgroundDataExplainPostResponse = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		input_symbols: zod.array(zod.string()),
+		output_symbols: zod.array(zod.string()),
+		reference_point: zod.record(zod.string(), zod.number()),
+		explained_objective_values: zod.record(zod.string(), zod.number()),
+		base_values: zod.record(zod.string(), zod.number()),
+		shap_values: zod.record(zod.string(), zod.record(zod.string(), zod.number())),
+		rximo_results: zod
+			.union([zod.record(zod.string(), zod.record(zod.string(), zod.unknown())), zod.null()])
+			.optional()
+	})
+	.describe('SHAP explanation response for a single reference point.');
+
+/**
  * Creates a new interactive session.
 
 If ``target_user_id`` is provided, the session is created on behalf of that user.
@@ -3432,7 +3582,7 @@ Args:
     context (Annotated[SessionContext, Depends): the current session context.
 
 Returns:
-    RPMState: a state with information on the results of iterating the reference point method
+    RPMSolveResponse: a response with information on the results of iterating the reference point method
         once.
  * @summary Solve Solutions
  */
@@ -3472,19 +3622,201 @@ export const SolveSolutionsMethodRpmSolvePostBody = zod
 	})
 	.describe('Model of the request to the reference point method.');
 
-export const solveSolutionsMethodRpmSolvePostResponsePreferencesPreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostResponseResponseTypeDefault = `rpm.solve`;
+export const solveSolutionsMethodRpmSolvePostResponsePreviousPreferencePreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault = `reference_point`;
 
 export const SolveSolutionsMethodRpmSolvePostResponse = zod
 	.object({
-		id: zod.union([zod.number(), zod.null()]),
-		preferences: zod
+		response_type: zod
+			.literal('rpm.solve')
+			.default(solveSolutionsMethodRpmSolvePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		previous_preference: zod
 			.object({
 				preference_type: zod
 					.literal('reference_point')
-					.default(solveSolutionsMethodRpmSolvePostResponsePreferencesPreferenceTypeDefault),
+					.default(solveSolutionsMethodRpmSolvePostResponsePreviousPreferencePreferenceTypeDefault),
 				aspiration_levels: zod.record(zod.string(), zod.number())
 			})
-			.describe('Model for representing a reference point type of preference.'),
+			.describe('The previous preference used.'),
+		perturbed_reference_points: zod
+			.array(
+				zod
+					.object({
+						preference_type: zod
+							.literal('reference_point')
+							.default(
+								solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault
+							),
+						aspiration_levels: zod.record(zod.string(), zod.number())
+					})
+					.describe('Model for representing a reference point type of preference.')
+			)
+			.optional()
+			.describe('The perturbed reference points used to generate the current solutions.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The solutions from the current iteration of nimbus.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by NIMBUS in all iterations.')
+	})
+	.describe('The response from RPM solve endpoint.');
+
+/**
+ * Save solutions.
+ * @summary Save
+ */
+export const SaveMethodRpmSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const SaveMethodRpmSavePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod.array(
+			zod
+				.object({
+					state_id: zod.number().describe('State of the desired solution.'),
+					solution_index: zod.number().describe('Index of the desired solution.'),
+					name: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe('Name to be given to the solution. Optional.')
+				})
+				.describe(
+					'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+				)
+		)
+	})
+	.describe("Request model for saving solutions from any method's state.");
+
+export const saveMethodRpmSavePostResponseResponseTypeDefault = `rpm.save`;
+
+export const SaveMethodRpmSavePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.save')
+			.default(saveMethodRpmSavePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The id of the newest state')
+	})
+	.describe('The response from RPM save endpoint.');
+
+/**
+ * Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.
+ * @summary Solve Nimbus Intermediate
+ */
+export const SolveNimbusIntermediateMethodRpmIntermediatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const solveNimbusIntermediateMethodRpmIntermediatePostBodyNumDesiredDefault = 1;
+
+export const SolveNimbusIntermediateMethodRpmIntermediatePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		context: zod.union([zod.string(), zod.null()]).optional(),
 		scalarization_options: zod
 			.union([
 				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
@@ -3498,65 +3830,387 @@ export const SolveSolutionsMethodRpmSolvePostResponse = zod
 				zod.null()
 			])
 			.optional(),
-		solver_results: zod.array(
-			zod
-				.object({
-					optimal_variables: zod
-						.record(zod.string(), zod.union([zod.number(), zod.number(), zod.array(zod.unknown())]))
-						.describe('The optimal decision variables found.'),
-					optimal_objectives: zod
-						.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())]))
-						.describe(
-							'The objective function values corresponding to the optimal decision variables found.'
-						),
-					constraint_values: zod
-						.union([
+		num_desired: zod
+			.union([zod.number(), zod.null()])
+			.default(solveNimbusIntermediateMethodRpmIntermediatePostBodyNumDesiredDefault),
+		reference_solution_1: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			),
+		reference_solution_2: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Model of the request to solve intermediate solutions between two solutions.');
+
+export const solveNimbusIntermediateMethodRpmIntermediatePostResponseResponseTypeDefault = `rpm.intermediate`;
+
+export const SolveNimbusIntermediateMethodRpmIntermediatePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.intermediate')
+			.default(solveNimbusIntermediateMethodRpmIntermediatePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		reference_solution_1: zod
+			.record(zod.string(), zod.number())
+			.describe('The first solution used when computing intermediate points.'),
+		reference_solution_2: zod
+			.record(zod.string(), zod.number())
+			.describe('The second solution used when computing intermediate points.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
 							zod.record(
 								zod.string(),
 								zod.union([
 									zod.number(),
 									zod.number(),
-									zod.array(zod.number()),
-									zod.array(zod.unknown())
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
 								])
 							),
-							zod.unknown(),
 							zod.null()
 						])
-						.optional()
-						.describe(
-							'The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.'
-						),
-					extra_func_values: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The solutions from the current iteration of RPM.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
 							zod.null()
 						])
-						.optional()
-						.describe('The extra function values of the problem.'),
-					scalarization_values: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
 							zod.null()
 						])
-						.optional()
-						.describe('The scalarization function values of the problem.'),
-					lagrange_multipliers: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
-							zod.null()
-						])
-						.optional()
-						.describe('The Lagrange multipliers of the problem.'),
-					success: zod
-						.boolean()
-						.describe('A boolean flag indicating whether the optimization was successful or not.'),
-					message: zod.string().describe('Description of the cause of termination.')
-				})
-				.describe('Defines a schema for a dataclass to store the results of a solver.')
-		)
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by RPM in all iterations.')
 	})
-	.describe('Reference Point Method (k+1 candidates).');
+	.describe('The response from RPM classification endpoint.');
+
+/**
+ * An endpoint for finishing up the nimbus process.
+
+Args:
+    request (RPMFinalizeRequest): The request containing the final solution, etc.
+    context (Annotated[SessionContext, SessionContextGuard): The current context.
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMFinalizeResponse: Response containing info on the final solution.
+ * @summary Finalize Nimbus
+ */
+export const FinalizeNimbusMethodRpmFinalizePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const FinalizeNimbusMethodRpmFinalizePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Request model for finalizing the RPM procedure.');
+
+export const finalizeNimbusMethodRpmFinalizePostResponseResponseTypeDefault = `rpm.finalize`;
+
+export const FinalizeNimbusMethodRpmFinalizePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.finalize')
+			.default(finalizeNimbusMethodRpmFinalizePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		final_solution: zod
+			.object({
+				name: zod.union([zod.string(), zod.null()]).optional(),
+				solution_index: zod.union([zod.number(), zod.null()]),
+				state_id: zod.number(),
+				objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+				variable_values: zod.union([
+					zod.record(
+						zod.string(),
+						zod.union([
+							zod.number(),
+							zod.number(),
+							zod.boolean(),
+							zod.union([
+								zod.array(zod.unknown()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							])
+						])
+					),
+					zod.null()
+				])
+			})
+			.describe('The final solution. We do not need the other current solutions.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by RPM in all iterations.')
+	})
+	.describe('The response from RPM finalize endpoint.');
+
+/**
+ * Endpoint for deleting saved solutions.
+
+Args:
+    request (RPMDeleteSaveRequest): request containing necessary information for deleting a save
+    context (Annotated[SessionContext, Depends): session context
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+ * @summary Delete Save
+ */
+export const DeleteSaveMethodRpmDeleteSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const DeleteSaveMethodRpmDeleteSavePostBody = zod
+	.object({
+		state_id: zod.number().describe('The ID of the save state.'),
+		solution_index: zod.number().describe('The ID of the solution within the above state.'),
+		problem_id: zod.number().describe('The ID of the problem.')
+	})
+	.describe('Request model for deletion of a saved solution.');
+
+export const deleteSaveMethodRpmDeleteSavePostResponseResponseTypeDefault = `rpm.delete_save`;
+
+export const DeleteSaveMethodRpmDeleteSavePostResponse = zod
+	.object({
+		response_type: zod
+			.string()
+			.default(deleteSaveMethodRpmDeleteSavePostResponseResponseTypeDefault),
+		message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response of RPM save deletion.');
+
+/**
+ * Explain an RPM reference point with SHAP values using stored background data.
+ * @summary Explain Reference Point
+ */
+export const ExplainReferencePointMethodRximoExplainPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const explainReferencePointMethodRximoExplainPostBodyPreferencePreferenceTypeDefault = `reference_point`;
+
+export const ExplainReferencePointMethodRximoExplainPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		preference: zod
+			.object({
+				preference_type: zod
+					.literal('reference_point')
+					.default(explainReferencePointMethodRximoExplainPostBodyPreferencePreferenceTypeDefault),
+				aspiration_levels: zod.record(zod.string(), zod.number())
+			})
+			.optional()
+			.describe('Model for representing a reference point type of preference.'),
+		background_dataset_id: zod.union([zod.number(), zod.null()]).optional(),
+		target_objective_symbol: zod.union([zod.string(), zod.null()]).optional(),
+		current_solution: zod.union([zod.record(zod.string(), zod.number()), zod.null()]).optional()
+	})
+	.describe('Request model for SHAP explanations in the RXIMO method.');
+
+export const explainReferencePointMethodRximoExplainPostResponseResponseTypeDefault = `rximo.explain`;
+
+export const ExplainReferencePointMethodRximoExplainPostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rximo.explain')
+			.default(explainReferencePointMethodRximoExplainPostResponseResponseTypeDefault),
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		input_symbols: zod.array(zod.string()),
+		output_symbols: zod.array(zod.string()),
+		reference_point: zod.record(zod.string(), zod.number()),
+		explained_objective_values: zod.record(zod.string(), zod.number()),
+		base_values: zod.record(zod.string(), zod.number()),
+		shap_values: zod.record(zod.string(), zod.record(zod.string(), zod.number())),
+		rximo_results: zod
+			.union([zod.record(zod.string(), zod.record(zod.string(), zod.unknown())), zod.null()])
+			.optional()
+	})
+	.describe('Response model for SHAP explanations in the RXIMO method.');
 
 /**
  * Solve the problem using the NIMBUS method.
@@ -7896,6 +8550,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 							.describe(
 								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 							),
+						axis_colours: zod
+							.union([zod.record(zod.string(), zod.string()), zod.null()])
+							.optional()
+							.describe(
+								"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+							),
+						highlight_cluster: zod
+							.union([zod.number(), zod.null()])
+							.optional()
+							.describe(
+								'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+							),
 						clustering_algorithm: zod
 							.union([
 								zod
@@ -7987,7 +8653,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmDefault
 							)
 							.describe(
-								'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 							),
 						distance_formula: zod
 							.union([zod.literal(1), zod.literal(2)])
@@ -8128,6 +8794,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 											.describe(
 												'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 											),
+										axis_colours: zod
+											.union([zod.record(zod.string(), zod.string()), zod.null()])
+											.optional()
+											.describe(
+												"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+											),
+										highlight_cluster: zod
+											.union([zod.number(), zod.null()])
+											.optional()
+											.describe(
+												'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+											),
 										clustering_algorithm: zod
 											.union([
 												zod
@@ -8223,7 +8901,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 												getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmDefault
 											)
 											.describe(
-												'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
+												'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
 											),
 										distance_formula: zod
 											.union([zod.literal(1), zod.literal(2)])
@@ -8293,6 +8971,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.array(zod.number())
 									.describe(
 										'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+									),
+								cluster_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+									),
+								cluster_hover_info: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
 									),
 								axis_positions: zod
 									.record(zod.string(), zod.number())
@@ -8475,6 +9165,18 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.describe(
 						'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
 					),
+				axis_colours: zod
+					.union([zod.record(zod.string(), zod.string()), zod.null()])
+					.optional()
+					.describe(
+						"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+					),
+				highlight_cluster: zod
+					.union([zod.number(), zod.null()])
+					.optional()
+					.describe(
+						'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+					),
 				clustering_algorithm: zod
 					.union([
 						zod
@@ -8565,9 +9267,7 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.default(
 						configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmDefault
 					)
-					.describe(
-						'Clustering algorithm to use. Currently supported options: \"GMM\", \"DBSCAN\",\n    and \"KMeans\". Defaults to \"DBSCAN\".'
-					),
+					.describe('Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'),
 				distance_formula: zod
 					.union([zod.literal(1), zod.literal(2)])
 					.default(configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigDistanceFormulaDefault)

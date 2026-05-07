@@ -34,11 +34,14 @@ from .state import (
     NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMState,
+    RPMSolveState,
+    RPMSaveState,
+    RPMFinalState,
 )
 from .user import User
 
 if TYPE_CHECKING:
+    from .background_data import BackgroundDatasetDB
     from .problem import ProblemDB
     from .session import InteractiveSessionDB
 
@@ -52,6 +55,8 @@ class StateKind(str, Enum):
     """
 
     RPM_SOLVE = "reference_point_method.solve_candidates"
+    RPM_FINAL = "reference_point_method.final"
+    RPM_SAVE = "reference_point_method.save_solutions"
     NIMBUS_SOLVE = "nimbus.solve_candidates"
     NIMBUS_SAVE = "nimbus.save_solutions"
     NIMBUS_INIT = "nimbus.initialize"
@@ -148,7 +153,9 @@ class StateDB(SQLModel, table=True):
                 raise ValueError(f"No StateKind mapping for substate type {sub_cls!r}")
 
         method, phase = _method_phase_from_kind(kind)
-        base = State(method=method, phase=phase, kind=kind, date_time=datetime.now().isoformat())
+        base = State(
+            method=method, phase=phase, kind=kind, date_time=datetime.now().isoformat()
+        )
 
         row = cls(
             problem_id=problem_id,
@@ -183,11 +190,15 @@ class StateDB(SQLModel, table=True):
             # No bound state
             raise RuntimeError("StateDB.state accessed without a bound Session")
 
-        return db_session.exec(select(table).where(table.id == self.base_state.id)).first()
+        return db_session.exec(
+            select(table).where(table.id == self.base_state.id)
+        ).first()
 
 
 KIND_TO_TABLE: dict[StateKind, SQLModel] = {
-    StateKind.RPM_SOLVE: RPMState,
+    StateKind.RPM_SOLVE: RPMSolveState,
+    StateKind.RPM_FINAL: RPMFinalState,
+    StateKind.RPM_SAVE: RPMSaveState,
     StateKind.NIMBUS_SOLVE: NIMBUSClassificationState,
     StateKind.NIMBUS_SAVE: NIMBUSSaveState,
     StateKind.NIMBUS_INIT: NIMBUSInitializationState,
@@ -211,7 +222,9 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
-    RPMState: StateKind.RPM_SOLVE,
+    RPMSolveState: StateKind.RPM_SOLVE,
+    RPMSaveState: StateKind.RPM_SAVE,
+    RPMFinalState: StateKind.RPM_FINAL,
     NIMBUSClassificationState: StateKind.NIMBUS_SOLVE,
     NIMBUSSaveState: StateKind.NIMBUS_SAVE,
     NIMBUSInitializationState: StateKind.NIMBUS_INIT,
@@ -334,12 +347,17 @@ class SolutionReferenceBase(SQLModel):
     referencing those, see `SavedSolutionReference`.
     """
 
-    name: str | None = Field(description="Optional name to help identify the solution if, e.g., saved.", default=None)
+    name: str | None = Field(
+        description="Optional name to help identify the solution if, e.g., saved.",
+        default=None,
+    )
     solution_index: int | None = Field(
         description="The index of the referenced solution, if multiple solutions exist in the reference state.",
         default=None,
     )
-    state: StateDB = Field(description="The reference state with the solution information.")
+    state: StateDB = Field(
+        description="The reference state with the solution information."
+    )
 
     @computed_field
     @property
@@ -416,7 +434,9 @@ class SolutionReferenceResponse(SQLModel):
 class SavedSolutionReference(SQLModel):
     """A model that functions as a reference to solutions that users have chosen to explicitly save in the database."""
 
-    saved_solution: UserSavedSolutionDB = Field(description="The reference object with the solution information.")
+    saved_solution: UserSavedSolutionDB = Field(
+        description="The reference object with the solution information."
+    )
 
     @computed_field
     @property

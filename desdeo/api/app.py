@@ -5,12 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desdeo.api.config import AuthConfig
 from desdeo.api.routers import (
+    background_data,
     enautilus,
     generic,
     nautilus_navigator,
     nimbus,
     problem,
     reference_point_method,
+    rximo,
     session,
     site_selection,
     user_authentication,
@@ -29,8 +31,10 @@ app = FastAPI(
 
 app.include_router(user_authentication.router)
 app.include_router(problem.router)
+app.include_router(background_data.router)
 app.include_router(session.router)
 app.include_router(reference_point_method.router)
+app.include_router(rximo.router)
 app.include_router(nimbus.router)
 app.include_router(xnimbus.router)
 # app.include_router(emo.router) # TODO: what is going on? cannot serialize pl.dataframe

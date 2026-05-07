@@ -6,12 +6,16 @@ const getBody = async <T>(c: Response | Request): Promise<T> => {
   }
 
   const contentType = c.headers.get('content-type');
+  console.error(`[getBody] contentType: ${contentType}, status: ${c instanceof Response ? c.status : 'N/A'}`);
 
   if (contentType && contentType.includes('application/json')) {
     // Avoid JSON.parse errors on empty bodies
     const text = await (c as Response).text?.() ?? '';
+    console.error(`[getBody] json text length: ${text.length}`);
     if (!text) return null as T;
-    return JSON.parse(text) as T;
+    const parsed = JSON.parse(text) as T;
+    console.error(`[getBody] parsed:`, parsed);
+    return parsed;
   }
 
   if (contentType && contentType.includes('application/pdf')) {

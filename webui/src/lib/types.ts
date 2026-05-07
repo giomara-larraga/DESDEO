@@ -5,7 +5,7 @@ import type { ProblemInfo as ProblemInfoOrval, SolutionReferenceResponse } from 
 export type ProblemInfo = ProblemInfoOrval;
 export type Solution = SolutionReferenceResponse;
 
-export type MethodMode = 'iterate' | 'final' | 'intermediate';
+export type MethodMode = 'iterate' | 'final' | 'intermediate' | 'history';
 export type SolutionType = 'current' | 'best' | 'all';
 
 export type DialogConfig = {

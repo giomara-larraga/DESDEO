@@ -1,0 +1,18 @@
+{
+  "objective_names": [
+    "f_1",
+    "f_2"
+  ],
+  "ideal": {
+    "f_1": 0.0,
+    "f_2": 0.0
+  },
+  "nadir": {
+    "f_1": 140.0,
+    "f_2": 50.0
+  },
+  "is_maximized": {
+    "f_1": false,
+    "f_2": false
+  }
+}

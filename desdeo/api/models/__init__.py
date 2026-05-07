@@ -1,6 +1,12 @@
 """Model exports."""
 
 __all__ = [  # noqa: RUF022
+    "BackgroundDatasetCreateRequest",
+    "BackgroundDatasetDB",
+    "BackgroundDatasetExplainRequest",
+    "BackgroundDatasetExplainResponse",
+    "BackgroundDatasetInfo",
+    "ProblemBackgroundDatasetLink",
     "Bounds",
     "ConstrainedVariantRequest",
     "ConstrainedVariantResponse",
@@ -77,7 +83,19 @@ __all__ = [  # noqa: RUF022
     "ReferencePoint",
     "RepresentativeNonDominatedSolutions",
     "RPMSolveRequest",
-    "RPMState",
+    "RPMSolveResponse",
+    "RPMSolveState",
+    "RPMSaveState",
+    "RPMSaveRequest",
+    "RPMSaveResponse",
+    "RPMFinalState",
+    "RPMFinalizeRequest",
+    "RPMFinalizeResponse",
+    "RPMDeleteSaveRequest",
+    "RPMDeleteSaveResponse",
+    "RPMIntermediateSolutionResponse",
+    "RXIMOExplainRequest",
+    "RXIMOExplainResponse",
     "SavedSolutionReference",
     "ScalarizationFunctionDB",
     "ScenarioModelDB",
@@ -151,6 +169,14 @@ __all__ = [  # noqa: RUF022
 
 
 from .archive import UserSavedEMOResults
+from .background_data import (
+    BackgroundDatasetCreateRequest,
+    BackgroundDatasetDB,
+    BackgroundDatasetExplainRequest,
+    BackgroundDatasetExplainResponse,
+    BackgroundDatasetInfo,
+    ProblemBackgroundDatasetLink,
+)
 from .emo import (
     EMOFetchRequest,
     EMOFetchResponse,
@@ -284,7 +310,18 @@ from .problem import (
     VariableDB,
     VariableFixing,
 )
-from .reference_point_method import RPMSolveRequest
+from .reference_point_method import (
+    RPMDeleteSaveRequest,
+    RPMDeleteSaveResponse,
+    RPMFinalizeRequest,
+    RPMFinalizeResponse,
+    RPMIntermediateSolutionResponse,
+    RPMSaveRequest,
+    RPMSaveResponse,
+    RPMSolveRequest,
+    RPMSolveResponse,
+)
+from .rximo import RXIMOExplainRequest, RXIMOExplainResponse
 from .scenario import ScenarioModelDB, ScenarioModelInfo
 from .session import (
     CreateSessionRequest,
@@ -305,7 +342,9 @@ from .state import (
     NIMBUSFinalState,
     NIMBUSInitializationState,
     NIMBUSSaveState,
-    RPMState,
+    RPMFinalState,
+    RPMSaveState,
+    RPMSolveState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

@@ -30,8 +30,11 @@ from desdeo.problem.schema import (
 )
 from desdeo.tools.utils import available_solvers
 
+from .background_data import ProblemBackgroundDatasetLink
+
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
+    from .background_data import BackgroundDatasetDB
     from .generic_states import StateDB
     from .preference import PreferenceDB
     from .scenario import ScenarioModelDB
@@ -162,6 +165,10 @@ class ProblemDB(ProblemBase, table=True):
     solutions: list["UserSavedSolutionDB"] = Relationship(back_populates="problem", cascade_delete=True)
     preferences: list["PreferenceDB"] = Relationship(back_populates="problem", cascade_delete=True)
     states: list["StateDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    background_datasets: list["BackgroundDatasetDB"] = Relationship(
+        back_populates="problems",
+        link_model=ProblemBackgroundDatasetLink,
+    )
 
     # Populated by other models
     constants: list["ConstantDB"] = Relationship(back_populates="problem", cascade_delete=True)
@@ -283,10 +290,12 @@ class RepresentativeNonDominatedSolutions(RepresentativeSolutionSetBase, SQLMode
         "unrolled.",
     )
     ideal: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
+        sa_column=Column(JSON),
+        description="The ideal objective function values of the representative set.",
     )
     nadir: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
+        sa_column=Column(JSON),
+        description="The nadir objective function values of the representative set.",
     )
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
@@ -329,7 +338,8 @@ class SiteSelectionMetaData(SQLModel, table=True):
 
     # Variable mapping
     site_variable_symbols: list[str] = Field(
-        sa_column=Column(JSON), description="Ordered list of site variable symbols matching sites_json positions"
+        sa_column=Column(JSON),
+        description="Ordered list of site variable symbols matching sites_json positions",
     )
     coverage_variable_symbols: list[str] | None = Field(
         sa_column=Column(JSON),

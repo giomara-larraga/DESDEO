@@ -28,6 +28,7 @@ Guides are goal-oriented and are meant to direct users towards specific goals wh
 - **[Using GDM SCORE bands](gdm_score.ipynb):** How to use the group decision-making (GDM) SCORE bands method for consensus reaching
 - **[Advanced Usage of Surrogates](advancedSurrogates.ipynb):** How to a combination of multiple surrogates and analytical objectives
 - **[Utilizing ADMs](./how_to_use_adms.ipynb):** Using artificial decision makers (ADMs) to compare EMO methods.
+- **[R-XIMO: Explainable interactive optimization](rximo.ipynb):** How to use R-XIMO with SHAP-based explanations
 
 ## Web-API and Web-GUI
 
