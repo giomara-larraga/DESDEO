@@ -134,7 +134,7 @@ class ShapExplainer:
         Args:
             background_data (pl.DataFrame): the background data.
         """
-        self.explainer = shap.Explainer(
+        self.explainer = shap.PermutationExplainer(
             self.evaluate,
             masker=background_data[self.input_symbols].to_numpy(),
         )
@@ -247,4 +247,8 @@ class ShapExplainer:
         """
         _to_be_explained = to_be_explained[self.input_symbols].to_numpy()
 
-        return self.explainer(_to_be_explained)
+        # Limit permutation evaluations: 2*n_features+1 = one permutation pass,
+        # which is sufficient for interactive use and avoids the default
+        # 500*n_features+1 evaluations that make each call very slow.
+        max_evals = 2 * len(self.input_symbols) + 1
+        return self.explainer(_to_be_explained, max_evals=max_evals)

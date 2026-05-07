@@ -30,8 +30,11 @@ from desdeo.problem.schema import (
 )
 from desdeo.tools.utils import available_solvers
 
+from .background_data import ProblemBackgroundDatasetLink
+
 if TYPE_CHECKING:
     from .archive import UserSavedSolutionDB
+    from .background_data import BackgroundDatasetDB
     from .generic_states import StateDB
     from .preference import PreferenceDB
     from .scenario import ScenarioModelDB
@@ -49,6 +52,7 @@ class ProblemBase(SQLModel):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum | None = Field()
 
 
@@ -151,6 +155,7 @@ class ProblemDB(ProblemBase, table=True):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Variant tracking
@@ -162,6 +167,10 @@ class ProblemDB(ProblemBase, table=True):
     solutions: list["UserSavedSolutionDB"] = Relationship(back_populates="problem", cascade_delete=True)
     preferences: list["PreferenceDB"] = Relationship(back_populates="problem", cascade_delete=True)
     states: list["StateDB"] = Relationship(back_populates="problem", cascade_delete=True)
+    background_datasets: list["BackgroundDatasetDB"] = Relationship(
+        back_populates="problems",
+        link_model=ProblemBackgroundDatasetLink,
+    )
 
     # Populated by other models
     constants: list["ConstantDB"] = Relationship(back_populates="problem", cascade_delete=True)
@@ -283,10 +292,12 @@ class RepresentativeNonDominatedSolutions(RepresentativeSolutionSetBase, SQLMode
         "unrolled.",
     )
     ideal: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The ideal objective function values of the representative set."
+        sa_column=Column(JSON),
+        description="The ideal objective function values of the representative set.",
     )
     nadir: dict[str, float] = Field(
-        sa_column=Column(JSON), description="The nadir objective function values of the representative set."
+        sa_column=Column(JSON),
+        description="The nadir objective function values of the representative set.",
     )
 
     metadata_instance: "ProblemMetaDataDB" = Relationship(back_populates="representative_nd_metadata")
@@ -329,7 +340,8 @@ class SiteSelectionMetaData(SQLModel, table=True):
 
     # Variable mapping
     site_variable_symbols: list[str] = Field(
-        sa_column=Column(JSON), description="Ordered list of site variable symbols matching sites_json positions"
+        sa_column=Column(JSON),
+        description="Ordered list of site variable symbols matching sites_json positions",
     )
     coverage_variable_symbols: list[str] | None = Field(
         sa_column=Column(JSON),
@@ -615,6 +627,7 @@ class _Objective(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -647,6 +660,7 @@ class _Constraint(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -705,6 +719,7 @@ class _ExtraFunction(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
+    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 

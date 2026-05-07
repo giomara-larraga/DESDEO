@@ -160,18 +160,25 @@
 		// hasRawData: UI has list of solutions and calculates bands from them. This calculation is currently commented out.
 		// hasPreCalculatedData: UI uses bands and medians pre-calculated by SCORE API, and might not have solutions at all.
 		const hasRawData = processedData.length > 0 && groups.length > 0;
-		const hasPreCalculatedData = Object.keys(bands).length > 0 && Object.keys(medians).length > 0;
+		const hasPreCalculatedBands = Object.keys(bands).length > 0;
+		const hasPreCalculatedMedians = Object.keys(medians).length > 0;
+		const hasPreCalculatedData =
+			hasPreCalculatedBands && (!options.medians || hasPreCalculatedMedians);
 
 		if (hasPreCalculatedData) {
 			// --- Use pre-calculated bands and medians from SCORE API ---
 
-			// Get unique cluster IDs from groups
-			const uniqueClusterIds = [...new Set(groups)].sort((a, b) => a - b);
+			// Use cluster IDs from band payload, because pre-calculated rendering may not include per-solution groups.
+			const uniqueClusterIds = Object.keys(bands)
+				.map((id) => Number(id))
+				.filter((id) => Number.isFinite(id))
+				.sort((a, b) => a - b);
 
 			// Draw all unselected clusters first
 			uniqueClusterIds.forEach((clusterId) => {
 				const clusterKey = clusterId.toString();
-				if (!bands[clusterKey] || !medians[clusterKey]) return; // Skip if no data
+				if (!bands[clusterKey]) return; // Skip if no band data
+				if (options.medians && !medians[clusterKey]) return; // Skip only when medians are required
 				if (!effectiveClusterVisibility[clusterId]) return;
 				if (selectedBand === clusterId) return; // skip selected cluster, draw it on top
 
@@ -194,7 +201,7 @@
 			// Draw selected cluster on top
 			if (selectedBand !== null && effectiveClusterVisibility[selectedBand]) {
 				const selectedClusterKey = selectedBand.toString();
-				if (bands[selectedClusterKey] && medians[selectedClusterKey]) {
+				if (bands[selectedClusterKey] && (!options.medians || medians[selectedClusterKey])) {
 					drawPreCalculatedCluster(
 						svg,
 						selectedBand,

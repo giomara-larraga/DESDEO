@@ -3359,6 +3359,140 @@ export const CreateConstrainedVariantProblemProblemIdConstrainedVariantPostRespo
 	.describe('Response after creating a constrained variant.');
 
 /**
+ * Create a background dataset linked to one or more problems owned by the current user.
+ * @summary Add Background Dataset
+ */
+export const addBackgroundDatasetBackgroundDataAddPostBodyKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostBody = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostBodyKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostBodyNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Request model for creating a background dataset entry.');
+
+export const addBackgroundDatasetBackgroundDataAddPostResponseKindDefault = `rximo_background`;
+export const addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin = 0;
+
+export const AddBackgroundDatasetBackgroundDataAddPostResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod.string().default(addBackgroundDatasetBackgroundDataAddPostResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(addBackgroundDatasetBackgroundDataAddPostResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * List background datasets for a problem.
+ * @summary Get Problem Background Datasets
+ */
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetParams = zod.object({
+	problem_id: zod.number()
+});
+
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault = `rximo_background`;
+export const getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(
+				getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseNumSamplesExclusiveMin
+			),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+export const GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponse = zod.array(
+	GetProblemBackgroundDatasetsBackgroundDataProblemProblemIdGetResponseItem
+);
+
+/**
+ * Fetch a single background dataset if it belongs to one of the current user's problems.
+ * @summary Get Background Dataset
+ */
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetParams = zod.object({
+	background_dataset_id: zod.number()
+});
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional(),
+	session_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault = `rximo_background`;
+export const getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin = 0;
+
+export const GetBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponse = zod
+	.object({
+		name: zod.union([zod.string(), zod.null()]).optional(),
+		kind: zod
+			.string()
+			.default(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseKindDefault),
+		num_samples: zod
+			.number()
+			.gt(getBackgroundDatasetBackgroundDataBackgroundDatasetIdGetResponseNumSamplesExclusiveMin),
+		preference_values: zod
+			.union([zod.record(zod.string(), zod.array(zod.number())), zod.null()])
+			.optional(),
+		objective_values: zod.record(zod.string(), zod.array(zod.number())),
+		id: zod.number(),
+		problem_ids: zod.array(zod.number())
+	})
+	.describe('Response model for background dataset entries.');
+
+/**
+ * Explain a DM reference point using SHAP and background data stored in the database.
+ * @summary Explain Reference Point
+ */
+export const ExplainReferencePointBackgroundDataExplainPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		reference_point: zod.record(zod.string(), zod.number())
+	})
+	.describe('Request for explaining a DM reference point with a stored background dataset.');
+
+export const ExplainReferencePointBackgroundDataExplainPostResponse = zod
+	.object({
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		input_symbols: zod.array(zod.string()),
+		output_symbols: zod.array(zod.string()),
+		reference_point: zod.record(zod.string(), zod.number()),
+		explained_objective_values: zod.record(zod.string(), zod.number()),
+		base_values: zod.record(zod.string(), zod.number()),
+		shap_values: zod.record(zod.string(), zod.record(zod.string(), zod.number()))
+	})
+	.describe('SHAP explanation response for a single reference point.');
+
+/**
  * Creates a new interactive session.
 
 If ``target_user_id`` is provided, the session is created on behalf of that user.
@@ -3432,7 +3566,7 @@ Args:
     context (Annotated[SessionContext, Depends): the current session context.
 
 Returns:
-    RPMState: a state with information on the results of iterating the reference point method
+    RPMSolveResponse: a response with information on the results of iterating the reference point method
         once.
  * @summary Solve Solutions
  */
@@ -3472,19 +3606,200 @@ export const SolveSolutionsMethodRpmSolvePostBody = zod
 	})
 	.describe('Model of the request to the reference point method.');
 
-export const solveSolutionsMethodRpmSolvePostResponsePreferencesPreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostResponseResponseTypeDefault = `rpm.solve`;
+export const solveSolutionsMethodRpmSolvePostResponsePreviousPreferencePreferenceTypeDefault = `reference_point`;
+export const solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault = `reference_point`;
 
 export const SolveSolutionsMethodRpmSolvePostResponse = zod
 	.object({
-		id: zod.union([zod.number(), zod.null()]),
-		preferences: zod
+		response_type: zod
+			.literal('rpm.solve')
+			.default(solveSolutionsMethodRpmSolvePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		previous_preference: zod
 			.object({
 				preference_type: zod
 					.literal('reference_point')
-					.default(solveSolutionsMethodRpmSolvePostResponsePreferencesPreferenceTypeDefault),
+					.default(solveSolutionsMethodRpmSolvePostResponsePreviousPreferencePreferenceTypeDefault),
 				aspiration_levels: zod.record(zod.string(), zod.number())
 			})
-			.describe('Model for representing a reference point type of preference.'),
+			.describe('The previous preference used.'),
+		perturbed_reference_points: zod
+			.array(
+				zod
+					.object({
+						preference_type: zod
+							.literal('reference_point')
+							.default(
+								solveSolutionsMethodRpmSolvePostResponsePerturbedReferencePointsItemPreferenceTypeDefault
+							),
+						aspiration_levels: zod.record(zod.string(), zod.number())
+					})
+					.describe('Model for representing a reference point type of preference.')
+			)
+			.describe('The perturbed reference points used to generate the current solutions.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The solutions from the current iteration of nimbus.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by NIMBUS in all iterations.')
+	})
+	.describe('The response from RPM solve endpoint.');
+
+/**
+ * Save solutions.
+ * @summary Save
+ */
+export const SaveMethodRpmSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const SaveMethodRpmSavePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod.array(
+			zod
+				.object({
+					state_id: zod.number().describe('State of the desired solution.'),
+					solution_index: zod.number().describe('Index of the desired solution.'),
+					name: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe('Name to be given to the solution. Optional.')
+				})
+				.describe(
+					'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+				)
+		)
+	})
+	.describe("Request model for saving solutions from any method's state.");
+
+export const saveMethodRpmSavePostResponseResponseTypeDefault = `rpm.save`;
+
+export const SaveMethodRpmSavePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.save')
+			.default(saveMethodRpmSavePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The id of the newest state')
+	})
+	.describe('The response from RPM save endpoint.');
+
+/**
+ * Solve intermediate solutions by forwarding the request to generic intermediate endpoint with context nimbus.
+ * @summary Solve Nimbus Intermediate
+ */
+export const SolveNimbusIntermediateMethodRpmIntermediatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const solveNimbusIntermediateMethodRpmIntermediatePostBodyNumDesiredDefault = 1;
+
+export const SolveNimbusIntermediateMethodRpmIntermediatePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		context: zod.union([zod.string(), zod.null()]).optional(),
 		scalarization_options: zod
 			.union([
 				zod.record(zod.string(), zod.union([zod.number(), zod.string(), zod.boolean()])),
@@ -3498,65 +3813,382 @@ export const SolveSolutionsMethodRpmSolvePostResponse = zod
 				zod.null()
 			])
 			.optional(),
-		solver_results: zod.array(
-			zod
-				.object({
-					optimal_variables: zod
-						.record(zod.string(), zod.union([zod.number(), zod.number(), zod.array(zod.unknown())]))
-						.describe('The optimal decision variables found.'),
-					optimal_objectives: zod
-						.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())]))
-						.describe(
-							'The objective function values corresponding to the optimal decision variables found.'
-						),
-					constraint_values: zod
-						.union([
+		num_desired: zod
+			.union([zod.number(), zod.null()])
+			.default(solveNimbusIntermediateMethodRpmIntermediatePostBodyNumDesiredDefault),
+		reference_solution_1: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			),
+		reference_solution_2: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Model of the request to solve intermediate solutions between two solutions.');
+
+export const solveNimbusIntermediateMethodRpmIntermediatePostResponseResponseTypeDefault = `rpm.intermediate`;
+
+export const SolveNimbusIntermediateMethodRpmIntermediatePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.intermediate')
+			.default(solveNimbusIntermediateMethodRpmIntermediatePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		reference_solution_1: zod
+			.record(zod.string(), zod.number())
+			.describe('The first solution used when computing intermediate points.'),
+		reference_solution_2: zod
+			.record(zod.string(), zod.number())
+			.describe('The second solution used when computing intermediate points.'),
+		current_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
 							zod.record(
 								zod.string(),
 								zod.union([
 									zod.number(),
 									zod.number(),
-									zod.array(zod.number()),
-									zod.array(zod.unknown())
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
 								])
 							),
-							zod.unknown(),
 							zod.null()
 						])
-						.optional()
-						.describe(
-							'The constraint values of the problem. A negative value means the constraint is respected, a positive one means it has been breached.'
-						),
-					extra_func_values: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The solutions from the current iteration of RPM.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
 							zod.null()
 						])
-						.optional()
-						.describe('The extra function values of the problem.'),
-					scalarization_values: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
 							zod.null()
 						])
-						.optional()
-						.describe('The scalarization function values of the problem.'),
-					lagrange_multipliers: zod
-						.union([
-							zod.record(zod.string(), zod.union([zod.number(), zod.array(zod.number())])),
-							zod.null()
-						])
-						.optional()
-						.describe('The Lagrange multipliers of the problem.'),
-					success: zod
-						.boolean()
-						.describe('A boolean flag indicating whether the optimization was successful or not.'),
-					message: zod.string().describe('Description of the cause of termination.')
-				})
-				.describe('Defines a schema for a dataclass to store the results of a solver.')
-		)
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by RPM in all iterations.')
 	})
-	.describe('Reference Point Method (k+1 candidates).');
+	.describe('The response from RPM classification endpoint.');
+
+/**
+ * An endpoint for finishing up the nimbus process.
+
+Args:
+    request (RPMFinalizeRequest): The request containing the final solution, etc.
+    context (Annotated[SessionContext, SessionContextGuard): The current context.
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMFinalizeResponse: Response containing info on the final solution.
+ * @summary Finalize Nimbus
+ */
+export const FinalizeNimbusMethodRpmFinalizePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const FinalizeNimbusMethodRpmFinalizePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		solution_info: zod
+			.object({
+				state_id: zod.number().describe('State of the desired solution.'),
+				solution_index: zod.number().describe('Index of the desired solution.'),
+				name: zod
+					.union([zod.string(), zod.null()])
+					.optional()
+					.describe('Name to be given to the solution. Optional.')
+			})
+			.describe(
+				'Used when we wish to reference a solution in some `StateDB` stored in the database.'
+			)
+	})
+	.describe('Request model for finalizing the RPM procedure.');
+
+export const finalizeNimbusMethodRpmFinalizePostResponseResponseTypeDefault = `rpm.finalize`;
+
+export const FinalizeNimbusMethodRpmFinalizePostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rpm.finalize')
+			.default(finalizeNimbusMethodRpmFinalizePostResponseResponseTypeDefault),
+		state_id: zod.union([zod.number(), zod.null()]).describe('The newly created state id'),
+		final_solution: zod
+			.object({
+				name: zod.union([zod.string(), zod.null()]).optional(),
+				solution_index: zod.union([zod.number(), zod.null()]),
+				state_id: zod.number(),
+				objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+				variable_values: zod.union([
+					zod.record(
+						zod.string(),
+						zod.union([
+							zod.number(),
+							zod.number(),
+							zod.boolean(),
+							zod.union([
+								zod.array(zod.unknown()),
+								zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+								zod.number(),
+								zod.number(),
+								zod.boolean(),
+								zod.literal('List'),
+								zod.null()
+							])
+						])
+					),
+					zod.null()
+				])
+			})
+			.describe('The final solution. We do not need the other current solutions.'),
+		saved_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('The best candidate solutions saved by the decision maker.'),
+		all_solutions: zod
+			.array(
+				zod
+					.object({
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						solution_index: zod.union([zod.number(), zod.null()]),
+						state_id: zod.number(),
+						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
+						variable_values: zod.union([
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							),
+							zod.null()
+						])
+					})
+					.describe(
+						'The response information provided when `SolutionReference` object are returned from the client.'
+					)
+			)
+			.describe('All solutions generated by RPM in all iterations.')
+	})
+	.describe('The response from RPM finalize endpoint.');
+
+/**
+ * Endpoint for deleting saved solutions.
+
+Args:
+    request (RPMDeleteSaveRequest): request containing necessary information for deleting a save
+    context (Annotated[SessionContext, Depends): session context
+
+Raises:
+    HTTPException
+
+Returns:
+    RPMDeleteSaveResponse: Response acknowledging the deletion of save and other useful info.
+ * @summary Delete Save
+ */
+export const DeleteSaveMethodRpmDeleteSavePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const DeleteSaveMethodRpmDeleteSavePostBody = zod
+	.object({
+		state_id: zod.number().describe('The ID of the save state.'),
+		solution_index: zod.number().describe('The ID of the solution within the above state.'),
+		problem_id: zod.number().describe('The ID of the problem.')
+	})
+	.describe('Request model for deletion of a saved solution.');
+
+export const deleteSaveMethodRpmDeleteSavePostResponseResponseTypeDefault = `rpm.delete_save`;
+
+export const DeleteSaveMethodRpmDeleteSavePostResponse = zod
+	.object({
+		response_type: zod
+			.string()
+			.default(deleteSaveMethodRpmDeleteSavePostResponseResponseTypeDefault),
+		message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response of RPM save deletion.');
+
+/**
+ * Explain an RPM reference point with SHAP values using stored background data.
+ * @summary Explain Reference Point
+ */
+export const ExplainReferencePointMethodRximoExplainPostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const explainReferencePointMethodRximoExplainPostBodyPreferencePreferenceTypeDefault = `reference_point`;
+
+export const ExplainReferencePointMethodRximoExplainPostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		preference: zod
+			.object({
+				preference_type: zod
+					.literal('reference_point')
+					.default(explainReferencePointMethodRximoExplainPostBodyPreferencePreferenceTypeDefault),
+				aspiration_levels: zod.record(zod.string(), zod.number())
+			})
+			.optional()
+			.describe('Model for representing a reference point type of preference.'),
+		background_dataset_id: zod.union([zod.number(), zod.null()]).optional()
+	})
+	.describe('Request model for SHAP explanations in the RXIMO method.');
+
+export const explainReferencePointMethodRximoExplainPostResponseResponseTypeDefault = `rximo.explain`;
+
+export const ExplainReferencePointMethodRximoExplainPostResponse = zod
+	.object({
+		response_type: zod
+			.literal('rximo.explain')
+			.default(explainReferencePointMethodRximoExplainPostResponseResponseTypeDefault),
+		problem_id: zod.number(),
+		background_dataset_id: zod.number(),
+		input_symbols: zod.array(zod.string()),
+		output_symbols: zod.array(zod.string()),
+		reference_point: zod.record(zod.string(), zod.number()),
+		explained_objective_values: zod.record(zod.string(), zod.number()),
+		base_values: zod.record(zod.string(), zod.number()),
+		shap_values: zod.record(zod.string(), zod.record(zod.string(), zod.number()))
+	})
+	.describe('Response model for SHAP explanations in the RXIMO method.');
 
 /**
  * Solve the problem using the NIMBUS method.

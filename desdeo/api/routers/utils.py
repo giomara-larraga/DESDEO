@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from desdeo.api.db import get_session
 from desdeo.api.models import (
     ENautilusStepRequest,
+    Group,
     InteractiveSessionDB,
     NautilusNavigatorInitRequest,
     NautilusNavigatorNavigateRequest,
@@ -48,12 +49,31 @@ def fetch_problem_with_role_check(user: User, problem_id: int, session: Session)
     """
     if user.role in (UserRole.analyst, UserRole.admin):
         statement = select(ProblemDB).where(ProblemDB.id == problem_id)
-    else:
-        statement = select(ProblemDB).where(
-            ProblemDB.user_id == user.id,
-            ProblemDB.id == problem_id,
-        )
-    return session.exec(statement).first()
+        return session.exec(statement).first()
+
+    # Non-analyst users can access problems they own or those shared via group membership.
+    statement = select(ProblemDB).where(
+        ProblemDB.id == problem_id,
+        ProblemDB.user_id == user.id,
+    )
+    owned_problem = session.exec(statement).first()
+    if owned_problem is not None:
+        return owned_problem
+
+    shared_group = session.exec(
+        select(Group).where(Group.problem_id == problem_id)
+    ).first()
+    if shared_group is None:
+        return None
+
+    if user.id == shared_group.owner_id:
+        return session.exec(select(ProblemDB).where(ProblemDB.id == problem_id)).first()
+
+    user_ids = shared_group.user_ids or []
+    if user.id in user_ids:
+        return session.exec(select(ProblemDB).where(ProblemDB.id == problem_id)).first()
+
+    return None
 
 
 def fetch_interactive_session_with_role_check(user: User, session_id: int, session: Session) -> InteractiveSessionDB:

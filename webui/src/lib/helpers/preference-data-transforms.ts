@@ -10,6 +10,7 @@ export type Solution = {
 export type ReferenceData = {
     referencePoint?: Solution;
     previousReferencePoints?: Solution[]; // Changed from single to array
+    perturbedReferencePoints?: Solution[]; // Added for perturbed reference points
     preferredRanges?: { [key: string]: { min: number; max: number } };
     preferredSolutions?: Solution[];
     nonPreferredSolutions?: Solution[];
@@ -31,9 +32,11 @@ export function createReferenceData(
     problem: ProblemInfo | null,
     previous_objective_values?: number[][],
     other_objective_values?: number[][],
+    perturbed_reference_values?: number[][],
     labels?: {
         currentRefLabel?: string;
         previousRefLabel?: string;
+        perturbedRefLabels?: string[];
         previousSolutionLabels?: string[];
         otherSolutionLabels?: string[];
     },
@@ -131,9 +134,31 @@ export function createReferenceData(
             }
         });
     }
+    // Convert perturbed reference point values to Solution format
+    const perturbedReferencePoints: Solution[] = [];
+    if (perturbed_reference_values && perturbed_reference_values.length > 0 && problem.objectives.length > 0) {
+        perturbed_reference_values.forEach((valuesArray, idx) => {
+            if (valuesArray.length === problem.objectives.length) {
+                const solutionObj: Solution = {
+                    values: {},
+                    label: labels?.perturbedRefLabels?.[idx] ?? `Perturbed reference point ${idx + 1}`
+                };
+                valuesArray.forEach((value, index) => {
+                    if (problem.objectives[index]) {
+                        solutionObj.values[problem.objectives[index].symbol] = value;
+                    }
+                });
+                if (Object.keys(solutionObj.values).length > 0) {
+                    perturbedReferencePoints.push(solutionObj);
+                }
+            }
+        });
+    }
+
     return {
         referencePoint: Object.keys(referencePoint).length > 0 ? referencePoint : undefined,
         previousReferencePoints: previousReferencePoints.length > 0 ? previousReferencePoints : undefined,
+        perturbedReferencePoints: perturbedReferencePoints.length > 0 ? perturbedReferencePoints : undefined,
         preferredRanges: Object.keys(preferredRanges).length > 0 ? preferredRanges : undefined,
         preferredSolutions: preferredSolutions.length > 0 ? preferredSolutions : undefined,
         otherSolutions: otherSolutions.length > 0 ? otherSolutions : undefined

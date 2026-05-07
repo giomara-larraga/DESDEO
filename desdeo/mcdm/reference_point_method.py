@@ -74,7 +74,10 @@ def rpm_solve_solutions(
     _add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
 
     problem_w_asf, target = _add_asf(
-        problem, "_asf", reference_point, **scalarization_options if scalarization_options is not None else {}
+        problem,
+        "_asf",
+        reference_point,
+        **scalarization_options if scalarization_options is not None else {},
     )
 
     # setup solver
@@ -88,21 +91,23 @@ def rpm_solve_solutions(
     # using the found solution, perturb the reference point to get
     # k (num of objectives) perturbed reference points
 
-    initial_objective_vector = objective_dict_to_numpy_array(problem, initial_solution.optimal_objectives)
-    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
-
-    distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
-    unit_vectors = np.eye(len(initial_objective_vector))
-
-    perturbed_reference_point_vectors = reference_point_vector + (distance * unit_vectors)
-
-    perturbed_reference_points = [numpy_array_to_objective_dict(problem, v) for v in perturbed_reference_point_vectors]
+    initial_objective_vector = objective_dict_to_numpy_array(
+        problem, initial_solution.optimal_objectives
+    )
+    perturbed_reference_points = get_perturbed_reference_points(
+        problem, initial_objective_vector, reference_point
+    )
 
     # scalarize the problem using the appropriate ASF variant and the perturbed
     # reference points
 
     perturbed_problems_and_targets = [
-        _add_asf(problem, "_asf", rp, **scalarization_options if scalarization_options is not None else {})
+        _add_asf(
+            problem,
+            "_asf",
+            rp,
+            **scalarization_options if scalarization_options is not None else {},
+        )
         for rp in perturbed_reference_points
     ]
 
@@ -114,6 +119,97 @@ def rpm_solve_solutions(
 
     # return the original solution and the solutions found with the perturbed reference points
     return [initial_solution, *perturbed_solutions]
+
+
+def get_perturbed_reference_points(
+    problem: Problem,
+    initial_objective_vector: np.ndarray,
+    reference_point: dict[str, float],
+    clip_to_bounds: bool = True,
+) -> list[dict[str, float]]:
+    """Generates perturbed reference points based on a given reference point and solution.
+
+    The reference point is perturbed by calculating the distance between the reference point and the solution in the
+    objective space, and then adding this distance multiplied by the unit vectors to the original reference point.
+    This results in k (num of objectives) perturbed reference points.
+
+    Returns:
+        list[dict[str, float]]: a list of perturbed reference points.
+    """
+    reference_point_vector = objective_dict_to_numpy_array(problem, reference_point)
+
+    # Direction toward nadir: +1 for minimization (nadir is numerically larger),
+    # -1 for maximization (nadir is numerically smaller).
+    nadir_direction = np.array(
+        [-1.0 if obj.maximize else 1.0 for obj in problem.objectives]
+    )
+
+    # if ideal and nadir are available, use them to determine the bounds for normalization. If not, use the initial solution and reference point to determine the bounds.
+    if not all(
+        obj.ideal is not None and obj.nadir is not None for obj in problem.objectives
+    ):
+        # Compute without normalization, assuming the reference point and initial solution are in a reasonable range.
+        distance = np.linalg.norm(reference_point_vector - initial_objective_vector)
+        unit_vectors = np.eye(len(initial_objective_vector))
+        perturbed_reference_point_vectors = np.array(
+            [
+                reference_point_vector + (distance * nadir_direction * unit_vectors[i])
+                for i in range(len(initial_objective_vector))
+            ]
+        )
+        if clip_to_bounds:
+            perturbed_reference_point_vectors = np.clip(
+                perturbed_reference_point_vectors,
+                np.minimum(reference_point_vector, initial_objective_vector),
+                np.maximum(reference_point_vector, initial_objective_vector),
+            )
+
+    else:
+        lower_bounds = np.zeros(len(problem.objectives), dtype=float)
+        upper_bounds = np.zeros(len(problem.objectives), dtype=float)
+
+        for idx, objective in enumerate(problem.objectives):
+            if objective.ideal is not None and objective.nadir is not None:
+                lower_bounds[idx] = min(float(objective.ideal), float(objective.nadir))
+                upper_bounds[idx] = max(float(objective.ideal), float(objective.nadir))
+            else:
+                # Fall back to local bounds if ideal/nadir are unavailable.
+                lower_bounds[idx] = min(
+                    reference_point_vector[idx], initial_objective_vector[idx]
+                )
+                upper_bounds[idx] = max(
+                    reference_point_vector[idx], initial_objective_vector[idx]
+                )
+
+        ranges = upper_bounds - lower_bounds
+        ranges = np.where(ranges == 0.0, 1.0, ranges)
+
+        normalized_reference = (reference_point_vector - lower_bounds) / ranges
+        normalized_initial = (initial_objective_vector - lower_bounds) / ranges
+
+        distance = np.linalg.norm(normalized_reference - normalized_initial)
+
+        unit_vectors = np.eye(len(initial_objective_vector))
+
+        # In normalized space: minimization nadir is at 1.0, maximization nadir is at 0.0.
+        # nadir_direction (+1/-1) ensures each perturbation moves toward the nadir.
+        normalized_perturbed_reference_point_vectors = normalized_reference + (
+            distance * nadir_direction * unit_vectors
+        )
+        if clip_to_bounds:
+            normalized_perturbed_reference_point_vectors = np.clip(
+                normalized_perturbed_reference_point_vectors, 0.0, 1.0
+            )
+        perturbed_reference_point_vectors = (
+            normalized_perturbed_reference_point_vectors * ranges + lower_bounds
+        )
+
+    perturbed_reference_points = [
+        numpy_array_to_objective_dict(problem, v)
+        for v in perturbed_reference_point_vectors
+    ]
+
+    return perturbed_reference_points
 
 
 def rpm_intermediate_solutions(  # noqa: PLR0913
@@ -161,7 +257,9 @@ def rpm_intermediate_solutions(  # noqa: PLR0913
         raise ReferencePointError(msg)
 
     init_solver = guess_best_solver(problem) if solver is None else solver
-    _solver_options = None if solver_options is None or solver is None else solver_options
+    _solver_options = (
+        None if solver_options is None or solver is None else solver_options
+    )
 
     # Find intermediate solutions by dividing the distance between the two Pareto points into num_desired+1 steps,
     # calculate the solutions found in between the points, because we don't want to find the original solutions
@@ -169,12 +267,15 @@ def rpm_intermediate_solutions(  # noqa: PLR0913
 
     for i in range(num_desired):
         rp = {
-            key: ((i + 1) * solution_1[key] + (num_desired - i) * solution_2[key]) / (num_desired + 1)
+            key: ((i + 1) * solution_1[key] + (num_desired - i) * solution_2[key])
+            / (num_desired + 1)
             for key in solution_1.keys()  # noqa: SIM118
         }
         # add scalarization
         add_asf = add_asf_diff if problem.is_twice_differentiable else add_asf_nondiff
-        asf_problem, target = add_asf(problem, "target", rp, **(scalarization_options or {}))
+        asf_problem, target = add_asf(
+            problem, "target", rp, **(scalarization_options or {})
+        )
 
         solver = init_solver(asf_problem, _solver_options)
 

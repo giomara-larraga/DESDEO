@@ -15,3 +15,6 @@ export const PREFERENCE_TYPES = {
 };
 
 export const SIGNIFICANT_DIGITS = 2;
+
+export const IMPROVING_COLOR = '#0C7BDC';
+export const IMPAIRING_COLOR = '#DC3220';

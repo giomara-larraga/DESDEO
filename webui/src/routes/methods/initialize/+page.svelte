@@ -66,6 +66,12 @@
 	// Base methods without group parameters
 	const baseMethods: Method[] = [
 		{
+			name: 'RPM',
+			path: '/interactive_methods/RPM',
+			description: 'RPM method for MOO.',
+			preferencesType: ['reference point']
+		},
+		{
 			name: 'NIMBUS',
 			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',

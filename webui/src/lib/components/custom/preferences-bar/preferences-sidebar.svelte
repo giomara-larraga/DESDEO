@@ -332,9 +332,11 @@
 									selectedValue={get_preference_value(idx)}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
+									previousValue={lastIteratedPreference[idx] ?? undefined}
 									options={{
 										decimalPrecision: 2,
-										showPreviousValue: false,
+										showPreviousValue: true,
+										showSelectedValueLabel: false,
 										aspectRatio: 'aspect-[11/2]'
 									}}
 									onSelect={(value) => handle_preference_value_change(idx, value)}
