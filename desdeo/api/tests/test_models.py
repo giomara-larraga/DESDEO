@@ -408,12 +408,6 @@ def test_scalarization_function(session_and_user: dict[str, Session | list[User]
         is_convex=True,
         is_linear=True,
         is_twice_differentiable=False,
-        scenario_keys=[
-            "Abloy",
-            "MasterLock",
-            "MasterLockToOpenMasterLock",
-            "MyHandsHurt",
-        ],
     )
 
     scalarization_dump = scalarization.model_dump()
@@ -446,13 +440,6 @@ def test_extra_function(session_and_user: dict[str, Session | list[User]]):
         is_convex=False,
         is_linear=False,
         is_twice_differentiable=True,
-        scenario_keys=[
-            "Abloy",
-            "MasterLock",
-            "MasterLockToOpenMasterLock",
-            "MyHandsHurt",
-            "RunningOutOfIdeas",
-        ],
     )
 
     extra_dump = extra.model_dump()

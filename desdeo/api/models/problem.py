@@ -52,7 +52,6 @@ class ProblemBase(SQLModel):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum | None = Field()
 
 
@@ -155,7 +154,6 @@ class ProblemDB(ProblemBase, table=True):
     is_convex: bool | None = Field(nullable=True, default=None)
     is_linear: bool | None = Field(nullable=True, default=None)
     is_twice_differentiable: bool | None = Field(nullable=True, default=None)
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON, nullable=True), default=None)
     variable_domain: VariableDomainTypeEnum = Field()
 
     # Variant tracking
@@ -627,7 +625,6 @@ class _Objective(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list | None = Field(sa_column=Column(JSON, nullable=True))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -660,7 +657,6 @@ class _Constraint(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 
@@ -719,7 +715,6 @@ class _ExtraFunction(SQLModel):
     """Helper class to override the fields of nested and list types, and Paths."""
 
     func: list = Field(sa_column=Column(JSON))
-    scenario_keys: list[str] | None = Field(sa_column=Column(JSON), default=None)
     surrogates: list[Path] | None = Field(sa_column=Column(PathOrUrlListType), default=None)
     simulator_path: Path | Url | None = Field(sa_column=Column(PathOrUrlType), default=None)
 

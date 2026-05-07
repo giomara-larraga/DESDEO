@@ -13,6 +13,16 @@
 	import WhatIfCaseNetwork from '$lib/components/visualizations/what-if-case-network/WhatIfCaseNetwork.svelte';
 	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
 
+	interface RXIMOResultEntry {
+		rival_index: number;
+		rival_symbol: string;
+		explanation: string;
+		suggestion: string;
+		explanation_index: number;
+		best_effect: number;
+		worst_effect: number;
+	}
+
 	interface Props {
 		problem: ProblemInfo;
 		preferenceValues: number[];
@@ -21,6 +31,11 @@
 		perturbedReferencePoints?: Array<{ aspiration_levels?: Record<string, number> }>;
 		SHAP_values: Record<string, Record<string, number>> | null;
 		SHAP_baseline: Record<string, number>;
+		// R-XIMO results from the API, keyed by output objective symbol. When
+		// supplied, this drives the rival selection and suggestion text instead of
+		// the local JS heuristic. Each value carries `find_rival`'s output for
+		// that target objective (rival, case 1-9, explanation, suggestion).
+		rximo_results?: Record<string, RXIMOResultEntry> | null;
 		onApplyScenarioPreferences?: (values: number[]) => void;
 		isLoading?: boolean;
 		ref?: HTMLElement | null;
@@ -34,10 +49,21 @@
 		perturbedReferencePoints = [],
 		SHAP_values,
 		SHAP_baseline,
+		rximo_results = null,
 		onApplyScenarioPreferences,
 		isLoading = false,
 		ref = null
 	}: Props = $props();
+
+	// Look up the API-provided R-XIMO result for the currently selected target.
+	const apiRXIMOResult = $derived.by<RXIMOResultEntry | null>(() => {
+		if (!rximo_results) return null;
+		return (
+			rximo_results[selectedObjectiveSymbol] ??
+			rximo_results[`z_${selectedObjectiveSymbol}`] ??
+			null
+		);
+	});
 
 	type ExplanationTab = 'why' | 'how' | 'compare';
 	let explanationTab = $state<ExplanationTab>('why');
@@ -161,6 +187,19 @@
 	const ownInfluence = $derived(influenceRows.find((r) => r.isOwn));
 
 	const rival = $derived.by(() => {
+		// Prefer the rival picked by the backend's find_rival call, which runs
+		// the full R-XIMO Algorithm 1 on the SHAP matrix and is the source of
+		// truth for the suggestion. The matching influence row (used for the
+		// "(score)" badge in the UI) is found by symbol.
+		if (apiRXIMOResult) {
+			const apiRow = influenceRows.find(
+				(r) => normalizeObjectiveSymbol(r.symbol) === apiRXIMOResult.rival_symbol
+			);
+			if (apiRow) return apiRow;
+		}
+
+		// Fallback: simplified heuristic for when the API didn't return R-XIMO
+		// results (e.g., older backend or feature toggled off).
 		const negativeNonOwn = influenceRows.find((r) => r.helpScore < 0 && !r.isOwn);
 		if (negativeNonOwn) return negativeNonOwn;
 
@@ -170,12 +209,17 @@
 	});
 
 	const suggestionSentence = $derived.by(() => {
+		if (apiRXIMOResult) return apiRXIMOResult.suggestion;
 		if (!rival) {
 			return `No clear non-own rival aspiration was detected for ${selectedObjectiveName}. Try tightening ${selectedObjectiveName} directly.`;
 		}
 
 		return `To improve ${selectedObjectiveName}, try tightening ${selectedObjectiveName} and relaxing ${rival.name}.`;
 	});
+
+	// Misitano et al. (2022) found DMs preferred suggestions over explanations,
+	// so the explanation text is exposed only on demand via a disclosure.
+	const explanationText = $derived(apiRXIMOResult?.explanation ?? null);
 
 	type ScenarioDelta = {
 		symbol: string;
@@ -449,6 +493,15 @@
 											</span>
 										</div>
 									{/if}
+
+									{#if explanationText}
+										<details class="mt-2 rounded bg-white px-2 py-1 text-xs text-gray-700">
+											<summary class="cursor-pointer font-medium text-gray-700">
+												Why this suggestion?
+											</summary>
+											<p class="mt-1 leading-relaxed">{explanationText}</p>
+										</details>
+									{/if}
 								</div>
 
 								<div class="rounded-md border border-gray-200 bg-white p-3">
@@ -669,5 +722,5 @@
 		</Tooltip.Provider>
 	</Sidebar.Content>
 
-	
+
 </Sidebar.Root>

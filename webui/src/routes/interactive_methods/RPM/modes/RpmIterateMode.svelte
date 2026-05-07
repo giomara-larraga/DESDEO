@@ -42,6 +42,7 @@
 		perturbed_reference_point_labels_for_plot,
 		current_SHAP_values,
 		current_SHAP_baseline,
+		current_rximo_results,
 		is_fetching_explanation,
 		handle_type_solutions_change,
 		handle_preference_change,
@@ -77,6 +78,15 @@
 		perturbed_reference_point_labels_for_plot: string[];
 		current_SHAP_values: Record<string, Record<string, number>>;
 		current_SHAP_baseline: Record<string, number>;
+		current_rximo_results: Record<string, {
+			rival_index: number;
+			rival_symbol: string;
+			explanation: string;
+			suggestion: string;
+			explanation_index: number;
+			best_effect: number;
+			worst_effect: number;
+		}> | null;
 		is_fetching_explanation: boolean;
 		handle_type_solutions_change: (event: { value: string }) => void;
 		handle_preference_change: (data: {
@@ -317,6 +327,7 @@
 					perturbedReferencePoints={current_state.perturbed_reference_points ?? []}
 					SHAP_values={current_SHAP_values}
 					SHAP_baseline={current_SHAP_baseline}
+					rximo_results={current_rximo_results}
 					onApplyScenarioPreferences={(values) =>
 						handle_preference_change({
 							numSolutions: current_num_iteration_solutions,

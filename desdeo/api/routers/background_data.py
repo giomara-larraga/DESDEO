@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.explanations import ShapExplainer
 from desdeo.api.models import (
     BackgroundDatasetCreateRequest,
     BackgroundDatasetDB,
@@ -19,12 +18,11 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.api.utils.database import (
-    create_background_dataset,
-    list_background_datasets,
-)
+from desdeo.api.utils.database import create_background_dataset, list_background_datasets
+from desdeo.api.utils.rximo_helpers import compute_rximo_results
+from desdeo.explanations import ShapExplainer
 
-from .utils import ContextField, SessionContext, SessionContextGuard
+from .utils import SessionContext, SessionContextGuard
 
 router = APIRouter(prefix="/background_data")
 
@@ -52,15 +50,11 @@ def add_background_dataset(
     allowed_problem_ids = {
         problem.id
         for problem in db_session.exec(
-            select(ProblemDB).where(
-                ProblemDB.user_id == user.id, ProblemDB.id.in_(request.problem_ids)
-            )
+            select(ProblemDB).where(ProblemDB.user_id == user.id, ProblemDB.id.in_(request.problem_ids))
         ).all()
     }
     unauthorized_problem_ids = [
-        problem_id
-        for problem_id in request.problem_ids
-        if problem_id not in allowed_problem_ids
+        problem_id for problem_id in request.problem_ids if problem_id not in allowed_problem_ids
     ]
 
     if unauthorized_problem_ids:
@@ -115,9 +109,7 @@ def get_background_dataset(
         )
 
     if not any(problem.user_id == user.id for problem in dataset.problems):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized user."
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized user.")
 
     return _to_background_dataset_info(dataset)
 
@@ -164,12 +156,8 @@ def explain_reference_point(
     output_symbols = [objective.symbol for objective in problem_db.objectives]
     input_symbols = [f"z_{symbol}" for symbol in output_symbols]
 
-    missing_preference_symbols = [
-        symbol for symbol in input_symbols if symbol not in dataset.preference_values
-    ]
-    missing_objective_symbols = [
-        symbol for symbol in output_symbols if symbol not in dataset.objective_values
-    ]
+    missing_preference_symbols = [symbol for symbol in input_symbols if symbol not in dataset.preference_values]
+    missing_objective_symbols = [symbol for symbol in output_symbols if symbol not in dataset.objective_values]
 
     if missing_preference_symbols or missing_objective_symbols:
         details = []
@@ -180,26 +168,18 @@ def explain_reference_point(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "Background dataset symbols are incompatible with the selected problem ("
-                + "; ".join(details)
-                + ")."
+                "Background dataset symbols are incompatible with the selected problem (" + "; ".join(details) + ")."
             ),
         )
 
     normalized_reference_point: dict[str, float] = {}
-    for objective_symbol, input_symbol in zip(
-        output_symbols, input_symbols, strict=False
-    ):
+    for objective_symbol, input_symbol in zip(output_symbols, input_symbols, strict=False):
         if objective_symbol in request.reference_point:
-            normalized_reference_point[objective_symbol] = float(
-                request.reference_point[objective_symbol]
-            )
+            normalized_reference_point[objective_symbol] = float(request.reference_point[objective_symbol])
             continue
 
         if input_symbol in request.reference_point:
-            normalized_reference_point[objective_symbol] = float(
-                request.reference_point[input_symbol]
-            )
+            normalized_reference_point[objective_symbol] = float(request.reference_point[input_symbol])
             continue
 
         raise HTTPException(
@@ -222,11 +202,24 @@ def explain_reference_point(
         input_symbols=input_symbols,
         output_symbols=output_symbols,
     )
+
+    # Multi-point Pareto-front background — see the rximo router for
+    # rationale.
     explainer.setup(background_data=problem_data)
 
-    to_be_explained = pl.DataFrame(
-        {f"z_{symbol}": [value] for symbol, value in normalized_reference_point.items()}
-    )
+    # current_solution is still threaded into find_rival's case
+    # selection so it doesn't drive off the KD-tree estimate.
+    current_solution_dict_orig: dict[str, float] | None = None
+    if request.current_solution is not None:
+        try:
+            current_solution_dict_orig = {sym: float(request.current_solution[sym]) for sym in output_symbols}
+        except KeyError as missing:
+            raise HTTPException(  # noqa: B904
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(f"current_solution is missing objective '{missing.args[0]}'. Required keys: {output_symbols}."),
+            )
+
+    to_be_explained = pl.DataFrame({f"z_{symbol}": [value] for symbol, value in normalized_reference_point.items()})
     explanation = explainer.explain_input(to_be_explained)
 
     explanation_values = np.asarray(explanation.values)
@@ -238,9 +231,29 @@ def explain_reference_point(
     shap_matrix = sample_values.T
 
     base_values_array = np.asarray(explanation.base_values).reshape(-1)
-    explained_output_array = np.asarray(
-        explainer.evaluate(to_be_explained[input_symbols].to_numpy())
-    ).reshape(-1)
+    explained_output_array = np.asarray(explainer.evaluate(to_be_explained[input_symbols].to_numpy())).reshape(-1)
+
+    # Algorithm 1 of R-XIMO over the SHAP matrix; helper handles the
+    # min-form sign conversion for maximized objectives internally.
+    # Prefer the exact current solution over the KD-tree estimate when
+    # supplied — see RXIMOExplainRequest.current_solution for rationale.
+    if current_solution_dict_orig is not None:
+        solution_for_rximo = np.array([current_solution_dict_orig[sym] for sym in output_symbols], dtype=float)
+    else:
+        solution_for_rximo = explained_output_array
+
+    ref_point_array = np.array([normalized_reference_point[s] for s in output_symbols], dtype=float)
+    is_maximized = np.array([bool(obj.maximize) for obj in problem_db.objectives], dtype=bool)
+    objective_names = [obj.name or obj.symbol for obj in problem_db.objectives]
+    rximo_results = compute_rximo_results(
+        shap_matrix=shap_matrix,
+        reference_point=ref_point_array,
+        solution=solution_for_rximo,
+        is_maximized=is_maximized,
+        objective_symbols=output_symbols,
+        objective_names=objective_names,
+        target_symbol=request.target_objective_symbol,
+    )
 
     return BackgroundDatasetExplainResponse(
         problem_id=request.problem_id,
@@ -249,18 +262,14 @@ def explain_reference_point(
         output_symbols=output_symbols,
         reference_point=normalized_reference_point,
         explained_objective_values={
-            symbol: float(explained_output_array[idx])
-            for idx, symbol in enumerate(output_symbols)
+            symbol: float(explained_output_array[idx]) for idx, symbol in enumerate(output_symbols)
         },
-        base_values={
-            symbol: float(base_values_array[idx])
-            for idx, symbol in enumerate(output_symbols)
-        },
+        base_values={symbol: float(base_values_array[idx]) for idx, symbol in enumerate(output_symbols)},
         shap_values={
             output_symbol: {
-                input_symbol: float(shap_matrix[out_idx, in_idx])
-                for in_idx, input_symbol in enumerate(input_symbols)
+                input_symbol: float(shap_matrix[out_idx, in_idx]) for in_idx, input_symbol in enumerate(input_symbols)
             }
             for out_idx, output_symbol in enumerate(output_symbols)
         },
+        rximo_results=rximo_results,
     )

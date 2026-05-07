@@ -16,13 +16,9 @@ class RPMSolveRequest(SQLModel):
     session_id: int | None = Field(default=None)
     parent_state_id: int | None = Field(default=None)
 
-    scalarization_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    scalarization_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     solver: str | None = Field(default=None)
-    solver_options: dict[str, float | str | bool] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    solver_options: dict[str, float | str | bool] | None = Field(sa_column=Column(JSON), default=None)
     preference: ReferencePoint = Field(Column(JSON))
 
 
@@ -40,9 +36,7 @@ class RPMDeleteSaveRequest(SQLModel):
     """Request model for deletion of a saved solution."""
 
     state_id: int = Field(description="The ID of the save state.")
-    solution_index: int = Field(
-        description="The ID of the solution within the above state."
-    )
+    solution_index: int = Field(description="The ID of the solution within the above state.")
     problem_id: int = Field(description="The ID of the problem.")
 
 
@@ -62,11 +56,10 @@ class RPMSolveResponse(SQLModel):
     response_type: Literal["rpm.solve"] = "rpm.solve"
 
     state_id: int | None = Field(description="The newly created state id")
-    previous_preference: ReferencePoint = Field(
-        description="The previous preference used."
-    )
+    previous_preference: ReferencePoint = Field(description="The previous preference used.")
     perturbed_reference_points: list[ReferencePoint] = Field(
-        description="The perturbed reference points used to generate the current solutions."
+        default_factory=list,
+        description="The perturbed reference points used to generate the current solutions.",
     )
     current_solutions: list[SolutionReferenceResponse] = Field(
         description="The solutions from the current iteration of nimbus."

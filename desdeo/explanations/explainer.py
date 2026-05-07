@@ -44,8 +44,6 @@ def make_gp_surrogate(
         Callable[[np.ndarray], np.ndarray]: a function suitable for
             ``ShapExplainer.evaluate``.
     """
-    # Local import to keep the optional sklearn dependency optional.
-
     kernel = ConstantKernel(1.0) * RBF(length_scale=length_scale, length_scale_bounds=length_scale_bounds)
     kernel = kernel + WhiteKernel(noise_level=noise_level, noise_level_bounds=(1e-10, 1e-1))
 
@@ -247,8 +245,11 @@ class ShapExplainer:
         """
         _to_be_explained = to_be_explained[self.input_symbols].to_numpy()
 
-        # Limit permutation evaluations: 2*n_features+1 = one permutation pass,
-        # which is sufficient for interactive use and avoids the default
-        # 500*n_features+1 evaluations that make each call very slow.
-        max_evals = 2 * len(self.input_symbols) + 1
+        # Limit permutation evaluations: 2*k+1 is one permutation pass, which
+        # is sufficient for interactive use and avoids SHAP's default
+        # 500*k+1 evaluations. The Exact algorithm (auto-selected when the
+        # masker is small or single-point) needs 2**k masked evaluations, so
+        # take the larger of the two budgets to cover either algorithm.
+        k = len(self.input_symbols)
+        max_evals = max(2 * k + 1, 2**k)
         return self.explainer(_to_be_explained, max_evals=max_evals)

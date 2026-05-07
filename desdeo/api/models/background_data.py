@@ -30,9 +30,7 @@ class BackgroundDatasetBase(SQLModel):
     name: str | None = Field(default=None)
     kind: str = Field(default="rximo_background")
     num_samples: int = Field(gt=0)
-    preference_values: dict[str, list[float]] | None = Field(
-        sa_column=Column(JSON), default=None
-    )
+    preference_values: dict[str, list[float]] | None = Field(sa_column=Column(JSON), default=None)
     objective_values: dict[str, list[float]] = Field(sa_column=Column(JSON))
 
     @model_validator(mode="after")
@@ -49,9 +47,7 @@ class BackgroundDatasetBase(SQLModel):
 
             for symbol, values in dataset.items():
                 if len(values) != self.num_samples:
-                    raise ValueError(
-                        f"{dataset_name}.{symbol} has {len(values)} samples, expected {self.num_samples}."
-                    )
+                    raise ValueError(f"{dataset_name}.{symbol} has {len(values)} samples, expected {self.num_samples}.")
 
         return self
 
@@ -86,6 +82,13 @@ class BackgroundDatasetExplainRequest(SQLModel):
     problem_id: int
     background_dataset_id: int
     reference_point: dict[str, float]
+    target_objective_symbol: str | None = Field(default=None)
+
+    # See `RXIMOExplainRequest.current_solution`: serves both as the
+    # SHAP single-point baseline (so each SHAP value captures the
+    # aspiration-gap contribution) and as the exact solution fed into
+    # `find_rival`'s case-1..9 selection.
+    current_solution: dict[str, float] | None = Field(sa_column=Column(JSON), default=None)
 
 
 class BackgroundDatasetExplainResponse(SQLModel):
@@ -99,6 +102,7 @@ class BackgroundDatasetExplainResponse(SQLModel):
     explained_objective_values: dict[str, float]
     base_values: dict[str, float]
     shap_values: dict[str, dict[str, float]]
+    rximo_results: dict[str, dict] | None = Field(sa_column=Column(JSON), default=None)
 
 
 class BackgroundDatasetDB(BackgroundDatasetBase, table=True):

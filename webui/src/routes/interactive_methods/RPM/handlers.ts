@@ -22,8 +22,7 @@ import type {
 	IntermediateSolutionRequest,
 	SolutionInfo,
 	BackgroundDatasetInfo,
-	RXIMOExplainResponse,
-	
+	RXIMOExplainResponse
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 import type { ProblemInfo, Solution } from '$lib/types';
 import type { Response, ReferencePoint, FinishResponse } from './types';
@@ -325,13 +324,15 @@ export async function get_maps(
 	}
 }
 export async function fetchBackgroundDatasets(
-	problem: ProblemInfo,
+	problem: ProblemInfo
 ): Promise<BackgroundDatasetInfo[] | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const response = await getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet(problem.id);
+		const response = await getProblemBackgroundDatasetsBackgroundDataProblemProblemIdGet(
+			problem.id
+		);
 
 		if (response.status !== 200) {
 			errorMessage.set(`Finalize failed with status ${response.status}`);
@@ -342,7 +343,9 @@ export async function fetchBackgroundDatasets(
 
 		return data;
 	} catch (err) {
-		errorMessage.set(err instanceof Error ? err.message : 'Unknown error while fetching background data.');
+		errorMessage.set(
+			err instanceof Error ? err.message : 'Unknown error while fetching background data.'
+		);
 		return null;
 	} finally {
 		isLoading.set(false);
@@ -352,7 +355,8 @@ export async function fetchBackgroundDatasets(
 export async function explainWithRXIMO(
 	problemId: number,
 	referencePoint: Record<string, number>,
-	backgroundDatasetId?: number | null
+	backgroundDatasetId?: number | null,
+	currentSolution?: Record<string, number> | null
 ): Promise<RXIMOExplainResponse | null> {
 	// Do NOT set global isLoading here — SHAP computation is slow and runs in the
 	// background after iterate completes. Use a separate per-component loading state instead.
@@ -365,12 +369,17 @@ export async function explainWithRXIMO(
 			preference: {
 				preference_type: 'reference_point',
 				aspiration_levels: referencePoint
-			} as ReferencePoint
-		};
+			} as ReferencePoint,
+			// `current_solution` is used backend-side as both the SHAP single-
+			// point baseline (so each SHAP value captures the aspiration-gap
+			// contribution: ref[j] − sol[j]) and the exact solution fed into
+			// find_rival's case-1..9 selection. Cast through `unknown` because
+			// the auto-generated RXIMOExplainRequest type is regenerated from
+			// openapi and won't carry the field until the next orval run.
+			...(currentSolution ? { current_solution: currentSolution } : {})
+		} as unknown as Parameters<typeof explainReferencePointMethodRximoExplainPost>[0];
 
-		
 		const response = await explainReferencePointMethodRximoExplainPost(payload);
-
 
 		if (response.status !== 200) {
 			errorMessage.set(`RXIMO explanation failed with status ${response.status}`);
@@ -378,12 +387,13 @@ export async function explainWithRXIMO(
 			return null;
 		}
 
-
 		const data = response.data as unknown as RXIMOExplainResponse;
 		console.log('RXIMO explanation response:', data);
 		return data.shap_values ? data : null;
 	} catch (err) {
-		errorMessage.set(err instanceof Error ? err.message : 'Unknown error while getting RXIMO explanation.');
+		errorMessage.set(
+			err instanceof Error ? err.message : 'Unknown error while getting RXIMO explanation.'
+		);
 		return null;
 	}
 }

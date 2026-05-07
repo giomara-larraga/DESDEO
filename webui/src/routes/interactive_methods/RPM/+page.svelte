@@ -163,6 +163,17 @@
 	let selected_solutions_for_intermediate: Solution[] = $state([]); // actual objectives, but it is a list unlike for iteration, since user should choose two solutions
 	let current_SHAP_values: Record<string, Record<string, number>> = $state({}); // SHAP values for the selected solution (only for iteration mode)
 	let current_SHAP_baseline: Record<string, number> = $state({}); // SHAP baseline values for the selected solution (only for iteration mode)
+	// R-XIMO Algorithm 1 results returned alongside the SHAP matrix from the
+	// /method/rximo/explain endpoint, keyed by output objective symbol.
+	let current_rximo_results: Record<string, {
+		rival_index: number;
+		rival_symbol: string;
+		explanation: string;
+		suggestion: string;
+		explanation_index: number;
+		best_effect: number;
+		worst_effect: number;
+	}> | null = $state(null);
 	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -173,7 +184,7 @@
 			return selected_iteration_index;
 		}
 	});
-	
+
 
 	type PerturbedPointDisplayMode = 'all' | 'selected' | 'none';
 	let perturbed_points_mode: PerturbedPointDisplayMode = $state('selected'); // Default to showing only the selected perturbed point
@@ -686,17 +697,42 @@
 			[obj.symbol]: referencePoint[index]
 		})).reduce((acc, curr) => ({ ...acc, ...curr }), {});
 
+		// Send the DM's exact current solution so find_rival's case selection
+		// uses it instead of the KD-tree estimate. We use the first chosen
+		// solution, that's what the explanations sidebar displays.
+		const currentSolutionRaw = chosen_solutions[0]?.objective_values ?? null;
+		const dictCurrentSolution = currentSolutionRaw
+			? problem.objectives.reduce<Record<string, number>>((acc, obj) => {
+				const raw = currentSolutionRaw[obj.symbol];
+				const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
+				if (Number.isFinite(value)) acc[obj.symbol] = value;
+				return acc;
+			}, {})
+			: null;
+		const currentSolutionPayload =
+			dictCurrentSolution && Object.keys(dictCurrentSolution).length === problem.objectives.length
+				? dictCurrentSolution
+				: null;
+
 		is_fetching_explanation = true;
-		const result = await explainWithRXIMO(problem.id, dictReferencePoint, background_dataset_id);
+		const result = await explainWithRXIMO(
+			problem.id,
+			dictReferencePoint,
+			background_dataset_id,
+			currentSolutionPayload
+		);
 		is_fetching_explanation = false;
 		if (result) {
 			current_SHAP_values = result.shap_values;
 			current_SHAP_baseline = result.base_values;
+			// rximo_results may not be present on older backends; guard accordingly.
+			current_rximo_results = (result as { rximo_results?: typeof current_rximo_results }).rximo_results ?? null;
 		}
 		else {
 			console.error('Failed to fetch SHAP values for explanation');
 			current_SHAP_values = {};
 			current_SHAP_baseline = {};
+			current_rximo_results = null;
 		}
 	}
 
@@ -713,7 +749,7 @@
 			}
 
 			// Find the most recent session (assuming higher ID = more recent)
-			const mostRecentSession = sessions.reduce((prev, current) => 
+			const mostRecentSession = sessions.reduce((prev, current) =>
 				(current.id ?? 0) > (prev.id ?? 0) ? current : prev
 			);
 
@@ -731,7 +767,7 @@
 					if (sessionData.stateHistory && sessionData.stateHistory.length > 0) {
 						const lastState = sessionData.stateHistory[sessionData.stateHistory.length - 1];
 						const isFinished = lastState.response_type === 'rpm.finalize';
-						
+
 						if (!isFinished) {
 							// Ask user if they want to continue
 							openConfirmDialog({
@@ -790,7 +826,7 @@
 		}
 		stateHistory = [...stateHistory, state];
 		currentStateIndex = stateHistory.length - 1;
-		
+
 		// Persist to localStorage
 		persistSessionToLocalStorage();
 	}
@@ -815,11 +851,11 @@
 	function restoreSessionFromLocalStorage(sessionId: number): boolean {
 		const stored = localStorage.getItem(`rpm_session_${sessionId}`);
 		if (!stored) return false;
-		
+
 		try {
 			const sessionData = JSON.parse(stored);
 			if (sessionData.problemId !== problem?.id) return false; // Different problem
-			
+
 			stateHistory = sessionData.stateHistory;
 			currentStateIndex = sessionData.currentStateIndex;
 			iterationNames = sessionData.iterationNames ?? {};
@@ -870,10 +906,10 @@
 	// Navigate back one state
 	async function handleBack() {
 		if (currentStateIndex <= 0) return;
-		
+
 		currentStateIndex = currentStateIndex - 1;
 		const previousState = stateHistory[currentStateIndex];
-		
+
 		if (previousState) {
 			current_state = previousState;
 			selected_iteration_index = [0];
@@ -899,7 +935,7 @@
 				hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
 				// Check there is a background dataset for the problem, if not, show an error message
-				const backgroundDatasets = await fetchBackgroundDatasets(problem);	
+				const backgroundDatasets = await fetchBackgroundDatasets(problem);
 				if ( backgroundDatasets !== null && backgroundDatasets.length === 0) {
 					$errorMessage = "No background dataset found for this problem.";
 				} else {
@@ -910,7 +946,7 @@
 					else {
 						$errorMessage = "Failed to fetch background datasets for this problem.";
 					}
-			
+
 				}
 				// Initialize NIMBUS state from the API
 				//await initialize_nimbus_state(problem.id);
@@ -1038,6 +1074,7 @@
 		perturbed_reference_point_labels_for_plot,
 		current_SHAP_values,
 		current_SHAP_baseline,
+		current_rximo_results,
 		is_fetching_explanation,
 		handle_type_solutions_change,
 		handle_preference_change,
