@@ -62,6 +62,68 @@ class ShapExplainer:
             masker=background_data[self.input_symbols].to_numpy(),
         )
 
+    def setup_with_baseline(self, baseline_point: np.ndarray | pl.DataFrame):
+        r"""Setup the explainer using a single point as the baseline.
+
+        Instead of providing a full background dataset, this method uses a
+        single point as the SHAP background. This is appropriate when the
+        Exact SHAP algorithm is in use (which `shap.Explainer` selects
+        automatically for problems with at most ~10 inputs): the Exact
+        algorithm computes exact SHAP values regardless of background size,
+        and the background only affects the base value $\\phi_0$.
+
+        For R-XIMO, a natural choice is the current solution (or its
+        corresponding reference point), which makes $\\phi_0$ equal to the
+        prediction at that baseline; the SHAP values then explain how the
+        new reference point pushed the solution away from this baseline.
+
+        Args:
+            baseline_point (np.ndarray | pl.DataFrame): a single-point
+                baseline. May be a 1D numpy array of length
+                ``len(self.input_symbols)``, a 2D array of shape
+                ``(1, len(self.input_symbols))``, or a polars DataFrame with
+                a single row containing the columns in ``self.input_symbols``.
+        """
+        if isinstance(baseline_point, pl.DataFrame):
+            baseline_array = baseline_point[self.input_symbols].to_numpy()
+        else:
+            baseline_array = np.asarray(baseline_point, dtype=float)
+            if baseline_array.ndim == 1:
+                baseline_array = baseline_array.reshape(1, -1)
+
+        if baseline_array.shape != (1, len(self.input_symbols)):
+            raise ValueError(
+                f"baseline_point must contain exactly one row of length "
+                f"{len(self.input_symbols)}, got shape {baseline_array.shape}."
+            )
+
+        self.explainer = shap.Explainer(self.evaluate, masker=baseline_array)
+
+    def setup_with_shifted_background(self, background_data: pl.DataFrame, target_mean: np.ndarray):
+        """Setup the explainer with background data shifted to a target mean.
+
+        Computationally cheap alternative to
+        :func:`desdeo.explanations.generate_biased_mean_data`. Rather than
+        solving an MIQP to find a subset whose mean is close to a target,
+        this shifts every row of the background data by a constant so that
+        the resulting background has its mean exactly equal to
+        ``target_mean``.
+
+        Args:
+            background_data (pl.DataFrame): the background data to shift.
+                Must contain the columns ``self.input_symbols``.
+            target_mean (np.ndarray): desired mean for the shifted
+                background, ordered by ``self.input_symbols``.
+        """
+        target = np.asarray(target_mean, dtype=float).reshape(-1)
+        if target.size != len(self.input_symbols):
+            raise ValueError(f"target_mean must have length {len(self.input_symbols)}, got {target.size}.")
+
+        bg = background_data[self.input_symbols].to_numpy()
+        shifted = bg - bg.mean(axis=0) + target
+        shifted_df = pl.DataFrame({sym: shifted[:, i] for i, sym in enumerate(self.input_symbols)})
+        self.setup(background_data=shifted_df)
+
     def evaluate(self, evaluate_array: np.ndarray) -> np.ndarray:
         """Evaluates the multiobjective optimization method represented by the data.
 
