@@ -226,89 +226,104 @@ def seed_predefined_admins(session: Session) -> None:
     )
     group = os.environ.get("DESDEO_ADMIN_GROUP", "admin")
 
+    created_or_existing_admins: list[User] = []
+
     if not admin_password:
         print(
             "[db-init] WARNING: DESDEO_PREDEFINED_ADMIN_PASSWORD (or DESDEO_ADMIN_PASSWORD fallback) not set - skipping predefined admin seed."
         )
-        return
+        return created_or_existing_admins
 
     for username in PREDEFINED_ADMINS:
         existing = session.exec(select(User).where(User.username == username)).first()
         if existing:
             print(f"[db-init] User '{username}' already exists - skipping.")
+            created_or_existing_admins.append(existing)
             continue
 
-        _get_or_create_user(
+        user, _ = _get_or_create_user(
             session=session,
             username=username,
             password=admin_password,
             role=UserRole.admin,
             group=group,
         )
+        created_or_existing_admins.append(user)
+
+    return created_or_existing_admins
 
 
-def seed_problems_and_background_data(session: Session, owner: User | None) -> None:
-    if owner is None:
-        print("[db-init] WARNING: No analyst owner available - skipping problem and background-data seed.")
+def seed_problems_and_background_data(session: Session, owners: list[User]) -> None:
+    if not owners:
+        print("[db-init] WARNING: No users available - skipping problem and background-data seed.")
         return
 
-    rng = np.random.default_rng(seed=42)
+    for owner in owners:
+        rng = np.random.default_rng(seed=42)
 
-    for problem in problems:
-        existing_problem = session.exec(
-            select(ProblemDB).where(
-                ProblemDB.user_id == owner.id,
-                ProblemDB.name == problem.name,
+        for problem in problems:
+            existing_problem = session.exec(
+                select(ProblemDB).where(
+                    ProblemDB.user_id == owner.id,
+                    ProblemDB.name == problem.name,
+                )
+            ).first()
+
+            if existing_problem:
+                problem_db = existing_problem
+                print(f"[db-init] Problem '{problem_db.name}' already exists for user '{owner.username}' - skipping.")
+            else:
+                problem_db = ProblemDB.from_problem(problem, owner)
+                session.add(problem_db)
+                session.commit()
+                session.refresh(problem_db)
+                print(f"[db-init] Created problem '{problem_db.name}' for user '{owner.username}'.")
+
+            expected_dataset_name = f"Initial background data for {problem_db.name}"
+            existing_dataset = session.exec(
+                select(BackgroundDatasetDB)
+                .join(BackgroundDatasetDB.problems)
+                .where(
+                    BackgroundDatasetDB.name == expected_dataset_name,
+                    BackgroundDatasetDB.kind == BACKGROUND_DATA_METHOD,
+                    ProblemDB.id == problem_db.id,
+                )
+            ).first()
+
+            if existing_dataset:
+                print(
+                    f"[db-init] Background dataset '{expected_dataset_name}' already exists for problem '{problem_db.name}' - skipping."
+                )
+                continue
+
+            bg_request = _build_background_dataset_request(
+                problem=problem,
+                problem_db=problem_db,
+                rng=rng,
+                method=BACKGROUND_DATA_METHOD,
+                num_samples=BACKGROUND_DATA_NUM_SAMPLES,
             )
-        ).first()
-
-        if existing_problem:
-            problem_db = existing_problem
-            print(f"[db-init] Problem '{problem_db.name}' already exists for user '{owner.username}' - skipping.")
-        else:
-            problem_db = ProblemDB.from_problem(problem, owner)
-            session.add(problem_db)
-            session.commit()
-            session.refresh(problem_db)
-            print(f"[db-init] Created problem '{problem_db.name}' for user '{owner.username}'.")
-
-        expected_dataset_name = f"Initial background data for {problem_db.name}"
-        existing_dataset = session.exec(
-            select(BackgroundDatasetDB)
-            .join(BackgroundDatasetDB.problems)
-            .where(
-                BackgroundDatasetDB.name == expected_dataset_name,
-                BackgroundDatasetDB.kind == BACKGROUND_DATA_METHOD,
-                ProblemDB.id == problem_db.id,
-            )
-        ).first()
-
-        if existing_dataset:
+            create_background_dataset(bg_request, session)
             print(
-                f"[db-init] Background dataset '{expected_dataset_name}' already exists for problem '{problem_db.name}' - skipping."
+                f"[db-init] Created background dataset '{expected_dataset_name}' for problem '{problem_db.name}'."
             )
-            continue
-
-        bg_request = _build_background_dataset_request(
-            problem=problem,
-            problem_db=problem_db,
-            rng=rng,
-            method=BACKGROUND_DATA_METHOD,
-            num_samples=BACKGROUND_DATA_NUM_SAMPLES,
-        )
-        create_background_dataset(bg_request, session)
-        print(
-            f"[db-init] Created background dataset '{expected_dataset_name}' for problem '{problem_db.name}'."
-        )
 
 
 def main() -> None:
     print(f"[db-init] Using database: {engine.url.render_as_string(hide_password=True)}")
     create_tables()
     with Session(engine) as session:
+        users_for_problem_seed: list[User] = []
+
         owner = seed_bootstrap_analyst(session)
-        seed_predefined_admins(session)
-        seed_problems_and_background_data(session, owner)
+        if owner is not None:
+            users_for_problem_seed.append(owner)
+
+        users_for_problem_seed.extend(seed_predefined_admins(session))
+
+        # Keep a stable order but avoid duplicate users if names overlap.
+        deduplicated_users = list({user.id: user for user in users_for_problem_seed}.values())
+        seed_problems_and_background_data(session, deduplicated_users)
     print("[db-init] Done.")
 
 
