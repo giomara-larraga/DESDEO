@@ -1253,10 +1253,14 @@ export interface GroupRevertRequest {
 	state_id: number;
 }
 
+export type ValidationErrorCtx = { [key: string]: unknown };
+
 export interface ValidationError {
 	loc: (string | number)[];
 	msg: string;
 	type: string;
+	input?: unknown;
+	ctx?: ValidationErrorCtx;
 }
 
 export interface HTTPValidationError {
