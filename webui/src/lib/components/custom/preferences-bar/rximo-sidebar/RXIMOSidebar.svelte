@@ -405,7 +405,7 @@
 						<Tabs.List class="grid w-full grid-cols-3">
 							<Tabs.Trigger value="why">Breakdown</Tabs.Trigger>
 							<Tabs.Trigger value="how">Improve</Tabs.Trigger>
-							<Tabs.Trigger value="compare">Overview</Tabs.Trigger>
+							<Tabs.Trigger value="compare">Summary</Tabs.Trigger>
 						</Tabs.List>
 
 						<Tabs.Content value="why" class="mt-3 w-full">
