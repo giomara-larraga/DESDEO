@@ -369,10 +369,10 @@
 	});
 </script>
 
-<div class="rounded-md border border-gray-200 bg-white p-3">
-	<div class="mb-1 flex items-center justify-between gap-2">
-		<div class="text-xs font-semibold text-gray-700">SHAP Synergies and Conflicts</div>
-		{#if activeNodeId}
+<div >
+	<div class="mb-2 text-[11px] text-gray-500">
+		Click a node to highlight its connected effects.
+				{#if activeNodeId}
 			<button
 				type="button"
 				class="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-200"
@@ -381,9 +381,6 @@
 				Clear focus
 			</button>
 		{/if}
-	</div>
-	<div class="mb-2 text-[11px] text-gray-500">
-		Click a node to highlight its connected effects.
 	</div>
 	<svg
 		bind:this={svgEl}

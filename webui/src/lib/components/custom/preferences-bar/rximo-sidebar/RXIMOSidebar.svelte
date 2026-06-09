@@ -669,19 +669,7 @@
 									</div>
 								</div>
 
-								<ShapCaseRelationshipNetwork
-									objectives={problem.objectives.map((o) => ({
-										symbol: o.symbol,
-										name: o.name,
-										maximize: o.maximize
-									}))}
-									preferenceValues={preferenceValues}
-									achievedValues={baselineObjectiveValues}
-									shapValues={SHAP_values}
-									threshold={0}
-								/>
-
-								<div class="rounded-md border border-gray-200 bg-white p-3">
+																<div class="rounded-md border border-gray-200 bg-white p-3">
 									<div class="mb-2 text-xs font-semibold text-gray-700">
 										All influences on {selectedObjectiveName}
 									</div>
@@ -709,6 +697,28 @@
 										{/each}
 									</div>
 								</div>
+
+								<details class="rounded-md border border-gray-200 bg-white p-3">
+									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
+										Explore trade-offs and synergies
+									</summary>
+
+								<div class="mt-3">
+									<ShapCaseRelationshipNetwork
+										objectives={problem.objectives.map((o) => ({
+											symbol: o.symbol,
+											name: o.name,
+											maximize: o.maximize
+										}))}
+										preferenceValues={preferenceValues}
+										achievedValues={baselineObjectiveValues}
+										shapValues={SHAP_values}
+										threshold={0}
+									/>
+								</div>
+								</details>
+
+
 
 								<details class="rounded-md border border-gray-200 bg-white p-3">
 									<summary class="cursor-pointer text-xs font-semibold text-gray-700">

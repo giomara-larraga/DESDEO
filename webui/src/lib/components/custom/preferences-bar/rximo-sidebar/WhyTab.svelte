@@ -81,11 +81,11 @@
   {/if}
 </section>
 
-<section class="section">
-  <h3>Main drivers</h3>
+<details class="details">
+  <summary>Show details: SHAP impact bars</summary>
   <ShapImpactBars {drivers} />
   
-</section>
+</details>
 
 <details class="details">
   <summary>Show details: SHAP matrix</summary>
