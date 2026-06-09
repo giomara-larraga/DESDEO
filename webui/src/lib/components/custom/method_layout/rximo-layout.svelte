@@ -12,6 +12,7 @@
 		leftSidebarWidth?: string;
 		leftSidebarMinWidth?: string;
 		rightSidebarWidth?: string;
+		rightSidebarMinWidth?: string;
 		bottomPanelTitle?: string; // New prop for the bottom panel title
 		// Named snippets
 		leftSidebar?: Snippet;
@@ -30,7 +31,8 @@
 		showRightSidebar = true,
 		leftSidebarWidth = '24em',
 		leftSidebarMinWidth = '24rem',
-		rightSidebarWidth = 'auto',
+		rightSidebarWidth = '24em',
+		rightSidebarMinWidth = '24rem',
 		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
 		leftSidebar,
 		explorerTitle,
@@ -151,7 +153,7 @@
 
 		<!-- Right Sidebar -->
 		{#if hasRight}
-			<div class="right-sidebar h-full">
+			<div class="right-sidebar h-full" style={`min-width: ${rightSidebarMinWidth};`}>
 				{@render rightSidebar?.()}
 			</div>
 		{/if}

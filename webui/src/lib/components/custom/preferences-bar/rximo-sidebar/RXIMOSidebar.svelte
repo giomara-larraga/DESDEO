@@ -364,7 +364,12 @@
 	}
 </script>
 
-<Sidebar.Root side="right" class="fixed top-12 right-0 h-[calc(100vh-3rem)]" bind:ref>
+<Sidebar.Root 
+	side="right" 
+	collapsible="none"
+	class="fixed top-12 right-0 h-[calc(100vh-3rem)] w-[25rem]" 
+	bind:ref
+>
 	<Sidebar.Header>
 		<div>
 			<span class="text-sm font-semibold">Explanations</span>
