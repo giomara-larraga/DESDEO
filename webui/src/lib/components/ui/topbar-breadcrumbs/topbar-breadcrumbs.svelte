@@ -15,6 +15,7 @@
 	const breadcrumbMap: Record<string, string> = {
         '/groups': 'Groups',
         '/interactive_methods' : 'Methods',
+        '/interactive_methods/RPM': 'RPM',
 		'/interactive_methods/E-NAUTILUS': 'E-NAUTILUS',
 		'/interactive_methods/EMO': 'EMO',
 		'/interactive_methods/GDM-SCORE-bands': 'GDM Score Bands',

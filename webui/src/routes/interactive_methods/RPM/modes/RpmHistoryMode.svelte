@@ -7,8 +7,8 @@
 	import HistorySidebar from '$lib/components/custom/preferences-bar/history-sidebar.svelte';
 	import VisualizationsPanelHistory from '$lib/components/custom/visualizations-panel/visualizations-panel-history.svelte';
 	import SolutionTable from '$lib/components/custom/expandible-solution-table/solution-table.svelte';
-	import { PREFERENCE_TYPES } from '$lib/constants';
-
+	import { PREFERENCE_TYPES, options_segmented_control
+	 } from '$lib/constants';
 	import type { MethodMode, ProblemInfo, Solution } from '$lib/types';
 	import type { Response } from '../types';
 	import { updatePreferencesFromState } from '../helper-functions';
@@ -307,11 +307,7 @@
 		<div class="relative h-full flex-row flex items-center px-4">
 			<SegmentedControl
 				bind:value={mode}
-				options={[
-					{ value: 'iterate', label: 'Iterate' },
-					{ value: 'intermediate', label: 'Find intermediate' },
-					{ value: 'history', label: 'History' }
-				]}
+				options={options_segmented_control}
 				class="mr-10"
 			/>
 		</div>

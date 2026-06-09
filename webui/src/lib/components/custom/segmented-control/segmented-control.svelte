@@ -48,8 +48,13 @@
 	import { RadioGroup } from '$lib/components/ui/radio-group';
 	import { RadioGroupItem } from '$lib/components/ui/radio-group';
 	import { cn } from '$lib/utils.js';
-	
+	import type { Component } from 'svelte';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import { Provider } from '$lib/components/ui/sidebar';
+
 	export interface SegmentOption {
+		onlyIcon?: boolean; // Optional property to indicate if the option should be displayed as an icon only
+		icon?: string | Component; // Icon can be a string (e.g emoji) or a Svelte component
 		value: string;
 		label: string;
 	}
@@ -81,6 +86,9 @@
 		{...restProps}
 	>
 		{#each options as option, i}
+			<Tooltip.Provider>
+			<Tooltip.Root>
+			<Tooltip.Trigger>
 			<div class="group">
 				<RadioGroupItem 
 					value={option.value} 
@@ -100,9 +108,27 @@
 						sizeClasses[size]
 					)}
 				>
-					{option.label}
+					{#if option.onlyIcon && option.icon}
+						{#if typeof option.icon === 'string'}
+							<span class="text-lg">{option.icon}</span>
+						{:else}
+							<svelte:component this={option.icon} class="w-4 h-4" />
+						{/if}
+					{:else}
+						{option.label}
+					{/if}
 				</label>
 			</div>
+			</Tooltip.Trigger>
+			<Tooltip.Content>
+				 
+				{#if !option.onlyIcon}
+					 <p>{option.label}</p>
+				{/if}
+				<p>{option.label}</p>
+			</Tooltip.Content>
+			</Tooltip.Root>
+			</Tooltip.Provider>
 		{/each}
 	</RadioGroup>
 </div>

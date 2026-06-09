@@ -13,6 +13,8 @@
 	import type { MethodMode, ProblemInfo, Solution, SolutionType } from '$lib/types';
 	import type { Response } from '../types';
 
+	import { options_segmented_control} from '$lib/constants';
+
 	let {
 		mode = $bindable('intermediate' as MethodMode),
 		problem,
@@ -104,11 +106,7 @@
 		<div class="relative h-full flex-row flex items-center px-4">
 			<SegmentedControl
 				bind:value={mode}
-				options={[
-					{ value: 'iterate', label: 'Iterate' },
-					{ value: 'intermediate', label: 'Find intermediate' },
-					{ value: 'history', label: 'History' }
-				]}
+				options={options_segmented_control}
 				class="mr-10"
 			/>
 			<span>View: </span>

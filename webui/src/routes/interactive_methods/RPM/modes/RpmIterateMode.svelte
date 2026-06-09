@@ -10,10 +10,10 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar/RXIMOSidebar.svelte';
-	import { PREFERENCE_TYPES } from '$lib/constants';
+	import { PREFERENCE_TYPES, options_segmented_control
+	 } from '$lib/constants';
 
 	import { mapSolutionsToObjectiveValues, processPreviousObjectiveValues } from '../helper-functions';
-
 	import type { MethodMode, ProblemInfo, Solution, SolutionType } from '$lib/types';
 	import type { MapState, Response } from '../types';
 
@@ -166,15 +166,11 @@
 	{/snippet}
 
 	{#snippet explorerControls()}
-		<div class="relative h-full flex-row flex items-center px-4">
+		<div class="relative h-full flex-row flex items-center">
 			<SegmentedControl
 				bind:value={mode}
-				options={[
-					{ value: 'iterate', label: 'Iterate' },
-					{ value: 'intermediate', label: 'Find intermediate' },
-					{ value: 'history', label: 'History' }
-				]}
-				class="mr-10"
+				options={options_segmented_control}
+				class="mr-2"
 			/>
 			<span>View: </span>
 			<Combobox
@@ -193,7 +189,7 @@
 					onclick={selectedIndexes.length === 1 ? confirm_finish : undefined}
 					disabled={selectedIndexes.length !== 1 || current_state.response_type === 'rpm.finalize'}
 					variant="destructive"
-					class="ml-10"
+					class="ml-2"
 				>
 					Finish
 				</Button>
