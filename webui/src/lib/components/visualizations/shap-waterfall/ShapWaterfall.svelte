@@ -28,7 +28,7 @@
 		baseline = 0,
 		achieved = 0,
 		height = 185,
-		baselineLabel = 'reference level'
+		baselineLabel = 'baseline = '
 	}: Props = $props();
 
 	function normalizeObjectiveSymbol(symbol: string): string {
@@ -178,7 +178,7 @@
 	<div class="result-strip">
 		<div class="strip-labels">
 			<span>{baselineLabel} {baseline.toFixed(2)}</span>
-			<strong>result {waterfallAchieved.toFixed(2)}</strong>
+			<strong>achieved value = {waterfallAchieved.toFixed(2)}</strong>
 		</div>
 
 		<div class="strip-line">
@@ -326,19 +326,20 @@
 	<div class="legend">
 		<span class="legend-item">
 			<i class="swatch positive"></i>
-			Improving effect
+			Helps achieve the current value
+
 		</span>
 		<span class="legend-item">
 			<i class="swatch negative"></i>
-			Impairing effect
+			Limits improvement
 		</span>
 		<span class="legend-item legend-item-symbol">
 			<i class="marker-star">★</i>
-			Strongest improving
+			Strongest support
 		</span>
 		<span class="legend-item legend-item-symbol">
 			<i class="marker-warning">!</i>
-			Strongest impairing
+			Strongest trade-off
 		</span>
 	</div>
 </div>

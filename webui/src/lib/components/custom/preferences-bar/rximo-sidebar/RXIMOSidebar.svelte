@@ -182,9 +182,13 @@
 			.sort((a, b) => Math.abs(b.helpScore) - Math.abs(a.helpScore));
 	});
 
-	const mainHelper = $derived(influenceRows.find((r) => r.helpScore > 0));
-	const mainHurter = $derived(influenceRows.find((r) => r.helpScore < 0 && !r.isOwn));
+	const mainTradeoff = $derived(influenceRows.find((r) => r.helpScore < 0 && !r.isOwn));
+	const mainSynergy = $derived(influenceRows.find((r) => r.helpScore > 0 && !r.isOwn));
 	const ownInfluence = $derived(influenceRows.find((r) => r.isOwn));
+
+	// Keep these aliases only if the rest of the file still uses the old names.
+	const mainHurter = $derived(mainTradeoff);
+	const mainHelper = $derived(mainSynergy);
 
 	const rival = $derived.by(() => {
 		// Prefer the rival picked by the backend's find_rival call, which runs
@@ -385,14 +389,14 @@
 			{:else}
 				<div class="space-y-4">
 					<div class="flex items-center gap-3">
-						<div class="flex shrink-0 items-center gap-1 text-xs font-medium text-gray-600">
-							<span>Target</span>
+						<div class="flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600">
+							<span>Objective to explain</span>
 							<Tooltip.Root>
 								<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
 									<InfoIcon class="h-3.5 w-3.5" />
 								</Tooltip.Trigger>
 								<Tooltip.Content sideOffset={6} class="max-w-56">
-									Choose the outcome you want to understand or improve.
+									Select the objective whose achieved value you want to analyze. The explanations below will focus on this objective.
 								</Tooltip.Content>
 							</Tooltip.Root>
 						</div>
@@ -408,125 +412,235 @@
 
 					<Tabs.Root bind:value={explanationTab} class="w-full">
 						<Tabs.List class="grid w-full grid-cols-3">
-							<Tabs.Trigger value="why">Breakdown</Tabs.Trigger>
-							<Tabs.Trigger value="how">Improve</Tabs.Trigger>
+							<Tabs.Trigger value="why">Understand</Tabs.Trigger>
+							<Tabs.Trigger value="how">Explore</Tabs.Trigger>
 							<Tabs.Trigger value="compare">Summary</Tabs.Trigger>
 						</Tabs.List>
-
 						<Tabs.Content value="why" class="mt-3 w-full">
-							<div class="space-y-3">
-								<div class="rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-gray-700">
-									<div class="mb-1 font-semibold text-gray-900">
-										Why is {selectedObjectiveName} = {formatNumber(achievedValueNumber, selectedObjectiveDigits)}?
-									</div>
+	<div class="space-y-3">
 
-									<ul class="list-disc space-y-1 pl-4">
-										{#if mainHurter}
-											<li>
-												<strong>{mainHurter.name}</strong> is the main non-own aspiration making
-												this outcome harder to improve.
-											</li>
-										{/if}
+		<!-- Objective status -->
+		<div class="rounded-md border border-gray-200 bg-white p-3">
+			<div class="mb-2 text-sm font-semibold text-gray-900">
+				{selectedObjectiveName}
+			</div>
 
-										{#if mainHelper}
-											<li>
-												<strong>{mainHelper.name}</strong> helps this outcome the most.
-											</li>
-										{/if}
+			<div class="grid grid-cols-2 gap-2 text-sm">
+				<div class="rounded bg-gray-50 p-2">
+					<div class="text-xs text-gray-500">Desired value</div>
+					<div class="font-semibold text-gray-800">
+						{formatValue(preferenceValues[selectedObjectiveIndex])}
+					</div>
+				</div>
 
-										{#if ownInfluence}
-											<li>
-												The aspiration for <strong>{selectedObjectiveName}</strong>
-												{ownInfluence.isHelpful ? 'supports' : 'works against'}
-												its own outcome.
-											</li>
-										{/if}
+				<div class="rounded bg-gray-50 p-2">
+					<div class="text-xs text-gray-500">Achieved value</div>
+					<div class="font-semibold text-gray-800">
+						{formatNumber(achievedValueNumber, selectedObjectiveDigits)}
+					</div>
+				</div>
+			</div>
+		</div>
 
-										{#if !mainHurter && !mainHelper && !ownInfluence}
-											<li>No strong SHAP effect was detected for this outcome.</li>
-										{/if}
-									</ul>
-								</div>
+		<!-- Main visual relationship -->
+		<!-- Main visual relationship -->
+<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
+	{#if mainTradeoff}
+		<div class="mb-2 text-sm font-semibold text-gray-900">
+			Main trade-off
+		</div>
 
-								<div>
+		<div class="rounded-md bg-white p-3">
+			<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+				<div class="text-center">
+					<div class="text-xs font-medium text-amber-600">Desired value</div>
+					<div class="font-semibold">{mainTradeoff.name}</div>
+				</div>
 
-								<div class="mb-2 text-xs text-gray-600">
-									<span class="font-medium text-gray-700">How this result is built:</span>
-									<br />
-									Starting from a <strong>reference level</strong>, each bar shows how a
-									preference moves the outcome up or down.
-								</div>
-									<ShapWaterfall
-										shapRow={selectedRow}
-										selectedOutputSymbol={selectedObjectiveSymbol}
-										{problem}
-										baseline={selectedSHAPBaseline}
-										achieved={selectedSolutionValue}
-									/>
-								</div>
+				<div class="text-sm font-medium text-[#DC3220]">
+					limits →
+				</div>
 
-<!-- 								<details class="rounded-md border border-gray-200 bg-white p-3">
-									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
-										Show full SHAP matrix
-									</summary>
+				<div class="text-center">
+					<div class="text-xs font-medium text-blue-600">Achieved value</div>
+					<div class="font-semibold">{selectedObjectiveName}</div>
+				</div>
+			</div>
+		</div>
 
-									<div class="mt-3">
-										<ShapHeatmap shapValues={SHAP_values} {problem} />
-									</div>
-								</details> -->
-							</div>
-						</Tabs.Content>
+		<p class="mt-2 text-sm text-gray-600">
+			Relaxing the desired value for <strong>{mainTradeoff.name}</strong>
+			could create room for improving <strong>{selectedObjectiveName}</strong>.
+		</p>
+
+	{:else if mainSynergy}
+		<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
+			<span>Main synergy</span>
+
+			<Tooltip.Root>
+				<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+					<InfoIcon class="h-3.5 w-3.5" />
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					A synergy means that the desired value for another objective appears to
+					support the achieved value of <strong>{selectedObjectiveName}</strong>.
+				</Tooltip.Content>
+			</Tooltip.Root>
+		</div>
+
+		<div class="rounded-md bg-white p-3">
+			<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+				<div class="text-center">
+					<div class="text-xs font-medium text-amber-600">Desired value</div>
+					<div class="font-semibold">{mainSynergy.name}</div>
+				</div>
+
+				<div class="text-sm font-medium text-[#0C7BDC]">
+					supports →
+				</div>
+
+				<div class="text-center">
+					<div class="text-xs font-medium text-blue-600">Achieved value</div>
+					<div class="font-semibold">{selectedObjectiveName}</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="mt-2 flex items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1 text-sm text-gray-600">
+			<span>No major trade-offs detected.</span>
+
+			<Tooltip.Root>
+				<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+					<InfoIcon class="h-3.5 w-3.5" />
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					No desired value for another objective appears to limit
+					<strong>{selectedObjectiveName}</strong>. Further improvements may depend
+					mainly on adjusting the desired value for
+					<strong>{selectedObjectiveName}</strong> itself.
+				</Tooltip.Content>
+			</Tooltip.Root>
+		</div>
+
+		<Tooltip.Root>
+			<Tooltip.Trigger asChild>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					class="mt-3 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+					onclick={() => (explanationTab = 'how')}
+				>
+					Explore possible changes
+					<span aria-hidden="true">→</span>
+				</Button>
+			</Tooltip.Trigger>
+
+			<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+				Open the Explore tab to inspect what may happen if some desired values are adjusted.
+			</Tooltip.Content>
+		</Tooltip.Root>
+
+	{:else}
+		<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
+			<span>No major interactions detected</span>
+
+			<Tooltip.Root>
+				<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+					<InfoIcon class="h-3.5 w-3.5" />
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					No desired value for another objective appears to strongly affect
+					the achieved value of <strong>{selectedObjectiveName}</strong>.
+				</Tooltip.Content>
+			</Tooltip.Root>
+		</div>
+
+		<Tooltip.Root>
+			<Tooltip.Trigger asChild>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					class="mt-2 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+					onclick={() => (explanationTab = 'how')}
+				>
+					Explore possible changes
+					<span aria-hidden="true">→</span>
+				</Button>
+			</Tooltip.Trigger>
+
+			<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+				Open the Explore tab to inspect what may happen if some desired values are adjusted.
+			</Tooltip.Content>
+		</Tooltip.Root>
+	{/if}
+</div>
+
+		<!-- Waterfall as the main explanation -->
+		<div class="rounded-md border border-gray-200 bg-white p-3">
+			<div class="mb-2 text-sm font-semibold text-gray-900">
+				Contribution breakdown
+			</div>
+
+			<p class="mb-3 text-sm text-gray-600">
+				The chart shows how the desired values contribute to the achieved value of
+				<strong>{selectedObjectiveName}</strong>.
+			</p>
+
+			<ShapWaterfall
+				shapRow={selectedRow}
+				selectedOutputSymbol={selectedObjectiveSymbol}
+				{problem}
+				baseline={selectedSHAPBaseline}
+				achieved={selectedSolutionValue}
+			/>
+		</div>
+
+		<!-- Short bridge to Explore -->
+		<div class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600">
+			<span class="font-semibold text-gray-800">Next:</span>
+			use <strong>Explore</strong> to test possible preference adjustments.
+		</div>
+
+		<!-- Technical explanation collapsed -->
+		{#if explanationText}
+			<details class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
+				<summary class="cursor-pointer font-semibold text-gray-700">
+					Show technical explanation
+				</summary>
+				<p class="mt-2 leading-relaxed">{explanationText}</p>
+			</details>
+		{/if}
+	</div>
+</Tabs.Content>
+
 
 						<Tabs.Content value="how" class="mt-3 w-full">
 							<div class="space-y-3">
-								<div class="rounded-md border border-amber-200 bg-amber-50 p-3">
-									<div class="mb-1 flex items-center gap-2 text-sm font-semibold text-gray-900">
-										<span>💡</span>
-										<span>Suggested next step</span>
-									</div>
-
-									<p class="text-xs leading-relaxed text-gray-700">
-										{suggestionSentence}
-									</p>
-
-									{#if rival}
-										<div class="mt-2 rounded bg-white px-2 py-1 text-xs text-gray-600">
-											Main non-own rival:
-											<strong>{rival.name}</strong>
-											<span class={rival.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}>
-												({formatSigned(rival.helpScore)})
-											</span>
-										</div>
-									{/if}
-
-									{#if explanationText}
-										<details class="mt-2 rounded bg-white px-2 py-1 text-xs text-gray-700">
-											<summary class="cursor-pointer font-medium text-gray-700">
-												Why this suggestion?
-											</summary>
-											<p class="mt-1 leading-relaxed">{explanationText}</p>
-										</details>
-									{/if}
-								</div>
+								
 
 								<div class="rounded-md border border-gray-200 bg-white p-3">
-									<div class="mb-2 text-xs font-semibold text-gray-700">
+									<div class="mb-2 text-sm font-semibold text-gray-700">
 										Trade-off interpretation
 									</div>
 
 									{#if mainHurter}
-										<p class="text-xs leading-relaxed text-gray-600">
+										<p class="text-sm leading-relaxed text-gray-600">
 											Relaxing <strong>{mainHurter.name}</strong> may create room for improving
 											<strong>{selectedObjectiveName}</strong>.
 										</p>
 									{:else if ownInfluence && !ownInfluence.isHelpful}
-										<p class="text-xs leading-relaxed text-gray-600">
+										<p class="text-sm leading-relaxed text-gray-600">
 											The strongest negative effect comes from the selected outcome’s own aspiration.
 											No separate rival aspiration was detected, so try tightening
 											<strong>{selectedObjectiveName}</strong> directly or inspect nearby scenarios.
 										</p>
 									{:else}
-										<p class="text-xs leading-relaxed text-gray-600">
+										<p class="text-sm leading-relaxed text-gray-600">
 											No strong conflicting aspiration was detected. You may try tightening
 											<strong>{selectedObjectiveName}</strong> directly.
 										</p>
@@ -534,7 +648,7 @@
 								</div>
 
 								<details class="rounded-md border border-gray-200 bg-white p-3">
-									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
+									<summary class="cursor-pointer text-sm font-semibold text-gray-700">
 										Show What-if Cases
 									</summary>
 
@@ -542,7 +656,7 @@
 										<div class="flex items-center gap-1">
 											<button
 												type="button"
-												class={`rounded px-2 py-0.5 text-xs ${scenarioDiffDisplayMode === 'value' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
+												class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'value' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
 												onclick={() => (scenarioDiffDisplayMode = 'value')}
 											>
 												Value
@@ -550,7 +664,7 @@
 
 											<button
 												type="button"
-												class={`rounded px-2 py-0.5 text-xs ${scenarioDiffDisplayMode === 'percent' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
+												class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'percent' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
 												onclick={() => (scenarioDiffDisplayMode = 'percent')}
 											>
 												Percent
@@ -558,7 +672,7 @@
 										</div>
 
 										{#if hypotheticalScenarios.length === 0}
-											<div class="rounded border bg-gray-50 p-3 text-xs text-gray-500">
+											<div class="rounded border bg-gray-50 p-3 text-sm text-gray-500">
 												No perturbed cases available yet.
 											</div>
 										{:else}
@@ -577,7 +691,7 @@
 
 											{#each hypotheticalScenarios as scenario}
 												<div class="rounded-md border border-gray-200 bg-white p-3">
-													<div class="mb-2 text-xs text-gray-700">
+													<div class="mb-2 text-sm text-gray-700">
 														If <strong>{scenario.impairedName}</strong> is impaired by
 														<strong>{scenario.impairmentMagnitude.toFixed(3)}</strong>
 														(to target value
@@ -599,7 +713,7 @@
 
 													<div class="space-y-1.5">
 														{#each scenario.deltas as delta}
-															<div class="grid grid-cols-[64px_1fr_62px] items-center gap-2 text-xs">
+															<div class="grid grid-cols-[64px_1fr_62px] items-center gap-2 text-sm">
 																<div class="truncate font-medium text-gray-700" title={delta.symbol}>
 																	{delta.name}
 																</div>
@@ -634,11 +748,11 @@
 						<Tabs.Content value="compare" class="mt-3 w-full">
 							<div class="space-y-3">
 								<div class="rounded-md border border-gray-200 bg-white p-3">
-									<div class="mb-2 text-xs font-semibold text-gray-700">
+									<div class="mb-2 text-sm font-semibold text-gray-700">
 										Current explanation summary
 									</div>
 
-									<div class="space-y-2 text-xs text-gray-700">
+									<div class="space-y-2 text-sm text-gray-700">
 										{#if mainHurter}
 											<div class="flex items-center justify-between gap-3">
 												<span>Largest non-own conflict</span>
@@ -670,13 +784,13 @@
 								</div>
 
 																<div class="rounded-md border border-gray-200 bg-white p-3">
-									<div class="mb-2 text-xs font-semibold text-gray-700">
+									<div class="mb-2 text-sm font-semibold text-gray-700">
 										All influences on {selectedObjectiveName}
 									</div>
 
 									<div class="space-y-1.5">
 										{#each influenceRows as row}
-											<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-xs">
+											<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-sm">
 												<div class="truncate font-medium text-gray-700" title={row.symbol}>
 													{row.name}{row.isOwn ? ' (own)' : ''}
 												</div>
@@ -699,7 +813,7 @@
 								</div>
 
 								<details class="rounded-md border border-gray-200 bg-white p-3">
-									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
+									<summary class="cursor-pointer text-sm font-semibold text-gray-700">
 										Explore trade-offs and synergies
 									</summary>
 
@@ -721,7 +835,7 @@
 
 
 								<details class="rounded-md border border-gray-200 bg-white p-3">
-									<summary class="cursor-pointer text-xs font-semibold text-gray-700">
+									<summary class="cursor-pointer text-sm font-semibold text-gray-700">
 										Show full overview matrix
 									</summary>
 
