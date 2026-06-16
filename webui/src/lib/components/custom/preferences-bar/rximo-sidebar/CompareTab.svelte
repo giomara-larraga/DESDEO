@@ -1,106 +1,151 @@
 <script lang="ts">
-  export let shapValues: any = {};
-  export let objectiveNames: string[] = [];
-  export let focusObjective: string | null = null;
-  export let currentPreference: any = null;
-  export let previousPreference: any = null;
+	import type { ProblemInfo } from '$lib/types';
+	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
+	import { ShapHeatmap } from '$lib/components/visualizations/shap-heatmap';
 
-  function vectorFromPreference(pref: any): number[] {
-    if (!pref) return [];
-    if (Array.isArray(pref)) return pref.map(Number);
-    if (Array.isArray(pref.values)) return pref.values.map(Number);
-    if (Array.isArray(pref.preference_values)) return pref.preference_values.map(Number);
+	type InfluenceRow = {
+		symbol: string;
+		name: string;
+		rawValue: number;
+		helpScore: number;
+		isOwn: boolean;
+		isHelpful: boolean;
+	};
 
-    return objectiveNames.map((name) => Number(pref?.[name] ?? 0));
-  }
+  type ObjectiveValue = number | number[] | null | undefined;
 
-  function matrixFromShap(values: any): number[][] {
-    if (Array.isArray(values)) return values;
-    if (Array.isArray(values?.values)) return values.values;
-    if (Array.isArray(values?.shap_values)) return values.shap_values;
-    if (Array.isArray(values?.matrix)) return values.matrix;
-    return [];
-  }
 
-  $: current = vectorFromPreference(currentPreference);
-  $: previous = vectorFromPreference(previousPreference);
-  $: deltas = objectiveNames.map((name, i) => ({
-    name,
-    previous: previous[i],
-    current: current[i],
-    delta: (current[i] ?? 0) - (previous[i] ?? 0)
-  }));
+	interface Props {
+		selectedObjectiveName: string;
+		mainHurter: InfluenceRow | undefined;
+		mainHelper: InfluenceRow | undefined;
+		ownInfluence: InfluenceRow | undefined;
+		influenceRows: InfluenceRow[];
+		maxAbsInfluence: number;
+		problem: ProblemInfo;
+		preferenceValues: number[];
+		baselineObjectiveValues: Record<string, ObjectiveValue> | null;
+		SHAP_values: Record<string, Record<string, number>>;
+	}
 
-  $: changed = deltas
-    .filter((d) => Number.isFinite(d.delta))
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+	let {
+		selectedObjectiveName,
+		mainHurter,
+		mainHelper,
+		ownInfluence,
+		influenceRows,
+		maxAbsInfluence,
+		problem,
+		preferenceValues,
+		baselineObjectiveValues,
+		SHAP_values
+	}: Props = $props();
 
-  $: largestChange = changed[0];
-
-  $: matrix = matrixFromShap(shapValues);
-  $: targetIndex = Math.max(0, objectiveNames.indexOf(focusObjective ?? ''));
-  $: impactRows = objectiveNames.map((name, i) => ({
-    name,
-    impact: Number(matrix?.[i]?.[targetIndex] ?? 0)
-  })).sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+	function formatSigned(value: number): string {
+		const fixed = Math.abs(value).toFixed(3);
+		if (value > 0) return `+${fixed}`;
+		if (value < 0) return `-${fixed}`;
+		return '0.000';
+	}
 </script>
 
-<section class="card">
-  <h3>Change from previous iteration</h3>
+<div class="space-y-3">
+	<div class="rounded-md border border-gray-200 bg-white p-3">
+		<div class="mb-2 text-sm font-semibold text-gray-700">
+			Current explanation summary
+		</div>
 
-  {#if largestChange}
-    <p>
-      Most notable preference change:
-      <strong>{largestChange.name}</strong>
-      {largestChange.delta >= 0 ? 'increased' : 'decreased'}
-      by <strong>{Math.abs(largestChange.delta).toFixed(2)}</strong>.
-    </p>
-  {:else}
-    <p class="muted">No previous preference vector is available.</p>
-  {/if}
-</section>
+		<div class="space-y-2 text-sm text-gray-700">
+			{#if mainHurter}
+				<div class="flex items-center justify-between gap-3">
+					<span>Largest non-own conflict</span>
+					<strong class="text-[#DC3220]">{mainHurter.name}</strong>
+				</div>
+			{/if}
 
-<section class="card">
-  <h3>Impact on {focusObjective}</h3>
+			{#if mainHelper}
+				<div class="flex items-center justify-between gap-3">
+					<span>Largest support</span>
+					<strong class="text-[#0C7BDC]">{mainHelper.name}</strong>
+				</div>
+			{/if}
 
-  <div class="impact-list">
-    {#each impactRows.slice(0, 4) as row}
-      <div class="impact-row">
-        <span>{row.name}</span>
-        <strong class:positive={row.impact > 0} class:negative={row.impact < 0}>
-          {row.impact >= 0 ? '+' : ''}{row.impact.toFixed(2)}
-        </strong>
-      </div>
-    {/each}
-  </div>
-</section>
+			{#if ownInfluence}
+				<div class="flex items-center justify-between gap-3">
+					<span>Own aspiration effect</span>
+					<strong class={ownInfluence.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}>
+						{formatSigned(ownInfluence.helpScore)}
+					</strong>
+				</div>
+			{/if}
 
-<details class="details">
-  <summary>Show preference changes</summary>
+			<div class="flex items-center justify-between gap-3">
+				<span>Selected outcome</span>
+				<strong>{selectedObjectiveName}</strong>
+			</div>
+		</div>
+	</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Objective</th>
-        <th>Previous</th>
-        <th>Current</th>
-        <th>Δ</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each deltas as row}
-        <tr>
-          <td>{row.name}</td>
-          <td>{Number.isFinite(row.previous) ? row.previous.toFixed(2) : '—'}</td>
-          <td>{Number.isFinite(row.current) ? row.current.toFixed(2) : '—'}</td>
-          <td class:positive={row.delta > 0} class:negative={row.delta < 0}>
-            {Number.isFinite(row.delta) ? `${row.delta >= 0 ? '+' : ''}${row.delta.toFixed(2)}` : '—'}
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
-</details>
+	<div class="rounded-md border border-gray-200 bg-white p-3">
+		<div class="mb-2 text-sm font-semibold text-gray-700">
+			All influences on {selectedObjectiveName}
+		</div>
+
+		<div class="space-y-1.5">
+			{#each influenceRows as row}
+				<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-sm">
+					<div class="truncate font-medium text-gray-700" title={row.symbol}>
+						{row.name}{row.isOwn ? ' (own)' : ''}
+					</div>
+
+					<div class="h-2 overflow-hidden rounded bg-gray-100">
+						<div
+							class={`h-full ${row.isHelpful ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
+							style={`width: ${(Math.abs(row.helpScore) / maxAbsInfluence) * 100}%`}
+						></div>
+					</div>
+
+					<div
+						class={`text-right font-mono ${row.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
+					>
+						{formatSigned(row.helpScore)}
+					</div>
+				</div>
+			{/each}
+		</div>
+	</div>
+
+	<details class="rounded-md border border-gray-200 bg-white p-3">
+		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
+			Explore trade-offs and synergies
+		</summary>
+
+		<div class="mt-3">
+			<ShapCaseRelationshipNetwork
+				objectives={problem.objectives.map((o) => ({
+					symbol: o.symbol,
+					name: o.name,
+					maximize: o.maximize
+				}))}
+				{preferenceValues}
+				achievedValues={baselineObjectiveValues}
+				shapValues={SHAP_values}
+				threshold={0}
+			/>
+		</div>
+	</details>
+
+	<details class="rounded-md border border-gray-200 bg-white p-3">
+		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
+			Show full overview matrix
+		</summary>
+
+		<div class="mt-3">
+			<ShapHeatmap shapValues={SHAP_values} {problem} />
+		</div>
+	</details>
+</div>
+
 
 <style>
   .card,

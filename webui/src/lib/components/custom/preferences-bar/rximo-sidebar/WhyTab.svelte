@@ -1,137 +1,256 @@
 <script lang="ts">
-  import ShapImpactBars from './ShapImpactBars.svelte';
-  import ShapMatrixDetails from './ShapMatrixDetails.svelte';
+	import InfoIcon from '@lucide/svelte/icons/info';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import { formatNumber } from '$lib/helpers';
+	import type { ProblemInfo } from '$lib/types';
+	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
 
-  export let shapValues: any = {};
-  export let shapBaseline:number = 0;
-  export let objectiveNames: string[] = [];
-  export let focusObjective: string | null = null;
-  export let selectedSolution: any = null;
+	type InfluenceRow = {
+		symbol: string;
+		name: string;
+		rawValue: number;
+		helpScore: number;
+		isOwn: boolean;
+		isHelpful: boolean;
+	};
 
-  function matrixFromShap(values: any): number[][] {
-    if (Array.isArray(values)) return values;
-    if (Array.isArray(values?.values)) return values.values;
-    if (Array.isArray(values?.shap_values)) return values.shap_values;
-    if (Array.isArray(values?.matrix)) return values.matrix;
-    return [];
-  }
+	interface Props {
+		selectedObjectiveName: string;
+		preferenceValues: number[];
+		selectedObjectiveIndex: number;
+		achievedValueNumber: number;
+		selectedObjectiveDigits: number;
+		mainTradeoff: InfluenceRow | undefined;
+		mainSynergy: InfluenceRow | undefined;
+		selectedRow: Record<string, number>;
+		selectedObjectiveSymbol: string;
+		problem: ProblemInfo;
+		selectedSHAPBaseline: number | undefined;
+		selectedSolutionValue: number | undefined;
+		explanationText: string | null;
+		onExploreClick: () => void;
+	}
 
-  function getObjectiveValue(solution: any, name: string | null): number | null {
-    if (!solution || !name) return null;
-    if (typeof solution[name] === 'number') return solution[name];
-    if (solution.objective_values && typeof solution.objective_values[name] === 'number') {
-      return solution.objective_values[name];
-    }
-    if (Array.isArray(solution.objective_values)) {
-      const idx = objectiveNames.indexOf(name);
-      return solution.objective_values[idx] ?? null;
-    }
-    return null;
-  }
+	let {
+		selectedObjectiveName,
+		preferenceValues,
+		selectedObjectiveIndex,
+		achievedValueNumber,
+		selectedObjectiveDigits,
+		mainTradeoff,
+		mainSynergy,
+		selectedRow,
+		selectedObjectiveSymbol,
+		problem,
+		selectedSHAPBaseline,
+		selectedSolutionValue,
+		explanationText,
+		onExploreClick
+	}: Props = $props();
 
-  $: matrix = matrixFromShap(shapValues);
-  $: targetIndex = Math.max(0, objectiveNames.indexOf(focusObjective ?? ''));
-  $: column = matrix.map((row) => Number(row?.[targetIndex] ?? 0));
-  $: drivers = objectiveNames.map((name, i) => ({
-    name,
-    value: column[i] ?? 0,
-    own: i === targetIndex
-  })).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-
-  $: strongestHurt = drivers.find((d) => d.value < 0 && !d.own);
-  $: strongestHelp = drivers.find((d) => d.value > 0);
-  $: ownEffect = drivers.find((d) => d.own);
-  $: achievedValue = getObjectiveValue(selectedSolution, focusObjective);
+	function formatValue(value: unknown): string {
+		const num = Array.isArray(value) ? Number(value[0]) : Number(value);
+		if (!Number.isFinite(num)) return '—';
+		return num.toFixed(2);
+	}
 </script>
 
-<section class="card">
-  <h3>
-    Why is {focusObjective}
-    {#if achievedValue !== null}
-      = {achievedValue.toFixed(2)}
-    {/if}
-    ?
-  </h3>
+<div class="space-y-3">
 
-  {#if strongestHurt || strongestHelp || ownEffect}
-    <ul>
-      {#if strongestHurt}
-        <li>
-          <strong>{strongestHurt.name}</strong> is the main negative influence on
-          <strong>{focusObjective}</strong>.
-        </li>
-      {/if}
+	<!-- Objective status -->
+	<div class="rounded-md border border-gray-200 bg-white p-3">
+		<div class="mb-2 text-sm font-semibold text-gray-900">
+			{selectedObjectiveName}
+		</div>
 
-      {#if strongestHelp}
-        <li>
-          <strong>{strongestHelp.name}</strong> helps <strong>{focusObjective}</strong>
-          the most.
-        </li>
-      {/if}
+		<div class="grid grid-cols-2 gap-2 text-sm">
+			<div class="rounded bg-gray-50 p-2">
+				<div class="text-xs text-gray-500">Desired value</div>
+				<div class="font-semibold text-gray-800">
+					{formatValue(preferenceValues[selectedObjectiveIndex])}
+				</div>
+			</div>
 
-      {#if ownEffect}
-        <li>
-          The own aspiration for <strong>{focusObjective}</strong>
-          {ownEffect.value >= 0 ? 'supports' : 'hurts'} this outcome slightly.
-        </li>
-      {/if}
-    </ul>
-  {:else}
-    <p class="muted">No SHAP explanation is available for this solution yet.</p>
-  {/if}
-</section>
+			<div class="rounded bg-gray-50 p-2">
+				<div class="text-xs text-gray-500">Achieved value</div>
+				<div class="font-semibold text-gray-800">
+					{formatNumber(achievedValueNumber, selectedObjectiveDigits)}
+				</div>
+			</div>
+		</div>
+	</div>
 
-<details class="details">
-  <summary>Show details: SHAP impact bars</summary>
-  <ShapImpactBars {drivers} />
-  
-</details>
+	<!-- Main visual relationship -->
+	<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
+		{#if mainTradeoff}
+			<div class="mb-2 text-sm font-semibold text-gray-900">
+				Main trade-off
+			</div>
 
-<details class="details">
-  <summary>Show details: SHAP matrix</summary>
-  <ShapMatrixDetails {matrix} {objectiveNames} />
-</details>
+			<div class="rounded-md bg-white p-3">
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+					<div class="text-center">
+						<div class="text-xs font-medium text-amber-600">Desired value</div>
+						<div class="font-semibold">{mainTradeoff.name}</div>
+					</div>
 
-<style>
-  .card,
-  .section,
-  .details {
-    background: white;
-    border: 1px solid #d8e0eb;
-    border-radius: 0.65rem;
-    padding: 0.8rem;
-  }
+					<div class="text-sm font-medium text-[#DC3220]">
+						limits →
+					</div>
 
-  h3 {
-    margin: 0 0 0.55rem;
-    font-size: 0.86rem;
-  }
+					<div class="text-center">
+						<div class="text-xs font-medium text-blue-600">Achieved value</div>
+						<div class="font-semibold">{selectedObjectiveName}</div>
+					</div>
+				</div>
+			</div>
 
-  ul {
-    margin: 0;
-    padding-left: 1.1rem;
-    line-height: 1.45;
-  }
+			<p class="mt-2 text-sm text-gray-600">
+				Relaxing the desired value for <strong>{mainTradeoff.name}</strong>
+				could create room for improving <strong>{selectedObjectiveName}</strong>.
+			</p>
 
-  li + li {
-    margin-top: 0.25rem;
-  }
+		{:else if mainSynergy}
+			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
+				<span>Main synergy</span>
 
-  .muted {
-    margin: 0;
-    color: #64748b;
-  }
+				<Tooltip.Root>
+					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+						<InfoIcon class="h-3.5 w-3.5" />
+					</Tooltip.Trigger>
 
-  .section {
-    margin-top: 0.8rem;
-  }
+					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+						A synergy means that the desired value for another objective appears to
+						support the achieved value of <strong>{selectedObjectiveName}</strong>.
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</div>
 
-  .details {
-    margin-top: 0.8rem;
-  }
+			<div class="rounded-md bg-white p-3">
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+					<div class="text-center">
+						<div class="text-xs font-medium text-amber-600">Desired value</div>
+						<div class="font-semibold">{mainSynergy.name}</div>
+					</div>
 
-  summary {
-    cursor: pointer;
-    font-weight: 700;
-  }
-</style>
+					<div class="text-sm font-medium text-[#0C7BDC]">
+						supports →
+					</div>
+
+					<div class="text-center">
+						<div class="text-xs font-medium text-blue-600">Achieved value</div>
+						<div class="font-semibold">{selectedObjectiveName}</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="mt-2 flex items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1 text-sm text-gray-600">
+				<span>No major trade-offs detected.</span>
+
+				<Tooltip.Root>
+					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+						<InfoIcon class="h-3.5 w-3.5" />
+					</Tooltip.Trigger>
+
+					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+						No desired value for another objective appears to limit
+						<strong>{selectedObjectiveName}</strong>. Further improvements may depend
+						mainly on adjusting the desired value for
+						<strong>{selectedObjectiveName}</strong> itself.
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</div>
+
+			<Tooltip.Root>
+				<Tooltip.Trigger asChild>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						class="mt-3 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+						onclick={onExploreClick}
+					>
+						Explore possible changes
+						<span aria-hidden="true">→</span>
+					</Button>
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					Open the Explore tab to inspect what may happen if some desired values are adjusted.
+				</Tooltip.Content>
+			</Tooltip.Root>
+
+		{:else}
+			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
+				<span>No major interactions detected</span>
+
+				<Tooltip.Root>
+					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+						<InfoIcon class="h-3.5 w-3.5" />
+					</Tooltip.Trigger>
+
+					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+						No desired value for another objective appears to strongly affect
+						the achieved value of <strong>{selectedObjectiveName}</strong>.
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</div>
+
+			<Tooltip.Root>
+				<Tooltip.Trigger asChild>
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						class="mt-2 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+						onclick={onExploreClick}
+					>
+						Explore possible changes
+						<span aria-hidden="true">→</span>
+					</Button>
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					Open the Explore tab to inspect what may happen if some desired values are adjusted.
+				</Tooltip.Content>
+			</Tooltip.Root>
+		{/if}
+	</div>
+
+	<!-- Waterfall as the main explanation -->
+	<div class="rounded-md border border-gray-200 bg-white p-3">
+		<div class="mb-2 text-sm font-semibold text-gray-900">
+			Contribution breakdown
+		</div>
+
+		<p class="mb-3 text-sm text-gray-600">
+			The chart shows how the desired values contribute to the achieved value of
+			<strong>{selectedObjectiveName}</strong>.
+		</p>
+
+		<ShapWaterfall
+			shapRow={selectedRow}
+			selectedOutputSymbol={selectedObjectiveSymbol}
+			{problem}
+			baseline={selectedSHAPBaseline}
+			achieved={selectedSolutionValue}
+		/>
+	</div>
+
+	<!-- Short bridge to Explore -->
+	<div class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600">
+		<span class="font-semibold text-gray-800">Next:</span>
+		use <strong>Explore</strong> to test possible preference adjustments.
+	</div>
+
+	<!-- Technical explanation collapsed -->
+	{#if explanationText}
+		<details class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
+			<summary class="cursor-pointer font-semibold text-gray-700">
+				Show technical explanation
+			</summary>
+			<p class="mt-2 leading-relaxed">{explanationText}</p>
+		</details>
+	{/if}
+</div>

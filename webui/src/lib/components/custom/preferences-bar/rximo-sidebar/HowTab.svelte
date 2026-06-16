@@ -1,120 +1,197 @@
 <script lang="ts">
-  import TradeoffGraph from './TradeoffGraph.svelte';
+	import Button from '$lib/components/ui/button/button.svelte';
+	import WhatIfCaseNetwork from '$lib/components/visualizations/what-if-case-network/WhatIfCaseNetwork.svelte';
+	import type { ProblemInfo } from '$lib/types';
 
-  export let shapValues: any = {};
-  export let objectiveNames: string[] = [];
-  export let focusObjective: string | null = null;
-  export let currentPreference: any = null;
+	type InfluenceRow = {
+		symbol: string;
+		name: string;
+		rawValue: number;
+		helpScore: number;
+		isOwn: boolean;
+		isHelpful: boolean;
+	};
 
-  function matrixFromShap(values: any): number[][] {
-    if (Array.isArray(values)) return values;
-    if (Array.isArray(values?.values)) return values.values;
-    if (Array.isArray(values?.shap_values)) return values.shap_values;
-    if (Array.isArray(values?.matrix)) return values.matrix;
-    return [];
-  }
+	type ScenarioDelta = {
+		symbol: string;
+		name: string;
+		delta: number;
+		percentDelta: number | null;
+		isImprovement: boolean;
+	};
 
-  $: matrix = matrixFromShap(shapValues);
-  $: targetIndex = Math.max(0, objectiveNames.indexOf(focusObjective ?? ''));
-  $: drivers = objectiveNames.map((name, i) => ({
-    name,
-    value: Number(matrix?.[i]?.[targetIndex] ?? 0),
-    own: i === targetIndex
-  })).sort((a, b) => a.value - b.value);
+	type HypotheticalScenario = {
+		key: string;
+		impairedSymbol: string;
+		impairedName: string;
+		impairmentMagnitude: number;
+		impairedTargetValue: number;
+		scenarioPreferenceValues: number[];
+		deltas: ScenarioDelta[];
+	};
 
-  $: rival = drivers.find((d) => d.value < 0 && !d.own) ?? drivers.find((d) => !d.own);
-  $: bestHelper = [...drivers].reverse().find((d) => d.value > 0);
-  $: estimatedGain = rival ? Math.abs(rival.value) * 0.4 : 0;
+	interface Props {
+		selectedObjectiveName: string;
+		selectedObjectiveSymbol: string;
+		mainHurter: InfluenceRow | undefined;
+		ownInfluence: InfluenceRow | undefined;
+		hypotheticalScenarios: HypotheticalScenario[];
+		problem: ProblemInfo;
+		maxAbsScenarioDelta: number;
+		maxAbsScenarioPercent: number;
+		onApplyScenarioPreferences?: (values: number[]) => void;
+	}
+
+	let {
+		selectedObjectiveName,
+		selectedObjectiveSymbol,
+		mainHurter,
+		ownInfluence,
+		hypotheticalScenarios,
+		problem,
+		maxAbsScenarioDelta,
+		maxAbsScenarioPercent,
+		onApplyScenarioPreferences
+	}: Props = $props();
+
+	type ScenarioDiffDisplayMode = 'value' | 'percent';
+	let scenarioDiffDisplayMode = $state<ScenarioDiffDisplayMode>('value');
+  let selectedImpairedSymbol = $state<string | null>(null);
+
+  const filteredScenarios = $derived.by(() => {
+    if (!selectedImpairedSymbol || selectedImpairedSymbol === null) return hypotheticalScenarios;
+
+    return hypotheticalScenarios.filter(
+      (scenario) => scenario.impairedSymbol === selectedImpairedSymbol
+    );
+  });
+
+	function formatSigned(value: number): string {
+		const fixed = Math.abs(value).toFixed(3);
+		if (value > 0) return `+${fixed}`;
+		if (value < 0) return `-${fixed}`;
+		return '0.000';
+	}
+
+	function formatSignedPercent(value: number | null): string {
+		if (value == null || !Number.isFinite(value)) return 'n/a';
+		const fixed = Math.abs(value).toFixed(2);
+		if (value > 0) return `+${fixed}%`;
+		if (value < 0) return `-${fixed}%`;
+		return '0.00%';
+	}
+
+
 </script>
 
-<section class="suggestion">
-  <div class="icon">💡</div>
-  <div>
-    <h3>Suggested next step</h3>
+<div class="space-y-3">
 
-    {#if rival}
-      <p>
-        To improve <strong>{focusObjective}</strong>, relax the aspiration for
-        <strong>{rival.name}</strong>.
-      </p>
-      <p class="muted">
-        Estimated local gain: about <strong>+{estimatedGain.toFixed(2)}</strong>
-        in {focusObjective} for a small relaxation.
-      </p>
-    {:else}
-      <p>No rival objective was detected.</p>
-    {/if}
-  </div>
-</section>
+		<div class="space-y-3">
+      <div class="rounded-md border border-blue-100 bg-blue-50 p-3">
+          <div class="font-semibold text-sm text-gray-900">
+              Explore possible compromises
+          </div>
 
-<section class="card">
-  <h3>Trade-off overview</h3>
-  <TradeoffGraph {shapValues} {objectiveNames} {focusObjective} />
-</section>
+          <p class="mt-1 text-gray-600 text-sm">
+            To improve <strong>{selectedObjectiveName}</strong>, you may need to relax the
+            desired value of another objective. Select an objective in the graph to inspect
+            what happens when it is relaxed.
+          </p>
+      </div>
+<!-- 			<div class="flex items-center gap-1">
+				<button
+					type="button"
+					class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'value' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
+					onclick={() => (scenarioDiffDisplayMode = 'value')}
+				>
+					Value
+				</button>
 
-<section class="card compact">
-  <h3>Interpretation</h3>
+				<button
+					type="button"
+					class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'percent' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
+					onclick={() => (scenarioDiffDisplayMode = 'percent')}
+				>
+					Percent
+				</button>
+			</div> -->
 
-  {#if rival}
-    <p>
-      <strong>{rival.name}</strong> is the objective most likely to be sacrificed if you
-      want to improve <strong>{focusObjective}</strong>.
-    </p>
-  {/if}
+			{#if hypotheticalScenarios.length === 0}
+				<div class="rounded border bg-gray-50 p-3 text-sm text-gray-500">
+					No perturbed cases available yet.
+				</div>
+			{:else}
+				<WhatIfCaseNetwork
+					objectives={problem.objectives.map((o) => ({ symbol: o.symbol, name: o.name }))}
+					cases={hypotheticalScenarios.map((caseItem) => ({
+						impairedSymbol: caseItem.impairedSymbol,
+						deltas: caseItem.deltas.map((delta) => ({
+							symbol: delta.symbol,
+							delta: delta.delta,
+							percentDelta: delta.percentDelta
+						}))
+					}))}
+					mode={scenarioDiffDisplayMode}
+          onSelectNode={(symbol) => (selectedImpairedSymbol = symbol)
+          }
+	        disabledNodeSymbol={selectedObjectiveSymbol}
+				/>
 
-  {#if bestHelper}
-    <p>
-      <strong>{bestHelper.name}</strong> currently helps <strong>{focusObjective}</strong>.
-    </p>
-  {/if}
-</section>
+				{#each filteredScenarios as scenario}
+					<div class="rounded-md border border-gray-200 bg-white p-3">
+						<div class="mb-2 text-sm text-gray-700">
+							What if <strong>{scenario.impairedName}</strong> is impaired by
+							<strong>{scenario.impairmentMagnitude.toFixed(3)}</strong>
+							(to target value
+							<strong>{scenario.impairedTargetValue.toFixed(3)}</strong>),
+							the
+							observed effects are:
+						</div>
 
-<style>
-  .suggestion,
-  .card {
-    background: white;
-    border: 1px solid #d8e0eb;
-    border-radius: 0.65rem;
-    padding: 0.8rem;
-  }
+						<div class="mb-2">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onclick={() => onApplyScenarioPreferences?.(scenario.scenarioPreferenceValues)}
+							>
+								Set preferences to this case
+							</Button>
+						</div>
 
-  .suggestion {
-    display: grid;
-    grid-template-columns: 2rem 1fr;
-    gap: 0.65rem;
-    border-color: #f4c96b;
-    background: #fffaf0;
-  }
+						<div class="space-y-1.5">
+							{#each scenario.deltas as delta}
+								<div class="grid grid-cols-[64px_1fr_62px] items-center gap-2 text-sm">
+									<div class="truncate font-medium text-gray-700" title={delta.symbol}>
+										{delta.name}
+									</div>
 
-  .icon {
-    font-size: 1.35rem;
-    line-height: 1;
-  }
+									<div class="h-2 overflow-hidden rounded bg-gray-100">
+										<div
+											class={`h-full ${delta.isImprovement ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
+											style={`width: ${scenarioDiffDisplayMode === 'percent'
+												? (Math.abs(delta.percentDelta ?? 0) / maxAbsScenarioPercent) * 100
+												: (Math.abs(delta.delta) / maxAbsScenarioDelta) * 100}%`}
+										></div>
+									</div>
 
-  h3 {
-    margin: 0 0 0.45rem;
-    font-size: 0.86rem;
-  }
+									<div
+										class={`text-right font-mono ${delta.isImprovement ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
+									>
+										{scenarioDiffDisplayMode === 'percent'
+											? formatSignedPercent(delta.percentDelta)
+											: formatSigned(delta.delta)}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/each}
+			{/if}
+		</div>
 
-  p {
-    margin: 0;
-    line-height: 1.4;
-  }
+</div>
 
-  p + p {
-    margin-top: 0.35rem;
-  }
 
-  .muted {
-    color: #64748b;
-    font-size: 0.78rem;
-  }
 
-  .card {
-    margin-top: 0.8rem;
-  }
 
-  .compact {
-    font-size: 0.82rem;
-  }
-</style>
