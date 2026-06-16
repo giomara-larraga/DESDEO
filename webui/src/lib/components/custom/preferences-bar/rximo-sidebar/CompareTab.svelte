@@ -50,20 +50,71 @@
 </script>
 
 <div class="space-y-3">
+	<!-- Bridge to the other tabs -->
+	<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
+		<div class="text-sm font-semibold text-gray-900">
+			Explanation details for {selectedObjectiveName}
+		</div>
 
+		<p class="mt-1 text-sm text-gray-600">
+			This view expands what you saw in <strong>Understand</strong> and
+			<strong>Explore</strong>: it shows how objectives support or limit one another.
+		</p>
+	</div>
+
+	<!-- Visual first -->
+	<div class="rounded-md border border-gray-200 bg-white p-3">
+		<div class="mb-1 text-sm font-semibold text-gray-900">
+			Objective relationship map
+		</div>
+
+		<p class="mb-2 text-xs text-gray-500">
+			Blue arrows indicate support. Red arrows indicate trade-offs.
+		</p>
+
+		<ShapCaseRelationshipNetwork
+			objectives={problem.objectives.map((o) => ({
+				symbol: o.symbol,
+				name: o.name,
+				maximize: o.maximize
+			}))}
+			{preferenceValues}
+			achievedValues={baselineObjectiveValues}
+			shapValues={SHAP_values}
+			threshold={0}
+			targetObjectiveSymbol={problem.objectives.find((o) => o.name === selectedObjectiveName)?.symbol || ''}
+		/>
+	</div>
+
+	<!-- Explain connection to Understand / Explore -->
+	<div class="grid grid-cols-2 gap-2 text-xs">
+		<div class="rounded-md border border-gray-200 bg-white p-2">
+			<div class="font-semibold text-gray-800">Understand</div>
+			<div class="mt-1 text-gray-500">
+				Uses the strongest relationship to explain the current value.
+			</div>
+		</div>
+
+		<div class="rounded-md border border-gray-200 bg-white p-2">
+			<div class="font-semibold text-gray-800">Explore</div>
+			<div class="mt-1 text-gray-500">
+				Uses trade-offs to inspect possible compromises.
+			</div>
+		</div>
+	</div>
+
+	<!-- Technical detail collapsed -->
 	<details class="rounded-md border border-gray-200 bg-white p-3">
 		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
-		Show influence strengths
-	</summary>
-	<div class="rounded-md border border-gray-200 bg-white p-3">
-  
+			Show influence strengths
+		</summary>
 
-		<div class="mb-2 text-sm font-semibold text-gray-700">
-			Influence strengths on {selectedObjectiveName}
-		</div>
-    
+		<p class="mt-2 text-xs text-gray-500">
+			These bars show the SHAP contribution of each desired value to the achieved
+			value of <strong>{selectedObjectiveName}</strong>.
+		</p>
 
-		<div class="space-y-1.5">
+		<div class="mt-3 space-y-1.5">
 			{#each influenceRows as row}
 				<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-sm">
 					<div class="truncate font-medium text-gray-700" title={row.symbol}>
@@ -78,39 +129,26 @@
 					</div>
 
 					<div
-						class={`text-right font-mono ${row.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
+						class={`text-right font-mono ${
+							row.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'
+						}`}
 					>
 						{formatSigned(row.helpScore)}
 					</div>
 				</div>
 			{/each}
 		</div>
-	</div>
-</details>
-	<details class="rounded-md border border-gray-200 bg-white p-3">
-		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
-			Explore trade-offs and synergies
-		</summary>
-
-		<div class="mt-3">
-			<ShapCaseRelationshipNetwork
-				objectives={problem.objectives.map((o) => ({
-					symbol: o.symbol,
-					name: o.name,
-					maximize: o.maximize
-				}))}
-				{preferenceValues}
-				achievedValues={baselineObjectiveValues}
-				shapValues={SHAP_values}
-				threshold={0}
-			/>
-		</div>
 	</details>
 
 	<details class="rounded-md border border-gray-200 bg-white p-3">
 		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
-			Show full overview matrix
+			Advanced: show full SHAP matrix
 		</summary>
+
+		<p class="mt-2 text-xs text-gray-500">
+			The matrix shows all pairwise effects between desired values and achieved
+			objective values.
+		</p>
 
 		<div class="mt-3">
 			<ShapHeatmap shapValues={SHAP_values} {problem} />

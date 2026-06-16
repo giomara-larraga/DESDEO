@@ -15,23 +15,28 @@
 		preferenceValues,
 		achievedValues,
 		shapValues,
-		threshold = 0.0
+		threshold = 0.0,
+		targetObjectiveSymbol = null
 	}: {
 		objectives: ObjectiveItem[];
 		preferenceValues: number[];
 		achievedValues: Record<string, ObjectiveValue> | null;
 		shapValues: Record<string, Record<string, number>> | null;
 		threshold?: number;
+		targetObjectiveSymbol?: string | null;
 	} = $props();
 
-	const minWidth = 320;
-	const height = 320;
+	const minWidth = 400;
+	let height = $state(320);	
+	let chartWidth = $state(minWidth);
+
 	const boxWidth = 80;
 	const boxHeight = 38;
 
+	let containerEl: HTMLDivElement | null = null;
 	let svgEl: SVGSVGElement | undefined;
 	let activeNodeId = $state<string | null>(null);
-	let chartWidth = $state<number>(minWidth);
+	//let chartWidth = $state<number>(minWidth);
 	let resizeObserver: ResizeObserver | null = null;
 
 	function normalizeSymbol(symbol: string): string {
@@ -183,7 +188,7 @@
 			.attr('font-size', 10)
 			.attr('font-style', 'italic')
 			.attr('fill', '#6b7280')
-			.text('preferences');
+			.text('Desired values');
 
 		svg
 			.append('text')
@@ -192,7 +197,7 @@
 			.attr('font-size', 10)
 			.attr('font-style', 'italic')
 			.attr('fill', '#6b7280')
-			.text('achieved values');
+			.text('Achieved values');
 
 		svg
 			.append('g')
@@ -260,19 +265,42 @@
 			});
 
 		nodeGroup
+			.append('title')
+			.text((d) => {
+				if (d.side === 'left') {
+					return `Click to see how the desired value for ${d.label.split('=')[0].trim()} affects the achieved solution.`;
+				}
+
+				return `Click to see which desired values affected the achieved value of ${d.label.split('=')[0].trim()}.`;
+			});
+
+		nodeGroup
 			.append('rect')
 			.attr('width', boxWidth)
 			.attr('height', boxHeight)
 			.attr('rx', 8)
 			.attr('fill', (d) => {
+				const isTarget = d.symbol === targetObjectiveSymbol;
+
 				if (activeNodeId === d.id) return '#fef3c7';
+				if (isTarget && d.side === 'right') return '#dbeafe';
+
 				return d.side === 'left' ? '#eef2ff' : '#ecfdf5';
 			})
 			.attr('stroke', (d) => {
+				const isTarget = d.symbol === targetObjectiveSymbol;
+
 				if (activeNodeId === d.id) return '#f59e0b';
+				if (isTarget && d.side === 'right') return '#2563eb';
+
 				return d.side === 'left' ? '#c7d2fe' : '#a7f3d0';
 			})
-			.attr('stroke-width', (d) => (activeNodeId === d.id ? 2 : 1.2))
+			.attr('stroke-width', (d) => {
+				const isTarget = d.symbol === targetObjectiveSymbol;
+				if (activeNodeId === d.id) return 2;
+				if (isTarget && d.side === 'right') return 2.5;
+				return 1.2;
+			})
 			.attr('opacity', (d) => (isNodeConnected(d.id, links) ? 1 : 0.35));
 
 		nodeGroup
@@ -284,7 +312,10 @@
 			.attr('font-weight', 600)
 			.attr('fill', '#1f2937')
 			.attr('pointer-events', 'none')
-			.text((d) => d.label);
+			.text((d) => {
+				const isTarget = d.symbol === targetObjectiveSymbol && d.side === 'right';
+				return isTarget ? `★ ${d.label}` : d.label;
+			});
 
 /* 		const legend = svg.append('g').attr('transform', `translate(${leftX}, ${height - 22})`);
 
@@ -337,19 +368,26 @@
 
 		if (!svgEl) return;
 
-		const updateWidth = () => {
-			if (!svgEl) return;
-			const measured = Math.floor(svgEl.getBoundingClientRect().width);
-			if (measured > 0) {
-				chartWidth = Math.max(minWidth, measured);
+		const updateSize = () => {
+        	if (!containerEl) return;
+
+			const measuredWidth = Math.floor(containerEl.getBoundingClientRect().width);
+
+			if (measuredWidth > 0) {
+				chartWidth = Math.max(minWidth, measuredWidth);
+				height = Math.max(280, Math.min(440, chartWidth * 0.75));
 			}
 		};
 
-		updateWidth();
+		updateSize();
+
 		resizeObserver = new ResizeObserver(() => {
-			updateWidth();
+			updateSize();
 		});
-		resizeObserver.observe(svgEl);
+
+		if (containerEl) {
+			resizeObserver.observe(containerEl);
+		}
 	});
 
 	onDestroy(() => {
@@ -370,23 +408,32 @@
 </script>
 
 <div >
-	<div class="mb-2 text-[11px] text-gray-500">
-		Click a node to highlight its connected effects.
-				{#if activeNodeId}
+	<div class="mb-2 rounded-md bg-blue-50 p-2 text-[12px] text-gray-600">
+		<div class="font-semibold text-gray-800">How to read this map</div>
+		<div>
+			Click a <strong>desired value</strong> on the left to see its effects on the solution.
+			Click an <strong>achieved value</strong> on the right to see what influenced it.
+		</div>
+
+		{#if activeNodeId}
 			<button
 				type="button"
-				class="rounded bg-gray-100 px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-200"
+				class="mt-1 rounded bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
 				onclick={() => (activeNodeId = null)}
 			>
 				Clear focus
 			</button>
 		{/if}
 	</div>
-	<svg
-		bind:this={svgEl}
-		width="100%"
-		height={height}
-		role="img"
-		aria-label="SHAP relationship graph between preferences and achieved values"
-	></svg>
+	<div bind:this={containerEl} class="overflow-auto">
+		<svg
+			bind:this={svgEl}
+			width="100%"
+			height={height}
+			viewBox={`0 0 ${chartWidth} ${height}`}
+			preserveAspectRatio="xMidYMid meet"
+			role="img"
+			aria-label="SHAP relationship graph between preferences and achieved values"
+		></svg>
+	</div>
 </div>
