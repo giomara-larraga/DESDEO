@@ -50,46 +50,18 @@
 </script>
 
 <div class="space-y-3">
+
+	<details class="rounded-md border border-gray-200 bg-white p-3">
+		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
+		Show influence strengths
+	</summary>
 	<div class="rounded-md border border-gray-200 bg-white p-3">
+  
+
 		<div class="mb-2 text-sm font-semibold text-gray-700">
-			Current explanation summary
+			Influence strengths on {selectedObjectiveName}
 		</div>
-
-		<div class="space-y-2 text-sm text-gray-700">
-			{#if mainHurter}
-				<div class="flex items-center justify-between gap-3">
-					<span>Largest non-own conflict</span>
-					<strong class="text-[#DC3220]">{mainHurter.name}</strong>
-				</div>
-			{/if}
-
-			{#if mainHelper}
-				<div class="flex items-center justify-between gap-3">
-					<span>Largest support</span>
-					<strong class="text-[#0C7BDC]">{mainHelper.name}</strong>
-				</div>
-			{/if}
-
-			{#if ownInfluence}
-				<div class="flex items-center justify-between gap-3">
-					<span>Own aspiration effect</span>
-					<strong class={ownInfluence.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}>
-						{formatSigned(ownInfluence.helpScore)}
-					</strong>
-				</div>
-			{/if}
-
-			<div class="flex items-center justify-between gap-3">
-				<span>Selected outcome</span>
-				<strong>{selectedObjectiveName}</strong>
-			</div>
-		</div>
-	</div>
-
-	<div class="rounded-md border border-gray-200 bg-white p-3">
-		<div class="mb-2 text-sm font-semibold text-gray-700">
-			All influences on {selectedObjectiveName}
-		</div>
+    
 
 		<div class="space-y-1.5">
 			{#each influenceRows as row}
@@ -114,7 +86,7 @@
 			{/each}
 		</div>
 	</div>
-
+</details>
 	<details class="rounded-md border border-gray-200 bg-white p-3">
 		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
 			Explore trade-offs and synergies

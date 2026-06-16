@@ -417,7 +417,7 @@
 						<Tabs.List class="grid w-full grid-cols-3">
 							<Tabs.Trigger value="why">Understand</Tabs.Trigger>
 							<Tabs.Trigger value="how">Explore</Tabs.Trigger>
-							<Tabs.Trigger value="compare">Summary</Tabs.Trigger>
+							<Tabs.Trigger value="compare">Interactions</Tabs.Trigger>
 						</Tabs.List>
 						<Tabs.Content value="why" class="mt-3 w-full">
 								<WhyTab
