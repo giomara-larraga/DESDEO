@@ -736,6 +736,7 @@ export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]
  */
 export interface GDMSCOREBandFinalSelection {
 	method?: string;
+	phase?: 'decision';
 	/** Dictionary of votes. */
 	user_votes: GDMSCOREBandFinalSelectionUserVotes;
 	/** List of users who want to move on. */
@@ -751,6 +752,7 @@ export interface GDMSCOREBandFinalSelection {
  */
 export interface GDMSCOREBandsDecisionResponse {
 	method?: string;
+	phase?: 'decision';
 	/** The group in question. */
 	group_id: number;
 	/** ID of the latest group iteration. */
@@ -758,6 +760,14 @@ export interface GDMSCOREBandsDecisionResponse {
 	/** The container for the solutions and the winner solution. */
 	result: GDMSCOREBandFinalSelection;
 }
+
+export type GDMSCOREBandsResponsePhase =
+	(typeof GDMSCOREBandsResponsePhase)[keyof typeof GDMSCOREBandsResponsePhase];
+
+export const GDMSCOREBandsResponsePhase = {
+	learning: 'learning',
+	consensus: 'consensus'
+} as const;
 
 /**
  * Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
@@ -963,6 +973,7 @@ export interface SCOREBandsResult {
  */
 export interface GDMSCOREBandsResponse {
 	method?: string;
+	phase?: GDMSCOREBandsResponsePhase;
 	/** The group in question. */
 	group_id: number;
 	/** ID of the latest group iteration. */
@@ -978,6 +989,45 @@ export interface GDMSCOREBandsResponse {
  */
 export interface GDMSCOREBandsHistoryResponse {
 	history: (GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse)[];
+}
+
+/**
+ * Request for moving the group from learning to consensus.
+ */
+export interface GDMSCOREBandsLearningAdvanceRequest {
+	/** Group ID. */
+	group_id: number;
+}
+
+export type GDMSCOREBandsLearningStatusResponsePhase =
+	(typeof GDMSCOREBandsLearningStatusResponsePhase)[keyof typeof GDMSCOREBandsLearningStatusResponsePhase];
+
+export const GDMSCOREBandsLearningStatusResponsePhase = {
+	learning: 'learning',
+	consensus: 'consensus',
+	decision: 'decision'
+} as const;
+
+/**
+ * Response model for the persisted learning phase metadata.
+ */
+export interface GDMSCOREBandsLearningStatusResponse {
+	phase: GDMSCOREBandsLearningStatusResponsePhase;
+	learning_completed_user_ids?: number[];
+	learning_started_at?: string | null;
+	learning_duration_seconds?: number | null;
+	learning_last_warning_at?: string | null;
+	learning_last_warning_message?: string | null;
+}
+
+/**
+ * Request for sending a learning-phase warning to connected users.
+ */
+export interface GDMSCOREBandsLearningWarningRequest {
+	/** Group ID. */
+	group_id: number;
+	/** Optional warning message. */
+	message?: string | null;
 }
 
 /**
@@ -6239,6 +6289,144 @@ export const getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(groupInfoRequest)
+		}
+	);
+};
+
+/**
+ * Mark the current user as done with the private learning phase.
+ * @summary Complete Learning Phase
+ */
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponseSuccess =
+	completeLearningPhaseGdmScoreBandsLearningCompletePostResponse200 & {
+		headers: Headers;
+	};
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponseError =
+	completeLearningPhaseGdmScoreBandsLearningCompletePostResponse422 & {
+		headers: Headers;
+	};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse =
+	| completeLearningPhaseGdmScoreBandsLearningCompletePostResponseSuccess
+	| completeLearningPhaseGdmScoreBandsLearningCompletePostResponseError;
+
+export const getCompleteLearningPhaseGdmScoreBandsLearningCompletePostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/complete`;
+};
+
+export const completeLearningPhaseGdmScoreBandsLearningCompletePost = async (
+	groupInfoRequest: GroupInfoRequest,
+	options?: RequestInit
+): Promise<completeLearningPhaseGdmScoreBandsLearningCompletePostResponse> => {
+	return customFetch<completeLearningPhaseGdmScoreBandsLearningCompletePostResponse>(
+		getCompleteLearningPhaseGdmScoreBandsLearningCompletePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(groupInfoRequest)
+		}
+	);
+};
+
+/**
+ * Broadcast a learning-phase warning to connected users.
+ * @summary Warn Learning Phase
+ */
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponseSuccess =
+	warnLearningPhaseGdmScoreBandsLearningWarnPostResponse200 & {
+		headers: Headers;
+	};
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponseError =
+	warnLearningPhaseGdmScoreBandsLearningWarnPostResponse422 & {
+		headers: Headers;
+	};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse =
+	| warnLearningPhaseGdmScoreBandsLearningWarnPostResponseSuccess
+	| warnLearningPhaseGdmScoreBandsLearningWarnPostResponseError;
+
+export const getWarnLearningPhaseGdmScoreBandsLearningWarnPostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/warn`;
+};
+
+export const warnLearningPhaseGdmScoreBandsLearningWarnPost = async (
+	gDMSCOREBandsLearningWarningRequest: GDMSCOREBandsLearningWarningRequest,
+	options?: RequestInit
+): Promise<warnLearningPhaseGdmScoreBandsLearningWarnPostResponse> => {
+	return customFetch<warnLearningPhaseGdmScoreBandsLearningWarnPostResponse>(
+		getWarnLearningPhaseGdmScoreBandsLearningWarnPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsLearningWarningRequest)
+		}
+	);
+};
+
+/**
+ * Move the group from private learning to the consensus phase.
+ * @summary Advance Learning Phase
+ */
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseSuccess =
+	advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse200 & {
+		headers: Headers;
+	};
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseError =
+	advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse422 & {
+		headers: Headers;
+	};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse =
+	| advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseSuccess
+	| advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseError;
+
+export const getAdvanceLearningPhaseGdmScoreBandsLearningAdvancePostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/advance`;
+};
+
+export const advanceLearningPhaseGdmScoreBandsLearningAdvancePost = async (
+	gDMSCOREBandsLearningAdvanceRequest: GDMSCOREBandsLearningAdvanceRequest,
+	options?: RequestInit
+): Promise<advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse> => {
+	return customFetch<advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse>(
+		getAdvanceLearningPhaseGdmScoreBandsLearningAdvancePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsLearningAdvanceRequest)
 		}
 	);
 };

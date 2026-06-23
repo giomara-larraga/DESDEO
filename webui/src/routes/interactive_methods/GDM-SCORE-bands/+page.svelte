@@ -86,7 +86,11 @@
 		generate_cluster_colors,
 		calculateScales
 	} from './helper-functions';
-	import { json } from 'd3';
+
+	type GdmPhase = 'learning' | 'consensus' | 'decision';
+	type ScoreBandsHistoryItem =
+		| (GDMSCOREBandsResponse & { phase?: 'learning' | 'consensus' })
+		| (GDMSCOREBandsDecisionResponse & { phase?: 'decision' });
 
 	type LearningNote = {
 		id: string;
@@ -110,8 +114,23 @@
 		comparedBands: [] as number[],
 		notes: [] as LearningNote[],
 		zoomedBand: null as number | null,
-		subBands: [] as LearningSubBand[]
+		subBands: [] as LearningSubBand[],
+		subBandsHistory: [] as LearningSubBand[][] // stack for undo
 	});
+	let learningProgress = $state({
+		completedUserIds: [] as number[],
+		startedAt: null as string | null,
+		durationSeconds: 900,
+		lastWarningAt: null as string | null,
+		lastWarningMessage: null as string | null
+	});
+	let learningNotice = $state<string | null>(null);
+	let ownerWarningMessage = $state('');
+	let isMarkingLearningComplete = $state(false);
+	let isWarningUsers = $state(false);
+	let isAdvancingToConsensus = $state(false);
+	let learningNowMs = $state(Date.now());
+	let learningClockTimer: ReturnType<typeof setInterval> | null = null;
 
 	const { data } = $props<{
 		data: {
@@ -143,7 +162,13 @@
 	let vote_confirmed = $state(false);
 	let votes_and_confirms = $state({
 		confirms: [] as number[],
-		votes: {} as Record<number, number>
+		votes: {} as Record<number, number>,
+		phase: 'learning' as GdmPhase,
+		learning_completed_user_ids: [] as number[],
+		learning_started_at: null as string | null,
+		learning_duration_seconds: 900 as number | null,
+		learning_last_warning_at: null as string | null,
+		learning_last_warning_message: null as string | null
 	});
 	// If user has voted, usersVote is the id they voted for. If not, null.
 	let usersVote: number | null = $derived.by(() => {
@@ -225,16 +250,46 @@ function getConsensusClasses(axisName: string): string {
 	});
 
 	// Iteration info: history, current iteration, phase, etc.
-	let history: (
-		| GDMSCOREBandsResponse
-		| GDMSCOREBandsDecisionResponse
-	)[] = $state([]);
-	//let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
+	let history: ScoreBandsHistoryItem[] = $state([]);
+	let currentPhase = $state<GdmPhase>('learning');
 	let phase = $state('Learning Phase');
 
 	let isLearningPhase = $derived(phase === 'Learning Phase');
 	let isDecisionPhase = $derived(phase === 'Decision Phase');
 	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
+	let learningCompletedCount = $derived(learningProgress.completedUserIds.length);
+	let hasCompletedLearning = $derived.by(() =>
+		userId !== undefined && userId !== null
+			? learningProgress.completedUserIds.includes(userId)
+			: false
+	);
+	let allDecisionMakersFinishedLearning = $derived(learningCompletedCount === totalVoters);
+	let learningDeadlineMs = $derived.by(() => {
+		if (!learningProgress.startedAt) {
+			return null;
+		}
+
+		const startedAtMs = new Date(learningProgress.startedAt).getTime();
+		if (Number.isNaN(startedAtMs)) {
+			return null;
+		}
+
+		return startedAtMs + learningProgress.durationSeconds * 1000;
+	});
+	let learningSecondsRemaining = $derived.by(() => {
+		if (!learningDeadlineMs) {
+			return null;
+		}
+
+		return Math.max(0, Math.ceil((learningDeadlineMs - learningNowMs) / 1000));
+	});
+	let learningTimeLabel = $derived.by(() => {
+		if (learningSecondsRemaining === null) {
+			return 'Not started';
+		}
+
+		return formatDuration(learningSecondsRemaining);
+	});
 
 	
 	let iteration_id = $state(0); // for header and fetch_score_bands
@@ -425,6 +480,17 @@ function getConsensusClasses(axisName: string): string {
 		SCOREBands.clusterIds.length > 0 ? generate_cluster_colors(SCOREBands.clusterIds) : {}
 	);
 
+	// When a band is zoomed in the learning phase, show only that band in the plot.
+	// Outside zoom mode the user's own visibility toggle map is used.
+	let learningPlotVisibility = $derived.by((): Record<number, boolean> => {
+		if (learningState.zoomedBand === null) return cluster_visibility_map;
+		const m: Record<number, boolean> = {};
+		SCOREBands.clusterIds.forEach((id) => {
+			m[id] = id === learningState.zoomedBand;
+		});
+		return m;
+	});
+
 	let clusterBandRows = $derived.by(() => {
 		if (
 			!(isLearningPhase || isConsensusPhase) ||
@@ -512,15 +578,32 @@ function getConsensusClasses(axisName: string): string {
 	function zoomIntoBand(clusterId: number) {
 		learningState.zoomedBand = clusterId;
 		learningState.selectedBand = clusterId;
+		// Automatically create sub-bands on zoom and record as first history entry
+		learningState.subBands = [];
+		learningState.subBandsHistory = [];
+		createPersonalSubBands(3);
 	}
 
 	function exitBandZoom() {
 		learningState.zoomedBand = null;
 		learningState.subBands = [];
+		learningState.subBandsHistory = [];
+	}
+
+	function undoSubBandChange() {
+		if (learningState.subBandsHistory.length === 0) return;
+		const prev = learningState.subBandsHistory[learningState.subBandsHistory.length - 1];
+		learningState.subBands = prev;
+		learningState.subBandsHistory = learningState.subBandsHistory.slice(0, -1);
 	}
 
 	function createPersonalSubBands(numberOfSubBands = 3) {
 		if (learningState.zoomedBand === null || !scoreBandsResult) return;
+
+		// Push current sub-bands to history before overwriting
+		if (learningState.subBands.length > 0) {
+			learningState.subBandsHistory = [...learningState.subBandsHistory, [...learningState.subBands]];
+		}
 
 		const visibleIndices = scoreBandsResult.clusters
 			.map((clusterId, index) => ({ clusterId, index }))
@@ -626,11 +709,74 @@ function getConsensusClasses(axisName: string): string {
 	let isConsensusVoteSyncing = $state(false);
 	let isConsensusIterationSyncing = $state(false);
 
+	function setPhase(nextPhase: GdmPhase) {
+		currentPhase = nextPhase;
+		phase =
+			nextPhase === 'learning'
+				? 'Learning Phase'
+				: nextPhase === 'consensus'
+					? 'Consensus Reaching Phase'
+					: 'Decision Phase';
+	}
+
+	function syncLearningMetadata(source: {
+		phase?: GdmPhase;
+		learning_completed_user_ids?: number[];
+		learning_started_at?: string | null;
+		learning_duration_seconds?: number | null;
+		learning_last_warning_at?: string | null;
+		learning_last_warning_message?: string | null;
+	}) {
+		if (source.phase) {
+			setPhase(source.phase);
+		}
+
+		learningProgress.completedUserIds = source.learning_completed_user_ids ?? [];
+		learningProgress.startedAt = source.learning_started_at ?? null;
+		learningProgress.durationSeconds = source.learning_duration_seconds ?? 900;
+		learningProgress.lastWarningAt = source.learning_last_warning_at ?? null;
+		learningProgress.lastWarningMessage = source.learning_last_warning_message ?? null;
+
+		if (learningProgress.lastWarningMessage) {
+			learningNotice = learningProgress.lastWarningMessage;
+		}
+	}
+
+	function formatDuration(totalSeconds: number): string {
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+
 	// Update votes chart when votes change
 	$effect(() => {
 		if (votesChartContainer) {
 			drawVotesChart(votesChartContainer, votes_per_cluster, totalVoters, cluster_colors);
 		}
+	});
+
+	$effect(() => {
+		if (!isLearningPhase) {
+			if (learningClockTimer) {
+				clearInterval(learningClockTimer);
+				learningClockTimer = null;
+			}
+			return;
+		}
+
+		if (!learningClockTimer) {
+			learningNowMs = Date.now();
+			learningClockTimer = setInterval(() => {
+				learningNowMs = Date.now();
+			}, 1000);
+		}
+
+		return () => {
+			if (learningClockTimer) {
+				clearInterval(learningClockTimer);
+				learningClockTimer = null;
+			}
+		};
 	});
 
 	$effect(() => {
@@ -730,6 +876,10 @@ function getConsensusClasses(axisName: string): string {
 				if (msg.includes('UPDATE: A vote has been cast.')) {
 					fetch_votes_and_confirms();
 					return;
+				} else if (msg.includes('NOTICE:')) {
+					learningNotice = msg.replace(/NOTICE:\s*/gi, '');
+					fetch_votes_and_confirms();
+					return;
 				} else if (msg.includes('UPDATE')) {
 					fetch_score_bands();
 					fetch_votes_and_confirms(true);
@@ -765,6 +915,11 @@ function getConsensusClasses(axisName: string): string {
 			waitingRefreshTimer = null;
 		}
 		isConsensusIterationSyncing = false;
+
+		if (learningClockTimer) {
+			clearInterval(learningClockTimer);
+			learningClockTimer = null;
+		}
 
 		if (wsService) {
 			console.log('Closing WebSocket connection');
@@ -811,8 +966,9 @@ function getConsensusClasses(axisName: string): string {
 				// Check which type of response we got and update state accordingly
 				if (currentResponse.method === 'gdm-score-bands') {
 					// Regular SCORE bands response - cast to proper type for TypeScript
-					const scoreBandsResponse =
-						currentResponse as GDMSCOREBandsResponse;
+					const scoreBandsResponse = currentResponse as GDMSCOREBandsResponse & {
+						phase?: 'learning' | 'consensus';
+					};
 					latestIteration = scoreBandsResponse.latest_iteration
 						? scoreBandsResponse.latest_iteration
 						: null;
@@ -821,7 +977,7 @@ function getConsensusClasses(axisName: string): string {
 					scoreBandsResult = scoreBandsData;
 					scoreBandsConfig = scoreBandsData.options;
 					iteration_id = scoreBandsResponse.group_iter_id;
-					phase = 'Consensus Reaching Phase';
+					setPhase(scoreBandsResponse.phase ?? 'consensus');
 					decisionResult = null;
 					console.log('SCORE bands fetched successfully:', scoreBandsResponse);
 				} else if (currentResponse.method === 'gdm-score-bands-final') {
@@ -831,7 +987,7 @@ function getConsensusClasses(axisName: string): string {
 					latestIteration = null;
 					decisionResult = finalDecisionData;
 					iteration_id = currentResponse.group_iter_id;
-					phase = 'Decision Phase';
+					setPhase('decision');
 					scoreBandsResult = null;
 					console.log('Decision phase data fetched successfully:', currentResponse);
 				} else {
@@ -968,6 +1124,7 @@ function getConsensusClasses(axisName: string): string {
 			const result = await response.json();
 			if (result.success) {
 				votes_and_confirms = result.data;
+				syncLearningMetadata(result.data);
 				// If user has voted already, select the band they voted for
 				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
 				if (userId && votes_and_confirms.votes.hasOwnProperty(userId) && selectVotedBand) {
@@ -979,6 +1136,125 @@ function getConsensusClasses(axisName: string): string {
 		} catch (error) {
 			console.error('Error in get_votes_and_confirms:', error);
 			errorMessage.set(`${error}`);
+		}
+	}
+
+	async function complete_learning_phase() {
+		if (hasCompletedLearning || isMarkingLearningComplete) {
+			return;
+		}
+
+		isMarkingLearningComplete = true;
+		try {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/learning/complete', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: data.group.id
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(
+					`Finish exploring failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`
+				);
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(`Finish exploring failed: ${result.error || 'Unknown error'}`);
+			}
+
+			syncLearningMetadata(result.data);
+		} catch (error) {
+			console.error('Error in complete_learning_phase:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isMarkingLearningComplete = false;
+		}
+	}
+
+	async function warn_learning_time() {
+		if (isWarningUsers) {
+			return;
+		}
+
+		isWarningUsers = true;
+		try {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/learning/warn', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: data.group.id,
+					message: ownerWarningMessage.trim() || undefined
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(
+					`Warn users failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`
+				);
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(`Warn users failed: ${result.error || 'Unknown error'}`);
+			}
+
+			syncLearningMetadata(result.data);
+			ownerWarningMessage = '';
+		} catch (error) {
+			console.error('Error in warn_learning_time:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isWarningUsers = false;
+		}
+	}
+
+	async function advance_to_consensus() {
+		if (isAdvancingToConsensus) {
+			return;
+		}
+
+		isAdvancingToConsensus = true;
+		try {
+			const response = await fetch('/interactive_methods/GDM-SCORE-bands/learning/advance', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					group_id: data.group.id
+				})
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(
+					`Start consensus failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`
+				);
+			}
+
+			const result = await response.json();
+			if (!result.success) {
+				throw new Error(`Start consensus failed: ${result.error || 'Unknown error'}`);
+			}
+
+			syncLearningMetadata(result.data);
+			await fetch_score_bands();
+			await fetch_votes_and_confirms(true);
+			clusters_to_visible();
+		} catch (error) {
+			console.error('Error in advance_to_consensus:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isAdvancingToConsensus = false;
 		}
 	}
 
@@ -1082,6 +1358,11 @@ function getConsensusClasses(axisName: string): string {
 			</div>
 		</div>
 	{:else}
+		{#if isLearningPhase && learningNotice}
+			<div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+				{learningNotice}
+			</div>
+		{/if}
 		<!-- Header and Instructions -->
 		<div>
 			<div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
@@ -1091,12 +1372,24 @@ function getConsensusClasses(axisName: string): string {
 					</div>
 					<div class="flex-1">
 						<h2 class="text-md font-semibold text-slate-900">
-							Consensus-reaching phase
+							{phase === 'Learning Phase'
+								? 'Learning Phase'
+								: phase === 'Consensus Reaching Phase'
+								? `Consensus Reaching Phase (Iteration ${latestIteration})`
+								: phase === 'Decision Phase'
+								? 'Decision Phase'
+								: ''}
 						</h2>
 					<!-- Header Section -->
 					{#if isDecisionMaker}
 						<!-- Instructions Section -->
-						{#if isConsensusPhase && usersVote === null}
+						{#if isLearningPhase}
+							<p class="mt-2 text-sm text-slate-600">
+								Explore the SCORE bands privately. Your saved bands, comparisons, and zoomed
+								views do not affect the rest of the group. Mark yourself finished when you are
+								done exploring.
+							</p>
+						{:else if isConsensusPhase && usersVote === null}
 
 
 										<p class="mt-2 text-sm text-slate-600">
@@ -1142,7 +1435,9 @@ function getConsensusClasses(axisName: string): string {
 					{/if}
 					{#if isOwner}
 						<div class="mt-2 text-sm text-gray-600">
-							You can revert to a previous iteration using the History Browser.
+							{isLearningPhase
+								? 'You can monitor who has finished exploring, warn users before the timer expires, and manually start the consensus phase once everyone is ready.'
+								: 'You can revert to a previous iteration using the History Browser.'}
 							{isConsensusPhase
 								? 'You can also adjust the SCORE Bands parameters and recalculate the bands below.'
 								: ''}
@@ -1163,6 +1458,11 @@ function getConsensusClasses(axisName: string): string {
 				</div>
 
 				<div class="space-y-4 p-4 text-sm">
+					<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+						<div class="font-medium">Time remaining</div>
+						<div class="mt-1 text-sm">{learningTimeLabel}</div>
+					</div>
+
 					<div>
 						<div class="font-medium">1. Explore bands</div>
 						<p class="text-muted-foreground">Click a band to inspect it.</p>
@@ -1213,11 +1513,39 @@ function getConsensusClasses(axisName: string): string {
 			<div class="rounded-lg border bg-card shadow-sm">
 				<div class="flex items-center justify-between border-b px-4 py-3">
 					<div>
-						<h2 class="text-sm font-semibold">Explore the solution space</h2>
-						<p class="mt-1 text-xs text-muted-foreground">
-							Your exploration is private and does not affect the group.
-						</p>
+						{#if learningState.zoomedBand !== null}
+							<h2 class="text-sm font-semibold">
+								Cluster {learningState.zoomedBand} — zoomed view
+							</h2>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Showing only this band. Sub-bands are listed on the right.
+							</p>
+						{:else}
+							<h2 class="text-sm font-semibold">Explore the solution space</h2>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Your exploration is private and does not affect the group.
+							</p>
+						{/if}
 					</div>
+					{#if learningState.zoomedBand !== null}
+						<div class="flex gap-2">
+							<button
+								type="button"
+								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+								onclick={undoSubBandChange}
+								disabled={learningState.subBandsHistory.length === 0}
+							>
+								Undo
+							</button>
+							<button
+								type="button"
+								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+								onclick={exitBandZoom}
+							>
+								← Back to all bands
+							</button>
+						</div>
+					{/if}
 				</div>
 
 				<div class="h-[520px] p-4">
@@ -1231,7 +1559,7 @@ function getConsensusClasses(axisName: string): string {
 						bands={SCOREBands.bands}
 						medians={SCOREBands.medians}
 						scales={SCOREBands.scales}
-						clusterVisibility={cluster_visibility_map}
+						clusterVisibility={learningPlotVisibility}
 						clusterColors={cluster_colors}
 						axisOptions={axis_options}
 						axisOrder={effective_axis_order}
@@ -1259,7 +1587,76 @@ function getConsensusClasses(axisName: string): string {
 				</div>
 
 				<div class="space-y-3 p-4">
-					{#if learningState.selectedBand !== null}
+					<div class="rounded-md border p-3 text-sm">
+						<div class="font-medium">Learning progress</div>
+						<div class="text-muted-foreground">
+							{learningCompletedCount} / {totalVoters} decision makers finished
+						</div>
+					</div>
+
+					{#if isDecisionMaker}
+						<Button
+							class="w-full"
+							variant={hasCompletedLearning ? 'outline' : 'default'}
+							onclick={complete_learning_phase}
+							disabled={hasCompletedLearning || isMarkingLearningComplete}
+						>
+							{hasCompletedLearning ? 'Exploration finished' : 'Finish exploring'}
+						</Button>
+					{/if}
+
+					{#if learningState.zoomedBand !== null}
+						<!-- Zoom mode: sub-band controls -->
+						<div class="rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">
+							<div class="font-medium text-violet-900">
+								Inside Cluster {learningState.zoomedBand}
+							</div>
+							<div class="text-muted-foreground">
+								{learningState.subBands.reduce((s, b) => s + b.solutionIndices.length, 0)} solutions split into {learningState.subBands.length} sub-bands
+							</div>
+						</div>
+
+						{#each learningState.subBands as subBand}
+							<div class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+								<span
+									class="h-3 w-3 shrink-0 rounded-full"
+									style={`background-color: ${subBand.color};`}
+								></span>
+								<span class="flex-1 font-medium">{subBand.label}</span>
+								<span class="text-muted-foreground">{subBand.solutionIndices.length}</span>
+							</div>
+						{/each}
+
+						<Button
+							class="w-full"
+							variant="outline"
+							size="sm"
+							onclick={() => createPersonalSubBands(3)}
+						>
+							Recreate sub-bands
+						</Button>
+
+						<div class="flex gap-2">
+							<Button
+								class="flex-1"
+								variant="outline"
+								size="sm"
+								onclick={undoSubBandChange}
+								disabled={learningState.subBandsHistory.length === 0}
+							>
+								Undo
+							</Button>
+							<Button
+								class="flex-1"
+								variant="outline"
+								size="sm"
+								onclick={exitBandZoom}
+							>
+								All bands
+							</Button>
+						</div>
+					{:else if learningState.selectedBand !== null}
+						<!-- Normal mode: band actions -->
 						<div class="rounded-md border p-3 text-sm">
 							<div class="font-medium">Cluster {learningState.selectedBand}</div>
 							<div class="text-muted-foreground">
@@ -1374,7 +1771,34 @@ function getConsensusClasses(axisName: string): string {
 					</p>
 
 					{#if isOwner}
-						<Button class="w-full">
+						<div class="rounded-md border p-3 text-sm">
+							<div class="font-medium">Group readiness</div>
+							<div class="text-muted-foreground">
+								{learningCompletedCount} / {totalVoters} finished exploring
+							</div>
+						</div>
+
+						<input
+							type="text"
+							bind:value={ownerWarningMessage}
+							placeholder="Optional warning message"
+							class="input input-bordered w-full"
+						/>
+
+						<Button
+							class="w-full"
+							variant="outline"
+							onclick={warn_learning_time}
+							disabled={isWarningUsers}
+						>
+							Warn users time is expiring
+						</Button>
+
+						<Button
+							class="w-full"
+							onclick={advance_to_consensus}
+							disabled={!allDecisionMakersFinishedLearning || isAdvancingToConsensus}
+						>
 							Continue to consensus phase
 						</Button>
 					{/if}

@@ -17,6 +17,9 @@ from desdeo.api.models import (
     GDMSCOREBandInformation,
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
+    GDMSCOREBandsLearningAdvanceRequest,
+    GDMSCOREBandsLearningStatusResponse,
+    GDMSCOREBandsLearningWarningRequest,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMSCOREBandsRevertRequest,
@@ -167,6 +170,7 @@ async def get_or_initialize(
                 case "gdm-score-bands":
                     responses.append(
                         GDMSCOREBandsResponse(
+                            phase=getattr(giter.info_container, "phase", "consensus"),
                             group_id=group.id,
                             group_iter_id=giter.id,
                             latest_iteration=giter.info_container.score_bands_result.iteration,
@@ -176,7 +180,7 @@ async def get_or_initialize(
                 case "gdm-score-bands-final":
                     responses.append(
                         GDMSCOREBandsDecisionResponse(
-                            group_id=group.id, group_iter_id=giter.id, result=giter.info_container
+                            phase="decision", group_id=group.id, group_iter_id=giter.id, result=giter.info_container
                         )
                     )
         return GDMSCOREBandsHistoryResponse(history=responses)
@@ -202,7 +206,12 @@ async def get_or_initialize(
 
     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet.
     score_bands_info = GDMSCOREBandInformation(
-        user_votes={}, user_confirms=[], score_bands_config=score_bands_config, score_bands_result=result
+        phase="learning",
+        user_votes={},
+        user_confirms=[],
+        learning_completed_user_ids=[],
+        score_bands_config=score_bands_config,
+        score_bands_result=result,
     )
 
     # Add group iteration and related stuff, then set new iteration to head.
@@ -229,6 +238,7 @@ async def get_or_initialize(
     return GDMSCOREBandsHistoryResponse(
         history=[
             GDMSCOREBandsResponse(
+                phase="learning",
                 group_id=group.id,
                 group_iter_id=group.head_iteration_id,
                 latest_iteration=result.iteration,
@@ -273,7 +283,132 @@ def get_votes_and_confirms(
     votes = iteration.info_container.user_votes
     confirms = iteration.info_container.user_confirms
 
-    return JSONResponse(content={"votes": votes, "confirms": confirms})
+    return JSONResponse(
+        content={
+            "votes": votes,
+            "confirms": confirms,
+            "phase": getattr(iteration.info_container, "phase", "decision" if iteration.info_container.method == "gdm-score-bands-final" else "consensus"),
+            "learning_completed_user_ids": getattr(iteration.info_container, "learning_completed_user_ids", []),
+            "learning_started_at": getattr(iteration.info_container, "learning_started_at", None),
+            "learning_duration_seconds": getattr(iteration.info_container, "learning_duration_seconds", None),
+            "learning_last_warning_at": getattr(iteration.info_container, "learning_last_warning_at", None),
+            "learning_last_warning_message": getattr(iteration.info_container, "learning_last_warning_message", None),
+        }
+    )
+
+
+@router.post("/learning/complete")
+async def complete_learning_phase(
+    request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> GDMSCOREBandsLearningStatusResponse:
+    """Mark the current user as done with the private learning phase."""
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if not group:
+        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
+    if user.id not in group.user_ids:
+        raise HTTPException(detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    )
+
+    try:
+        await group_mgr.mark_learning_complete(user=user, group=group, session=session)
+    except Exception as e:
+        logger.exception("Found an error when completing the learning phase.")
+        raise HTTPException(
+            detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        ) from e
+
+    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    info = iteration.info_container
+    return GDMSCOREBandsLearningStatusResponse(
+        phase=getattr(info, "phase", "consensus"),
+        learning_completed_user_ids=getattr(info, "learning_completed_user_ids", []),
+        learning_started_at=getattr(info, "learning_started_at", None),
+        learning_duration_seconds=getattr(info, "learning_duration_seconds", None),
+        learning_last_warning_at=getattr(info, "learning_last_warning_at", None),
+        learning_last_warning_message=getattr(info, "learning_last_warning_message", None),
+    )
+
+
+@router.post("/learning/warn")
+async def warn_learning_phase(
+    request: GDMSCOREBandsLearningWarningRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> GDMSCOREBandsLearningStatusResponse:
+    """Broadcast a learning-phase warning to connected users."""
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if not group:
+        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
+    if user.id != group.owner_id:
+        raise HTTPException(detail="Only the group owner can warn users.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    )
+
+    try:
+        await group_mgr.warn_learning_deadline(group=group, session=session, message=request.message)
+    except Exception as e:
+        logger.exception("Found an error when warning about the learning deadline.")
+        raise HTTPException(
+            detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        ) from e
+
+    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    info = iteration.info_container
+    return GDMSCOREBandsLearningStatusResponse(
+        phase=getattr(info, "phase", "consensus"),
+        learning_completed_user_ids=getattr(info, "learning_completed_user_ids", []),
+        learning_started_at=getattr(info, "learning_started_at", None),
+        learning_duration_seconds=getattr(info, "learning_duration_seconds", None),
+        learning_last_warning_at=getattr(info, "learning_last_warning_at", None),
+        learning_last_warning_message=getattr(info, "learning_last_warning_message", None),
+    )
+
+
+@router.post("/learning/advance")
+async def advance_learning_phase(
+    request: GDMSCOREBandsLearningAdvanceRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> GDMSCOREBandsLearningStatusResponse:
+    """Move the group from private learning to the consensus phase."""
+    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if not group:
+        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
+    if user.id != group.owner_id:
+        raise HTTPException(
+            detail="Only the group owner can start the consensus phase.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    )
+
+    try:
+        await group_mgr.advance_learning_phase(group=group, session=session)
+    except Exception as e:
+        logger.exception("Found an error when advancing to the consensus phase.")
+        raise HTTPException(
+            detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        ) from e
+
+    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    info = iteration.info_container
+    return GDMSCOREBandsLearningStatusResponse(
+        phase=getattr(info, "phase", "consensus"),
+        learning_completed_user_ids=getattr(info, "learning_completed_user_ids", []),
+        learning_started_at=getattr(info, "learning_started_at", None),
+        learning_duration_seconds=getattr(info, "learning_duration_seconds", None),
+        learning_last_warning_at=getattr(info, "learning_last_warning_at", None),
+        learning_last_warning_message=getattr(info, "learning_last_warning_message", None),
+    )
 
 
 @router.post("/revert")

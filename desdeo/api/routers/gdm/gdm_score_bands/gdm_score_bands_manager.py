@@ -1,6 +1,7 @@
 """GDM Score Bands manager implementation."""
 
 import copy
+from datetime import datetime, timezone
 
 import polars as pl
 from sqlmodel import Session, select
@@ -71,6 +72,8 @@ class GDMScoreBandsManager(GroupManager):
             if group_iteration is None:
                 raise ManagerError("No such Group Iteration! Did you initialize this group?")
             info_container = copy.deepcopy(group_iteration.info_container)
+            if info_container.method != "gdm-score-bands" or info_container.phase != "consensus":
+                raise ManagerError("Voting is only allowed during the consensus phase.")
             # if user.id in info_container.user_confirms:
             #    raise ManagerError("User has already confirmed they want to move on!")
             info_container.user_votes[str(user.id)] = voted_index
@@ -111,6 +114,8 @@ class GDMScoreBandsManager(GroupManager):
                 raise ManagerError("No group iterations! Did you initialize this group?")
 
             info_container = copy.deepcopy(group_iteration.info_container)
+            if info_container.method != "gdm-score-bands-final" and info_container.phase != "consensus":
+                raise ManagerError("Vote confirmation is only allowed during the consensus or decision phases.")
             if str(user.id) not in info_container.user_votes:
                 raise ManagerError("User hasn't voted! Cannot confirm!")
                 # if user.id in info_container.user_confirms:
@@ -252,6 +257,90 @@ class GDMScoreBandsManager(GroupManager):
                 session.add(group_iteration)
                 session.commit()
 
+    async def mark_learning_complete(self, user: User, group: Group, session: Session):
+        """Mark a decision maker as done with the private learning phase."""
+        async with self.lock:
+            if user.id not in group.user_ids:
+                raise ManagerError("Only decision makers can complete the learning phase.")
+
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+
+            info_container = copy.deepcopy(group_iteration.info_container)
+            if info_container.method != "gdm-score-bands":
+                raise ManagerError("Learning completion is unavailable in the decision phase.")
+            if info_container.phase != "learning":
+                raise ManagerError("Learning phase has already ended.")
+
+            if user.id not in info_container.learning_completed_user_ids:
+                info_container.learning_completed_user_ids.append(user.id)
+                info_container.learning_completed_user_ids.sort()
+
+            group_iteration.info_container = info_container
+            session.add(group_iteration)
+            session.commit()
+            session.refresh(group_iteration)
+
+            await self.broadcast("UPDATE: A user finished the learning phase.")
+
+    async def warn_learning_deadline(self, group: Group, session: Session, message: str | None = None):
+        """Send a learning-phase deadline warning to all connected users."""
+        async with self.lock:
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+
+            info_container = copy.deepcopy(group_iteration.info_container)
+            if info_container.method != "gdm-score-bands" or info_container.phase != "learning":
+                raise ManagerError("Learning deadline warnings can only be sent during the learning phase.")
+
+            info_container.learning_last_warning_at = datetime.now(timezone.utc).isoformat()
+            info_container.learning_last_warning_message = (
+                message.strip() if message and message.strip() else "Learning phase is about to expire."
+            )
+
+            group_iteration.info_container = info_container
+            session.add(group_iteration)
+            session.commit()
+            session.refresh(group_iteration)
+
+            await self.broadcast(f"NOTICE: {info_container.learning_last_warning_message}")
+
+    async def advance_learning_phase(self, group: Group, session: Session):
+        """Move the group from private learning to shared consensus once everyone is ready."""
+        async with self.lock:
+            group_iteration = session.exec(
+                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+            ).first()
+            if group_iteration is None:
+                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+
+            info_container = copy.deepcopy(group_iteration.info_container)
+            if info_container.method != "gdm-score-bands":
+                raise ManagerError("Learning phase advancement is unavailable in the decision phase.")
+            if info_container.phase != "learning":
+                raise ManagerError("Group is no longer in the learning phase.")
+
+            required_users = sorted(group.user_ids or [])
+            completed_users = sorted(info_container.learning_completed_user_ids)
+            if completed_users != required_users:
+                raise ManagerError("Every decision maker must finish exploring before consensus can begin.")
+
+            info_container.phase = "consensus"
+            info_container.user_votes = {}
+            info_container.user_confirms = []
+            group_iteration.info_container = info_container
+            session.add(group_iteration)
+            session.commit()
+            session.refresh(group_iteration)
+
+            await self.broadcast("UPDATE: Consensus phase has started.")
+
     async def revert(self, user: User, group: Group, session: Session, group_iteration_number: int):
         """Revert to a different iteration.
 
@@ -295,6 +384,8 @@ class GDMScoreBandsManager(GroupManager):
             info_container = GDMSCOREBandInformation(
                 user_votes={},
                 user_confirms=[],
+                phase="consensus",
+                learning_completed_user_ids=[],
                 score_bands_config=target_group_iteration.info_container.score_bands_config,
                 score_bands_result=result,
             )
@@ -339,6 +430,8 @@ class GDMScoreBandsManager(GroupManager):
 
             if group_iteration.info_container.method == "gdm-score-bands-final":
                 raise ManagerError("Cannot reconfigure in a non SCORE Bands phase!")
+            if group_iteration.info_container.phase != "consensus":
+                raise ManagerError("Cannot reconfigure while the group is still in the learning phase!")
 
             statement = select(GroupIteration).where(GroupIteration.group_id == group.id)
             iterations: list[GroupIteration] = session.exec(statement).all()
@@ -372,7 +465,12 @@ class GDMScoreBandsManager(GroupManager):
 
             # Essentially create a new iteration.
             info_container = GDMSCOREBandInformation(
-                user_votes={}, user_confirms=[], score_bands_config=config, score_bands_result=score_bands_gdm_result
+                user_votes={},
+                user_confirms=[],
+                phase="consensus",
+                learning_completed_user_ids=[],
+                score_bands_config=config,
+                score_bands_result=score_bands_gdm_result,
             )
 
             # Add group iteration and related stuff, then set new iteration to head.

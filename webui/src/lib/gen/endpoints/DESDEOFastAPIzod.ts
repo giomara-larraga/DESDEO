@@ -62,7 +62,7 @@ Args:
     cookie_max_age (int): the lifetime of the cookie storing the refresh token.
  * @summary Login
  */
-export const loginLoginPostQueryCookieMaxAgeDefault = 30;
+export const loginLoginPostQueryCookieMaxAgeDefault = 480;
 
 export const LoginLoginPostQueryParams = zod.object({
 	cookie_max_age: zod.number().default(loginLoginPostQueryCookieMaxAgeDefault)
@@ -8087,6 +8087,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 	.describe('Request class for initialization of score bands.');
 
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneMethodDefault = `gdm-score-bands`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault = `consensus`;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
@@ -8105,7 +8106,9 @@ export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemO
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsIncludeMediansDefault = false;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsIntervalSizeDefault = 0.95;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoMethodDefault = `gdm-score-bands-final`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoPhaseDefault = `decision`;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultMethodDefault = `gdm-score-bands-final`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultPhaseDefault = `decision`;
 
 export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 	.object({
@@ -8117,6 +8120,11 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 							.string()
 							.default(
 								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneMethodDefault
+							),
+						phase: zod
+							.enum(['learning', 'consensus'])
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault
 							),
 						group_id: zod.number().describe('The group in question.'),
 						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
@@ -8375,6 +8383,11 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 							.default(
 								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoMethodDefault
 							),
+						phase: zod
+							.literal('decision')
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoPhaseDefault
+							),
 						group_id: zod.number().describe('The group in question.'),
 						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
 						result: zod
@@ -8383,6 +8396,11 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.string()
 									.default(
 										getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultMethodDefault
+									),
+								phase: zod
+									.literal('decision')
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultPhaseDefault
 									),
 								user_votes: zod.record(zod.string(), zod.number()).describe('Dictionary of votes.'),
 								user_confirms: zod
@@ -8431,6 +8449,70 @@ export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostBody = zod
 	.describe('Class for requesting group information.');
 
 export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse = zod.unknown();
+
+/**
+ * Mark the current user as done with the private learning phase.
+ * @summary Complete Learning Phase
+ */
+export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostBody = zod
+	.object({
+		group_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
+
+/**
+ * Broadcast a learning-phase warning to connected users.
+ * @summary Warn Learning Phase
+ */
+export const WarnLearningPhaseGdmScoreBandsLearningWarnPostBody = zod
+	.object({
+		group_id: zod.number().describe('Group ID.'),
+		message: zod.union([zod.string(), zod.null()]).optional().describe('Optional warning message.')
+	})
+	.describe('Request for sending a learning-phase warning to connected users.');
+
+export const WarnLearningPhaseGdmScoreBandsLearningWarnPostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
+
+/**
+ * Move the group from private learning to the consensus phase.
+ * @summary Advance Learning Phase
+ */
+export const AdvanceLearningPhaseGdmScoreBandsLearningAdvancePostBody = zod
+	.object({
+		group_id: zod.number().describe('Group ID.')
+	})
+	.describe('Request for moving the group from learning to consensus.');
+
+export const AdvanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
 
 /**
  * Revert to a previous iteration. Usable only by the analyst.

@@ -13,6 +13,8 @@ from desdeo.api.models import (
     EMOIterateResponse,
     ForestProblemMetaData,
     GDMSCOREBandsHistoryResponse,
+    GDMSCOREBandsLearningAdvanceRequest,
+    GDMSCOREBandsLearningWarningRequest,
     GDMScoreBandsInitializationRequest,
     GDMScoreBandsVoteRequest,
     GenericIntermediateSolutionResponse,
@@ -1183,7 +1185,29 @@ def test_gdm_score_bands(client: TestClient):
     )
     assert response.status_code == 200
     response_innards = GDMSCOREBandsHistoryResponse.model_validate(response.json())
+    assert response_innards.history[-1].phase == "learning"
     cluster_size_1 = len(response_innards.history[-1].result.clusters)
+
+    req = GroupInfoRequest(group_id=1).model_dump()
+    response = post_json(
+        client=client, endpoint="/gdm-score-bands/learning/complete", json=req, access_token=access_token
+    )
+    assert response.status_code == 200
+
+    owner_access_token = login(client=client)
+    req = GDMSCOREBandsLearningWarningRequest(group_id=1, message="Two minutes left").model_dump()
+    response = post_json(
+        client=client, endpoint="/gdm-score-bands/learning/warn", json=req, access_token=owner_access_token
+    )
+    assert response.status_code == 200
+    assert response.json()["learning_last_warning_message"] == "Two minutes left"
+
+    req = GDMSCOREBandsLearningAdvanceRequest(group_id=1).model_dump()
+    response = post_json(
+        client=client, endpoint="/gdm-score-bands/learning/advance", json=req, access_token=owner_access_token
+    )
+    assert response.status_code == 200
+    assert response.json()["phase"] == "consensus"
 
     # VOTE AND CONFIRM
     req = GDMScoreBandsVoteRequest(
