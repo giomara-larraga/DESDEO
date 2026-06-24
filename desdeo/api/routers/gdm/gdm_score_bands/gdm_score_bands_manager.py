@@ -3,6 +3,7 @@
 import copy
 from datetime import datetime, timezone
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from sqlmodel import Session, select
 
@@ -23,151 +24,183 @@ from desdeo.tools.score_bands import score_json
 class GDMScoreBandsManager(GroupManager):
     """The group manager implementation for GDM Score Bands."""
 
-    def __init__(self, group_id: int, db_session: Session):
-        """Initialize the group manager.
+    def __init__(self, group_session_id: int, db_session: Session):
+        """Initialize the group manager."""
+        super().__init__(group_session_id, db_session)
 
-        Args:
-            group_id (int): id of the group of this manager.
-            db_session (Session): database session from which the discrete representation of a problem is fetched.
-        """
-        super().__init__(group_id, db_session)
-        # LOAD THE DISCRETE REPRESENTATION
-        group: Group = db_session.exec(select(Group).where(Group.id == group_id)).first()
-        problem: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+        group_session = self._get_group_session(db_session)
+        problem = db_session.exec(
+            select(ProblemDB).where(ProblemDB.id == group_session.problem_id)
+        ).first()
+
+        if problem is None:
+            raise ManagerError(f"No problem with ID {group_session.problem_id} found!")
+
         if problem.discrete_representation is None:
             raise ManagerError("The group's discrete representation does not exist!")
+
         self.discrete_representation = problem.discrete_representation
-        db_session.close()
 
-    async def run_method(self, user_id: int, data: str):
-        """Method runner implementation for GDM Score Bands.
+    def _get_group_session(self, session: Session) -> GroupSessionDB:
+        group_session = session.exec(
+            select(GroupSessionDB).where(
+                GroupSessionDB.id == self.group_session_id
+            )
+        ).first()
 
-        Args:
-            user_id (int): The user's ID this data is from.
-            data (str): The data itself. To be validated.
-            WE MIGHT NOT EVEN NEED THIS!!
-        """
-        async with self.lock:
-            await self.send_message(
-                "THIS METHOD IS USED THROUGH THE APPROPRIATE HTTP ENDPOINTS!", self.sockets[user_id]
+        if group_session is None:
+            raise ManagerError(
+                f"No group session with ID {self.group_session_id} found!"
             )
 
-    async def vote(self, user: User, group: Group, voted_index: int, session: Session):
-        """A method for voting on a specific band.
+        return group_session
 
-        Use this from an actual HTTP endpoint and not in a
-        stupid websocket way like in GNIMBUS. Every time this is
-        operated, send all connected websockets info on the voting.
+    def _get_group(self, group_session: GroupSessionDB, session: Session) -> Group:
+        group = session.exec(
+            select(Group).where(Group.id == group_session.group_id)
+        ).first()
 
-        Args:
-            user (User): The user that sent the vote
-            group (Group): The group the user belongs to and generally the one we're dealing with
-            voted_index (int): the vote
-            session: (Session) the database session.
-        """
-        async with self.lock:  # not sure if async lock is all that necessary but here we go anyways.
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+        if group is None:
+            raise ManagerError(
+                f"No group with ID {group_session.group_id} found!"
+            )
+
+        return group
+
+    def _get_head_iteration(
+        self,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> GroupIteration:
+        group_iteration = session.exec(
+            select(GroupIteration).where(
+                GroupIteration.id == group_session.head_iteration_id
+            )
+        ).first()
+
+        if group_iteration is None:
+            raise ManagerError("No such Group Iteration! Did you initialize this group session?")
+
+        return group_iteration
+
+    def _get_member_ids(self, group: Group) -> list[int]:
+        return [user.id for user in group.users]
+
+    def _check_user_in_group(self, user: User, group: Group):
+        member_ids = self._get_member_ids(group)
+
+        if user.id not in member_ids and user.id != group.owner_id:
+            raise ManagerError(
+                detail=f"User with ID {user.id} is not part of group with ID {group.id}",
+            )
+
+    async def run_method(self, user_id: int, data: str):
+        """Method runner implementation for GDM Score Bands."""
+        async with self.lock:
+            await self.send_message(
+                "THIS METHOD IS USED THROUGH THE APPROPRIATE HTTP ENDPOINTS!",
+                self.sockets[user_id],
+            )
+
+    async def vote(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        voted_index: int,
+        session: Session,
+    ):
+        """Vote on a specific band."""
+        async with self.lock:
+            group = self._get_group(group_session, session)
+            self._check_user_in_group(user, group)
+
+            group_iteration = self._get_head_iteration(group_session, session)
+
             info_container = copy.deepcopy(group_iteration.info_container)
+
             if info_container.method != "gdm-score-bands" or info_container.phase != "consensus":
                 raise ManagerError("Voting is only allowed during the consensus phase.")
-            # if user.id in info_container.user_confirms:
-            #    raise ManagerError("User has already confirmed they want to move on!")
+
             info_container.user_votes[str(user.id)] = voted_index
             group_iteration.info_container = info_container
+
             session.add(group_iteration)
             session.commit()
             session.refresh(group_iteration)
 
-            # Then update preferences dictionary.
             await self.broadcast("UPDATE: A vote has been cast.")
 
-    async def confirm(self, user: User, group: Group, session: Session):
-        """A method for a user to indicate that we could move forward with clustering anew.
-
-        After everyone has hit this endpoint, do the following shenanigans:
-            1. Filter the active solution indices using the voting result.
-            2. Create a new GroupIteration.
-            3. Re-cluster the active solutions and put the result into the
-               info_container item of the newly created GroupIteration.
-            4. Send all connected websockets info that we've got some hot
-               new data to update the UI with. Then use some other endpoint to
-               fetch that data.
-
-        Args:
-            user (User): The user
-            group (Group): The group
-            session (Session): The database session.
-        """
+    async def confirm(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+    ):
+        """Confirm the user's vote and advance if everyone has confirmed."""
         async with self.lock:
-            if user.id not in group.user_ids:
-                raise ManagerError(
-                    detail=f"User with ID {user.id} is not part of group with ID {group.id}",
-                )
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No group iterations! Did you initialize this group?")
+            group = self._get_group(group_session, session)
+            self._check_user_in_group(user, group)
+
+            group_iteration = self._get_head_iteration(group_session, session)
 
             info_container = copy.deepcopy(group_iteration.info_container)
-            if info_container.method != "gdm-score-bands-final" and info_container.phase != "consensus":
-                raise ManagerError("Vote confirmation is only allowed during the consensus or decision phases.")
+
+            if info_container.method not in ("gdm-score-bands", "gdm-score-bands-final"):
+                raise ManagerError("Vote confirmation is only allowed during SCORE Bands phases.")
+
+            if info_container.method == "gdm-score-bands" and info_container.phase != "consensus":
+                raise ManagerError("Vote confirmation is only allowed during the consensus phase.")
+
             if str(user.id) not in info_container.user_votes:
                 raise ManagerError("User hasn't voted! Cannot confirm!")
-                # if user.id in info_container.user_confirms:
+
+            if user.id in info_container.user_confirms:
                 raise ManagerError("User has already confirmed they want to move on!")
-            if user.id not in info_container.user_confirms:
-                info_container.user_confirms.append(user.id)
+
+            info_container.user_confirms.append(user.id)
             group_iteration.info_container = info_container
+
             session.add(group_iteration)
             session.commit()
             session.refresh(group_iteration)
 
-            # After everyone's done, filter etc.
-            for uid in group.user_ids:
-                # Check if user is not in the list of confirms
+            member_ids = self._get_member_ids(group)
+
+            for uid in member_ids:
                 if uid not in info_container.user_confirms:
                     return
 
-            # We're in consensus reaching phase
             if info_container.method == "gdm-score-bands":
-                # Seems like every user wants to move on.
-                statement = select(GroupIteration).where(GroupIteration.group_id == group.id)
-                iterations: list[GroupIteration] = session.exec(statement).all()
+                iterations = session.exec(
+                    select(GroupIteration).where(
+                        GroupIteration.session_id == group_session.id
+                    )
+                ).all()
+
                 state: list[SCOREBandsGDMResult] = [
                     iteration.info_container.score_bands_result
                     for iteration in iterations
                     if iteration.info_container.method == "gdm-score-bands"
                 ]
 
-                # USE Bhupinder's score bands stuff.
                 score_bands_config = SCOREBandsGDMConfig(
                     score_bands_config=info_container.score_bands_config.score_bands_config,
-                    from_iteration=state[-1].iteration,  # the ID from the latest iteration.
+                    from_iteration=state[-1].iteration,
                 )
 
-                # Get them discrete reprs
                 discrete_repr = self.discrete_representation
 
-                # Make sure that there are enough solutions for re-clustering
                 votes = group_iteration.info_container.user_votes
                 winners = consensus_rule(votes, score_bands_config.minimum_votes)
                 relevant_ids = state[-1].relevant_ids
                 clustering = state[-1].score_bands_result.clusters
 
-                # threshold to decide whether to move to the decision phase
                 solution_number_threshold = 10
 
                 if (
                     len([x[0] for x in zip(relevant_ids, clustering, strict=True) if x[1] in winners])
                     <= solution_number_threshold
                 ):
-                    # There are less than 10 solutions, so move to the decision phase.
-
                     obj_keys = list(discrete_repr.objective_values)
                     var_keys = list(discrete_repr.variable_values)
 
@@ -176,8 +209,20 @@ class GDMScoreBandsManager(GroupManager):
                     indices = pl.DataFrame({"index_": relevant_ids, "cluster_": clustering}).filter(
                         pl.col("cluster_").is_in(winners)
                     )
-                    objs = indices.join(other=objs, how="left", left_on="index_", right_on="index_").select(obj_keys)
-                    varis = indices.join(other=varis, how="left", left_on="index_", right_on="index_").select(var_keys)
+
+                    objs = indices.join(
+                        other=objs,
+                        how="left",
+                        left_on="index_",
+                        right_on="index_",
+                    ).select(obj_keys)
+
+                    varis = indices.join(
+                        other=varis,
+                        how="left",
+                        left_on="index_",
+                        right_on="index_",
+                    ).select(var_keys)
 
                     info_container = GDMSCOREBandFinalSelection(
                         user_votes={},
@@ -189,18 +234,19 @@ class GDMScoreBandsManager(GroupManager):
                     )
 
                 else:
-                    # Case in which we have more than 10 solutions
-                    discrete_repr = discrete_repr.objective_values
-                    objective_keys = list(discrete_repr)
-                    objs = pl.DataFrame(discrete_repr).with_row_index()
+                    discrete_repr_objectives = discrete_repr.objective_values
+                    objective_keys = list(discrete_repr_objectives)
+
+                    objs = pl.DataFrame(discrete_repr_objectives).with_row_index()
                     objs = objs.select(objective_keys)
 
                     result: list[SCOREBandsGDMResult] = score_bands_gdm(
-                        data=objs, config=score_bands_config, state=state, votes=votes
+                        data=objs,
+                        config=score_bands_config,
+                        state=state,
+                        votes=votes,
                     )
 
-                    # store necessary data to the database. Currently all
-                    # "voting" related is null bc no voting has happened
                     info_container = GDMSCOREBandInformation(
                         user_votes={},
                         user_confirms=[],
@@ -208,14 +254,12 @@ class GDMScoreBandsManager(GroupManager):
                         score_bands_result=result[-1],
                     )
 
-                # Add group iteration and related stuff, then set new iteration to head.
-                new_iteration: GroupIteration = GroupIteration(
-                    group_id=group.id,
-                    problem_id=group.problem_id,
+                new_iteration = GroupIteration(
+                    session_id=group_session.id,
                     info_container=info_container,
                     notified={},
                     state_id=None,
-                    parent_id=group.head_iteration_id,
+                    parent_id=group_session.head_iteration_id,
                     parent=group_iteration,
                 )
 
@@ -223,21 +267,19 @@ class GDMScoreBandsManager(GroupManager):
                 session.commit()
                 session.refresh(new_iteration)
 
-                group.head_iteration_id = new_iteration.id
-                session.add(group)
+                group_session.head_iteration_id = new_iteration.id
+                session.add(group_session)
                 session.commit()
-                session.refresh(group)
+                session.refresh(group_session)
 
                 await self.broadcast("UPDATE: A new iteration has begun.")
 
-            # We're in decision phase.
             elif info_container.method == "gdm-score-bands-final":
-                winner = majority_rule(info_container.user_votes)  # A different rule perhaps?
-                # if len(winners) > 1:
-                #    pass # TODO: minimize distance or whatever
+                winner = majority_rule(info_container.user_votes)
 
                 varis = info_container.solution_variables
                 vari_keys = list(varis)
+
                 objs = info_container.solution_objectives
                 obj_keys = list(objs)
 
@@ -257,21 +299,24 @@ class GDMScoreBandsManager(GroupManager):
                 session.add(group_iteration)
                 session.commit()
 
-    async def mark_learning_complete(self, user: User, group: Group, session: Session):
+    async def mark_learning_complete(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+    ):
         """Mark a decision maker as done with the private learning phase."""
         async with self.lock:
-            if user.id not in group.user_ids:
-                raise ManagerError("Only decision makers can complete the learning phase.")
+            group = self._get_group(group_session, session)
+            self._check_user_in_group(user, group)
 
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+            group_iteration = self._get_head_iteration(group_session, session)
 
             info_container = copy.deepcopy(group_iteration.info_container)
+
             if info_container.method != "gdm-score-bands":
                 raise ManagerError("Learning completion is unavailable in the decision phase.")
+
             if info_container.phase != "learning":
                 raise ManagerError("Learning phase has already ended.")
 
@@ -280,90 +325,107 @@ class GDMScoreBandsManager(GroupManager):
                 info_container.learning_completed_user_ids.sort()
 
             group_iteration.info_container = info_container
+
             session.add(group_iteration)
             session.commit()
             session.refresh(group_iteration)
 
             await self.broadcast("UPDATE: A user finished the learning phase.")
 
-    async def warn_learning_deadline(self, group: Group, session: Session, message: str | None = None):
+    async def warn_learning_deadline(
+        self,
+        group_session: GroupSessionDB,
+        session: Session,
+        message: str | None = None,
+    ):
         """Send a learning-phase deadline warning to all connected users."""
         async with self.lock:
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+            group_iteration = self._get_head_iteration(group_session, session)
 
             info_container = copy.deepcopy(group_iteration.info_container)
+
             if info_container.method != "gdm-score-bands" or info_container.phase != "learning":
                 raise ManagerError("Learning deadline warnings can only be sent during the learning phase.")
 
             info_container.learning_last_warning_at = datetime.now(timezone.utc).isoformat()
             info_container.learning_last_warning_message = (
-                message.strip() if message and message.strip() else "Learning phase is about to expire."
+                message.strip()
+                if message and message.strip()
+                else "Learning phase is about to expire."
             )
 
             group_iteration.info_container = info_container
+
             session.add(group_iteration)
             session.commit()
             session.refresh(group_iteration)
 
             await self.broadcast(f"NOTICE: {info_container.learning_last_warning_message}")
 
-    async def advance_learning_phase(self, group: Group, session: Session):
+    async def advance_learning_phase(
+        self,
+        group_session: GroupSessionDB,
+        session: Session,
+    ):
         """Move the group from private learning to shared consensus once everyone is ready."""
         async with self.lock:
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No such Group Iteration! Did you initialize this group?")
+            group = self._get_group(group_session, session)
+            group_iteration = self._get_head_iteration(group_session, session)
 
             info_container = copy.deepcopy(group_iteration.info_container)
+
             if info_container.method != "gdm-score-bands":
                 raise ManagerError("Learning phase advancement is unavailable in the decision phase.")
+
             if info_container.phase != "learning":
                 raise ManagerError("Group is no longer in the learning phase.")
 
-            required_users = sorted(group.user_ids or [])
+            required_users = sorted(self._get_member_ids(group))
             completed_users = sorted(info_container.learning_completed_user_ids)
+
             if completed_users != required_users:
                 raise ManagerError("Every decision maker must finish exploring before consensus can begin.")
 
             info_container.phase = "consensus"
             info_container.user_votes = {}
             info_container.user_confirms = []
+
             group_iteration.info_container = info_container
+
             session.add(group_iteration)
             session.commit()
             session.refresh(group_iteration)
 
             await self.broadcast("UPDATE: Consensus phase has started.")
 
-    async def revert(self, user: User, group: Group, session: Session, group_iteration_number: int):
-        """Revert to a different iteration.
-
-        Args:
-            user (User): Current user
-            group (Group): Current group
-            session (Session): database session
-            group_iteration_number (int): the group iteration to which we want to revert.
-
-        Raises:
-            ManagerError
-        """
+    async def revert(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+        group_iteration_number: int,
+    ):
+        """Revert to a different iteration."""
         async with self.lock:
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No group iterations! Did you initialize this group?")
+            group = self._get_group(group_session, session)
+            self._check_user_in_group(user, group)
 
-            statement = select(GroupIteration).where(GroupIteration.group_id == group.id)
-            iterations: list[GroupIteration] = session.exec(statement).all()
+            group_iteration = self._get_head_iteration(group_session, session)
 
-            target_group_iteration: GroupIteration = next([i for i in iterations if i.id == group_iteration_number])
+            iterations: list[GroupIteration] = session.exec(
+                select(GroupIteration).where(
+                    GroupIteration.session_id == group_session.id
+                )
+            ).all()
+
+            target_group_iteration = next(
+                (i for i in iterations if i.id == group_iteration_number),
+                None,
+            )
+
+            if target_group_iteration is None:
+                raise ManagerError(f"No group iteration with ID {group_iteration_number} found.")
+
             if target_group_iteration.info_container.method == "gdm-score-bands-final":
                 raise ManagerError("We can only revert to a score bands iteration.")
 
@@ -373,14 +435,12 @@ class GDMScoreBandsManager(GroupManager):
                 if iteration.info_container.method == "gdm-score-bands"
             ]
 
-            # The parent ID will be the latest state's iteration
             prev_id = state[-1].iteration
-            # The results remain the same as in the target
+
             result = target_group_iteration.info_container.score_bands_result
             result.previous_iteration = prev_id
             result.iteration = prev_id + 1
 
-            # Essentially create a new iteration.
             info_container = GDMSCOREBandInformation(
                 user_votes={},
                 user_confirms=[],
@@ -390,14 +450,12 @@ class GDMScoreBandsManager(GroupManager):
                 score_bands_result=result,
             )
 
-            # Add group iteration and related stuff, then set new iteration to head.
-            new_iteration: GroupIteration = GroupIteration(
-                group_id=group.id,
-                problem_id=group.problem_id,
+            new_iteration = GroupIteration(
+                session_id=group_session.id,
                 info_container=info_container,
                 notified={},
                 state_id=None,
-                parent_id=group.head_iteration_id,
+                parent_id=group_session.head_iteration_id,
                 parent=group_iteration,
             )
 
@@ -405,36 +463,35 @@ class GDMScoreBandsManager(GroupManager):
             session.commit()
             session.refresh(new_iteration)
 
-            group.head_iteration_id = new_iteration.id
-            session.add(group)
+            group_session.head_iteration_id = new_iteration.id
+            session.add(group_session)
             session.commit()
-            session.refresh(group)
+            session.refresh(group_session)
 
             await self.broadcast("UPDATE: Iteration reverted.")
 
-    async def configure(self, group: Group, config: SCOREBandsGDMConfig, session: Session):
-        """Configure the SCORE Bands process.
-
-        Args:
-            user (User): Actually might not be necessary...
-            group (Group): The group whom the configuration concerns.
-            config (SCOREBandsGDMConfig): The configuration.
-            session (Session): The database session.
-        """
+    async def configure(
+        self,
+        group_session: GroupSessionDB,
+        config: SCOREBandsGDMConfig,
+        session: Session,
+    ):
+        """Configure the SCORE Bands process."""
         async with self.lock:
-            group_iteration = session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-            ).first()
-            if group_iteration is None:
-                raise ManagerError("No group iterations! Did you initialize this group?")
+            group_iteration = self._get_head_iteration(group_session, session)
 
             if group_iteration.info_container.method == "gdm-score-bands-final":
                 raise ManagerError("Cannot reconfigure in a non SCORE Bands phase!")
+
             if group_iteration.info_container.phase != "consensus":
                 raise ManagerError("Cannot reconfigure while the group is still in the learning phase!")
 
-            statement = select(GroupIteration).where(GroupIteration.group_id == group.id)
-            iterations: list[GroupIteration] = session.exec(statement).all()
+            iterations: list[GroupIteration] = session.exec(
+                select(GroupIteration).where(
+                    GroupIteration.session_id == group_session.id
+                )
+            ).all()
+
             state: list[SCOREBandsGDMResult] = [
                 iteration.info_container.score_bands_result
                 for iteration in iterations
@@ -448,14 +505,23 @@ class GDMScoreBandsManager(GroupManager):
 
             discrete_repr = self.discrete_representation.objective_values
             objective_keys = list(discrete_repr)
+
             objs_df = pl.DataFrame(discrete_repr).with_row_index()
 
-            # Filter
-            objs_df = index_df.join(how="left", left_on="index", right_on="index", other=objs_df)
+            objs_df = index_df.join(
+                how="left",
+                left_on="index",
+                right_on="index",
+                other=objs_df,
+            )
 
             objs_df = objs_df.select(objective_keys)
 
-            score_bands_result = score_json(data=objs_df, options=config.score_bands_config)
+            score_bands_result = score_json(
+                data=objs_df,
+                options=config.score_bands_config,
+            )
+
             score_bands_gdm_result = SCOREBandsGDMResult(
                 score_bands_result=score_bands_result,
                 relevant_ids=relevant_indices,
@@ -463,7 +529,6 @@ class GDMScoreBandsManager(GroupManager):
                 previous_iteration=iteration_number,
             )
 
-            # Essentially create a new iteration.
             info_container = GDMSCOREBandInformation(
                 user_votes={},
                 user_confirms=[],
@@ -473,14 +538,12 @@ class GDMScoreBandsManager(GroupManager):
                 score_bands_result=score_bands_gdm_result,
             )
 
-            # Add group iteration and related stuff, then set new iteration to head.
-            new_iteration: GroupIteration = GroupIteration(
-                group_id=group.id,
-                problem_id=group.problem_id,
+            new_iteration = GroupIteration(
+                session_id=group_session.id,
                 info_container=info_container,
                 notified={},
                 state_id=None,
-                parent_id=group.head_iteration_id,
+                parent_id=group_session.head_iteration_id,
                 parent=group_iteration,
             )
 
@@ -488,9 +551,9 @@ class GDMScoreBandsManager(GroupManager):
             session.commit()
             session.refresh(new_iteration)
 
-            group.head_iteration_id = new_iteration.id
-            session.add(group)
+            group_session.head_iteration_id = new_iteration.id
+            session.add(group_session)
             session.commit()
-            session.refresh(group)
+            session.refresh(group_session)
 
             await self.broadcast("UPDATE: Reconfigured SCORE Bands.")

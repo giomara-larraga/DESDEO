@@ -7,6 +7,7 @@ import logging
 import sys
 from typing import Annotated
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -155,15 +156,15 @@ async def get_or_initialize(
     Returns:
         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not group:
+    group_session: GroupSessionDB = session.exec(select(GroupSessionDB).where(GroupSessionDB.id == request.group_session_id)).first()
+    if not group_session:
         raise HTTPException(
-            detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND
+            detail=f"Group session with ID {request.group_session_id} not found!", status_code=status.HTTP_404_NOT_FOUND
         )
-    if group.head_iteration_id is not None:
+    if group_session.head_iteration_id is not None:
         # Actually, just return the newest score band data.
-        print("Group already initialized!")
-        group_iterations = session.exec(select(GroupIteration).where(GroupIteration.group_id == group.id)).all()
+        print("Group session already initialized!")
+        group_iterations = session.exec(select(GroupIteration).where(GroupIteration.group_session_id == group_session.id)).all()
         responses: list[GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse] = []
         for giter in group_iterations:
             match giter.info_container.method:
@@ -171,7 +172,7 @@ async def get_or_initialize(
                     responses.append(
                         GDMSCOREBandsResponse(
                             phase=getattr(giter.info_container, "phase", "consensus"),
-                            group_id=group.id,
+                            group_session_id=group_session.id,
                             group_iter_id=giter.id,
                             latest_iteration=giter.info_container.score_bands_result.iteration,
                             result=giter.info_container.score_bands_result.score_bands_result,
@@ -180,19 +181,13 @@ async def get_or_initialize(
                 case "gdm-score-bands-final":
                     responses.append(
                         GDMSCOREBandsDecisionResponse(
-                            phase="decision", group_id=group.id, group_iter_id=giter.id, result=giter.info_container
+                            phase="decision", group_session_id=group_session.id, group_iter_id=giter.id, result=giter.info_container
                         )
                     )
         return GDMSCOREBandsHistoryResponse(history=responses)
-    user_ids = group.user_ids
-    user_ids.append(group.owner_id)
-    if user.id not in user_ids:
-        raise HTTPException(
-            detail=f"User with ID {user.id} is not part of group with ID {group.id}",
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
+
     group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=group.id, method="gdm-score-bands", db_session=session
+        group_session_id=group_session.id, method="gdm-score-bands", db_session=session
     )
 
     score_bands_config = SCOREBandsGDMConfig() if request.score_bands_config is None else request.score_bands_config
@@ -216,8 +211,8 @@ async def get_or_initialize(
 
     # Add group iteration and related stuff, then set new iteration to head.
     iteration: GroupIteration = GroupIteration(
-        group_id=group.id,
-        problem_id=group.problem_id,
+        group_session_id=group_session.id,
+        problem_id=group_session.problem_id,
         info_container=score_bands_info,
         notified={},
         state_id=None,
@@ -229,18 +224,18 @@ async def get_or_initialize(
     session.commit()
     session.refresh(iteration)
 
-    group.head_iteration_id = iteration.id
-    session.add(group)
+    group_session.head_iteration_id = iteration.id
+    session.add(group_session)
     session.commit()
-    session.refresh(group)
+    session.refresh(group_session)
 
     # Actually, return just the newly created score band data.
     return GDMSCOREBandsHistoryResponse(
         history=[
             GDMSCOREBandsResponse(
                 phase="learning",
-                group_id=group.id,
-                group_iter_id=group.head_iteration_id,
+                group_session_id=group_session.id,
+                group_iter_id=group_session.head_iteration_id,
                 latest_iteration=result.iteration,
                 result=result.score_bands_result,
             )

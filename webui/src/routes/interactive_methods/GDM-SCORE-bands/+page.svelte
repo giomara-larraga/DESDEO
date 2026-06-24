@@ -529,7 +529,7 @@ function getConsensusClasses(axisName: string): string {
 
 			return {
 				id: Number(clusterId),
-				label: `Cluster ${clusterId} band`,
+				label: `Band ${clusterId}`,
 				color: cluster_colors[Number(clusterId)] || '#64748b',
 				numSolutions: SCOREBands.solutions_per_cluster[clusterId] ?? 0,
 				objectiveRanges
@@ -1515,7 +1515,7 @@ function getConsensusClasses(axisName: string): string {
 					<div>
 						{#if learningState.zoomedBand !== null}
 							<h2 class="text-sm font-semibold">
-								Cluster {learningState.zoomedBand} — zoomed view
+								Band {learningState.zoomedBand} — zoomed view
 							</h2>
 							<p class="mt-1 text-xs text-muted-foreground">
 								Showing only this band. Sub-bands are listed on the right.
@@ -1672,15 +1672,6 @@ function getConsensusClasses(axisName: string): string {
 								? 'Remove saved band'
 								: 'Save band'}
 						</Button>
-
-						<Button
-							class="w-full"
-							variant="outline"
-							onclick={() => toggleCompareBand(learningState.selectedBand!)}
-						>
-							Compare band ({learningState.comparedBands.length}/3)
-						</Button>
-
 						<Button
 							class="w-full"
 							variant="outline"
@@ -1719,7 +1710,7 @@ function getConsensusClasses(axisName: string): string {
 				</div>
 			{/if}
 
-			{#if learningState.zoomedBand !== null}
+<!-- 			{#if learningState.zoomedBand !== null}
 				<div class="rounded-lg border bg-card shadow-sm">
 					<div class="border-b px-4 py-3">
 						<h2 class="text-sm font-semibold">
@@ -1757,7 +1748,7 @@ function getConsensusClasses(axisName: string): string {
 						</Button>
 					</div>
 				</div>
-			{/if}
+			{/if} -->
 
 			<div class="rounded-lg border bg-card shadow-sm">
 				<div class="border-b px-4 py-3">

@@ -3,6 +3,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     from .problem import ProblemDB
     from .scenario import ScenarioModelDB
     from .session import InteractiveSessionDB
+    from .gdm.gdm_aggregate import Group
 
 
 class UserRole(str, Enum):
@@ -36,6 +38,7 @@ class User(UserBase, table=True):
     role: UserRole = Field()
     group: str | None = Field(default="") # TODO: Get rid of this and use proper group systems
     group_ids: list[int] = Field(sa_column=Column(JSON), default=[]) # The user is either a member of a group or an owner of a group
+
     active_session_id: int | None = Field(default=None)
 
     # Back populates
@@ -44,6 +47,11 @@ class User(UserBase, table=True):
     problems: list["ProblemDB"] = Relationship(back_populates="user")
     scenario_models: list["ScenarioModelDB"] = Relationship(back_populates="user")
     sessions: list["InteractiveSessionDB"] = Relationship(back_populates="user")
+
+    groups: list["Group"] = Relationship(
+    back_populates="users",
+    link_model=GroupUserLink,
+)
 
 
 class UserPublic(UserBase):

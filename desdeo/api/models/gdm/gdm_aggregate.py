@@ -1,15 +1,23 @@
 """Classes for group decision making, aggregating all different types of data classes."""
 
+from datetime import datetime
 import json
+from typing import Optional
+from pyparsing import Optional
 
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+
 
 from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
 from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandFinalSelection, GDMSCOREBandInformation
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
 from desdeo.tools import SolverResults
+from typing import TYPE_CHECKING
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
 
+if TYPE_CHECKING:
+    from desdeo.api.models.user import User
 
 class PreferenceType(TypeDecorator):
     """A converter of Preference types."""
@@ -57,12 +65,24 @@ class Group(GroupBase, table=True):
     name: str | None = Field(default=None)
 
     owner_id: int | None = Field(foreign_key="user.id", default=None)
-    user_ids: list[int] | None = Field(sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    problem_id: int = Field(default=None)
+    #user_ids: list[int] | None = Field(sa_column=Column(JSON))
+
+    #problem_id: int = Field(default=None)
 
     """The id of the head GroupIteration."""
-    head_iteration_id: int | None
+    #head_iteration_id: int | None
+    # relationships
+    #owner: "User" = Relationship(...)
+    users: list["User"] = Relationship(
+        link_model=GroupUserLink
+    )
+
+    sessions: list["GroupSessionDB"] = Relationship(
+        back_populates="group"
+    )
+
 
 
 class GroupPublic(GroupBase):
@@ -75,14 +95,32 @@ class GroupPublic(GroupBase):
     problem_id: int
 
 
+class GroupSessionDB(SQLModel, table=True):
+    __tablename__ = "group_session"
+
+    id: int = Field(default=None, primary_key=True)
+    group_id: int = Field(foreign_key="group.id")
+    problem_id: int = Field(foreign_key="problem.id")
+    method: str
+    #created_at: datetime = Field(default_factory=datetime.utcnow)
+    head_iteration_id: int | None = Field(default=None)
+    group: Group = Relationship(back_populates="sessions")
+
+    #current_iteration_id: Optional[int] = Field(
+    #    default=None,
+    #    foreign_key="group_iteration.id",
+    #)
+
+
 class GroupIteration(SQLModel, table=True):
     """Table model for Group Iteration (we could extend this in various ways)."""
 
     id: int | None = Field(primary_key=True, default=None)
-    problem_id: int | None = Field(default=None)
+    session_id: int | None = Field(foreign_key="group_session.id", default=None)
+    #problem_id: int | None = Field(default=None)
 
     """ID of the associated Group."""
-    group_id: int
+    #group_id: int
 
     """The preferences are stored in this item while the iteration is in progress."""
     info_container: BaseGroupInfoContainer = Field(sa_column=Column(PreferenceType))
@@ -95,6 +133,8 @@ class GroupIteration(SQLModel, table=True):
 
     """Linked list emerges."""
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)
+    state_id: int | None = Field(default=None, foreign_key="statedb.id")
+
     parent: "GroupIteration" = Relationship(
         back_populates="children", sa_relationship_kwargs={"remote_side": "GroupIteration.id"}
     )
@@ -136,4 +176,9 @@ class GroupCreateRequest(SQLModel):
     """Used for requesting a group to be created."""
 
     group_name: str
+    user_ids: list[int]
+    #problem_id: int
+class CreateGroupSessionRequest(SQLModel):
     problem_id: int
+    method: str
+    info_container: BaseGroupInfoContainer

@@ -82,8 +82,8 @@ class GDMSCOREBandFinalSelection(BaseGroupInfoContainer):
 
 class GDMScoreBandsInitializationRequest(SQLModel):
     """Request class for initialization of score bands."""
-    group_id: int = Field(
-        description="The group to be initialized."
+    group_session_id: int = Field(
+        description="The group session to be initialized."
     )
     score_bands_config: SCOREBandsGDMConfig = Field(
         description="The configuration for the initial score banding."
@@ -91,8 +91,8 @@ class GDMScoreBandsInitializationRequest(SQLModel):
 
 class GDMScoreBandsVoteRequest(SQLModel):
     """Request for voting for a band."""
-    group_id: int = Field(
-        description="ID of the group in question"
+    group_session_id: int = Field(
+        description="ID of the group session in question"
     )
     vote: int = Field(
         description="The vote. Vaalisalaisuus."
@@ -102,13 +102,13 @@ class GDMScoreBandsVoteRequest(SQLModel):
 class GDMSCOREBandsLearningAdvanceRequest(SQLModel):
     """Request for moving the group from learning to consensus."""
 
-    group_id: int = Field(description="Group ID.")
+    group_session_id: int = Field(description="Group Session ID.")
 
 
 class GDMSCOREBandsLearningWarningRequest(SQLModel):
     """Request for sending a learning-phase warning to connected users."""
 
-    group_id: int = Field(description="Group ID.")
+    group_session_id: int = Field(description="Group Session ID.")
     message: str | None = Field(default=None, description="Optional warning message.")
 
 
@@ -124,8 +124,8 @@ class GDMSCOREBandsLearningStatusResponse(SQLModel):
 
 class GDMSCOREBandsRevertRequest(SQLModel):
     """Request for reverting to a previous setup."""
-    group_id: int = Field(
-        description="Group ID."
+    group_session_id: int = Field(
+        description="Group Session ID."
     )
     iteration_number: int = Field(
         description="The number of the iteration that we want to revert to."
@@ -135,8 +135,8 @@ class GDMSCOREBandsResponse(SQLModel):
     """Response class for GDMSCOREBands, whether it is initialization or not."""
     method: str = "gdm-score-bands"
     phase: Literal["learning", "consensus"] = Field(default="consensus")
-    group_id: int = Field(
-        description="The group in question."
+    group_session_id: int = Field(
+        description="The group session in question."
     )
     group_iter_id: int = Field(
         description="ID of the latest group iteration."
@@ -152,8 +152,8 @@ class GDMSCOREBandsDecisionResponse(SQLModel):
     """Response class for gdm score bands that includes the last 10 or less solutions."""
     method: str = "gdm-score-bands-final"
     phase: Literal["decision"] = Field(default="decision")
-    group_id: int = Field(
-        description="The group in question."
+    group_session_id: int = Field(
+        description="The group session in question."
     )
     group_iter_id: int = Field(
         description="ID of the latest group iteration."

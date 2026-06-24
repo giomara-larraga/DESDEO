@@ -125,6 +125,10 @@ class StateDB(SQLModel, table=True):
 
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
     problem: "ProblemDB" = Relationship(back_populates="states")
+    group_session_id: int | None = Field(
+        default=None,
+        foreign_key="groupsessiondb.id",
+    )
 
     @classmethod
     def create(
@@ -133,6 +137,7 @@ class StateDB(SQLModel, table=True):
         *,
         problem_id: int | None = None,
         session_id: int | None = None,
+        group_session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
         kind: StateKind | None = None,
@@ -153,6 +158,7 @@ class StateDB(SQLModel, table=True):
         row = cls(
             problem_id=problem_id,
             session_id=session_id,
+            group_session_id=group_session_id,
             parent_id=parent_id,
             base_state=base,
         )

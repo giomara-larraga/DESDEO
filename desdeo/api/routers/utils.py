@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
 from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 
@@ -61,14 +65,34 @@ def fetch_problem_with_role_check(user: User, problem_id: int, session: Session)
         return own_problem
 
     # Secondary access path: problems attached to groups where the user is owner/member.
-    group_statement = select(Group).where(Group.problem_id == problem_id)
-    groups = session.exec(group_statement).all()
-    for group in groups:
-        user_ids = group.user_ids or []
-        if user.id == group.owner_id or user.id in user_ids:
-            return session.exec(select(ProblemDB).where(ProblemDB.id == problem_id)).first()
+    # Access through group sessions where user is a group member.
+    shared_problem = session.exec(
+        select(ProblemDB)
+        .join(GroupSessionDB, GroupSessionDB.problem_id == ProblemDB.id)
+        .join(Group, Group.id == GroupSessionDB.group_id)
+        .join(GroupUserLink, GroupUserLink.group_id == Group.id)
+        .where(
+            ProblemDB.id == problem_id,
+            GroupUserLink.user_id == user.id,
+        )
+    ).first()
 
-    return None
+    if shared_problem is not None:
+        return shared_problem
+
+    # Optional: only needed if group owners are not always added to GroupUserLink.
+    owned_group_problem = session.exec(
+        select(ProblemDB)
+        .join(GroupSessionDB, GroupSessionDB.problem_id == ProblemDB.id)
+        .join(Group, Group.id == GroupSessionDB.group_id)
+        .where(
+            ProblemDB.id == problem_id,
+            Group.owner_id == user.id,
+        )
+    ).first()
+
+    return owned_group_problem
+
 
 
 def fetch_interactive_session_with_role_check(user: User, session_id: int, session: Session) -> InteractiveSessionDB:

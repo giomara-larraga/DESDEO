@@ -6,6 +6,7 @@ import logging
 import sys
 from typing import Any
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import numpy as np
 from pydantic import ValidationError
 from sqlmodel import Session, select
@@ -213,6 +214,7 @@ class GNIMBUSManager(GroupManager):
         self,
         session: Session,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
         optim_state: GNIMBUSOptimizationState | GNIMBUSVotingState | GNIMBUSEndState,
         current_iteration: GroupIteration,
         user_ids: list[int],
@@ -226,8 +228,16 @@ class GNIMBUSManager(GroupManager):
             ).first()
         """
 
+        parent_state_id = current_iteration.parent.state_id if current_iteration.parent else None
+
+
         new_state = StateDB.create(
-            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=optim_state
+            database_session=session,
+            problem_id=problem_db.id,
+            session_id=None,
+            group_session_id=group_session.id,
+            parent_id=parent_state_id,
+            state=optim_state,
         )
 
         session.add(new_state)
@@ -262,6 +272,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> VotingPreference | EndProcessPreference | None:
         """A function to handle the optimization path.
 
@@ -278,6 +290,8 @@ class GNIMBUSManager(GroupManager):
             group (Group): The group.
             current_iteration (GroupIteration): The current group iteration, for accessing preferences and the like.
             problem_db (ProblemDB): The problem that we optimize.
+            group_session (GroupSessionDB): The group session.
+            user_ids (list[int]): The IDs of the users in the group.
 
         Returns:
             VotingPreference | EndProcessPreference | None: Return values; If success, return preference items
@@ -317,7 +331,7 @@ class GNIMBUSManager(GroupManager):
         # There has to be a more elegant way of doing this
         preferences: OptimizationPreference = current_iteration.info_container
         if not await self.check_preferences(
-            group.user_ids,
+            user_ids,
             preferences,
         ):
             return None
@@ -343,7 +357,7 @@ class GNIMBUSManager(GroupManager):
 
         logger.info(f"starting values: {prev_sol}")
 
-        user_len = len(group.user_ids)
+        user_len = len(user_ids)
 
         # Begin optimization
         try:
@@ -375,7 +389,17 @@ class GNIMBUSManager(GroupManager):
         # All good, attach results to state and attach that to iteration.
         optim_state = GNIMBUSOptimizationState(reference_points=formatted_prefs, solver_results=results)
 
-        await self.set_state(session, problem_db, optim_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, optim_state, current_iteration, user_ids, group.owner_id)
+
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=optim_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
 
         # DIVERGE THE PATH: if we're in the decision/compromise phase, we'll want to see if everyone
         # is happy with the current solution, so we'll return end process preference.
@@ -395,6 +419,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> OptimizationPreference | None:
         """Handles the voting path of GNIMBUS.
 
@@ -437,7 +463,7 @@ class GNIMBUSManager(GroupManager):
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.info_container
-        if not await self.check_preferences(group.user_ids, preferences):
+        if not await self.check_preferences(user_ids, preferences):
             return None
 
         # format the votes
@@ -456,7 +482,7 @@ class GNIMBUSManager(GroupManager):
 
         results = actual_state.solver_results
 
-        user_len = len(group.user_ids)
+        user_len = len(user_ids)
 
         # Get the winning results
         winner_result: SolverResults = voting_procedure(
@@ -468,7 +494,17 @@ class GNIMBUSManager(GroupManager):
         # Add winning result to database
         vote_state = GNIMBUSVotingState(votes=preferences.set_preferences, solver_results=[winner_result])
 
-        await self.set_state(session, problem_db, vote_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, vote_state, current_iteration, user_ids, group.owner_id)
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=vote_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
+
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
@@ -486,6 +522,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> OptimizationPreference | None:
         """Function to handle the "ending" path.
 
@@ -498,7 +536,7 @@ class GNIMBUSManager(GroupManager):
             group (Group): group
             current_iteration (GroupIteration): the current iteration from which we pull the necessary data.
             problem_db (ProblemDB): the problem.
-
+            group_session (GroupSessionDB): The group session.
         Returns:
             OptimizationPreference | None: If success, we return an optimization preference.
         """
@@ -522,14 +560,14 @@ class GNIMBUSManager(GroupManager):
         # Check if all preferences are in
         preferences: EndProcessPreference = current_iteration.info_container
         if not await self.check_preferences(
-            group.user_ids,
+            user_ids,
             preferences,
         ):
             return None
 
         # All preferences in, let's see what they think.
         all_vote_yes: bool = True
-        for uid in group.user_ids:
+        for uid in user_ids:
             if not preferences.set_preferences[uid]:
                 all_vote_yes = False
                 break
@@ -555,7 +593,16 @@ class GNIMBUSManager(GroupManager):
             votes=current_iteration.info_container.set_preferences, solver_results=results, success=all_vote_yes
         )
 
-        await self.set_state(session, problem_db, ending_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, ending_state, current_iteration, user_ids, group.owner_id)
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=ending_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
