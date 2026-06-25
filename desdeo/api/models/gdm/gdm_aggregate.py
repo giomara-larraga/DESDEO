@@ -144,15 +144,15 @@ class GroupIteration(SQLModel, table=True):
     )
 
 
-class GroupInfoRequest(SQLModel):
+class GroupSessionInfoRequest(SQLModel):
     """Class for requesting group information."""
 
-    group_id: int
+    group_session_id: int
 
-class GroupRevertRequest(SQLModel):
+class GroupSessionRevertRequest(SQLModel):
     """Class for requesting reverting to certain iteration."""
 
-    group_id: int = Field(description="The ID of the group we wish to revert.")
+    group_session_id: int = Field(description="The ID of the group session we wish to revert.")
     state_id: int = Field(
         description="The state's ID to which we want to revert to. "\
             "Corresponds to state_id in GroupIteration."

@@ -100,10 +100,10 @@ __all__ = [  # noqa: RUF022
     "Group",
     "GroupModifyRequest",
     "GroupCreateRequest",
-    "GroupRevertRequest",
+    "GroupSessionRevertRequest",
     "GroupIteration",
     "GroupPublic",
-    "GroupInfoRequest",
+    "GroupSessionInfoRequest",
     "BaseGroupInfoContainer",
     "ReferencePointDictType",
     "BooleanDictTypeDecorator",
@@ -181,11 +181,11 @@ from .enautilus import (
 from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
-    GroupRevertRequest,
+    GroupSessionRevertRequest,
 )
 from .gdm.gdm_base import (
     BaseGroupInfoContainer,

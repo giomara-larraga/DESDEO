@@ -49,7 +49,7 @@ class SolverResultType(TypeDecorator):
 class GNIMBUSSwitchPhaseRequest(SQLModel):
     """A request for a certain phase. Comes from the group owner/analyst."""
 
-    group_id: int
+    group_session_id: int
     new_phase: str
 
 

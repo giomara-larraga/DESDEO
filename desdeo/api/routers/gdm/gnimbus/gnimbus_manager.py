@@ -1,5 +1,7 @@
 """GNIMBUS group manager implementation. Handles varying paths of the GNIMBUS method."""
 
+"""Modified on June 25 by glarraga: group manager now consider a group session id instead of a group id. This is to allow multiple sessions for the same group."""
+
 import copy
 import json
 import logging
@@ -252,8 +254,10 @@ class GNIMBUSManager(GroupManager):
         session.commit()
 
         # notify connected users that the optimization is done
-        g = user_ids
-        g.append(owner_id)
+        #g = user_ids
+        #g.append(owner_id)
+
+        g = list(set([*user_ids, owner_id]))
         notified = await self.notify(
             user_ids=g, message=f"UPDATE: Please fetch {current_iteration.info_container.method} results."
         )
@@ -374,7 +378,7 @@ class GNIMBUSManager(GroupManager):
                 results = results[:user_len] + common_results
                 logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
 
-            logger.info(f"Optimization for group {self.group_id} done.")
+            logger.info(f"Optimization for group {self.group_session_id} done.")
 
         except ScalarizationError as e:
             await self.broadcast(f"ERROR: Error while scalarizing: {e}")
@@ -647,29 +651,38 @@ class GNIMBUSManager(GroupManager):
         """
         async with self.lock:
             # Fetch the current iteration
-            group = db_session.exec(select(Group).where(Group.id == self.group_id)).first()
+            group_session = db_session.exec(select(GroupSessionDB).where(GroupSessionDB.id == self.group_session_id)).first()   
+            if group_session is None:
+                await self.broadcast(
+                    f"ERROR: Group session with ID {self.group_session_id} does not exist."
+                )
+                return
+            
+            group = db_session.exec(select(Group).where(Group.id == group_session.group_id)).first()
             if group is None:
-                await self.broadcast(f"ERROR: The group with ID {self.group_id} doesn't exist anymore.")
-                db_session.close()
+                await self.broadcast(f"ERROR: The group with ID {group_session.group_id} doesn't exist anymore.")
+                #db_session.close()
                 return
 
             current_iteration = db_session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+                select(GroupIteration).where(GroupIteration.id == group_session.head_iteration_id)
             ).first()
             if current_iteration is None:
                 await self.broadcast("ERROR: Problem not initialized! Initialize the problem!")
-                db_session.close()
+                #db_session.close()
                 return
 
             # logger.info(f"Current iteration ID: {current_iteration.id}")
 
-            problem_db: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+            problem_db: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group_session.problem_id)).first()
             # This shouldn't be a problem at this point anymore, but
             if problem_db is None:
-                await self.broadcast(f"ERROR: There's no problem with ID {group.problem_id}!")
+                await self.broadcast(f"ERROR: There's no problem with ID {group_session.problem_id}!")
                 return
 
             new_preferences = None
+            user_ids = [member.id for member in group.users]
+
 
             # Diverge into different paths using PreferenceResult method type of the current iteration.
             match current_iteration.info_container.method:
@@ -681,6 +694,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                    user_ids=user_ids,
                     )
 
                 case "voting":
@@ -692,6 +707,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                        user_ids=user_ids,
                     )
 
                 case "end":
@@ -703,6 +720,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                        user_ids=user_ids,
                     )
 
                 case _:
@@ -711,15 +730,15 @@ class GNIMBUSManager(GroupManager):
                     return
 
             if new_preferences is None:
-                db_session.close()
+                #db_session.close()
                 return
 
             # If everything has gone according to keikaku (keikaku means plan), create the next iteration.
             next_iteration = GroupIteration(
-                group_id=self.group_id,
-                problem_id=current_iteration.problem_id,
+                session_id=group_session.id,
                 info_container=new_preferences,
                 notified={},
+                state_id=None,
                 parent_id=current_iteration.id,  # Probably redundant to have
                 parent=current_iteration,  # two connections to parents?
             )
@@ -729,17 +748,18 @@ class GNIMBUSManager(GroupManager):
             db_session.refresh(next_iteration)
 
             # Update new parent iteration
-            children = current_iteration.children.copy()
-            children.append(next_iteration)
-            current_iteration.children = children
-            current_iteration.group_id = self.group_id
-            db_session.add(current_iteration)
-            db_session.commit()
+            #children = current_iteration.children.copy()
+            #children.append(next_iteration)
+            #current_iteration.children = children
+            #current_iteration.group_id = self.group_id
+            #db_session.add(current_iteration)
+            #db_session.commit()
 
             # Update head of the group
-            group.head_iteration_id = next_iteration.id
-            db_session.add(group)
+            group_session.head_iteration_id = next_iteration.id
+            db_session.add(group_session)
             db_session.commit()
+            db_session.refresh(group_session)
 
             # Close the session
-            db_session.close()
+            #db_session.close()
