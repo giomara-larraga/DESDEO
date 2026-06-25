@@ -26,7 +26,7 @@ from desdeo.api.models import (
     GDMSCOREBandsRevertRequest,
     GDMScoreBandsVoteRequest,
     Group,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupIteration,
     User,
 )
@@ -94,14 +94,14 @@ async def vote_for_a_band(
 
 @router.post("/confirm")
 async def confirm_vote(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ):
     """Confim the vote. If all confirm, the clustering and new iteration begins.
 
     Args:
-        request (GroupInfoRequest): Simple request to get the group ID.
+        request (GroupSessionInfoRequest): Simple request to get the group ID.
         user (Annotated[User, Depends): The current user.
         session (Annotated[Session, Depends): Database session.
 
@@ -245,14 +245,14 @@ async def get_or_initialize(
 
 @router.post("/get-votes-and-confirms")
 def get_votes_and_confirms(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
     """Returns the current status of votes and confirmations in current iteration.
 
     Args:
-        request (GroupInfoRequest): The group we'd like the info on.
+        request (GroupSessionInfoRequest): The group we'd like the info on.
         user (Annotated[User, Depends): The user that requests the data.
         session (Annotated[Session, Depends): The database session.
 
@@ -294,7 +294,7 @@ def get_votes_and_confirms(
 
 @router.post("/learning/complete")
 async def complete_learning_phase(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GDMSCOREBandsLearningStatusResponse:

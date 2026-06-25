@@ -91,8 +91,10 @@ class GroupPublic(GroupBase):
     id: int
     name: str
     owner_id: int
-    user_ids: list[int]
-    problem_id: int
+    users: list["User"]
+    #user_ids: list[int]
+    #problem_id: int
+
 
 
 class GroupSessionDB(SQLModel, table=True):
@@ -100,7 +102,7 @@ class GroupSessionDB(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     group_id: int = Field(foreign_key="group.id")
-    problem_id: int = Field(foreign_key="problem.id")
+    problem_id: int = Field(foreign_key="problemdb.id")
     method: str
     #created_at: datetime = Field(default_factory=datetime.utcnow)
     head_iteration_id: int | None = Field(default=None)
@@ -129,7 +131,7 @@ class GroupIteration(SQLModel, table=True):
     notified: dict[int, bool] = Field(sa_column=Column(JSON))
 
     """State for storing post optimization/voting related data (dec vars, objectives, etc.)"""
-    state_id: int | None = Field()
+    #state_id: int | None = Field()
 
     """Linked list emerges."""
     parent_id: int | None = Field(foreign_key="groupiteration.id", default=None)

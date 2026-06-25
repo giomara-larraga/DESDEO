@@ -150,6 +150,8 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
     "GDMSCOREBandsHistoryResponse",
+    "GroupSessionDB",
+    "CreateGroupSessionRequest",
 ]
 
 
@@ -186,6 +188,8 @@ from .gdm.gdm_aggregate import (
     GroupModifyRequest,
     GroupPublic,
     GroupSessionRevertRequest,
+    GroupSessionDB,
+    CreateGroupSessionRequest,
 )
 from .gdm.gdm_base import (
     BaseGroupInfoContainer,
@@ -230,6 +234,8 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
+
+
 )
 from .nautilus_navigator import (
     NautilusNavigatorInitializationState,

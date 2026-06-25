@@ -22,7 +22,7 @@ from desdeo.api.db import get_session
 from desdeo.api.models import (
     Group,
     GroupCreateRequest,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
@@ -283,14 +283,14 @@ def create_group_session(
 
 @router.post("/delete_group")
 def delete_group(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
     """Delete the group with given ID.
 
     Args:
-        request (GroupInfoRequest): Contains the ID of the group to be deleted
+        request (GroupSessionInfoRequest): Contains the ID of the group to be deleted
         user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
         session (Annotated[Session, Depends(get_session)]): The database session
 
@@ -485,13 +485,13 @@ def remove_from_group(
 
 @router.post("/get_group_info")
 def get_group_info(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> GroupPublic:
     """Get information about the group.
 
     Args:
-        request (GroupInfoRequest): the id of the group for which we desire info on
+        request (GroupSessionInfoRequest): the id of the group for which we desire info on
         session (Annotated[Session, Depends(get_session)]): the database session
 
     Returns:

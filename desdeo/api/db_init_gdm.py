@@ -14,9 +14,15 @@ from desdeo.api.models import (
     UserRole,
     
 )
-from desdeo.api.models.gdm.gdm_aggregate import Group
+from desdeo.api.models.gdm.gdm_aggregate import (
+    Group,
+    GroupSessionDB,
+    GroupIteration,
+)
 from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import river_pollution_problem_discrete
+from desdeo.api.models.gdm.gnimbus import OptimizationPreference
+
 
 problems = [river_pollution_problem_discrete(five_objective_variant=False)]
 
@@ -92,13 +98,18 @@ if __name__ == "__main__":
                 session.commit()
                 session.refresh(problem_db)
 
+
+            owner = session.get(User, 1)
+            dm1 = session.get(User, 2)
+            dm2 = session.get(User, 3)
+
             # Create a group for GDM testing
             group_name = "tingalinga"
             group = Group(
                 name=group_name,
-                owner_id=1,
-                user_ids=[2,3],
-                problem_id=1,
+                owner_id=owner.id,
+                user_ids=[dm1.id, dm2.id],
+                problem_id=problem_db.id,
             )
 
             group.model_rebuild()
@@ -107,6 +118,34 @@ if __name__ == "__main__":
             session.add(group)
             session.commit()
             session.refresh(group)
+
+            group_session = GroupSessionDB(
+                group_id=group.id,
+                problem_id=problem_db.id,
+                method="gnimbus",
+                head_iteration_id=None,
+            )
+            session.add(group_session)
+            session.commit()
+            session.refresh(group_session)
+
+            # Optional: only if you want pre-initialized GNIMBUS session.
+            # Otherwise let /gnimbus/initialize create the first iterations.
+            initial_iteration = GroupIteration(
+                session_id=group_session.id,
+                info_container=OptimizationPreference(set_preferences={}),
+                notified={},
+                state_id=None,
+                parent_id=None,
+            )
+            session.add(initial_iteration)
+            session.commit()
+            session.refresh(initial_iteration)
+
+            group_session.head_iteration_id = initial_iteration.id
+            session.add(group_session)
+
+
             session.close()
 
     else:

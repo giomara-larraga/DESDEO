@@ -558,7 +558,7 @@ async def revert_iteration(
     # without any hiccups or changes to the "all_iterations" endpoint. Essentially we copy two latest
     # iterations to the head of the history.
     new_parent_1 = GroupIteration(
-        session_id=group_session.problem_id,
+        session_id=group_session.id,
         info_container=target_iteration.parent.info_container.model_copy(),
         notified=target_iteration.parent.notified.copy(),
         state_id=target_iteration.parent.state_id,
@@ -571,7 +571,7 @@ async def revert_iteration(
     session.refresh(new_parent_1)
 
     new_parent_2 = GroupIteration(
-        session_id=group_session.problem_id,
+        session_id=group_session.id,
         info_container=target_iteration.info_container.model_copy(),
         notified=target_iteration.notified.copy(),
         state_id=target_iteration.state_id,
@@ -585,7 +585,7 @@ async def revert_iteration(
 
     # New head iteration
     new_head = GroupIteration(
-        session_id=group_session.problem_id,
+        session_id=group_session.id,
         info_container=OptimizationPreference(
             phase=target_iteration.parent.info_container.phase \
                 if target_iteration.parent.info_container.phase is not None else "learning",

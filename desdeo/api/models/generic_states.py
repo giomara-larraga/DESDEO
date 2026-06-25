@@ -127,7 +127,7 @@ class StateDB(SQLModel, table=True):
     problem: "ProblemDB" = Relationship(back_populates="states")
     group_session_id: int | None = Field(
         default=None,
-        foreign_key="groupsessiondb.id",
+        foreign_key="group_session.id",
     )
 
     @classmethod
