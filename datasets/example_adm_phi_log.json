@@ -1,0 +1,1927 @@
+{
+  "experiment_id": "example_adm_phi_log_001",
+  "problem": {
+    "name": "DTLZ2",
+    "objectives": 5,
+    "variables": 12
+  },
+  "methods": [
+    "iRVEA",
+    "iNSGA-III"
+  ],
+  "adm_configuration": {
+    "learning_iterations": 4,
+    "decision_iterations": 3,
+    "generations_per_iteration": 10,
+    "number_of_reference_vectors": 6
+  },
+  "initial_reference_point": [
+    0.4016,
+    0.2778,
+    0.1369,
+    0.4305,
+    0.5502
+  ],
+  "reference_vectors": [
+    {
+      "vector_id": "V1",
+      "direction": [
+        0.3238,
+        0.1508,
+        0.6509,
+        0.0724,
+        0.5359
+      ]
+    },
+    {
+      "vector_id": "V2",
+      "direction": [
+        0.3657,
+        0.058,
+        0.5074,
+        0.0375,
+        0.4336
+      ]
+    },
+    {
+      "vector_id": "V3",
+      "direction": [
+        0.0699,
+        0.0907,
+        0.4245,
+        0.8269,
+        0.1238
+      ]
+    },
+    {
+      "vector_id": "V4",
+      "direction": [
+        0.2232,
+        0.6274,
+        0.9477,
+        0.5771,
+        0.3967
+      ]
+    },
+    {
+      "vector_id": "V5",
+      "direction": [
+        0.9763,
+        0.0466,
+        0.8585,
+        0.2896,
+        0.1443
+      ]
+    },
+    {
+      "vector_id": "V6",
+      "direction": [
+        0.1178,
+        0.3085,
+        0.8161,
+        0.1807,
+        0.5816
+      ]
+    }
+  ],
+  "iterations": [
+    {
+      "iteration": 1,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "it1_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.6389,
+            0.3724,
+            0.5477,
+            0.0628,
+            0.0596
+          ]
+        },
+        {
+          "solution_id": "it1_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.206,
+            0.6804,
+            0.4276,
+            0.3141,
+            0.5856
+          ]
+        },
+        {
+          "solution_id": "it1_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.4532,
+            0.2998,
+            0.7944,
+            0.699,
+            0.2441
+          ]
+        },
+        {
+          "solution_id": "it1_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.5744,
+            0.5252,
+            0.8751,
+            0.7294,
+            0.2879
+          ]
+        },
+        {
+          "solution_id": "it1_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.9802,
+            0.1181,
+            0.4181,
+            0.7571,
+            0.152
+          ]
+        },
+        {
+          "solution_id": "it1_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.489,
+            0.0392,
+            0.6682,
+            0.7646,
+            0.573
+          ]
+        },
+        {
+          "solution_id": "it1_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.8755,
+            0.3137,
+            0.6953,
+            0.5944,
+            0.5799
+          ]
+        },
+        {
+          "solution_id": "it1_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.4562,
+            0.84,
+            0.9447,
+            0.4741,
+            0.6642
+          ]
+        },
+        {
+          "solution_id": "it1_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.0607,
+            0.7015,
+            0.6471,
+            0.9931,
+            0.8219
+          ]
+        },
+        {
+          "solution_id": "it1_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2846,
+            0.3858,
+            0.6687,
+            0.0226,
+            0.4617
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.4016,
+          0.2778,
+          0.1369,
+          0.4305,
+          0.5502
+        ],
+        "selected_reference_vector": "V2",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "The ADM selects a sparsely represented region to continue exploration."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.3211,
+            0.3327,
+            0.3356,
+            0.346,
+            0.3552,
+            0.3706,
+            0.3819,
+            0.4032,
+            0.4055,
+            0.434
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5997,
+            0.5776,
+            0.5617,
+            0.5632,
+            0.5566,
+            0.5356,
+            0.5307,
+            0.5164,
+            0.5172,
+            0.5031
+          ],
+          "phi_per_generation": [
+            -0.2786,
+            -0.2449,
+            -0.2261,
+            -0.2172,
+            -0.2014,
+            -0.165,
+            -0.1488,
+            -0.1132,
+            -0.1117,
+            -0.0691
+          ],
+          "phi_iteration": -0.1776
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.3648,
+            0.3794,
+            0.3876,
+            0.394,
+            0.4076,
+            0.4138,
+            0.4308,
+            0.446,
+            0.4573,
+            0.477
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5541,
+            0.554,
+            0.5362,
+            0.5229,
+            0.513,
+            0.5147,
+            0.4872,
+            0.477,
+            0.4757,
+            0.4673
+          ],
+          "phi_per_generation": [
+            -0.1893,
+            -0.1746,
+            -0.1486,
+            -0.1289,
+            -0.1054,
+            -0.1009,
+            -0.0564,
+            -0.031,
+            -0.0184,
+            0.0097
+          ],
+          "phi_iteration": -0.0944
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it1_s10"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "it1_s1",
+            "it1_s4",
+            "it1_s5"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it1_s4"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [
+            "it1_s7",
+            "it1_s8",
+            "it1_s2"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [
+            "it1_s8"
+          ],
+          "assigned_count": 1
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V3",
+        "assigned_count": 3
+      }
+    },
+    {
+      "iteration": 2,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "it2_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.0703,
+            0.208,
+            0.3762,
+            0.6344,
+            0.9555
+          ]
+        },
+        {
+          "solution_id": "it2_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.6023,
+            0.4742,
+            0.1154,
+            0.4881,
+            0.9778
+          ]
+        },
+        {
+          "solution_id": "it2_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.4804,
+            0.3119,
+            0.1441,
+            0.7497,
+            0.7404
+          ]
+        },
+        {
+          "solution_id": "it2_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.4786,
+            0.6921,
+            0.5163,
+            0.2052,
+            0.952
+          ]
+        },
+        {
+          "solution_id": "it2_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.3618,
+            0.6901,
+            0.9141,
+            0.7581,
+            0.2981
+          ]
+        },
+        {
+          "solution_id": "it2_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6429,
+            0.091,
+            0.8454,
+            0.5184,
+            0.9083
+          ]
+        },
+        {
+          "solution_id": "it2_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.3557,
+            0.2228,
+            0.5416,
+            0.5027,
+            0.6364
+          ]
+        },
+        {
+          "solution_id": "it2_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6132,
+            0.7884,
+            0.7583,
+            0.1951,
+            0.2394
+          ]
+        },
+        {
+          "solution_id": "it2_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.4007,
+            0.8033,
+            0.1999,
+            0.4928,
+            0.731
+          ]
+        },
+        {
+          "solution_id": "it2_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.9896,
+            0.7901,
+            0.4722,
+            0.1936,
+            0.6051
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.6241,
+          0.9003,
+          0.8404,
+          0.4795,
+          0.653
+        ],
+        "selected_reference_vector": "V3",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "The ADM selects a sparsely represented region to continue exploration."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.348,
+            0.3572,
+            0.3716,
+            0.3776,
+            0.3958,
+            0.408,
+            0.4119,
+            0.4349,
+            0.4314,
+            0.443
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5617,
+            0.5682,
+            0.555,
+            0.5336,
+            0.5267,
+            0.5294,
+            0.508,
+            0.5045,
+            0.4825,
+            0.4881
+          ],
+          "phi_per_generation": [
+            -0.2137,
+            -0.211,
+            -0.1834,
+            -0.156,
+            -0.1309,
+            -0.1214,
+            -0.0961,
+            -0.0696,
+            -0.0511,
+            -0.0451
+          ],
+          "phi_iteration": -0.1278
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.3841,
+            0.3965,
+            0.4051,
+            0.415,
+            0.4163,
+            0.441,
+            0.4587,
+            0.4694,
+            0.4682,
+            0.4819
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5329,
+            0.5396,
+            0.517,
+            0.5026,
+            0.5094,
+            0.4905,
+            0.4787,
+            0.4765,
+            0.455,
+            0.4448
+          ],
+          "phi_per_generation": [
+            -0.1488,
+            -0.1431,
+            -0.1119,
+            -0.0876,
+            -0.0931,
+            -0.0495,
+            -0.02,
+            -0.0071,
+            0.0132,
+            0.0371
+          ],
+          "phi_iteration": -0.0611
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it2_s8",
+            "it2_s6"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it2_s2",
+            "it2_s4"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it2_s8"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [
+            "it2_s6"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [
+            "it2_s8"
+          ],
+          "assigned_count": 1
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V1",
+        "assigned_count": 2
+      }
+    },
+    {
+      "iteration": 3,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "it3_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.5864,
+            0.2594,
+            0.419,
+            0.1311,
+            0.91
+          ]
+        },
+        {
+          "solution_id": "it3_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.3538,
+            0.4582,
+            0.5833,
+            0.9043,
+            0.4206
+          ]
+        },
+        {
+          "solution_id": "it3_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.9177,
+            0.5016,
+            0.5318,
+            0.5235,
+            0.0187
+          ]
+        },
+        {
+          "solution_id": "it3_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.4401,
+            0.1831,
+            0.0039,
+            0.7992,
+            0.1723
+          ]
+        },
+        {
+          "solution_id": "it3_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.4735,
+            0.7252,
+            0.5565,
+            0.326,
+            0.5183
+          ]
+        },
+        {
+          "solution_id": "it3_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.5554,
+            0.7843,
+            0.1061,
+            0.5603,
+            0.2485
+          ]
+        },
+        {
+          "solution_id": "it3_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2769,
+            0.7723,
+            0.5077,
+            0.5617,
+            0.76
+          ]
+        },
+        {
+          "solution_id": "it3_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.9125,
+            0.4432,
+            0.6125,
+            0.5056,
+            0.5122
+          ]
+        },
+        {
+          "solution_id": "it3_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6927,
+            0.4523,
+            0.5333,
+            0.478,
+            0.9415
+          ]
+        },
+        {
+          "solution_id": "it3_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6992,
+            0.8765,
+            0.9422,
+            0.2596,
+            0.5595
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.2127,
+          0.3028,
+          0.1223,
+          0.7769,
+          0.9395
+        ],
+        "selected_reference_vector": "V3",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "The ADM selects a sparsely represented region to continue exploration."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.3699,
+            0.3741,
+            0.3904,
+            0.3949,
+            0.4083,
+            0.4215,
+            0.4489,
+            0.4494,
+            0.4548,
+            0.4718
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5473,
+            0.5327,
+            0.5349,
+            0.5277,
+            0.5134,
+            0.5041,
+            0.4881,
+            0.4771,
+            0.4673,
+            0.4592
+          ],
+          "phi_per_generation": [
+            -0.1774,
+            -0.1586,
+            -0.1445,
+            -0.1328,
+            -0.1051,
+            -0.0826,
+            -0.0392,
+            -0.0277,
+            -0.0125,
+            0.0126
+          ],
+          "phi_iteration": -0.0868
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.4001,
+            0.4083,
+            0.4292,
+            0.4404,
+            0.4515,
+            0.4514,
+            0.4616,
+            0.4864,
+            0.4955,
+            0.5021
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5227,
+            0.5109,
+            0.4973,
+            0.4896,
+            0.4767,
+            0.4831,
+            0.4701,
+            0.462,
+            0.4539,
+            0.4357
+          ],
+          "phi_per_generation": [
+            -0.1226,
+            -0.1026,
+            -0.0681,
+            -0.0492,
+            -0.0252,
+            -0.0317,
+            -0.0085,
+            0.0244,
+            0.0416,
+            0.0664
+          ],
+          "phi_iteration": -0.0275
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it3_s8"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it3_s7"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it3_s8",
+            "it3_s6",
+            "it3_s2"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [
+            "it3_s7"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V4",
+        "assigned_count": 3
+      }
+    },
+    {
+      "iteration": 4,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "it4_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.5148,
+            0.4946,
+            0.327,
+            0.2791,
+            0.7996
+          ]
+        },
+        {
+          "solution_id": "it4_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.1833,
+            0.8953,
+            0.2689,
+            0.0168,
+            0.0886
+          ]
+        },
+        {
+          "solution_id": "it4_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.2606,
+            0.6082,
+            0.2224,
+            0.2645,
+            0.1217
+          ]
+        },
+        {
+          "solution_id": "it4_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.0115,
+            0.9943,
+            0.4178,
+            0.9154,
+            0.6217
+          ]
+        },
+        {
+          "solution_id": "it4_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.0432,
+            0.7095,
+            0.9381,
+            0.9692,
+            0.2619
+          ]
+        },
+        {
+          "solution_id": "it4_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.1811,
+            0.9322,
+            0.6287,
+            0.5311,
+            0.2059
+          ]
+        },
+        {
+          "solution_id": "it4_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.4457,
+            0.6722,
+            0.2705,
+            0.8037,
+            0.9945
+          ]
+        },
+        {
+          "solution_id": "it4_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.0369,
+            0.0184,
+            0.5057,
+            0.9781,
+            0.5142
+          ]
+        },
+        {
+          "solution_id": "it4_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2457,
+            0.4471,
+            0.6583,
+            0.6501,
+            0.6565
+          ]
+        },
+        {
+          "solution_id": "it4_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.5459,
+            0.8887,
+            0.9703,
+            0.3078,
+            0.2152
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.0554,
+          0.6652,
+          0.3809,
+          0.5059,
+          0.9709
+        ],
+        "selected_reference_vector": "V4",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "The ADM selects a sparsely represented region to continue exploration."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.394,
+            0.3949,
+            0.4114,
+            0.4253,
+            0.4497,
+            0.4427,
+            0.4584,
+            0.4727,
+            0.4836,
+            0.495
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5339,
+            0.5137,
+            0.5001,
+            0.4966,
+            0.4865,
+            0.4876,
+            0.4637,
+            0.4517,
+            0.4531,
+            0.4455
+          ],
+          "phi_per_generation": [
+            -0.1399,
+            -0.1188,
+            -0.0887,
+            -0.0713,
+            -0.0368,
+            -0.0449,
+            -0.0053,
+            0.021,
+            0.0305,
+            0.0495
+          ],
+          "phi_iteration": -0.0405
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.4058,
+            0.4189,
+            0.4359,
+            0.4526,
+            0.4712,
+            0.4671,
+            0.4917,
+            0.5033,
+            0.5099,
+            0.5244
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5163,
+            0.5017,
+            0.486,
+            0.4717,
+            0.4771,
+            0.4679,
+            0.4519,
+            0.4444,
+            0.4257,
+            0.4129
+          ],
+          "phi_per_generation": [
+            -0.1105,
+            -0.0828,
+            -0.0501,
+            -0.0191,
+            -0.0059,
+            -0.0008,
+            0.0398,
+            0.0589,
+            0.0842,
+            0.1115
+          ],
+          "phi_iteration": 0.0025
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it4_s6"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it4_s3"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "it4_s6",
+            "it4_s1",
+            "it4_s3"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [
+            "it4_s7",
+            "it4_s3"
+          ],
+          "assigned_count": 2
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V3",
+        "assigned_count": 3
+      }
+    },
+    {
+      "iteration": 5,
+      "phase": "decision",
+      "composite_front": [
+        {
+          "solution_id": "it5_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.8249,
+            0.715,
+            0.513,
+            0.4292,
+            0.7011
+          ]
+        },
+        {
+          "solution_id": "it5_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.5055,
+            0.9099,
+            0.7529,
+            0.5685,
+            0.8129
+          ]
+        },
+        {
+          "solution_id": "it5_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.0161,
+            0.6865,
+            0.798,
+            0.7112,
+            0.9561
+          ]
+        },
+        {
+          "solution_id": "it5_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.6429,
+            0.0851,
+            0.0419,
+            0.6371,
+            0.9595
+          ]
+        },
+        {
+          "solution_id": "it5_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.3766,
+            0.4514,
+            0.0508,
+            0.0188,
+            0.5314
+          ]
+        },
+        {
+          "solution_id": "it5_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2446,
+            0.2638,
+            0.4569,
+            0.0701,
+            0.9325
+          ]
+        },
+        {
+          "solution_id": "it5_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.8979,
+            0.0919,
+            0.526,
+            0.7457,
+            0.4739
+          ]
+        },
+        {
+          "solution_id": "it5_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.8092,
+            0.8461,
+            0.2348,
+            0.7564,
+            0.2307
+          ]
+        },
+        {
+          "solution_id": "it5_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6499,
+            0.4603,
+            0.8455,
+            0.0767,
+            0.9105
+          ]
+        },
+        {
+          "solution_id": "it5_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2873,
+            0.0467,
+            0.6328,
+            0.1983,
+            0.5997
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.9933,
+          0.5491,
+          0.3117,
+          0.0859,
+          0.4729
+        ],
+        "selected_reference_vector": "V2",
+        "selection_rule": "max_assigned_vector_as_roi",
+        "description": "The ADM refines the search around the most populated ROI vector."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.4128,
+            0.4291,
+            0.4509,
+            0.4613,
+            0.4565,
+            0.4819,
+            0.4862,
+            0.5036,
+            0.5053,
+            0.525
+          ],
+          "negative_hypervolume_per_generation": [
+            0.5015,
+            0.5099,
+            0.4877,
+            0.4886,
+            0.4618,
+            0.4552,
+            0.4521,
+            0.4356,
+            0.4273,
+            0.4275
+          ],
+          "phi_per_generation": [
+            -0.0887,
+            -0.0808,
+            -0.0368,
+            -0.0273,
+            -0.0053,
+            0.0267,
+            0.0341,
+            0.068,
+            0.078,
+            0.0975
+          ],
+          "phi_iteration": 0.0065
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.4299,
+            0.453,
+            0.4541,
+            0.4663,
+            0.4724,
+            0.4885,
+            0.502,
+            0.5099,
+            0.5328,
+            0.5313
+          ],
+          "negative_hypervolume_per_generation": [
+            0.4882,
+            0.4886,
+            0.4795,
+            0.4625,
+            0.4516,
+            0.4418,
+            0.4438,
+            0.4152,
+            0.4101,
+            0.4028
+          ],
+          "phi_per_generation": [
+            -0.0583,
+            -0.0356,
+            -0.0254,
+            0.0038,
+            0.0208,
+            0.0467,
+            0.0582,
+            0.0947,
+            0.1227,
+            0.1285
+          ],
+          "phi_iteration": 0.0356
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it5_s5",
+            "it5_s10"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it5_s10",
+            "it5_s3",
+            "it5_s1",
+            "it5_s4"
+          ],
+          "assigned_count": 4
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it5_s5",
+            "it5_s2",
+            "it5_s4"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [
+            "it5_s5",
+            "it5_s9",
+            "it5_s10"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [
+            "it5_s8",
+            "it5_s10",
+            "it5_s2"
+          ],
+          "assigned_count": 3
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V2",
+        "assigned_count": 4
+      }
+    },
+    {
+      "iteration": 6,
+      "phase": "decision",
+      "composite_front": [
+        {
+          "solution_id": "it6_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.87,
+            0.0764,
+            0.9254,
+            0.7557,
+            0.8543
+          ]
+        },
+        {
+          "solution_id": "it6_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.2806,
+            0.0516,
+            0.662,
+            0.635,
+            0.1489
+          ]
+        },
+        {
+          "solution_id": "it6_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.971,
+            0.4362,
+            0.3156,
+            0.7732,
+            0.7851
+          ]
+        },
+        {
+          "solution_id": "it6_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.4277,
+            0.029,
+            0.7617,
+            0.4,
+            0.8757
+          ]
+        },
+        {
+          "solution_id": "it6_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.5542,
+            0.2034,
+            0.0806,
+            0.9335,
+            0.4109
+          ]
+        },
+        {
+          "solution_id": "it6_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6149,
+            0.1386,
+            0.8695,
+            0.4856,
+            0.9119
+          ]
+        },
+        {
+          "solution_id": "it6_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.5501,
+            0.1708,
+            0.4149,
+            0.2817,
+            0.2557
+          ]
+        },
+        {
+          "solution_id": "it6_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.7387,
+            0.6528,
+            0.4062,
+            0.2387,
+            0.4832
+          ]
+        },
+        {
+          "solution_id": "it6_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6689,
+            0.1197,
+            0.6432,
+            0.0752,
+            0.5006
+          ]
+        },
+        {
+          "solution_id": "it6_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.8118,
+            0.5504,
+            0.453,
+            0.3328,
+            0.7592
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.7497,
+          0.4128,
+          0.4139,
+          0.5242,
+          0.3769
+        ],
+        "selected_reference_vector": "V4",
+        "selection_rule": "max_assigned_vector_as_roi",
+        "description": "The ADM refines the search around the most populated ROI vector."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.4388,
+            0.4496,
+            0.4585,
+            0.4806,
+            0.4843,
+            0.497,
+            0.5129,
+            0.533,
+            0.5284,
+            0.5542
+          ],
+          "negative_hypervolume_per_generation": [
+            0.4812,
+            0.4894,
+            0.4701,
+            0.4673,
+            0.4454,
+            0.438,
+            0.4391,
+            0.4275,
+            0.4006,
+            0.4079
+          ],
+          "phi_per_generation": [
+            -0.0424,
+            -0.0398,
+            -0.0116,
+            0.0133,
+            0.0389,
+            0.059,
+            0.0738,
+            0.1055,
+            0.1278,
+            0.1463
+          ],
+          "phi_iteration": 0.0471
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.4495,
+            0.452,
+            0.4825,
+            0.4931,
+            0.493,
+            0.5031,
+            0.5256,
+            0.5384,
+            0.5513,
+            0.559
+          ],
+          "negative_hypervolume_per_generation": [
+            0.4817,
+            0.4678,
+            0.4665,
+            0.4594,
+            0.4322,
+            0.4304,
+            0.4288,
+            0.4129,
+            0.3991,
+            0.3808
+          ],
+          "phi_per_generation": [
+            -0.0322,
+            -0.0158,
+            0.016,
+            0.0337,
+            0.0608,
+            0.0727,
+            0.0968,
+            0.1255,
+            0.1522,
+            0.1782
+          ],
+          "phi_iteration": 0.0688
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it6_s3",
+            "it6_s9",
+            "it6_s4"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it6_s2"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "it6_s6"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it6_s2",
+            "it6_s6",
+            "it6_s4",
+            "it6_s3"
+          ],
+          "assigned_count": 4
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [
+            "it6_s10",
+            "it6_s4"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V4",
+        "assigned_count": 4
+      }
+    },
+    {
+      "iteration": 7,
+      "phase": "decision",
+      "composite_front": [
+        {
+          "solution_id": "it7_s1",
+          "method": "iRVEA",
+          "objectives": [
+            0.7823,
+            0.2326,
+            0.9199,
+            0.6455,
+            0.3038
+          ]
+        },
+        {
+          "solution_id": "it7_s2",
+          "method": "iRVEA",
+          "objectives": [
+            0.128,
+            0.2518,
+            0.6363,
+            0.6986,
+            0.1121
+          ]
+        },
+        {
+          "solution_id": "it7_s3",
+          "method": "iRVEA",
+          "objectives": [
+            0.0704,
+            0.5244,
+            0.5829,
+            0.3881,
+            0.2236
+          ]
+        },
+        {
+          "solution_id": "it7_s4",
+          "method": "iRVEA",
+          "objectives": [
+            0.6011,
+            0.0105,
+            0.3015,
+            0.4607,
+            0.9589
+          ]
+        },
+        {
+          "solution_id": "it7_s5",
+          "method": "iRVEA",
+          "objectives": [
+            0.6446,
+            0.8838,
+            0.4753,
+            0.2348,
+            0.2471
+          ]
+        },
+        {
+          "solution_id": "it7_s6",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.9606,
+            0.7047,
+            0.3074,
+            0.0218,
+            0.4983
+          ]
+        },
+        {
+          "solution_id": "it7_s7",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.6745,
+            0.42,
+            0.2573,
+            0.6674,
+            0.9252
+          ]
+        },
+        {
+          "solution_id": "it7_s8",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.2268,
+            0.0341,
+            0.3381,
+            0.4206,
+            0.6826
+          ]
+        },
+        {
+          "solution_id": "it7_s9",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.1981,
+            0.7971,
+            0.7391,
+            0.5049,
+            0.2052
+          ]
+        },
+        {
+          "solution_id": "it7_s10",
+          "method": "iNSGA-III",
+          "objectives": [
+            0.9699,
+            0.3117,
+            0.82,
+            0.2308,
+            0.2214
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          0.0601,
+          0.3933,
+          0.8982,
+          0.8836,
+          0.7327
+        ],
+        "selected_reference_vector": "V2",
+        "selection_rule": "max_assigned_vector_as_roi",
+        "description": "The ADM refines the search around the most populated ROI vector."
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            0.477,
+            0.4756,
+            0.4997,
+            0.4936,
+            0.5126,
+            0.5236,
+            0.5291,
+            0.548,
+            0.5555,
+            0.5691
+          ],
+          "negative_hypervolume_per_generation": [
+            0.4786,
+            0.4537,
+            0.4549,
+            0.4433,
+            0.4275,
+            0.4134,
+            0.4056,
+            0.4091,
+            0.3993,
+            0.3771
+          ],
+          "phi_per_generation": [
+            -0.0016,
+            0.0219,
+            0.0448,
+            0.0503,
+            0.0851,
+            0.1102,
+            0.1235,
+            0.1389,
+            0.1562,
+            0.192
+          ],
+          "phi_iteration": 0.0921
+        },
+        "iNSGA-III": {
+          "positive_hypervolume_per_generation": [
+            0.4744,
+            0.4786,
+            0.4915,
+            0.5124,
+            0.5133,
+            0.5186,
+            0.5462,
+            0.5428,
+            0.5553,
+            0.5711
+          ],
+          "negative_hypervolume_per_generation": [
+            0.4714,
+            0.446,
+            0.4425,
+            0.4289,
+            0.4329,
+            0.4132,
+            0.4103,
+            0.3857,
+            0.3934,
+            0.3799
+          ],
+          "phi_per_generation": [
+            0.003,
+            0.0326,
+            0.049,
+            0.0835,
+            0.0804,
+            0.1054,
+            0.1359,
+            0.1571,
+            0.1619,
+            0.1912
+          ],
+          "phi_iteration": 0.1
+        }
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "it7_s2",
+            "it7_s8"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "it7_s3",
+            "it7_s4",
+            "it7_s8",
+            "it7_s9"
+          ],
+          "assigned_count": 4
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "it7_s3",
+            "it7_s7",
+            "it7_s1",
+            "it7_s2"
+          ],
+          "assigned_count": 4
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [
+            "it7_s3",
+            "it7_s7",
+            "it7_s1",
+            "it7_s6"
+          ],
+          "assigned_count": 4
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V2",
+        "assigned_count": 4
+      }
+    }
+  ],
+  "overall_outputs": {
+    "phi_learning_phase": {
+      "iRVEA": {
+        "total_phi": -0.4327,
+        "std_phi": 0.0584
+      },
+      "iNSGA-III": {
+        "total_phi": -0.1805,
+        "std_phi": 0.0419
+      }
+    },
+    "phi_decision_phase": {
+      "iRVEA": {
+        "total_phi": 0.1457,
+        "std_phi": 0.0428
+      },
+      "iNSGA-III": {
+        "total_phi": 0.2044,
+        "std_phi": 0.0322
+      }
+    }
+  }
+}
