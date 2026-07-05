@@ -28,6 +28,7 @@
 		'/methods/sessions': 'Sessions',
 		'/problems': 'Problems',
 		'/problems/define': 'Define New',
+        '/adm': 'ADM',
 	};
 
 	// Paths that are layout-only (no +page.svelte) — rendered as plain text, not links
