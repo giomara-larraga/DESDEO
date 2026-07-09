@@ -3,7 +3,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { formatNumber } from '$lib/helpers';
-	import type { ProblemInfo } from '$lib/types';
+	import type { ProblemInfo, Solution } from '$lib/types';
 	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
 
 	type InfluenceRow = {
@@ -18,6 +18,7 @@
 	interface Props {
 		selectedObjectiveName: string;
 		preferenceValues: number[];
+		selectedSolution: Solution;
 		selectedObjectiveIndex: number;
 		achievedValueNumber: number;
 		selectedObjectiveDigits: number;
@@ -35,6 +36,7 @@
 	let {
 		selectedObjectiveName,
 		preferenceValues,
+		selectedSolution,
 		selectedObjectiveIndex,
 		achievedValueNumber,
 		selectedObjectiveDigits,
@@ -54,9 +56,107 @@
 		if (!Number.isFinite(num)) return '—';
 		return num.toFixed(2);
 	}
+	let directionSelectedObjective = $derived(() => {
+		const objective = problem.objectives[selectedObjectiveIndex];
+		return objective.maximize ? 'max' : 'min';
+	});
+
+
+	function computeDifferenceWithTolerance(desired: number, achieved: number, tolerance: number): string {
+		if (!Number.isFinite(desired) || !Number.isFinite(achieved)) return 'unchanged';
+		const diff = achieved - desired;
+		if (Math.abs(diff) <= tolerance) return 'has met the desired value';
+		return directionSelectedObjective() === 'max' ? (achieved > desired ? 'is better than the desired value' : 'is worse than the desired value') : (achieved < desired ? 'is better than the desired value' : 'is worse than the desired value');
+	}
+
+	type ObjectiveStatus = 'better' | 'same' | 'worse';
+
+	const objectiveSummary = $derived.by(() => {
+		let met = 0;
+		let unmet = 0;
+
+		for (let i = 0; i < problem.objectives.length; i++) {
+			const objective = problem.objectives[i];
+
+			const desired = preferenceValues[i];
+			const achieved = Number(selectedSolution?.objective_values?.[objective.symbol]);
+
+			if (!Number.isFinite(desired) || !Number.isFinite(achieved)) continue;
+
+			const meets = objective.maximize
+				? achieved >= desired
+				: achieved <= desired;
+
+			if (meets) met++;
+			else unmet++;
+		}
+
+		const ratio = met / Math.max(1, met + unmet);
+
+		let headline = '';
+		let description = '';
+
+		if (ratio >= 0.8) {
+			headline = 'Most desired values are achieved';
+			description =
+				mainTradeoff == null
+					? 'Only minor preference adjustments may be enough to improve the remaining objectives.'
+					: `Most desired values are already achieved, but improving ${selectedObjectiveName} may still require a trade-off with ${mainTradeoff.name}.`;
+		} else if (ratio >= 0.4) {
+			headline = 'Some desired values are achieved';
+			description =
+				'Improving the remaining objectives will likely require balancing trade-offs.';
+		} else {
+			headline = 'Several desired values remain unmet';
+			description =
+				'The current preferences are difficult to satisfy simultaneously, so trade-offs are expected.';
+		}
+
+		return {
+			met,
+			unmet,
+			headline,
+			description
+		};
+	});
 </script>
 
 <div class="space-y-3">
+
+	
+
+	<!-- Solution overview -->
+<!-- 	<div class="rounded-md border border-sky-100 bg-sky-50 p-3">
+		<div class="mb-2 text-sm font-semibold text-gray-900">
+			Current solution overview
+		</div>
+
+		<div class="flex items-center gap-4 text-sm">
+			<div class="flex items-center gap-1 text-green-700">
+				<span>✓</span>
+				<span>
+					<strong>{objectiveSummary.met}</strong>
+					met
+				</span>
+			</div>
+
+			<div class="flex items-center gap-1 text-amber-700">
+				<span>⚠</span>
+				<span>
+					<strong>{objectiveSummary.unmet}</strong>
+					unmet
+				</span>
+			</div>
+		</div>
+
+		<div class="mt-2 text-sm font-medium text-gray-800">
+			{objectiveSummary.headline}
+		</div>
+
+		<p class="mt-1 text-sm leading-relaxed text-gray-600">
+			{objectiveSummary.description}
+		</p>
+	</div> -->
 
 	<!-- Objective status -->
 	<div class="rounded-md border border-gray-200 bg-white p-3">
@@ -79,6 +179,9 @@
 				</div>
 			</div>
 		</div>
+		<div class="mt-2 text-sm text-gray-600">
+			The achieved value {computeDifferenceWithTolerance(preferenceValues[selectedObjectiveIndex], achievedValueNumber, 0.01)}.
+		</div>
 	</div>
 
 	<!-- Main visual relationship -->
@@ -91,7 +194,7 @@
 			<div class="rounded-md bg-white p-3">
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
 					<div class="text-center">
-						<div class="text-xs font-medium text-amber-600">Desired value</div>
+						<div class="text-xs font-medium text-amber-600">Desired value of</div>
 						<div class="font-semibold">{mainTradeoff.name}</div>
 					</div>
 
@@ -100,7 +203,7 @@
 					</div>
 
 					<div class="text-center">
-						<div class="text-xs font-medium text-blue-600">Achieved value</div>
+						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
 						<div class="font-semibold">{selectedObjectiveName}</div>
 					</div>
 				</div>
@@ -130,7 +233,7 @@
 			<div class="rounded-md bg-white p-3">
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
 					<div class="text-center">
-						<div class="text-xs font-medium text-amber-600">Desired value</div>
+						<div class="text-xs font-medium text-amber-600">Desired value of</div>
 						<div class="font-semibold">{mainSynergy.name}</div>
 					</div>
 
@@ -139,7 +242,7 @@
 					</div>
 
 					<div class="text-center">
-						<div class="text-xs font-medium text-blue-600">Achieved value</div>
+						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
 						<div class="font-semibold">{selectedObjectiveName}</div>
 					</div>
 				</div>
@@ -221,7 +324,7 @@
 	<!-- Waterfall as the main explanation -->
 	<div class="rounded-md border border-gray-200 bg-white p-3">
 		<div class="mb-2 text-sm font-semibold text-gray-900">
-			Contribution breakdown
+			How was this value achieved?
 		</div>
 
 		<p class="mb-3 text-sm text-gray-600">

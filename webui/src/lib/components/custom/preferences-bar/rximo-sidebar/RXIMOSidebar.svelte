@@ -6,6 +6,7 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import type { ProblemInfo, Solution } from '$lib/types';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
+	import {COLOR_PALETTE} from '$lib/components/visualizations/utils/colors';
 
 	import { ShapHeatmap, ShapBarchart } from '$lib/components/visualizations/shap-heatmap';
 	import { Combobox } from '$lib/components/ui/combobox';
@@ -146,13 +147,6 @@
 		isHelpful: boolean;
 	};
 
-	function formatValue(value: unknown): string {
-		const num = Array.isArray(value) ? Number(value[0]) : Number(value);
-		if (!Number.isFinite(num)) return '—';
-		return num.toFixed(2);
-	}
-
-
 	const selectedSolutionValue = $derived.by(() => {
 		const raw = solutions[0]?.objective_values?.[selectedObjectiveSymbol];
 		return raw;
@@ -215,15 +209,6 @@
 			.sort((a, b) => a.helpScore - b.helpScore)[0];
 	});
 
-	const suggestionSentence = $derived.by(() => {
-		if (apiRXIMOResult) return apiRXIMOResult.suggestion;
-		if (!rival) {
-			return `No clear non-own rival aspiration was detected for ${selectedObjectiveName}. Try tightening ${selectedObjectiveName} directly.`;
-		}
-
-		return `To improve ${selectedObjectiveName}, try tightening ${selectedObjectiveName} and relaxing ${rival.name}.`;
-	});
-
 	// Misitano et al. (2022) found DMs preferred suggestions over explanations,
 	// so the explanation text is exposed only on demand via a disclosure.
 	const explanationText = $derived(apiRXIMOResult?.explanation ?? null);
@@ -245,9 +230,6 @@
 		scenarioPreferenceValues: number[];
 		deltas: ScenarioDelta[];
 	};
-
-	type ScenarioDiffDisplayMode = 'value' | 'percent';
-	let scenarioDiffDisplayMode = $state<ScenarioDiffDisplayMode>('value');
 
 	const baselineObjectiveValues = $derived(solutions[0]?.objective_values ?? null);
 
@@ -354,21 +336,39 @@
 		return Math.max(0.0001, ...influenceRows.map((r) => Math.abs(r.helpScore)));
 	});
 
-	function formatSigned(value: number): string {
-		const fixed = Math.abs(value).toFixed(3);
-		if (value > 0) return `+${fixed}`;
-		if (value < 0) return `-${fixed}`;
-		return '0.000';
-	}
+	function objectiveColor(index: number): string {
+	return COLOR_PALETTE[index % COLOR_PALETTE.length];
+}
 
-	function formatSignedPercent(value: number | null): string {
-		if (value == null || !Number.isFinite(value)) return 'n/a';
+function getObjectiveAchievedValue(symbol: string): number | null {
+	const raw = solutions[0]?.objective_values?.[symbol];
+	const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
+	return Number.isFinite(value) ? value : null;
+}
 
-		const fixed = Math.abs(value).toFixed(2);
-		if (value > 0) return `+${fixed}%`;
-		if (value < 0) return `-${fixed}%`;
-		return '0.00%';
-	}
+function objectiveMeetsDesired(index: number): boolean | null {
+	const objective = problem.objectives[index];
+	const desired = Number(preferenceValues[index]);
+	const achieved = getObjectiveAchievedValue(objective.symbol);
+
+	if (!Number.isFinite(desired) || achieved == null) return null;
+
+	const tolerance = 0.01;
+
+	return objective.maximize
+		? achieved >= desired - tolerance
+		: achieved <= desired + tolerance;
+}
+
+const objectiveStatuses = $derived.by(() =>
+	problem.objectives.map((objective, index) => ({
+		symbol: objective.symbol,
+		name: objective.name ?? objective.symbol,
+		color: objectiveColor(index),
+		met: objectiveMeetsDesired(index),
+		isSelected: objective.symbol === selectedObjectiveSymbol
+	}))
+);
 </script>
 
 <Sidebar.Root 
@@ -380,6 +380,21 @@
 	<Sidebar.Header>
 		<div>
 			<span class="text-sm font-semibold">Explanations</span>
+			<Tooltip.Root>
+				<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
+					<InfoIcon class="h-3.5 w-3.5" />
+				</Tooltip.Trigger>
+				<Tooltip.Content sideOffset={6} class="max-w-84">
+			
+					<strong>Explanation tabs</strong>
+					<ul>
+						<li><strong>Understand:</strong> Why was this value obtained?</li>
+						<li><strong>Explore:</strong> What trade-offs are possible?</li>
+						<li><strong>Details:</strong> What relationships and contributions explain it?</li>
+					</ul>
+				
+				</Tooltip.Content>
+			</Tooltip.Root>
 		</div>
 	</Sidebar.Header>
 
@@ -392,7 +407,75 @@
 			{:else}
 				<div class="space-y-4">
 					<div class="flex items-center gap-3">
-						<div class="flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600">
+					<div class="rounded-md border border-gray-200 bg-white p-3">
+	<div class="mb-2 flex items-center justify-between gap-2">
+		<div>
+			<div class="text-sm font-semibold text-gray-900">
+				Objectives
+			</div>
+
+			<div class="text-xs text-gray-500">
+				Click an objective to view its explanation.
+			</div>
+		</div>
+	</div>
+
+	<div class="flex flex-wrap gap-1.5">
+		{#each objectiveStatuses as objective}
+			<Tooltip.Root>
+				<Tooltip.Trigger asChild>
+					<button
+						type="button"
+						class={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition
+							${objective.isSelected
+								? 'border-blue-300 bg-blue-50 font-semibold text-blue-900 ring-1 ring-blue-200'
+								: 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}`}
+						onclick={() => (selectedObjectiveSymbol = objective.symbol)}
+						aria-label={`Explain ${objective.name}`}
+					>
+						<span
+							class="h-2.5 w-2.5 rounded-full"
+							style={`background-color: ${objective.color}`}
+						></span>
+						<span class="truncate">{objective.name}</span>
+
+						<span>
+							{objective.met === true ? '✓' : objective.met === false ? '⚠' : '?'}
+						</span>
+					</button>
+				</Tooltip.Trigger>
+
+				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+					<strong>{objective.name}</strong>
+					<br />
+
+					{#if objective.met === true}
+						Achieved value meets or exceeds the desired value.
+					{:else if objective.met === false}
+						Achieved value does not meet the desired value.
+					{:else}
+						Status unavailable.
+					{/if}
+
+					<br />
+					Click to explain this objective.
+				</Tooltip.Content>
+			</Tooltip.Root>
+		{/each}
+	</div>
+	<div class="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500 place-self-center">
+		<span class="flex items-center gap-1">
+			<span class="font-semibold text-green-600">✓</span>
+			Meets desired
+		</span>
+
+		<span class="flex items-center gap-1">
+			<span class="font-semibold text-amber-600">⚠</span>
+			Below desired
+		</span>
+	</div>
+</div>
+<!-- 						<div class="flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600">
 							<span>Objective to explain</span>
 							<Tooltip.Root>
 								<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
@@ -410,7 +493,7 @@
 								defaultSelected={selectedObjectiveSymbol}
 								onChange={(e) => (selectedObjectiveSymbol = e.value)}
 							/>
-						</div>
+						</div> -->
 					</div>
 
 					<Tabs.Root bind:value={explanationTab} class="w-full">
@@ -423,6 +506,7 @@
 								<WhyTab
 									{selectedObjectiveName}
 									{preferenceValues}
+									selectedSolution={solutions[0]}
 									{selectedObjectiveIndex}
 									{achievedValueNumber}
 									{selectedObjectiveDigits}

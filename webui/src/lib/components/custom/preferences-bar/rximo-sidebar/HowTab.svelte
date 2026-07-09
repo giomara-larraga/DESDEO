@@ -155,7 +155,7 @@
 								size="sm"
 								onclick={() => onApplyScenarioPreferences?.(scenario.scenarioPreferenceValues)}
 							>
-								Set preferences to this case
+								Set preferences like this
 							</Button>
 						</div>
 

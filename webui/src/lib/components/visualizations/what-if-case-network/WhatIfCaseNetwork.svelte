@@ -375,7 +375,7 @@
 
 <div class="rounded-md border border-gray-200 bg-white p-3">
 	<div class="mb-2 flex items-center justify-between gap-2">
-		<div class="text-xs font-semibold text-gray-700">What if an objective is relaxed?</div>
+		<!-- <div class="text-xs font-semibold text-gray-700">What if an objective is relaxed?</div> -->
 		{#if activeNodeSymbol}
 			<button
 				type="button"
@@ -386,9 +386,9 @@
 			</button>
 		{/if}
 	</div>
-	<div class="mb-2 text-[12px] text-gray-500">
-		Click a node to highlight the possible effects of worsening the corresponding objective.
-	</div>
+<!-- 	<div class="mb-2 text-[12px] text-gray-500">
+		Click an objective to highlight the possible effects of worsening it.
+	</div> -->
 	<div bind:this={containerEl} class="w-full">
 		<svg
 			bind:this={svgEl}
