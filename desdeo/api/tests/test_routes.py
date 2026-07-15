@@ -19,7 +19,7 @@ from desdeo.api.models import (
     GDMScoreBandsVoteRequest,
     GenericIntermediateSolutionResponse,
     GroupCreateRequest,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupModifyRequest,
     GroupPublic,
     InteractiveSessionDB,
@@ -44,11 +44,14 @@ from desdeo.api.models import (
     User,
     UserPublic,
 )
+from desdeo.api.models.gdm.gdm_aggregate import GroupIteration, GroupSessionDB
+from desdeo.api.models.generic_states import StateDB
 from desdeo.api.models.nimbus import (
     NIMBUSInitializationResponse,
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
 )
+from desdeo.api.routers.gdm.gdm_base import create_group, create_group_session
 from desdeo.api.routers.user_authentication import create_access_token
 from desdeo.emo.options.algorithms import rvea_options
 from desdeo.emo.options.templates import ReferencePointOptions
@@ -915,7 +918,7 @@ def test_group_operations(client: TestClient):
         return post_json(
             client=client,
             endpoint=group_info_endpoint,
-            json=GroupInfoRequest(
+            json=GroupSessionInfoRequest(
                 group_id=gid,
             ).model_dump(),
             access_token=access_token,
@@ -1007,7 +1010,7 @@ def test_group_operations(client: TestClient):
     response = post_json(
         client=client,
         endpoint=delete_endpoint,
-        json=GroupInfoRequest(
+        json=GroupSessionInfoRequest(
             group_id=1,
         ).model_dump(),
         access_token=access_token,
@@ -1188,7 +1191,7 @@ def test_gdm_score_bands(client: TestClient):
     assert response_innards.history[-1].phase == "learning"
     cluster_size_1 = len(response_innards.history[-1].result.clusters)
 
-    req = GroupInfoRequest(group_id=1).model_dump()
+    req = GroupSessionInfoRequest(group_id=1).model_dump()
     response = post_json(
         client=client, endpoint="/gdm-score-bands/learning/complete", json=req, access_token=access_token
     )
@@ -1216,7 +1219,7 @@ def test_gdm_score_bands(client: TestClient):
     ).model_dump()
     response = post_json(client=client, endpoint="/gdm-score-bands/vote", json=req, access_token=access_token)
     assert response.status_code == 200
-    req = GroupInfoRequest(group_id=1).model_dump()
+    req = GroupSessionInfoRequest(group_id=1).model_dump()
     response = post_json(client=client, endpoint="/gdm-score-bands/confirm", json=req, access_token=access_token)
     assert response.status_code == 200
 
@@ -1396,3 +1399,111 @@ def test_xnimbus_get_multipliers(client: TestClient):
     assert mult_response.status_code == status.HTTP_200_OK
     result = NIMBUSMultiplierResponse.model_validate(json.loads(mult_response.content.decode("utf-8")))
     assert result is not None
+
+
+def test_create_group_session_route(
+    client,
+    db_session,
+    authenticated_user_override,
+    problem_factory,
+):
+    owner = authenticated_user_override
+    group = create_group(db_session, owner)
+    problem = problem_factory(db_session, owner)
+
+    response = client.post(
+        f"/gdm/groups/{group.id}/sessions",
+        json={
+            "problem_id": problem.id,
+            "method": "gnimbus",
+            "info_container": {
+                "method": "optimization",
+                "phase": "learning",
+                "set_preferences": {},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    group_session = db_session.get(
+        GroupSessionDB,
+        data["id"],
+    )
+
+    assert group_session is not None
+    assert group_session.group_id == group.id
+    assert group_session.problem_id == problem.id
+    assert group_session.head_iteration_id is not None
+
+
+def test_cannot_create_session_for_unknown_group(client):
+    response = client.post(
+        "/gdm/groups/999999/sessions",
+        json={
+            "problem_id": 1,
+            "method": "gnimbus",
+            "info_container": {
+                "method": "optimization",
+                "phase": "learning",
+                "set_preferences": {},
+            },
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_gnimbus_initialize_uses_group_session(
+    mock_check_solver,
+    mock_generate_starting_point,
+    client,
+    db_session,
+    authenticated_user_override,
+    problem_factory,
+    solver_result_factory,
+):
+    owner = authenticated_user_override
+    group = create_group(db_session, owner)
+    problem = problem_factory(db_session, owner)
+
+    group_session = create_group_session(
+        db_session,
+        group,
+        problem,
+        method="gnimbus",
+    )
+
+    mock_check_solver.return_value = object()
+    mock_generate_starting_point.return_value = solver_result_factory()
+
+    response = client.post(
+        "/gnimbus/initialize",
+        json={"group_session_id": group_session.id},
+    )
+
+    assert response.status_code == 200
+
+    db_session.refresh(group_session)
+
+    assert group_session.head_iteration_id is not None
+
+    head = db_session.get(
+        GroupIteration,
+        group_session.head_iteration_id,
+    )
+
+    assert head is not None
+    assert head.session_id == group_session.id
+    assert head.parent is not None
+    assert head.parent.session_id == group_session.id
+
+    init_state = db_session.get(
+        StateDB,
+        head.parent.state_id,
+    )
+
+    assert init_state.group_session_id == group_session.id
+    assert init_state.session_id is None

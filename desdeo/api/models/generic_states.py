@@ -8,6 +8,7 @@ from pydantic import ConfigDict, computed_field
 from sqlalchemy.orm import object_session
 from sqlmodel import (
     JSON,
+    CheckConstraint,
     Column,
     Field,
     Relationship,
@@ -93,6 +94,18 @@ class StateDB(SQLModel, table=True):
     """State holder with a single relationship to the base State."""
 
     __tablename__ = "statedb"
+
+    __table_args__ = (
+        CheckConstraint(
+            """
+            NOT (
+                session_id IS NOT NULL
+                AND group_session_id IS NOT NULL
+            )
+            """,
+            name="state_has_only_one_session_type",
+        ),
+    )
 
     id: int | None = Field(primary_key=True, default=None)
 

@@ -256,7 +256,7 @@ def create_group_session(
         group_id=group_id,
         problem_id=request.problem_id,
         method=request.method,
-        status="active",
+        #status="active",
     )
 
     session.add(group_session)
@@ -267,7 +267,7 @@ def create_group_session(
         session_id=group_session.id,
         parent_id=None,
         state_id=None,
-        info_container=request.initial_info_container,
+        #info_container=request.initial_info_container,
     )
 
     session.add(initial_iteration)
