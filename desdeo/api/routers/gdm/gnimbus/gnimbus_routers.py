@@ -405,7 +405,7 @@ async def switch_phase(
     session.refresh(iteration)
 
     # get the group manager and notify the connected users that the phase has changed
-    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus")
+    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus", db_session=session)
 
     await gman.broadcast(f"The phase was changed from {old_phase} to {new_phase}.")
 
@@ -562,7 +562,7 @@ async def revert_iteration(
     session.commit()
     session.refresh(group_session)
 
-    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus")
+    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus", db_session=session)
     await gman.broadcast("UPDATE: Latest iteration reversed by the group owner!")
 
     return JSONResponse(

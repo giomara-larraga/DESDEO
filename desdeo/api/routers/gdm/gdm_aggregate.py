@@ -58,12 +58,14 @@ class ManagerManager:
         self.lock = asyncio.Lock()
 
     async def get_group_manager(
-        self, group_id: int, method: str, db_session: Session
+        self, group_session_id: int, method: str, db_session: Session
     ) -> GroupManager | GNIMBUSManager | GDMScoreBandsManager | None:
         """Return the correct group manager for the caller.
 
         Args:
-            group_id (int): The ID of the group of the mgr
+            group_session_id (int): The ID of the group session
+            method (str): The method of the group mgr
+            db_session (Session): the database session passed to the manager.
             method (str): The method of the group mgr
             db_session (Session): the database session passed to the manager.
 
@@ -71,60 +73,77 @@ class ManagerManager:
             GroupManager | GNIMBUSManager | GDMScoreBandsManager | None: The manager (or not if not implemented.)
         """
         async with self.lock:
-            if group_id in self.group_managers:
-                managers = self.group_managers[group_id]
-                if method in managers:
-                    return managers[method]
-                # If there is no manager, create it.
-                match method:
-                    case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-                    case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-            else:
-                self.group_managers[group_id] = {}
-                match method:
-                    case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-                    case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
+            method_managers = self.group_managers.setdefault(
+                group_session_id,
+                {},
+            )
 
-    async def check_disconnect(self, group_id: int, method: str):
+            existing_manager = method_managers.get(method)
+
+            if existing_manager is not None:
+                return existing_manager
+        
+            # If there is no manager, create it.
+            match method:
+                case "gnimbus":
+                    group_manager = GNIMBUSManager(
+                        group_session_id=group_session_id,
+                        db_session=db_session,
+                    )
+
+                case "gdm-score-bands":
+                    group_manager = GDMScoreBandsManager(
+                        group_session_id=group_session_id,
+                        db_session=db_session,
+                    )
+
+                case _:
+                    return None
+
+            method_managers[method] = group_manager
+
+            return group_manager
+
+
+    async def check_disconnect(self, group_session_id: int, method: str):
         """Checks if a group manager has active connections. If no, delete it.
 
         Args:
-            group_id (int): ID of the group
+            group_session_id (int): ID of the group session
             method (str): method of the manager
 
         Returns:
             Nothing.
         """
         async with self.lock:
-            # check if group has any managers
-            if group_id in self.group_managers:
-                managers = self.group_managers[group_id]
-                # Check if method has a manager
-                if method in managers:
-                    manager = managers[method]
-                    # check if the manager has any active websockets
-                    for _, socket in manager.sockets.items():
-                        if socket is not None:
-                            return
-                    # No active sockets, delete the manager.
-                    async with manager.lock:
-                        del self.group_managers[group_id][method]
-                        # If group has no managers, delete the group entry.
-                        if self.group_managers[group_id] == {}:
-                            del self.group_managers[group_id]
+            method_managers = self.group_managers.get(
+                group_session_id
+            )
 
+            if method_managers is None:
+                return
+
+            group_manager = method_managers.get(method)
+
+            if group_manager is None:
+                return
+
+            has_active_connection = any(
+                socket is not None
+                for socket in group_manager.sockets.values()
+            )
+
+            if has_active_connection:
+                return
+
+            async with group_manager.lock:
+                method_managers.pop(method, None)
+
+                if not method_managers:
+                    self.group_managers.pop(
+                        group_session_id,
+                        None,
+                    )
 
 manager = ManagerManager()
 

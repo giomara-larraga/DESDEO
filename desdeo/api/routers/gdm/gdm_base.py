@@ -47,49 +47,73 @@ class ManagerError(Exception):
 
 
 class GroupManager:
-    """A group manager. Manages connections, disconnections, optimization and communication to users."""
+    """Manage a group session's connections and communication."""
 
-    def __init__(self, group_session_id: int, db_session: Session):
-        """Initializes the instance of the group manager."""
+    def __init__(
+        self,
+        group_session_id: int,
+        db_session: Session,
+    ):
+        """Initialize a manager for one group decision-making session."""
         self.lock = asyncio.Lock()
-        self.sockets: dict[int, WebSocket] = {}
-        self.group_session_id: int = group_session_id
+        self.sockets: dict[int, WebSocket | None] = {}
+        self.group_session_id = group_session_id
 
-        # Get session and make sure the group exists
-        group_session = db_session.exec(select(GroupSessionDB).where(GroupSessionDB.id == group_session_id)).first()
-        if group_session is None:
-            #db_session.close()
-            raise ManagerError(f"No group session with ID {group_session_id} found!")
-        
-        group = db_session.exec(
-            select(Group).where(Group.id == group_session.group_id)
+        group_session = db_session.exec(
+            select(GroupSessionDB).where(
+                GroupSessionDB.id == group_session_id
+            )
         ).first()
+
+        if group_session is None:
+            raise ManagerError(
+                f"No group session with ID {group_session_id} found!"
+            )
+
+        group = db_session.exec(
+            select(Group).where(
+                Group.id == group_session.group_id
+            )
+        ).first()
+
         if group is None:
-            #db_session.close()
-            raise ManagerError(f"No group with ID {group_session.group_id} found!")
+            raise ManagerError(
+                f"No group with ID {group_session.group_id} found!"
+            )
 
-        # Initialize the socket dict (at the very least to avoid KeyErrors)
+        # Decision makers linked through GroupUserLink.
         for user in group.users:
-            self.sockets[user.id] = None
+            if user.id is not None:
+                self.sockets[user.id] = None
 
-        # Include owner too, if owner is not already in group.users
-        self.sockets.setdefault(group.owner_id, None)
+        # The owner may be an observer and may not be in Group.users.
+        if group.owner_id is not None:
+            self.sockets.setdefault(group.owner_id, None)
 
-        #db_session.close()
-
-    async def send_message(self, message: str, websocket: WebSocket):
-        """Notify the user of the existing results that have to be fetched."""
+    async def send_message(
+        self,
+        message: str,
+        websocket: WebSocket,
+    ) -> None:
+        """Send a message to one connected user."""
         try:
             await websocket.send_text(message)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, RuntimeError):
             return
 
-    async def connect(self, user_id: int, websocket: WebSocket, db_session: Session):
-        """Connect to websocket.
+    async def connect(
+        self,
+        user_id: int,
+        websocket: WebSocket,
+        db_session: Session,
+    ) -> None:
+        """Attach a WebSocket to this manager."""
+        if user_id not in self.sockets:
+            raise ManagerError(
+                f"User with ID {user_id} does not belong to "
+                f"group session {self.group_session_id}."
+            )
 
-        The connection has been accepted beforehand for sending error messages
-        back to user, but here we attach it to the manager instance.
-        """
         self.sockets[user_id] = websocket
 
         group_session = db_session.exec(
@@ -101,79 +125,100 @@ class GroupManager:
         if group_session is None:
             return
 
-        head_iter = db_session.exec(
+        if group_session.head_iteration_id is None:
+            return
+
+        head_iteration = db_session.exec(
             select(GroupIteration).where(
-                GroupIteration.id == group_session.head_iteration_id
+                GroupIteration.id == group_session.head_iteration_id,
+                GroupIteration.session_id == group_session.id,
             )
         ).first()
 
-        if head_iter is None:
+        if head_iteration is None:
             return
 
-        prev_iter = head_iter.parent
-        if prev_iter is None:
+        previous_iteration = head_iteration.parent
+
+        if previous_iteration is None:
             return
 
-        notified = prev_iter.notified or {}
-        if not notified.get(str(user_id), True):
-            await self.send_message("Please fetch results.", websocket)
+        # JSON object keys are strings after persistence.
+        notified = dict(previous_iteration.notified or {})
+        user_key = str(user_id)
 
-            notified = notified.copy()
-            notified[str(user_id)] = True
+        if not notified.get(user_key, True):
+            await self.send_message(
+                "Please fetch results.",
+                websocket,
+            )
 
-            prev_iter.notified = notified
-            db_session.add(prev_iter)
+            notified[user_key] = True
+            previous_iteration.notified = notified
+
+            db_session.add(previous_iteration)
             db_session.commit()
+            db_session.refresh(previous_iteration)
 
-
-    async def disconnect(self, user_id: int, websocket: WebSocket):
-        """Disconnect from websocket.
-
-        The connection has been closed beforehand, but here we detach the WebSocket
-        object from the manager instance.
-        """
-        if self.sockets[user_id] == websocket:
+    async def disconnect(
+        self,
+        user_id: int,
+        websocket: WebSocket,
+    ) -> None:
+        """Detach a WebSocket from this manager."""
+        if self.sockets.get(user_id) is websocket:
             self.sockets[user_id] = None
 
-    async def broadcast(self, message: str):
-        """Send message to all connected websockets."""
-        for _, socket in self.sockets.items():
-            if socket is not None:
-                try:
-                    await socket.send_text(message)
-                except WebSocketDisconnect:
-                    continue
+    async def broadcast(
+        self,
+        message: str,
+    ) -> None:
+        """Send a message to every connected user."""
+        for user_id, socket in list(self.sockets.items()):
+            if socket is None:
+                continue
+
+            try:
+                await socket.send_text(message)
+            except (WebSocketDisconnect, RuntimeError):
+                self.sockets[user_id] = None
 
     async def notify(
         self,
         user_ids: list[int],
         message: str,
-    ) -> dict[int, bool]:
-        """Notify all users with [message]."""
-        notified = {}
+    ) -> dict[str, bool]:
+        """Notify users and return persisted notification statuses."""
+        notified: dict[str, bool] = {}
+
         for user_id in user_ids:
+            socket = self.sockets.get(user_id)
+            user_key = str(user_id)
+
+            if socket is None:
+                notified[user_key] = False
+                continue
+
             try:
-                socket: WebSocket = self.sockets[user_id]
-                if socket is not None:
-                    await self.send_message(message, socket)
-                    notified[user_id] = True
-                else:
-                    notified[user_id] = False
-            except KeyError:
-                notified[user_id] = False
+                await self.send_message(message, socket)
+                notified[user_key] = True
+            except RuntimeError:
+                self.sockets[user_id] = None
+                notified[user_key] = False
+
         return notified
 
     async def run_method(
         self,
         user_id: int,
         data: str,
-    ):
-        """The function to run the method.
+        db_session: Session,
+    ) -> None:
+        """Run the method-specific action.
 
-        One could derive different managers from this GroupManager
-        class and implement method and manager-specific "run_method" functions.
+        Derived managers must override this method.
         """
-
+        raise NotImplementedError
 
 @router.post("/create_group")
 def create_group(
