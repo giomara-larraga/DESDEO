@@ -141,6 +141,9 @@ export const AddNewAnalystAddNewAnalystPostResponse = zod.unknown();
 
 /**
  * Get information on problems. Analysts and admins see all users' problems.
+Other users see:
+    - problems they own, and
+    - problems shared with them through group sessions.
 
 Args:
     user (Annotated[User, Depends): the current user.
@@ -6479,17 +6482,57 @@ Raises:
 export const CreateGroupGdmCreateGroupPostBody = zod
 	.object({
 		group_name: zod.string(),
-		problem_id: zod.number()
+		user_ids: zod.array(zod.number())
 	})
 	.describe('Used for requesting a group to be created.');
 
 export const CreateGroupGdmCreateGroupPostResponse = zod.unknown();
 
 /**
+ * Create a decision-making session for a group.
+ * @summary Create Group Session
+ */
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostParams = zod.object({
+	group_id: zod.number()
+});
+
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostBody = zod.object({
+	problem_id: zod.number(),
+	method: zod.string()
+});
+
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostResponse = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+/**
+ * Return all decision-making sessions belonging to a group.
+ * @summary Get Group Sessions
+ */
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetParams = zod.object({
+	group_id: zod.number()
+});
+
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetResponseItem = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetResponse = zod.array(
+	GetGroupSessionsGdmGroupsGroupIdSessionsGetResponseItem
+);
+
+/**
  * Delete the group with given ID.
 
 Args:
-    request (GroupInfoRequest): Contains the ID of the group to be deleted
+    request (GroupSessionInfoRequest): Contains the ID of the group to be deleted
     user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
     session (Annotated[Session, Depends(get_session)]): The database session
 
@@ -6502,7 +6545,7 @@ Raises:
  */
 export const DeleteGroupGdmDeleteGroupPostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -6557,6 +6600,38 @@ export const RemoveFromGroupGdmRemoveFromGroupPostBody = zod
 export const RemoveFromGroupGdmRemoveFromGroupPostResponse = zod.unknown();
 
 /**
+ * Get information about the sessions of a group.
+
+Args:
+    request (GroupSessionInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
+    session (Annotated[Session, Depends(get_session)]): the database session
+
+Returns:
+    list[GroupSessionPublic]: public info of the sessions of the group
+
+Raises:
+    HTTPException: If there's no group with the requests group id
+ * @summary Get Group Sessions Info
+ */
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseItem = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse = zod.array(
+	GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseItem
+);
+
+/**
  * Get information about the group.
 
 Args:
@@ -6581,10 +6656,53 @@ export const GetGroupInfoGdmGetGroupInfoPostResponse = zod
 		id: zod.number(),
 		name: zod.string(),
 		owner_id: zod.number(),
-		user_ids: zod.array(zod.number()),
-		problem_id: zod.number()
+		users: zod
+			.array(
+				zod.object({
+					id: zod.number(),
+					username: zod.string()
+				})
+			)
+			.optional()
 	})
 	.describe('Response model for Group.');
+
+/**
+ * Return groups where the current user is an owner or member.
+ * @summary Get User Groups
+ */
+export const GetUserGroupsGdmGroupsGetResponseItem = zod
+	.object({
+		id: zod.number(),
+		name: zod.string(),
+		owner_id: zod.number(),
+		users: zod
+			.array(
+				zod.object({
+					id: zod.number(),
+					username: zod.string()
+				})
+			)
+			.optional()
+	})
+	.describe('Response model for Group.');
+export const GetUserGroupsGdmGroupsGetResponse = zod.array(GetUserGroupsGdmGroupsGetResponseItem);
+
+/**
+ * Return one group decision-making session.
+ * @summary Get Group Session
+ */
+export const GetGroupSessionGdmGroupSessionsGroupSessionIdGetParams = zod.object({
+	group_session_id: zod.number()
+});
+
+export const GetGroupSessionGdmGroupSessionsGroupSessionIdGetResponse = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
 
 /**
  * Initialize the problem for GNIMBUS.
@@ -6592,7 +6710,7 @@ export const GetGroupInfoGdmGetGroupInfoPostResponse = zod
  */
 export const GnimbusInitializeGnimbusInitializePostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -6604,7 +6722,7 @@ export const GnimbusInitializeGnimbusInitializePostResponse = zod.unknown();
 (OBSOLETE AND OUT OF DATE!)
 
 Args:
-    request (GroupInfoRequest): essentially just the ID of the group
+    request (GroupSessionInfoRequest): essentially just the ID of the group session
     user (Annotated[User, Depends(get_current_user)]): Current user
     session (Annotated[Session, Depends(get_session)]): Database session.
 
@@ -6617,7 +6735,7 @@ Raises:
  */
 export const GetLatestResultsGnimbusGetLatestResultsPostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -6686,7 +6804,8 @@ export const GetLatestResultsGnimbusGetLatestResultsPostResponse = zod
 							problem_id: zod.union([zod.number(), zod.null()]).optional(),
 							session_id: zod.union([zod.number(), zod.null()]).optional(),
 							parent_id: zod.union([zod.number(), zod.null()]).optional(),
-							state_id: zod.union([zod.number(), zod.null()]).optional()
+							state_id: zod.union([zod.number(), zod.null()]).optional(),
+							group_session_id: zod.union([zod.number(), zod.null()]).optional()
 						})
 						.describe('The reference state with the solution information.'),
 					state_id: zod.number().describe('The state id.'),
@@ -6764,7 +6883,8 @@ export const GetLatestResultsGnimbusGetLatestResultsPostResponse = zod
 							problem_id: zod.union([zod.number(), zod.null()]).optional(),
 							session_id: zod.union([zod.number(), zod.null()]).optional(),
 							parent_id: zod.union([zod.number(), zod.null()]).optional(),
-							state_id: zod.union([zod.number(), zod.null()]).optional()
+							state_id: zod.union([zod.number(), zod.null()]).optional(),
+							group_session_id: zod.union([zod.number(), zod.null()]).optional()
 						})
 						.describe('The reference state with the solution information.'),
 					state_id: zod.number().describe('The state id.'),
@@ -6846,7 +6966,7 @@ Raises:
  */
 export const FullIterationGnimbusAllIterationsPostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -6946,7 +7066,8 @@ export const FullIterationGnimbusAllIterationsPostResponse = zod
 											problem_id: zod.union([zod.number(), zod.null()]).optional(),
 											session_id: zod.union([zod.number(), zod.null()]).optional(),
 											parent_id: zod.union([zod.number(), zod.null()]).optional(),
-											state_id: zod.union([zod.number(), zod.null()]).optional()
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
 										})
 										.describe('The reference state with the solution information.'),
 									state_id: zod.number().describe('The state id.'),
@@ -6987,7 +7108,8 @@ export const FullIterationGnimbusAllIterationsPostResponse = zod
 											problem_id: zod.union([zod.number(), zod.null()]).optional(),
 											session_id: zod.union([zod.number(), zod.null()]).optional(),
 											parent_id: zod.union([zod.number(), zod.null()]).optional(),
-											state_id: zod.union([zod.number(), zod.null()]).optional()
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
 										})
 										.describe('The reference state with the solution information.'),
 									state_id: zod.number().describe('The state id.'),
@@ -7025,7 +7147,8 @@ export const FullIterationGnimbusAllIterationsPostResponse = zod
 											problem_id: zod.union([zod.number(), zod.null()]).optional(),
 											session_id: zod.union([zod.number(), zod.null()]).optional(),
 											parent_id: zod.union([zod.number(), zod.null()]).optional(),
-											state_id: zod.union([zod.number(), zod.null()]).optional()
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
 										})
 										.describe('The reference state with the solution information.'),
 									state_id: zod.number().describe('The state id.'),
@@ -7066,7 +7189,8 @@ export const FullIterationGnimbusAllIterationsPostResponse = zod
 											problem_id: zod.union([zod.number(), zod.null()]).optional(),
 											session_id: zod.union([zod.number(), zod.null()]).optional(),
 											parent_id: zod.union([zod.number(), zod.null()]).optional(),
-											state_id: zod.union([zod.number(), zod.null()]).optional()
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
 										})
 										.describe('The reference state with the solution information.'),
 									state_id: zod.number().describe('The state id.'),
@@ -7099,7 +7223,7 @@ export const FullIterationGnimbusAllIterationsPostResponse = zod
  */
 export const SwitchPhaseGnimbusTogglePhasePostBody = zod
 	.object({
-		group_id: zod.number(),
+		group_session_id: zod.number(),
 		new_phase: zod.string()
 	})
 	.describe('A request for a certain phase. Comes from the group owner\/analyst.');
@@ -7117,7 +7241,7 @@ export const SwitchPhaseGnimbusTogglePhasePostResponse = zod
  */
 export const GetPhaseGnimbusGetPhasePostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -7140,7 +7264,7 @@ Returns:
  */
 export const RevertIterationGnimbusRevertIterationPostBody = zod
 	.object({
-		group_id: zod.number().describe('The ID of the group we wish to revert.'),
+		group_session_id: zod.number().describe('The ID of the group session we wish to revert.'),
 		state_id: zod
 			.number()
 			.describe(
@@ -7808,7 +7932,7 @@ Returns:
  */
 export const VoteForABandGdmScoreBandsVotePostBody = zod
 	.object({
-		group_id: zod.number().describe('ID of the group in question'),
+		group_session_id: zod.number().describe('ID of the group session in question'),
 		vote: zod.number().describe('The vote. Vaalisalaisuus.')
 	})
 	.describe('Request for voting for a band.');
@@ -7819,7 +7943,7 @@ export const VoteForABandGdmScoreBandsVotePostResponse = zod.unknown();
  * Confim the vote. If all confirm, the clustering and new iteration begins.
 
 Args:
-    request (GroupInfoRequest): Simple request to get the group ID.
+    request (GroupSessionInfoRequest): Simple request to get the group ID.
     user (Annotated[User, Depends): The current user.
     session (Annotated[Session, Depends): Database session.
 
@@ -7832,7 +7956,7 @@ Returns:
  */
 export const ConfirmVoteGdmScoreBandsConfirmPostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -7878,7 +8002,7 @@ export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfig
 
 export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 	.object({
-		group_id: zod.number().describe('The group to be initialized.'),
+		group_session_id: zod.number().describe('The group session to be initialized.'),
 		score_bands_config: zod
 			.object({
 				score_bands_config: zod
@@ -8126,7 +8250,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 							.default(
 								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault
 							),
-						group_id: zod.number().describe('The group in question.'),
+						group_session_id: zod.number().describe('The group session in question.'),
 						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
 						latest_iteration: zod
 							.number()
@@ -8388,7 +8512,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 							.default(
 								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoPhaseDefault
 							),
-						group_id: zod.number().describe('The group in question.'),
+						group_session_id: zod.number().describe('The group session in question.'),
 						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
 						result: zod
 							.object({
@@ -8431,7 +8555,7 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
  * Returns the current status of votes and confirmations in current iteration.
 
 Args:
-    request (GroupInfoRequest): The group we'd like the info on.
+    request (GroupSessionInfoRequest): The group we'd like the info on.
     user (Annotated[User, Depends): The user that requests the data.
     session (Annotated[Session, Depends): The database session.
 
@@ -8444,7 +8568,7 @@ Returns:
  */
 export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -8456,7 +8580,7 @@ export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse = z
  */
 export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostBody = zod
 	.object({
-		group_id: zod.number()
+		group_session_id: zod.number()
 	})
 	.describe('Class for requesting group information.');
 
@@ -8477,7 +8601,7 @@ export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostResponse = zo
  */
 export const WarnLearningPhaseGdmScoreBandsLearningWarnPostBody = zod
 	.object({
-		group_id: zod.number().describe('Group ID.'),
+		group_session_id: zod.number().describe('Group Session ID.'),
 		message: zod.union([zod.string(), zod.null()]).optional().describe('Optional warning message.')
 	})
 	.describe('Request for sending a learning-phase warning to connected users.');
@@ -8499,7 +8623,7 @@ export const WarnLearningPhaseGdmScoreBandsLearningWarnPostResponse = zod
  */
 export const AdvanceLearningPhaseGdmScoreBandsLearningAdvancePostBody = zod
 	.object({
-		group_id: zod.number().describe('Group ID.')
+		group_session_id: zod.number().describe('Group Session ID.')
 	})
 	.describe('Request for moving the group from learning to consensus.');
 
@@ -8530,7 +8654,7 @@ Returns:
  */
 export const RevertGdmScoreBandsRevertPostBody = zod
 	.object({
-		group_id: zod.number().describe('Group ID.'),
+		group_session_id: zod.number().describe('Group Session ID.'),
 		iteration_number: zod
 			.number()
 			.describe('The number of the iteration that we want to revert to.')

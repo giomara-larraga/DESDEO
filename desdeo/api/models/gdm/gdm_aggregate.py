@@ -83,18 +83,26 @@ class Group(GroupBase, table=True):
         back_populates="group"
     )
 
-
-
+class GroupUserPublic(SQLModel):
+    id: int
+    username: str
 class GroupPublic(GroupBase):
     """Response model for Group."""
 
     id: int
     name: str
     owner_id: int
-    users: list["User"]
+    users: list[GroupUserPublic] = Field(default_factory=list)
+    #users: list["User"]
     #user_ids: list[int]
     #problem_id: int
 
+class GroupSessionPublic(SQLModel):
+    id: int
+    group_id: int
+    problem_id: int
+    method: str
+    head_iteration_id: int | None = None
 
 
 class GroupSessionDB(SQLModel, table=True):
@@ -146,6 +154,11 @@ class GroupIteration(SQLModel, table=True):
     )
 
 
+class GroupInfoRequest(SQLModel):
+    """Class for requesting group information."""
+
+    group_id: int
+
 class GroupSessionInfoRequest(SQLModel):
     """Class for requesting group information."""
 
@@ -183,4 +196,4 @@ class GroupCreateRequest(SQLModel):
 class CreateGroupSessionRequest(SQLModel):
     problem_id: int
     method: str
-    info_container: BaseGroupInfoContainer
+    #info_container: BaseGroupInfoContainer

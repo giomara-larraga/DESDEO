@@ -6,7 +6,7 @@ import sys
 from tokenize import group
 from typing import Annotated
 
-from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB, CreateGroupSessionRequest
+from desdeo.api.models.gdm.gdm_aggregate import GroupInfoRequest, GroupSessionDB, CreateGroupSessionRequest, GroupSessionPublic
 from fastapi import (
     APIRouter,
     Depends,
@@ -29,6 +29,8 @@ from desdeo.api.models import (
     ProblemDB,
     User,
 )
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
+from desdeo.api.routers.gdm.utils import group_to_public
 from desdeo.api.routers.user_authentication import get_current_user
 
 from desdeo.api.models.user import User as UserDB
@@ -246,40 +248,75 @@ def create_group(
     return JSONResponse(content={"message": f"Group with ID {group.id} created."}, status_code=status.HTTP_201_CREATED)
 
 
-@router.post("/groups/{group_id}/sessions")
+@router.post(
+    "/groups/{group_id}/sessions",
+    response_model=GroupSessionPublic,
+)
 def create_group_session(
     group_id: int,
     request: CreateGroupSessionRequest,
-    session: Session = Depends(get_session),
-):
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> GroupSessionPublic:
+    """Create a decision-making session for a group."""
+
+    group = db_session.exec(
+        select(Group).where(Group.id == group_id)
+    ).first()
+
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No group with ID {group_id} found.",
+        )
+
+    if user.id != group.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Only the group owner can create sessions.",
+        )
+
+    problem = db_session.exec(
+        select(ProblemDB).where(
+            ProblemDB.id == request.problem_id
+        )
+    ).first()
+
+    if problem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No problem with ID {request.problem_id} found.",
+        )
+
+    supported_methods = {
+        "gnimbus",
+        "gdm-score-bands",
+    }
+
+    if request.method not in supported_methods:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported group method: {request.method}",
+        )
+
     group_session = GroupSessionDB(
-        group_id=group_id,
-        problem_id=request.problem_id,
+        group_id=group.id,
+        problem_id=problem.id,
         method=request.method,
-        #status="active",
+        head_iteration_id=None,
     )
 
-    session.add(group_session)
-    session.commit()
-    session.refresh(group_session)
+    db_session.add(group_session)
+    db_session.commit()
+    db_session.refresh(group_session)
 
-    initial_iteration = GroupIteration(
-        session_id=group_session.id,
-        parent_id=None,
-        state_id=None,
-        #info_container=request.initial_info_container,
+    return GroupSessionPublic(
+        id=group_session.id,
+        group_id=group_session.group_id,
+        problem_id=group_session.problem_id,
+        method=group_session.method,
+        head_iteration_id=group_session.head_iteration_id,
     )
-
-    session.add(initial_iteration)
-    session.commit()
-    session.refresh(initial_iteration)
-
-    group_session.head_iteration_id = initial_iteration.id
-    session.add(group_session)
-    session.commit()
-
-    return group_session
-
 
 @router.post("/delete_group")
 def delete_group(
@@ -482,16 +519,64 @@ def remove_from_group(
         status_code=status.HTTP_200_OK,
     )
 
+@router.post("/get_group_sessions_info")
+def get_group_sessions_info(
+    request: GroupSessionInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[GroupSessionPublic]:
+    """Get information about the sessions of a group.
+
+    Args:
+        request (GroupSessionInfoRequest): the id of the group for which we desire info on
+        user (Annotated[User, Depends(get_current_user)]): the current user
+        session (Annotated[Session, Depends(get_session)]): the database session
+
+    Returns:
+        list[GroupSessionPublic]: public info of the sessions of the group
+
+    Raises:
+        HTTPException: If there's no group with the requests group id
+    """
+    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    if group is None:
+        raise HTTPException(
+            detail=f"No group with ID {request.group_id} found!",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    member_ids = {member.id for member in group.users}
+
+    if user.id != group.owner_id and user.id not in member_ids:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized user.",
+        )
+
+    group_sessions = session.exec(
+        select(GroupSessionDB).where(GroupSessionDB.group_id == request.group_id)
+    ).all()
+
+    return [
+        GroupSessionPublic(
+            id=group_session.id,
+            group_id=group_session.group_id,
+            problem_id=group_session.problem_id,
+            method=group_session.method,
+            head_iteration_id=group_session.head_iteration_id,
+        )
+        for group_session in group_sessions
+    ]
 
 @router.post("/get_group_info")
 def get_group_info(
-    request: GroupSessionInfoRequest,
+    request: GroupInfoRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> GroupPublic:
     """Get information about the group.
 
     Args:
-        request (GroupSessionInfoRequest): the id of the group for which we desire info on
+        request (GroupInfoRequest): the id of the group for which we desire info on
         session (Annotated[Session, Depends(get_session)]): the database session
 
     Returns:
@@ -510,3 +595,132 @@ def get_group_info(
     return group
 
 
+@router.get(
+    "/groups",
+    response_model=list[GroupPublic],
+)
+def get_user_groups(
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[GroupPublic]:
+    """Return groups where the current user is an owner or member."""
+
+    owned_groups = db_session.exec(
+        select(Group).where(Group.owner_id == user.id)
+    ).all()
+
+    member_groups = db_session.exec(
+        select(Group)
+        .join(GroupUserLink, GroupUserLink.group_id == Group.id)
+        .where(GroupUserLink.user_id == user.id)
+    ).all()
+
+    groups_by_id: dict[int, Group] = {}
+
+    for group in owned_groups:
+        groups_by_id[group.id] = group
+
+    for group in member_groups:
+        groups_by_id[group.id] = group
+
+    return [
+        group_to_public(group)
+        for group in groups_by_id.values()
+    ]
+
+@router.get(
+    "/groups/{group_id}/sessions",
+    response_model=list[GroupSessionPublic],
+)
+def get_group_sessions(
+    group_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> list[GroupSessionPublic]:
+    """Return all decision-making sessions belonging to a group."""
+
+    group = db_session.exec(
+        select(Group).where(Group.id == group_id)
+    ).first()
+
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No group with ID {group_id} found.",
+        )
+
+    member_ids = {member.id for member in group.users}
+
+    if user.id != group.owner_id and user.id not in member_ids:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized user.",
+        )
+
+    group_sessions = db_session.exec(
+        select(GroupSessionDB).where(
+            GroupSessionDB.group_id == group_id
+        )
+    ).all()
+
+    return [
+        GroupSessionPublic(
+            id=group_session.id,
+            group_id=group_session.group_id,
+            problem_id=group_session.problem_id,
+            method=group_session.method,
+            head_iteration_id=group_session.head_iteration_id,
+        )
+        for group_session in group_sessions
+    ]
+
+@router.get(
+    "/group-sessions/{group_session_id}",
+    response_model=GroupSessionPublic,
+)
+def get_group_session(
+    group_session_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_session)],
+) -> GroupSessionPublic:
+    """Return one group decision-making session."""
+
+    group_session = db_session.exec(
+        select(GroupSessionDB).where(
+            GroupSessionDB.id == group_session_id
+        )
+    ).first()
+
+    if group_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No group session with ID {group_session_id} found.",
+        )
+
+    group = db_session.exec(
+        select(Group).where(
+            Group.id == group_session.group_id
+        )
+    ).first()
+
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No group with ID {group_session.group_id} found.",
+        )
+
+    member_ids = {member.id for member in group.users}
+
+    if user.id != group.owner_id and user.id not in member_ids:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized user.",
+        )
+
+    return GroupSessionPublic(
+        id=group_session.id,
+        group_id=group_session.group_id,
+        problem_id=group_session.problem_id,
+        method=group_session.method,
+        head_iteration_id=group_session.head_iteration_id,
+    )

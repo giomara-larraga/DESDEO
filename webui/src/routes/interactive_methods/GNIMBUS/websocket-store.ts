@@ -28,7 +28,7 @@ export class WebSocketService {
 	private maxReconnectAttempts = 5;
 	private reconnectInterval = 5000; // Start with 5 seconds
 	private isReconnecting = false;
-	private groupId: number;
+	private groupSessionId: number;
 	private method: string;
 	private token: string;
 
@@ -46,13 +46,13 @@ export class WebSocketService {
 	/**
 	 * Creates a new WebSocket connection for GNIMBUS group communication
 	 *
-	 * @param groupId ID of the group session
+	 * @param groupSessionId ID of the group session
 	 * @param method Method name (default: "gnimbus")
 	 * @param token Authentication token
 	 * @param onReconnect Callback function to run when reconnected
 	 */
-	constructor(groupId: number, method = 'gnimbus', token: string, onReconnect?: () => void) {
-		this.groupId = groupId;
+	constructor(groupSessionId: number, method = 'gnimbus', token: string, onReconnect?: () => void) {
+		this.groupSessionId = groupSessionId;
 		this.method = method;
 		this.token = token;
 		this.onReconnectCallback = onReconnect;
@@ -64,8 +64,12 @@ export class WebSocketService {
 	}
 
 	private connect() {
-		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
-		this.socket = new WebSocket(url);
+const url =
+	`${wsBase}/gdm/ws` +
+	`?group_session_id=${this.groupSessionId}` +
+	`&method=${encodeURIComponent(this.method)}` +
+	`&token=${encodeURIComponent(this.token)}`;
+	this.socket = new WebSocket(url);
 		if (this.reconnectAttempts > 0) {
 			this.messageStore.update((store) => ({
 				...store,

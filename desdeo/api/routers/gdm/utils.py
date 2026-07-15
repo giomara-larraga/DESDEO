@@ -3,7 +3,14 @@
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
-from desdeo.api.models import Group, GroupSessionDB, User
+from desdeo.api.models import (
+    Group,
+    GroupPublic,
+    GroupSessionDB,
+    GroupSessionPublic,
+    GroupUserPublic,
+    User,
+)
 
 def get_group_session_or_404(
     group_session_id: int,
@@ -57,3 +64,18 @@ def check_group_access(user: User, group: Group):
             detail="Unauthorized user.",
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
+    
+def group_to_public(group: Group) -> GroupPublic:
+    """Convert a persisted Group into its public response model."""
+    return GroupPublic(
+        id=group.id,
+        name=group.name,
+        owner_id=group.owner_id,
+        users=[
+            GroupUserPublic(
+                id=member.id,
+                username=member.username,
+            )
+            for member in group.users
+        ],
+    )

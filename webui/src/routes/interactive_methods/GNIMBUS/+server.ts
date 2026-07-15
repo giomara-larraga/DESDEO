@@ -50,28 +50,28 @@ type HandlerFunction = (body: any, options: RequestInit) => Promise<ApiResult>;
 
 const handlers: Record<string, HandlerFunction> = {
 	initialize: (body, options) => {
-		const { group_id } = body;
+		const { group_session_id } = body;
 		return callApi(
-			() => gnimbusInitializeGnimbusInitializePost({ group_id: Number(group_id) }, options),
+			() => gnimbusInitializeGnimbusInitializePost({ group_session_id: Number(group_session_id) }, options),
 			'gnimbus/initialize'
 		);
 	},
 
 	get_latest_results: (body, options) => {
-		const { group_id } = body;
-		if (!group_id) {
-			return Promise.resolve({ success: false, error: 'group_id is required' });
+		const { group_session_id } = body;
+		if (!group_session_id) {
+			return Promise.resolve({ success: false, error: 'group_session_id is required' });
 		}
 		return callApi(
-			() => getLatestResultsGnimbusGetLatestResultsPost({ group_id: Number(group_id) }, options),
+			() => getLatestResultsGnimbusGetLatestResultsPost({ group_session_id: Number(group_session_id) }, options),
 			'gnimbus/get_latest_results'
 		);
 	},
 
 	get_all_iterations: async (body, options) => {
-		const { group_id } = body;
+		const { group_session_id } = body;
 		const response = await callApi(
-			() => fullIterationGnimbusAllIterationsPost({ group_id: Number(group_id) }, options),
+			() => fullIterationGnimbusAllIterationsPost({ group_session_id: Number(group_session_id) }, options),
 			'gnimbus/all_iterations'
 		);
 
@@ -88,11 +88,11 @@ const handlers: Record<string, HandlerFunction> = {
 	},
 
 	switch_phase: async (body, options) => {
-		const { group_id, new_phase } = body;
+		const { group_session_id, new_phase } = body;
 		const response = await callApi(
 			() =>
 				switchPhaseGnimbusTogglePhasePost(
-					{ group_id: Number(group_id), new_phase },
+					{ group_session_id: Number(group_session_id), new_phase },
 					options
 				),
 			'gnimbus/toggle_phase'
@@ -107,9 +107,9 @@ const handlers: Record<string, HandlerFunction> = {
 	},
 
 	revert_iteration: (body, options) => {
-		const { group_id, state_id } = body;
-		if (!group_id) {
-			return Promise.resolve({ success: false, error: 'group_id is required' });
+		const { group_session_id, state_id } = body;
+		if (!group_session_id) {
+			return Promise.resolve({ success: false, error: 'group_session_id is required' });
 		}
 		if (!state_id) {
 			return Promise.resolve({ success: false, error: 'state_id is required' });
@@ -117,7 +117,7 @@ const handlers: Record<string, HandlerFunction> = {
 		return callApi(
 			() =>
 				revertIterationGnimbusRevertIterationPost(
-					{ group_id: Number(group_id), state_id: Number(state_id) },
+					{ group_session_id: Number(group_session_id), state_id: Number(state_id) },
 					options
 				),
 			'gnimbus/revert_iteration'
@@ -125,9 +125,9 @@ const handlers: Record<string, HandlerFunction> = {
 	},
 
 	get_phase: (body, options) => {
-		const { group_id } = body;
+		const { group_session_id } = body;
 		return callApi(
-			() => getPhaseGnimbusGetPhasePost({ group_id: Number(group_id) }, options),
+			() => getPhaseGnimbusGetPhasePost({ group_session_id: Number(group_session_id) }, options),
 			'gnimbus/get_phase'
 		);
 	},

@@ -113,24 +113,9 @@ if __name__ == "__main__":
             session.commit()
             session.refresh(group_session)
 
-            initial_iteration = GroupIteration(
-                session_id=group_session.id,
-                info_container=OptimizationPreference(
-                    set_preferences={},
-                ),
-                notified={},
-                state_id=None,
-                parent_id=None,
-            )
 
-            session.add(initial_iteration)
-            session.commit()
-            session.refresh(initial_iteration)
 
-            group_session.head_iteration_id = initial_iteration.id
-            session.add(group_session)
-            session.commit()
-            session.refresh(group_session)
+
 
             print(
                 f"Created group {group.id}, "

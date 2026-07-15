@@ -152,6 +152,9 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsHistoryResponse",
     "GroupSessionDB",
     "CreateGroupSessionRequest",
+    "GroupSessionPublic",
+    "GroupUserPublic",
+    "GroupInfoRequest",
 ]
 
 
@@ -190,6 +193,9 @@ from .gdm.gdm_aggregate import (
     GroupSessionRevertRequest,
     GroupSessionDB,
     CreateGroupSessionRequest,
+    GroupSessionPublic,
+    GroupUserPublic,
+    GroupInfoRequest
 )
 from .gdm.gdm_base import (
     BaseGroupInfoContainer,
