@@ -572,7 +572,7 @@
 
 		isDecisionMaker =
 			(data.group.users ?? []).some(
-				(member) => member.id === userId
+				(member:any) => member.id === userId
 			);
 		}
 

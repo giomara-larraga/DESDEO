@@ -148,7 +148,9 @@
 	// Initialize user roles
 	$effect(() => {
 		isOwner = userId === data.group.owner_id;
-		isDecisionMaker = data.group.user_ids.includes(userId);
+		isDecisionMaker = (data.group.users ?? []).some(
+				(member:any) => member.id === userId
+			);
 	});
 
 	// WebSocket service for real-time updates
@@ -942,7 +944,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id,
+					group_session_id: data.groupSession.id,
 					score_bands_config: scoreBandsConfig,
 					from_iteration: iteration_id
 				})
@@ -1028,7 +1030,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id,
+					group_session_id: data.groupSession.id,
 					vote: selection
 				})
 			});
@@ -1070,7 +1072,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id
+					group_session_id: data.groupSession.id
 				})
 			});
 
@@ -1110,7 +1112,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id
+					group_session_id: data.groupSession.id
 				})
 			});
 
@@ -1152,7 +1154,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id
+					group_session_id: data.groupSession.id
 				})
 			});
 
@@ -1190,7 +1192,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id,
+					group_session_id: data.groupSession.id,
 					message: ownerWarningMessage.trim() || undefined
 				})
 			});
@@ -1230,7 +1232,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id
+					group_session_id: data.groupSession.id
 				})
 			});
 
@@ -1269,7 +1271,7 @@ function getConsensusClasses(axisName: string): string {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					group_id: data.group.id,
+					group_session_id: data.groupSession.id,
 					iteration_number: iteration
 				})
 			});
@@ -1309,7 +1311,7 @@ function getConsensusClasses(axisName: string): string {
 				},
 				body: JSON.stringify({
 					// Group ID for which to apply the configuration
-					group_id: data.group.id,
+					group_session_id: data.groupSession.id,
 					// Configuration object with all SCORE bands settings
 					config: config
 				})

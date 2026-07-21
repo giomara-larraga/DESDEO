@@ -91,7 +91,7 @@
 
 			case 'gdm-score-bands':
 				await goto(
-					`/methods/gdm-score-bands?group_session=${groupSession.id}`
+					`/interactive_methods/GDM-SCORE-bands?group_session=${groupSession.id}`
 				);
 				break;
 
