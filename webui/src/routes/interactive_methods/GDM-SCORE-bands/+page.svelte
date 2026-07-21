@@ -179,7 +179,7 @@
 		}
 		return null;
 	});
-	const totalVoters = $derived(data.group.user_ids.length);
+	const totalVoters = $derived((data.group.users ?? []).length);
 	let have_all_voted = $derived.by(() => {
 		return totalVoters === Object.keys(votes_and_confirms.votes || {}).length;
 	});
@@ -857,7 +857,11 @@ function getConsensusClasses(axisName: string): string {
 		// Initialize WebSocket connection
 		if (data.group) {
 			console.log('Initializing WebSocket for group:', data.group.id);
-			wsService = new WebSocketService(data.group.id, 'gdm-score-bands', data.refreshToken, () => {
+			wsService = wsService = new WebSocketService(
+			data.groupSession.id,
+			'gdm-score-bands',
+			data.refreshToken,
+			() => {
 				// This runs when connection is re-established after disconnection
 				console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
 				// TODO: Would be nice to have a pop up message to user: 'Reconnected to server'. At least exists in GNIMBUS.
@@ -1272,7 +1276,7 @@ function getConsensusClasses(axisName: string): string {
 				},
 				body: JSON.stringify({
 					group_session_id: data.groupSession.id,
-					iteration_number: iteration
+					group_iteration_id: iteration
 				})
 			});
 

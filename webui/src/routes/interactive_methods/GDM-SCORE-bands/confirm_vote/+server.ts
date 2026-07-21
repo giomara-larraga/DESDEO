@@ -18,13 +18,23 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	try {
-		const { group_id } = await request.json();
+		const { group_session_id } = await request.json();
+
+		if (typeof group_session_id !== 'number') {
+			return json(
+				{
+					error: 'Invalid request',
+					details: 'group_session_id must be a number'
+				},
+				{ status: 400 }
+			);
+		}
 
 		const options: RequestInit = {
 			headers: { Authorization: `Bearer ${refreshToken}` }
 		};
 
-		const response = await confirmVoteGdmScoreBandsConfirmPost({ group_id }, options);
+		const response = await confirmVoteGdmScoreBandsConfirmPost({ group_session_id }, options);
 
 		if (response.status !== 200) {
 			console.error('Confirm error:', { status: response.status, data: response.data });

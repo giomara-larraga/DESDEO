@@ -733,9 +733,11 @@ export type GDMSCOREBandFinalSelectionSolutionVariables = { [key: string]: (numb
 
 export type GDMSCOREBandFinalSelectionSolutionObjectives = { [key: string]: number[] };
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionVariables = { [key: string]: number | boolean };
+export type GDMSCOREBandFinalSelectionWinnerSolutionVariables = {
+	[key: string]: number | boolean;
+} | null;
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]: number };
+export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]: number } | null;
 
 /**
  * Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
@@ -749,8 +751,8 @@ export interface GDMSCOREBandFinalSelection {
 	user_confirms: number[];
 	solution_variables: GDMSCOREBandFinalSelectionSolutionVariables;
 	solution_objectives: GDMSCOREBandFinalSelectionSolutionObjectives;
-	winner_solution_variables: GDMSCOREBandFinalSelectionWinnerSolutionVariables;
-	winner_solution_objectives: GDMSCOREBandFinalSelectionWinnerSolutionObjectives;
+	winner_solution_variables?: GDMSCOREBandFinalSelectionWinnerSolutionVariables;
+	winner_solution_objectives?: GDMSCOREBandFinalSelectionWinnerSolutionObjectives;
 }
 
 /**
@@ -1043,7 +1045,7 @@ export interface GDMSCOREBandsRevertRequest {
 	/** Group Session ID. */
 	group_session_id: number;
 	/** The number of the iteration that we want to revert to. */
-	iteration_number: number;
+	group_iteration_id: number;
 }
 
 /**
@@ -1057,13 +1059,13 @@ export interface SCOREBandsGDMConfig {
 }
 
 /**
- * Request class for initialization of score bands.
+ * Request for initializing SCORE Bands.
  */
 export interface GDMScoreBandsInitializationRequest {
-	/** The group session to be initialized. */
+	/** ID of the group session. */
 	group_session_id: number;
-	/** The configuration for the initial score banding. */
-	score_bands_config: SCOREBandsGDMConfig;
+	/** Optional SCORE Bands configuration. Defaults are used when omitted. */
+	score_bands_config?: SCOREBandsGDMConfig | null;
 }
 
 /**
@@ -2240,7 +2242,7 @@ export type GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = {
 };
 
 export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
-	group_id: number;
+	group_session_id: number;
 };
 
 export type InitializeNavigatorNautilusInitializePostParams = {
@@ -6736,7 +6738,7 @@ export const revertGdmScoreBandsRevertPost = async (
 
 Args:
     config (SCOREBandsGDMConfig): The configuration object
-    group_id (int): group id
+    group_session_id (int): The ID of the group session
     user (Annotated[User, Depends): The user doing the request
     session (Annotated[Session, Depends): The database session.
 

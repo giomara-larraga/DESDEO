@@ -19,11 +19,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	try {
 		const requestData = await request.json();
-		const { group_id, config } = requestData;
+		const { group_session_id, config } = requestData;
 
-		if (typeof group_id !== 'number') {
+		if (typeof group_session_id !== 'number') {
 			return json(
-				{ error: 'Invalid request', details: 'group_id must be a number' },
+				{
+					error: 'Invalid request',
+					details: 'group_session_id must be a number'
+				},
 				{ status: 400 }
 			);
 		}
@@ -39,11 +42,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			headers: { Authorization: `Bearer ${refreshToken}` }
 		};
 
-		const configureResponse = await configureGdmGdmScoreBandsConfigurePost(
-			config,
-			{ group_id },
-			options
-		);
+		const configureResponse =
+			await configureGdmGdmScoreBandsConfigurePost(
+				config,
+				{ group_session_id },
+				options
+			);
 
 		if (configureResponse.status !== 200) {
 			console.error('Configure error:', configureResponse.data);

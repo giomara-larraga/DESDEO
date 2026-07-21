@@ -11,7 +11,17 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	try {
-		const { group_id } = await request.json();
+		const { group_session_id } = await request.json();
+
+		if (typeof group_session_id !== 'number') {
+			return json(
+				{
+					error: 'Invalid request',
+					details: 'group_session_id must be a number'
+				},
+				{ status: 400 }
+			);
+		}
 		const response = await customFetch<{ status: number; data: any }>(
 			`${BASE_URL}/gdm-score-bands/learning/advance`,
 			{
@@ -20,7 +30,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 					'Content-Type': 'application/json',
 					Authorization: `Bearer ${refreshToken}`
 				},
-				body: JSON.stringify({ group_id })
+				body: JSON.stringify({ group_session_id })
 			}
 		);
 

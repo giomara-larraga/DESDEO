@@ -7980,235 +7980,243 @@ Returns:
     GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
  * @summary Get Or Initialize
  */
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmOneNameDefault = `GMM`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmTwoNameDefault = `DBSCAN`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmThreeNameDefault = `KMeans`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmThreeNClustersDefault = 5;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourNameDefault = `DimensionCluster`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourNClustersDefault = 5;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourKindDefault = `EqualWidth`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFiveNameDefault = `Custom`;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmDefault =
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneNameDefault = `GMM`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFiveNameDefault = `Custom`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmDefault =
 	{ name: 'DBSCAN' };
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigDistanceFormulaDefault = 1;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigDistanceParameterDefault = 0.05;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigUseAbsoluteCorrelationsDefault = false;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIncludeSolutionsDefault = false;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIncludeMediansDefault = false;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIntervalSizeDefault = 0.95;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigMinimumVotesDefault = 1;
-export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigMinimumVotesExclusiveMin = 0;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceFormulaDefault = 1;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceParameterDefault = 0.05;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigUseAbsoluteCorrelationsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeSolutionsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeMediansDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIntervalSizeDefault = 0.95;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesDefault = 1;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesExclusiveMin = 0;
 
 export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 	.object({
-		group_session_id: zod.number().describe('The group session to be initialized.'),
+		group_session_id: zod.number().describe('ID of the group session.'),
 		score_bands_config: zod
-			.object({
-				score_bands_config: zod
+			.union([
+				zod
 					.object({
-						dimensions: zod
-							.union([zod.array(zod.string()), zod.null()])
-							.optional()
-							.describe(
-								'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
-							),
-						descriptive_names: zod
-							.union([zod.record(zod.string(), zod.string()), zod.null()])
-							.optional()
-							.describe(
-								'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
-							),
-						units: zod
-							.union([zod.record(zod.string(), zod.string()), zod.null()])
-							.optional()
-							.describe(
-								'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
-							),
-						axis_positions: zod
-							.union([zod.record(zod.string(), zod.number()), zod.null()])
-							.optional()
-							.describe(
-								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
-							),
-						axis_colours: zod
-							.union([zod.record(zod.string(), zod.string()), zod.null()])
-							.optional()
-							.describe(
-								"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
-							),
-						highlight_cluster: zod
-							.union([zod.number(), zod.null()])
-							.optional()
-							.describe(
-								'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
-							),
-						clustering_algorithm: zod
-							.union([
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmOneNameDefault
-											)
-											.describe('Gaussian Mixture Model clustering algorithm.'),
-										scoring_method: zod
-											.enum(['BIC', 'silhouette'])
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault
-											)
+						score_bands_config: zod
+							.object({
+								dimensions: zod
+									.union([zod.array(zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+									),
+								descriptive_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+									),
+								units: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+									),
+								axis_positions: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
+									.describe(
+										'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+									),
+								axis_colours: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+									),
+								highlight_cluster: zod
+									.union([zod.number(), zod.null()])
+									.optional()
+									.describe(
+										'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+									),
+								clustering_algorithm: zod
+									.union([
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneNameDefault
+													)
+													.describe('Gaussian Mixture Model clustering algorithm.'),
+												scoring_method: zod
+													.enum(['BIC', 'silhouette'])
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault
+													)
+													.describe(
+														'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+													)
+											})
+											.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmTwoNameDefault
+													)
+													.describe('DBSCAN clustering algorithm.')
+											})
+											.describe('Options for DBSCAN clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNameDefault
+													)
+													.describe('KMeans clustering algorithm.'),
+												n_clusters: zod
+													.number()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.')
+											})
+											.describe('Options for KMeans clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNameDefault
+													)
+													.describe('Clustering by one of the dimensions.'),
+												dimension_name: zod.string().describe('Dimension to use for clustering.'),
+												n_clusters: zod
+													.number()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.'),
+												kind: zod
+													.enum(['EqualWidth', 'EqualFrequency'])
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourKindDefault
+													)
+													.describe(
+														'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+													)
+											})
 											.describe(
-												'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
-											)
-									})
-									.describe('Options for Gaussian Mixture Model clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmTwoNameDefault
-											)
-											.describe('DBSCAN clustering algorithm.')
-									})
-									.describe('Options for DBSCAN clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmThreeNameDefault
-											)
-											.describe('KMeans clustering algorithm.'),
-										n_clusters: zod
-											.number()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmThreeNClustersDefault
-											)
-											.describe('Number of clusters to use. Defaults to 5.')
-									})
-									.describe('Options for KMeans clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourNameDefault
-											)
-											.describe('Clustering by one of the dimensions.'),
-										dimension_name: zod.string().describe('Dimension to use for clustering.'),
-										n_clusters: zod
-											.number()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourNClustersDefault
-											)
-											.describe('Number of clusters to use. Defaults to 5.'),
-										kind: zod
-											.enum(['EqualWidth', 'EqualFrequency'])
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFourKindDefault
-											)
-											.describe(
-												'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
-											)
-									})
-									.describe('Options for clustering by one of the objectives\/decision variables.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmFiveNameDefault
-											)
-											.describe('Custom user-provided clusters.'),
-										clusters: zod
-											.array(zod.number())
-											.describe(
-												'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
-											)
-									})
-									.describe('Options for custom clustering provided by the user.')
-							])
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigClusteringAlgorithmDefault
-							)
-							.describe(
-								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
-							),
-						distance_formula: zod
-							.union([zod.literal(1), zod.literal(2)])
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigDistanceFormulaDefault
-							)
-							.describe(
-								'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
-							),
-						distance_parameter: zod
+												'Options for clustering by one of the objectives\/decision variables.'
+											),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFiveNameDefault
+													)
+													.describe('Custom user-provided clusters.'),
+												clusters: zod
+													.array(zod.number())
+													.describe(
+														'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+													)
+											})
+											.describe('Options for custom clustering provided by the user.')
+									])
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmDefault
+									)
+									.describe(
+										'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+									),
+								distance_formula: zod
+									.union([zod.literal(1), zod.literal(2)])
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceFormulaDefault
+									)
+									.describe(
+										'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+									),
+								distance_parameter: zod
+									.number()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceParameterDefault
+									)
+									.describe(
+										'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+									),
+								use_absolute_correlations: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigUseAbsoluteCorrelationsDefault
+									)
+									.describe(
+										'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+									),
+								include_solutions: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeSolutionsDefault
+									)
+									.describe(
+										'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+									),
+								include_medians: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeMediansDefault
+									)
+									.describe(
+										'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+									),
+								interval_size: zod
+									.number()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIntervalSizeDefault
+									)
+									.describe(
+										'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+									),
+								scales: zod
+									.union([
+										zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+										zod.null()
+									])
+									.optional()
+									.describe(
+										'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+									)
+							})
+							.optional()
+							.describe('Configuration options for SCORE bands visualization.'),
+						minimum_votes: zod
 							.number()
+							.gt(
+								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesExclusiveMin
+							)
 							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigDistanceParameterDefault
-							)
-							.describe(
-								'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesDefault
 							),
-						use_absolute_correlations: zod
-							.boolean()
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigUseAbsoluteCorrelationsDefault
-							)
-							.describe(
-								'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
-							),
-						include_solutions: zod
-							.boolean()
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIncludeSolutionsDefault
-							)
-							.describe(
-								'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
-							),
-						include_medians: zod
-							.boolean()
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIncludeMediansDefault
-							)
-							.describe(
-								'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
-							),
-						interval_size: zod
-							.number()
-							.default(
-								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigScoreBandsConfigIntervalSizeDefault
-							)
-							.describe(
-								'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
-							),
-						scales: zod
-							.union([
-								zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
-								zod.null()
-							])
-							.optional()
-							.describe(
-								'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
-							)
+						from_iteration: zod.union([zod.number(), zod.null()])
 					})
-					.optional()
-					.describe('Configuration options for SCORE bands visualization.'),
-				minimum_votes: zod
-					.number()
-					.gt(
-						getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigMinimumVotesExclusiveMin
-					)
-					.default(
-						getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigMinimumVotesDefault
-					),
-				from_iteration: zod.union([zod.number(), zod.null()])
-			})
-			.describe('The configuration for the initial score banding.')
+					.describe('Configuration for the SCORE bands based GDM.'),
+				zod.null()
+			])
+			.optional()
+			.describe('Optional SCORE Bands configuration. Defaults are used when omitted.')
 	})
-	.describe('Request class for initialization of score bands.');
+	.describe('Request for initializing SCORE Bands.');
 
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneMethodDefault = `gdm-score-bands`;
 export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault = `consensus`;
@@ -8535,11 +8543,18 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									zod.array(zod.union([zod.number(), zod.number(), zod.boolean()]))
 								),
 								solution_objectives: zod.record(zod.string(), zod.array(zod.number())),
-								winner_solution_variables: zod.record(
-									zod.string(),
-									zod.union([zod.number(), zod.number(), zod.boolean()])
-								),
-								winner_solution_objectives: zod.record(zod.string(), zod.number())
+								winner_solution_variables: zod
+									.union([
+										zod.record(
+											zod.string(),
+											zod.union([zod.number(), zod.number(), zod.boolean()])
+										),
+										zod.null()
+									])
+									.optional(),
+								winner_solution_objectives: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
 							})
 							.describe('The container for the solutions and the winner solution.')
 					})
@@ -8655,7 +8670,7 @@ Returns:
 export const RevertGdmScoreBandsRevertPostBody = zod
 	.object({
 		group_session_id: zod.number().describe('Group Session ID.'),
-		iteration_number: zod
+		group_iteration_id: zod
 			.number()
 			.describe('The number of the iteration that we want to revert to.')
 	})
@@ -8668,7 +8683,7 @@ export const RevertGdmScoreBandsRevertPostResponse = zod.unknown();
 
 Args:
     config (SCOREBandsGDMConfig): The configuration object
-    group_id (int): group id
+    group_session_id (int): The ID of the group session
     user (Annotated[User, Depends): The user doing the request
     session (Annotated[Session, Depends): The database session.
 
@@ -8677,7 +8692,7 @@ Returns:
  * @summary Configure Gdm
  */
 export const ConfigureGdmGdmScoreBandsConfigurePostQueryParams = zod.object({
-	group_id: zod.number()
+	group_session_id: zod.number()
 });
 
 export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmOneNameDefault = `GMM`;

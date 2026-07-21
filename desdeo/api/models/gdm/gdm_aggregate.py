@@ -122,7 +122,6 @@ class GroupSessionDB(SQLModel, table=True):
     #created_at: datetime = Field(default_factory=datetime.utcnow)
     head_iteration_id: int | None = Field(
         default=None,
-        foreign_key="groupiteration.id",
     )
     group: Group = Relationship(back_populates="sessions")
 

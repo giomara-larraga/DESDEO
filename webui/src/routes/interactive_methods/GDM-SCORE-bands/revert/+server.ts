@@ -20,16 +20,27 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	try {
 		const requestData = await request.json();
-		const { group_id, iteration_number } = requestData;
+		const { group_session_id, group_iteration_id } = requestData;
 
-		if (typeof group_id !== 'number' || typeof iteration_number !== 'number') {
+		if (
+			typeof group_session_id !== 'number' ||
+			typeof group_iteration_id !== 'number'
+		) {
 			return json(
-				{ error: 'Invalid request', details: 'group_id and iteration_number must be numbers' },
+				{
+					error: 'Invalid request',
+					details:
+						'group_session_id and group_iteration_id must be numbers'
+				},
 				{ status: 400 }
 			);
 		}
 
-		const revertRequest: GDMSCOREBandsRevertRequest = { group_id, iteration_number };
+		const revertRequest:
+			GDMSCOREBandsRevertRequest = {
+				group_session_id,
+				group_iteration_id
+			};
 
 		const options: RequestInit = {
 			headers: { Authorization: `Bearer ${refreshToken}` }
