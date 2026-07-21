@@ -3,7 +3,6 @@
 from datetime import datetime
 import json
 from typing import Optional
-from pyparsing import Optional
 
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel
@@ -23,6 +22,7 @@ class PreferenceType(TypeDecorator):
     """A converter of Preference types."""
 
     impl = JSON
+    cache_ok = True
 
     # Serialize
     def process_bind_param(self, value, dialect):
@@ -34,9 +34,16 @@ class PreferenceType(TypeDecorator):
     # Deserialize
     def process_result_value(self, value, dialect):
         """And the other way around."""
-        jsoned = json.loads(value)
+        if value is None:
+            return None
+
+        jsoned = (
+            json.loads(value)
+            if isinstance(value, str)
+            else value
+        )
         if jsoned is not None:
-            match jsoned["method"]:
+            match jsoned.get("method"):
                 case "voting":
                     return VotingPreference.model_validate(jsoned)
                 case "optimization":
@@ -113,7 +120,10 @@ class GroupSessionDB(SQLModel, table=True):
     problem_id: int = Field(foreign_key="problemdb.id")
     method: str
     #created_at: datetime = Field(default_factory=datetime.utcnow)
-    head_iteration_id: int | None = Field(default=None)
+    head_iteration_id: int | None = Field(
+        default=None,
+        foreign_key="groupiteration.id",
+    )
     group: Group = Relationship(back_populates="sessions")
 
     #current_iteration_id: Optional[int] = Field(
@@ -136,8 +146,10 @@ class GroupIteration(SQLModel, table=True):
     info_container: BaseGroupInfoContainer = Field(sa_column=Column(PreferenceType))
     # NOTE: This used to be called "preferences" and the class used to be called "BasePreference"
 
-    notified: dict[int, bool] = Field(sa_column=Column(JSON))
-
+    notified: dict[str, bool] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON),
+    )
     """State for storing post optimization/voting related data (dec vars, objectives, etc.)"""
     #state_id: int | None = Field()
 

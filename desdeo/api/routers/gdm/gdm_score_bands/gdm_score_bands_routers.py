@@ -35,6 +35,13 @@ from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMSc
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
 
+from desdeo.api.routers.gdm.utils import (
+    check_group_access,
+    get_group_member_ids,
+    get_group_or_404,
+    get_group_session_or_404,
+)
+
 logging.basicConfig(
     stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
 )
@@ -42,6 +49,57 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/gdm-score-bands", tags=["GDM Score Bands"])
 
+def get_score_bands_head_iteration(
+    group_session: GroupSessionDB,
+    session: Session,
+) -> GroupIteration:
+    if group_session.head_iteration_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The SCORE Bands session has not been initialized.",
+        )
+
+    iteration = session.exec(
+        select(GroupIteration).where(
+            GroupIteration.id == group_session.head_iteration_id,
+            GroupIteration.session_id == group_session.id,
+        )
+    ).first()
+
+    if iteration is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "The group session head iteration is invalid or "
+                "belongs to another group session."
+            ),
+        )
+
+    return iteration
+
+def get_score_bands_context(
+    group_session_id: int,
+    user: User,
+    session: Session,
+) -> tuple[GroupSessionDB, Group]:
+    group_session = get_group_session_or_404(
+        group_session_id,
+        session,
+    )
+
+    if group_session.method != "gdm-score-bands":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Group session {group_session.id} uses method "
+                f"'{group_session.method}', not 'gdm-score-bands'."
+            ),
+        )
+
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
+
+    return group_session, group
 
 @router.post("/vote")
 async def vote_for_a_band(
@@ -62,34 +120,48 @@ async def vote_for_a_band(
     Returns:
         JSONResponse: A quick confirmation that vote went through.
     """
-    group_id = request.group_id
-    vote = request.vote
-    group = session.exec(select(Group).where(Group.id == group_id)).first()
-    if not group:
-        raise HTTPException(detail=f"Group with ID {group_id} does not exist!", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id not in group.user_ids:
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    member_ids = get_group_member_ids(group)
+
+    if user.id not in member_ids:
         raise HTTPException(
-            detail=f"User with ID {user.id} is not part of group with ID {group.id}. Could be the owner though.",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only decision makers may vote.",
         )
-    try:
-        group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-            group_id=group_id, method="gdm-score-bands", db_session=session
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
         )
-    except Exception as e:
-        print(e)
-        raise
+    )
 
     # This would be the better way to do things.
     try:
-        await group_mgr.vote(user=user, group=group, voted_index=vote, session=session)
+        await group_mgr.vote(
+            user=user,
+            group_session=group_session,
+            voted_index=request.vote,
+            session=session,
+        )
     except Exception as e:
         logger.exception("Found an error when issuing a vote for a band.")
         raise HTTPException(
             detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
+    
+    return {
+        "message": (
+            f"User {user.id} voted for band {request.vote}."
+        )
+    }
 
-    return JSONResponse(content={"message": f"Voted for index {vote} by user with ID {user.id}"})
 
 
 @router.post("/confirm")
@@ -111,20 +183,29 @@ async def confirm_vote(
     Returns:
         JSONResponse: A simple confirmation that everything went ok and that vote went in.
     """
-    group_id = request.group_id
-    group = session.exec(select(Group).where(Group.id == group_id)).first()
-    if not group:
-        raise HTTPException(detail=f"Group with ID {group_id} does not exist!", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id not in group.user_ids:
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    if user.id not in get_group_member_ids(group):
         raise HTTPException(
-            detail=f"User with ID {user.id} is not part of group with ID {group.id}. Could be the owner though.",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only decision makers may confirm.",
         )
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=group_id, method="gdm-score-bands", db_session=session
+
+    group_mgr = await manager.get_group_manager(
+        group_session_id=group_session.id,
+        method="gdm-score-bands",
+        db_session=session,
     )
     try:
-        await group_mgr.confirm(user=user, group=group, session=session)
+        await group_mgr.confirm(
+            user=user,
+            group_session=group_session,
+            session=session,
+        )
     except Exception as e:
         logger.exception("Found and error when trying to confirm a vote.")
         raise HTTPException(
@@ -156,7 +237,11 @@ async def get_or_initialize(
     Returns:
         GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
     """
-    group_session: GroupSessionDB = session.exec(select(GroupSessionDB).where(GroupSessionDB.id == request.group_session_id)).first()
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
     if not group_session:
         raise HTTPException(
             detail=f"Group session with ID {request.group_session_id} not found!", status_code=status.HTTP_404_NOT_FOUND
@@ -164,7 +249,7 @@ async def get_or_initialize(
     if group_session.head_iteration_id is not None:
         # Actually, just return the newest score band data.
         print("Group session already initialized!")
-        group_iterations = session.exec(select(GroupIteration).where(GroupIteration.group_session_id == group_session.id)).all()
+        group_iterations = session.exec(select(GroupIteration).where(GroupIteration.session_id == group_session.id).order_by(GroupIteration.id)).all()
         responses: list[GDMSCOREBandsResponse | GDMSCOREBandsDecisionResponse] = []
         for giter in group_iterations:
             match giter.info_container.method:
@@ -211,13 +296,11 @@ async def get_or_initialize(
 
     # Add group iteration and related stuff, then set new iteration to head.
     iteration: GroupIteration = GroupIteration(
-        group_session_id=group_session.id,
-        problem_id=group_session.problem_id,
+        session_id=group_session.id,
         info_container=score_bands_info,
         notified={},
         state_id=None,
         parent_id=None,
-        parent=None,
     )
 
     session.add(iteration)
@@ -262,19 +345,19 @@ def get_votes_and_confirms(
     Returns:
         JSONResponse: A response containing the votes and confirmations.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not Group:
-        raise HTTPException(
-            detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND
-        )
-    if group.head_iteration_id is None:
-        raise HTTPException(detail="Group hasn't been initialized!", status_code=status.HTTP_400_BAD_REQUEST)
-    user_ids = group.user_ids
-    user_ids.append(group.owner_id)
-    if user.id not in user_ids:
-        raise HTTPException(detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
 
-    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    if group_session.head_iteration_id is None:
+        raise HTTPException(detail="Group hasn't been initialized!", status_code=status.HTTP_400_BAD_REQUEST)
+    
+    iteration = get_score_bands_head_iteration(
+        group_session,
+        session,
+    )
     votes = iteration.info_container.user_votes
     confirms = iteration.info_container.user_confirms
 
@@ -299,25 +382,43 @@ async def complete_learning_phase(
     session: Annotated[Session, Depends(get_session)],
 ) -> GDMSCOREBandsLearningStatusResponse:
     """Mark the current user as done with the private learning phase."""
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not group:
-        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id not in group.user_ids:
-        raise HTTPException(detail="Unauthorized user!", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
 
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    member_ids = get_group_member_ids(group)
+
+    if user.id not in member_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only decision makers may vote.",
+        )
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
     )
 
     try:
-        await group_mgr.mark_learning_complete(user=user, group=group, session=session)
+        await group_mgr.mark_learning_complete(user=user, group_session=group_session, session=session)
     except Exception as e:
         logger.exception("Found an error when completing the learning phase.")
         raise HTTPException(
             detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
-    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    #iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    
+    iteration = get_score_bands_head_iteration(
+        group_session,
+        session,
+    )
+    
     info = iteration.info_container
     return GDMSCOREBandsLearningStatusResponse(
         phase=getattr(info, "phase", "consensus"),
@@ -336,25 +437,38 @@ async def warn_learning_phase(
     session: Annotated[Session, Depends(get_session)],
 ) -> GDMSCOREBandsLearningStatusResponse:
     """Broadcast a learning-phase warning to connected users."""
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not group:
-        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id != group.owner_id:
-        raise HTTPException(detail="Only the group owner can warn users.", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
 
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    if user.id != group.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner may perform this action.",
+        )
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
     )
 
     try:
-        await group_mgr.warn_learning_deadline(group=group, session=session, message=request.message)
+        await group_mgr.warn_learning_deadline(group_session=group_session, session=session, message=request.message)
     except Exception as e:
         logger.exception("Found an error when warning about the learning deadline.")
         raise HTTPException(
             detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
-    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    iteration = get_score_bands_head_iteration(
+        group_session,
+        session,
+    )
     info = iteration.info_container
     return GDMSCOREBandsLearningStatusResponse(
         phase=getattr(info, "phase", "consensus"),
@@ -373,28 +487,40 @@ async def advance_learning_phase(
     session: Annotated[Session, Depends(get_session)],
 ) -> GDMSCOREBandsLearningStatusResponse:
     """Move the group from private learning to the consensus phase."""
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not group:
-        raise HTTPException(detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id != group.owner_id:
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    member_ids = get_group_member_ids(group)
+
+    if user.id not in member_ids:
         raise HTTPException(
-            detail="Only the group owner can start the consensus phase.",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only decision makers may vote.",
         )
 
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=request.group_id, method="gdm-score-bands", db_session=session
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
     )
 
     try:
-        await group_mgr.advance_learning_phase(group=group, session=session)
+        await group_mgr.advance_learning_phase(group_session=group_session, session=session)
     except Exception as e:
         logger.exception("Found an error when advancing to the consensus phase.")
         raise HTTPException(
             detail=f"Internal server error: {e}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         ) from e
 
-    iteration = session.exec(select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)).first()
+    iteration = get_score_bands_head_iteration(
+        group_session,
+        session,
+    )
     info = iteration.info_container
     return GDMSCOREBandsLearningStatusResponse(
         phase=getattr(info, "phase", "consensus"),
@@ -424,29 +550,28 @@ async def revert(
     Returns:
         JSONResponse: Acknowledgement of the revert.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if user.id is not group.owner_id:
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    if user.id != group.owner_id:
         raise HTTPException(
-            detail="Reverting can only be done by the group owner!", status_code=status.HTTP_401_UNAUTHORIZED
-        )
-    if not group:
-        raise HTTPException(
-            detail=f"Group with ID {request.group_id} not found!", status_code=status.HTTP_404_NOT_FOUND
-        )
-    user_ids = group.user_ids
-    user_ids.append(group.owner_id)
-    if user.id not in user_ids:
-        raise HTTPException(
-            detail=f"User with ID {user.id} is not part of group with ID {group.id}",
             status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner may perform this action.",
         )
-    group_id = request.group_id
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=group_id, method="gdm-score-bands", db_session=session
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
     )
 
     try:
-        await group_mgr.revert(user=user, group=group, session=session, group_iteration_number=request.iteration_number)
+        await group_mgr.revert(user=user, group_session=group_session, session=session, group_iteration_number=request.iteration_number)
     except Exception as e:
         logger.exception("Found an error when trying to revert to a previous iteration.")
         raise HTTPException(
@@ -459,7 +584,7 @@ async def revert(
 @router.post("/configure")
 async def configure_gdm(
     config: SCOREBandsGDMConfig,
-    group_id: int,
+    group_session_id: int,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
@@ -467,35 +592,37 @@ async def configure_gdm(
 
     Args:
         config (SCOREBandsGDMConfig): The configuration object
-        group_id (int): group id
+        group_session_id (int): The ID of the group session
         user (Annotated[User, Depends): The user doing the request
         session (Annotated[Session, Depends): The database session.
 
     Returns:
         JSONResponse: Acknowledgement that yeah ok reconfigured.
     """
-    group: Group = session.exec(select(Group).where(Group.id == group_id)).first()
-    if user.id is not group.owner_id:
+    group_session, group = get_score_bands_context(
+        group_session_id,
+        user,
+        session,
+    )
+
+    if user.id != group.owner_id:
         raise HTTPException(
-            detail="Reverting can only be done by the group owner!", status_code=status.HTTP_401_UNAUTHORIZED
-        )
-    if not group:
-        raise HTTPException(detail=f"Group with ID {group_id} not found!", status_code=status.HTTP_404_NOT_FOUND)
-    user_ids = group.user_ids
-    user_ids.append(group.owner_id)
-    if user.id not in user_ids:
-        raise HTTPException(
-            detail=f"User with ID {user.id} is not part of group with ID {group.id}",
             status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner may perform this action.",
         )
-    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
-        group_id=group_id, method="gdm-score-bands", db_session=session
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
     )
 
     try:
         await group_mgr.configure(
             config=config,
-            group=group,
+            group_session=group_session,
             session=session,
         )
     except Exception as e:

@@ -76,17 +76,30 @@ class GDMSCOREBandFinalSelection(BaseGroupInfoContainer):
     solution_objectives: dict[str, list[float]] = Field(sa_column=Column(JSON))
 
     """The selected (or generated??) of those 10 or less."""
-    winner_solution_variables: dict[str, VariableType] = Field(sa_column=Column(JSON))
-    winner_solution_objectives: dict[str, float] = Field(sa_column=Column(JSON))
+    winner_solution_variables: dict[str, VariableType] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
+
+    winner_solution_objectives: dict[str, float] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
 
 
 class GDMScoreBandsInitializationRequest(SQLModel):
-    """Request class for initialization of score bands."""
+    """Request for initializing SCORE Bands."""
+
     group_session_id: int = Field(
-        description="The group session to be initialized."
+        description="ID of the group session."
     )
-    score_bands_config: SCOREBandsGDMConfig = Field(
-        description="The configuration for the initial score banding."
+
+    score_bands_config: SCOREBandsGDMConfig | None = Field(
+        default=None,
+        description=(
+            "Optional SCORE Bands configuration. "
+            "Defaults are used when omitted."
+        ),
     )
 
 class GDMScoreBandsVoteRequest(SQLModel):
@@ -127,7 +140,7 @@ class GDMSCOREBandsRevertRequest(SQLModel):
     group_session_id: int = Field(
         description="Group Session ID."
     )
-    iteration_number: int = Field(
+    group_iteration_id: int = Field(
         description="The number of the iteration that we want to revert to."
     )
 

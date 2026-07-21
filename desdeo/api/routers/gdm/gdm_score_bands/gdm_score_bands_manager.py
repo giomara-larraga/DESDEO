@@ -29,6 +29,13 @@ class GDMScoreBandsManager(GroupManager):
         super().__init__(group_session_id, db_session)
 
         group_session = self._get_group_session(db_session)
+
+        if group_session.method != "gdm-score-bands":
+            raise ManagerError(
+                f"Group session {group_session.id} uses method "
+                f"'{group_session.method}', not 'gdm-score-bands'."
+            )
+
         problem = db_session.exec(
             select(ProblemDB).where(ProblemDB.id == group_session.problem_id)
         ).first()
@@ -72,9 +79,16 @@ class GDMScoreBandsManager(GroupManager):
         group_session: GroupSessionDB,
         session: Session,
     ) -> GroupIteration:
+
+        if group_session.head_iteration_id is None:
+            raise ManagerError(
+                "The group session has not been initialized."
+            )
+
         group_iteration = session.exec(
             select(GroupIteration).where(
-                GroupIteration.id == group_session.head_iteration_id
+                GroupIteration.id == group_session.head_iteration_id,
+                GroupIteration.session_id == group_session.id,
             )
         ).first()
 
@@ -94,13 +108,20 @@ class GDMScoreBandsManager(GroupManager):
                 detail=f"User with ID {user.id} is not part of group with ID {group.id}",
             )
 
-    async def run_method(self, user_id: int, data: str):
-        """Method runner implementation for GDM Score Bands."""
+    async def run_method(
+        self,
+        user_id: int,
+        data: str,
+        db_session: Session,
+    ):
         async with self.lock:
-            await self.send_message(
-                "THIS METHOD IS USED THROUGH THE APPROPRIATE HTTP ENDPOINTS!",
-                self.sockets[user_id],
-            )
+            websocket = self.sockets.get(user_id)
+
+            if websocket is not None:
+                await self.send_message(
+                    "This method is used through the HTTP endpoints.",
+                    websocket,
+                )
 
     async def vote(
         self,
@@ -174,7 +195,7 @@ class GDMScoreBandsManager(GroupManager):
                 iterations = session.exec(
                     select(GroupIteration).where(
                         GroupIteration.session_id == group_session.id
-                    )
+                    ).order_by(GroupIteration.id)
                 ).all()
 
                 state: list[SCOREBandsGDMResult] = [
@@ -229,8 +250,8 @@ class GDMScoreBandsManager(GroupManager):
                         user_confirms=[],
                         solution_variables=varis.to_dict(),
                         solution_objectives=objs.to_dict(),
-                        winner_solution_variables={},
-                        winner_solution_objectives={},
+                        winner_solution_variables=None,
+                        winner_solution_objectives=None,
                     )
 
                 else:
@@ -260,7 +281,6 @@ class GDMScoreBandsManager(GroupManager):
                     notified={},
                     state_id=None,
                     parent_id=group_session.head_iteration_id,
-                    parent=group_iteration,
                 )
 
                 session.add(new_iteration)
@@ -403,31 +423,40 @@ class GDMScoreBandsManager(GroupManager):
         user: User,
         group_session: GroupSessionDB,
         session: Session,
-        group_iteration_number: int,
+        group_iteration_id: int,
     ):
         """Revert to a different iteration."""
         async with self.lock:
             group = self._get_group(group_session, session)
             self._check_user_in_group(user, group)
 
-            group_iteration = self._get_head_iteration(group_session, session)
 
-            iterations: list[GroupIteration] = session.exec(
-                select(GroupIteration).where(
-                    GroupIteration.session_id == group_session.id
-                )
+
+            self._get_head_iteration(group_session, session)
+
+            iterations = session.exec(
+                select(GroupIteration)
+                .where(GroupIteration.session_id == group_session.id)
+                .order_by(GroupIteration.id)
             ).all()
 
-            target_group_iteration = next(
-                (i for i in iterations if i.id == group_iteration_number),
-                None,
-            )
+            target_group_iteration = session.exec(
+                select(GroupIteration).where(
+                    GroupIteration.id == group_iteration_id,
+                    GroupIteration.session_id == group_session.id,
+                )
+            ).first()
 
             if target_group_iteration is None:
-                raise ManagerError(f"No group iteration with ID {group_iteration_number} found.")
+                raise ManagerError(f"No group iteration with ID {group_iteration_id} found.")
 
             if target_group_iteration.info_container.method == "gdm-score-bands-final":
                 raise ManagerError("We can only revert to a score bands iteration.")
+            
+            if target_group_iteration.id == group_session.head_iteration_id:
+                raise ManagerError(
+                    "The selected iteration is already the current iteration."
+                )
 
             state: list[SCOREBandsGDMResult] = [
                 iteration.info_container.score_bands_result
@@ -435,9 +464,23 @@ class GDMScoreBandsManager(GroupManager):
                 if iteration.info_container.method == "gdm-score-bands"
             ]
 
+            if not state:
+                raise ManagerError(
+                    "No SCORE Bands iterations exist in this group session."
+                )
+
             prev_id = state[-1].iteration
 
-            result = target_group_iteration.info_container.score_bands_result
+            result = copy.deepcopy(
+                target_group_iteration
+                .info_container
+                .score_bands_result
+            )
+
+            score_bands_config = copy.deepcopy(
+                target_group_iteration.info_container.score_bands_config
+            )
+
             result.previous_iteration = prev_id
             result.iteration = prev_id + 1
 
@@ -446,7 +489,7 @@ class GDMScoreBandsManager(GroupManager):
                 user_confirms=[],
                 phase="consensus",
                 learning_completed_user_ids=[],
-                score_bands_config=target_group_iteration.info_container.score_bands_config,
+                score_bands_config=score_bands_config,
                 score_bands_result=result,
             )
 
@@ -456,16 +499,16 @@ class GDMScoreBandsManager(GroupManager):
                 notified={},
                 state_id=None,
                 parent_id=group_session.head_iteration_id,
-                parent=group_iteration,
             )
 
             session.add(new_iteration)
-            session.commit()
-            session.refresh(new_iteration)
+            session.flush()
 
             group_session.head_iteration_id = new_iteration.id
             session.add(group_session)
+
             session.commit()
+            session.refresh(new_iteration)
             session.refresh(group_session)
 
             await self.broadcast("UPDATE: Iteration reverted.")
@@ -490,6 +533,7 @@ class GDMScoreBandsManager(GroupManager):
                 select(GroupIteration).where(
                     GroupIteration.session_id == group_session.id
                 )
+                .order_by(GroupIteration.id)
             ).all()
 
             state: list[SCOREBandsGDMResult] = [
@@ -544,7 +588,6 @@ class GDMScoreBandsManager(GroupManager):
                 notified={},
                 state_id=None,
                 parent_id=group_session.head_iteration_id,
-                parent=group_iteration,
             )
 
             session.add(new_iteration)
