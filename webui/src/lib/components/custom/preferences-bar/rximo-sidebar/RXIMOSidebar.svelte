@@ -11,7 +11,7 @@
 	import HowTab from './HowTab.svelte';
 	import CompareTab from './CompareTab.svelte';
 	import AccordionItem from '$lib/components/ui/accordion/accordion-item.svelte';
-
+	import { findShapRow, displayAspirationName, isOwnAspiration, normalizeObjectiveSymbol } from './helpers';
 	interface RXIMOResultEntry {
 		rival_index: number;
 		rival_symbol: string;
@@ -90,32 +90,7 @@
 		}
 	});
 
-	function normalizeObjectiveSymbol(symbol: string): string {
-		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
-	}
 
-	function isOwnAspiration(inputSymbol: string, outputSymbol: string): boolean {
-		return normalizeObjectiveSymbol(inputSymbol) === normalizeObjectiveSymbol(outputSymbol);
-	}
-
-	function displayAspirationName(symbol: string): string {
-		const normalized = normalizeObjectiveSymbol(symbol);
-		const obj = problem.objectives.find((o) => o.symbol === normalized);
-		return obj?.name ?? normalized;
-	}
-
-	function findShapRow(
-		values: Record<string, Record<string, number>> | null,
-		outputSymbol: string
-	): Record<string, number> {
-		if (!values) return {};
-		return (
-			values[outputSymbol] ??
-			values[`z_${outputSymbol}`] ??
-			Object.entries(values).find(([key]) => normalizeObjectiveSymbol(key) === outputSymbol)?.[1] ??
-			{}
-		);
-	}
 
 	const selectedRow = $derived(findShapRow(SHAP_values, selectedObjectiveSymbol));
 
@@ -164,7 +139,7 @@
 
 				return {
 					symbol,
-					name: displayAspirationName(symbol),
+					name: displayAspirationName(symbol, problem),
 					rawValue,
 					helpScore,
 					isOwn: isOwnAspiration(symbol, selectedObjectiveSymbol),
@@ -553,7 +528,6 @@ const objectiveStatuses = $derived.by(() =>
 								<CompareTab
 									{selectedObjectiveName}
 									{selectedObjectiveSymbol}
-									selectedRow={selectedRow}
 									{problem}
 									{preferenceValues}
 									baselineObjectiveValues={baselineObjectiveValues}

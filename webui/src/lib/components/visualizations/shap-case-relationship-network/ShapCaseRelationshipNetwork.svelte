@@ -10,13 +10,20 @@
 
 	type ObjectiveValue = number | number[] | null | undefined;
 
+	type SelectedNetworkNode = {
+		side: 'desired' | 'achieved';
+		symbol: string;
+		name: string;
+	};
+
 	let {
 		objectives,
 		preferenceValues,
 		achievedValues,
 		shapValues,
 		threshold = 0.0,
-		targetObjectiveSymbol = null
+		targetObjectiveSymbol = null,
+		onNodeSelect
 	}: {
 		objectives: ObjectiveItem[];
 		preferenceValues: number[];
@@ -24,6 +31,8 @@
 		shapValues: Record<string, Record<string, number>> | null;
 		threshold?: number;
 		targetObjectiveSymbol?: string | null;
+		onNodeSelect?: (node: SelectedNetworkNode | null) => void;
+
 	} = $props();
 
 	const minWidth = 400;
@@ -261,7 +270,21 @@
 			.attr('transform', (d) => `translate(${d.x}, ${d.y})`)
 			.style('cursor', 'pointer')
 			.on('click', (_, d) => {
-				activeNodeId = activeNodeId === d.id ? null : d.id;
+				const isClearing = activeNodeId === d.id;
+				activeNodeId = isClearing ? null : d.id;
+
+				if (isClearing) {
+					onNodeSelect?.(null);
+					return;
+				}
+
+				onNodeSelect?.({
+					side: d.side === 'left' ? 'desired' : 'achieved',
+					symbol: d.symbol,
+					name:
+						objectives.find((objective) => objective.symbol === d.symbol)?.name ??
+						d.symbol
+				});
 			});
 
 		nodeGroup
@@ -409,17 +432,15 @@
 
 <div >
 	<div class="mb-2 rounded-md bg-blue-50 p-2 text-[12px] text-gray-600">
-		<div class="font-semibold text-gray-800">How to read this map</div>
-		<div>
-			Click a <strong>desired value</strong> on the left to see its effects on the solution.
-			Click an <strong>achieved value</strong> on the right to see what influenced it.
-		</div>
 
 		{#if activeNodeId}
 			<button
 				type="button"
 				class="mt-1 rounded bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
-				onclick={() => (activeNodeId = null)}
+				onclick={() => {
+					activeNodeId = null;
+					onNodeSelect?.(null);
+				}}
 			>
 				Clear focus
 			</button>

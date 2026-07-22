@@ -1,25 +1,22 @@
 <script lang="ts">
 	import type { ProblemInfo } from '$lib/types';
+	import {findShapColumn, findShapRow, displayAspirationName, isOwnAspiration, normalizeObjectiveSymbol} from './helpers';
+
 	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
 	import { ShapHeatmap } from '$lib/components/visualizations/shap-heatmap';
 	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
 
-	type InfluenceRow = {
-		symbol: string;
-		name: string;
-		rawValue: number;
-		helpScore: number;
-		isOwn: boolean;
-		isHelpful: boolean;
-	};
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 
-  	type ObjectiveValue = number | number[] | null | undefined;
+	import DesiredValueEffects from '$lib/components/visualizations/desired-value-effects/DesiredValueEffects.svelte';
+	import { onMount } from 'svelte';
+
+	type ObjectiveValue = number | number[] | null | undefined;
 
 
 	interface Props {
 		selectedObjectiveName: string;
 		selectedObjectiveSymbol: string;
-		selectedRow: Record<string, number>;
 		problem: ProblemInfo;
 		preferenceValues: number[];
 		baselineObjectiveValues: Record<string, ObjectiveValue> | null;
@@ -32,7 +29,6 @@
 	let {
 		selectedObjectiveName,
 		selectedObjectiveSymbol,
-		selectedRow,
 		problem,
 		preferenceValues,
 		baselineObjectiveValues,
@@ -40,217 +36,246 @@
 		explanationText,
 		selectedSHAPBaseline,
 		selectedSolutionValue
-
 	}: Props = $props();
 
+	type NetworkSelection = {
+		side: 'desired' | 'achieved';
+		symbol: string;
+		name: string;
+	};
+
+
+	let networkSelection = $state<NetworkSelection | null>(null);
+
+
+	let selectedEvidenceView = $state<'overview' | 'matrix'>('overview');
+
+	const objectives = $derived(
+		problem.objectives.map((objective) => ({
+			symbol: objective.symbol,
+			name: objective.name,
+			maximize: objective.maximize
+		}))
+	);
+
+	const selectedDesiredEffects = $derived(
+		networkSelection?.side === 'desired' && networkSelection?.symbol
+			? findShapColumn(SHAP_values, networkSelection.symbol)
+			: null
+	);
+
+	const selectedAchievedEffects = $derived(
+		networkSelection?.side === 'achieved' && networkSelection?.symbol
+			? findShapRow(SHAP_values, networkSelection.symbol)
+			: null
+	);
+		
+	onMount(() => {
+		if (!networkSelection) {
+			networkSelection = {
+				side: 'achieved',
+				symbol: selectedObjectiveSymbol,
+				name: selectedObjectiveName
+			};
+		}
+	});
 </script>
 
-<div class="space-y-3">
-	<!-- Bridge to the other tabs -->
-	<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
-		<div class="text-sm font-semibold text-gray-900">
-			Explanation details for {selectedObjectiveName}
+<div class="space-y-2">
+	<!-- Compact explanation-generation pipeline -->
+	<p class="text-xs leading-relaxed text-gray-700">
+		The explanation shows how your desired values affected the objective values
+		achieved by the current solution.
+	</p>
+
+	<!-- Evidence views -->
+	<Tabs.Root bind:value={selectedEvidenceView} class="w-full">
+		<Tabs.List
+			class="grid h-auto w-full grid-cols-2 rounded-md bg-gray-100 p-1"
+			aria-label="Explanation evidence views"
+		>
+			<Tabs.Trigger
+				value="overview"
+				class="rounded px-2 py-1.5 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
+			>
+				Interactive view
+			</Tabs.Trigger>
+
+			<Tabs.Trigger
+				value="matrix"
+				class="rounded px-2 py-1.5 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
+			>
+				Matrix view
+			</Tabs.Trigger>
+		</Tabs.List>
+
+		<!-- Overview tab -->
+		<Tabs.Content value="overview" class="mt-3 space-y-3 focus-visible:outline-none">
+			<!-- Relationship network -->
+			<section
+	class="rounded-md border border-gray-200 bg-white p-3"
+	aria-labelledby="influence-map-heading"
+>
+	<div class="mb-3">
+		<h4
+			id="influence-map-heading"
+			class="text-sm font-semibold text-gray-900"
+		>
+			Explore objective influences
+		</h4>
+
+		<div class="mt-2 space-y-1.5 text-xs leading-relaxed text-gray-500">
+			<p>
+				Click a <span class="font-medium text-gray-700">desired value</span>
+				on the left to see its effects.
+			</p>
+
+			<p>
+				Click an <span class="font-medium text-gray-700">achieved value</span>
+				on the right to see what influenced it.
+			</p>
 		</div>
 
-		<p class="mt-1 text-sm text-gray-600">
-			This view expands what you saw in <strong>Understand</strong> and
-			<strong>Explore</strong>: it shows how objectives support or limit one another.
-		</p>
+		<div
+			class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500"
+			aria-label="Influence legend"
+		>
+			<span class="inline-flex items-center gap-1.5">
+				<span
+					class="h-0.5 w-4 rounded-full bg-[#0C7BDC]"
+					aria-hidden="true"
+				></span>
+				Supports
+			</span>
+
+			<span class="inline-flex items-center gap-1.5">
+				<span
+					class="h-0.5 w-4 rounded-full bg-[#DC3220]"
+					aria-hidden="true"
+				></span>
+				Limits
+			</span>
+		</div>
 	</div>
 
-	<!-- Visual first -->
-	<div class="rounded-md border border-gray-200 bg-white p-3">
-		<div class="mb-1 text-sm font-semibold text-gray-900">
-			Objective relationship map
+	<ShapCaseRelationshipNetwork
+		{objectives}
+		{preferenceValues}
+		achievedValues={baselineObjectiveValues}
+		shapValues={SHAP_values}
+		threshold={0}
+		targetObjectiveSymbol={selectedObjectiveSymbol}
+			onNodeSelect={(node) => {
+			networkSelection = node;
+		}}
+	/>
+</section>
+			<!-- Contributions for the selected objective -->
+<section
+	class="rounded-md border border-gray-200 bg-white p-3"
+	aria-labelledby="contributions-heading"
+>
+	{#if networkSelection?.side === 'desired'}
+		<div class="mb-3">
+			<h4
+				id="contributions-heading"
+				class="text-sm font-semibold text-gray-900"
+			>
+				Effects of {networkSelection.name}
+			</h4>
+
+			<p class="mt-1 text-xs text-gray-500">
+				How this desired value affected each achieved objective.
+			</p>
 		</div>
 
-		<p class="mb-2 text-xs text-gray-500">
-			Blue arrows indicate support. Red arrows indicate trade-offs.
-		</p>
-
-		<ShapCaseRelationshipNetwork
-			objectives={problem.objectives.map((o) => ({
-				symbol: o.symbol,
-				name: o.name,
-				maximize: o.maximize
-			}))}
-			{preferenceValues}
-			achievedValues={baselineObjectiveValues}
-			shapValues={SHAP_values}
-			threshold={0}
-			targetObjectiveSymbol={problem.objectives.find((o) => o.name === selectedObjectiveName)?.symbol || ''}
+		<DesiredValueEffects
+			effects={selectedDesiredEffects}
 		/>
-	</div>
 
-	<!-- Explain connection to Understand / Explore -->
-<!-- 	<div class="grid grid-cols-2 gap-2 text-xs">
-		<div class="rounded-md border border-gray-200 bg-white p-2">
-			<div class="font-semibold text-gray-800">Understand</div>
-			<div class="mt-1 text-gray-500">
-				Uses the strongest relationship to explain the current value.
-			</div>
+	{:else}
+		<div class="mb-3">
+			<h4
+				id="contributions-heading"
+				class="text-sm font-semibold text-gray-900"
+			>
+				Influences on
+				{networkSelection?.name ?? selectedObjectiveName}
+			</h4>
+
+			<p class="mt-1 text-xs text-gray-500">
+				How each desired value influenced this achieved value.
+			</p>
 		</div>
 
-		<div class="rounded-md border border-gray-200 bg-white p-2">
-			<div class="font-semibold text-gray-800">Explore</div>
-			<div class="mt-1 text-gray-500">
-				Uses trade-offs to inspect possible compromises.
-			</div>
-		</div>
-	</div> -->
+		<ShapWaterfall
+			shapRow={selectedAchievedEffects}
+			selectedOutputSymbol={selectedObjectiveSymbol}
+			{problem}
+			baseline={selectedSHAPBaseline}
+			achieved={selectedSolutionValue}
+		/>
+	{/if}
+</section>
+		</Tabs.Content>
 
-	<!-- Technical detail collapsed -->
-	<details class="rounded-md border border-gray-200 bg-white p-3">
-		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
-			Show influence strengths
-		</summary>
-
-		<p class="mt-2 text-xs text-gray-500">
-			These bars show the SHAP contribution of each desired value to the achieved
-			value of <strong>{selectedObjectiveName}</strong>.
-		</p>
-			<div class="rounded-md border border-gray-200 bg-white p-3">
-		<!-- 		<div class="mb-2 text-sm font-semibold text-gray-900">
-					How was this value achieved?
-				</div> -->
-
-				<p class="mb-3 text-sm text-gray-600">
-					The chart shows how the desired values contribute to the achieved value of
-					<strong>{selectedObjectiveName}</strong>.
-				</p>
-
-				<ShapWaterfall
-					shapRow={selectedRow}
-					selectedOutputSymbol={selectedObjectiveSymbol}
-					{problem}
-					baseline={selectedSHAPBaseline}
-					achieved={selectedSolutionValue}
-				/>
-			</div>
-
-<!-- 		<div class="mt-3 space-y-1.5">
-			{#each influenceRows as row}
-				<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-sm">
-					<div class="truncate font-medium text-gray-700" title={row.symbol}>
-						{row.name}{row.isOwn ? ' (own)' : ''}
-					</div>
-
-					<div class="h-2 overflow-hidden rounded bg-gray-100">
-						<div
-							class={`h-full ${row.isHelpful ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
-							style={`width: ${(Math.abs(row.helpScore) / maxAbsInfluence) * 100}%`}
-						></div>
-					</div>
-
-					<div
-						class={`text-right font-mono ${
-							row.isHelpful ? 'text-[#0C7BDC]' : 'text-[#DC3220]'
-						}`}
+		<!-- Full SHAP matrix tab -->
+		<Tabs.Content value="matrix" class="mt-3 focus-visible:outline-none">
+			<section
+				class="rounded-md border border-gray-200 bg-white p-3"
+				aria-labelledby="relationship-matrix-heading"
+			>
+				<div class="mb-3">
+					<h4
+						id="relationship-matrix-heading"
+						class="text-sm font-semibold text-gray-900"
 					>
-						{formatSigned(row.helpScore)}
-					</div>
+						All objective relationships
+					</h4>
+
+					<p class="mt-1 text-xs leading-relaxed text-gray-500">
+							Compare all objective influences
+
+					</p>
 				</div>
-			{/each}
-		</div> -->
-	</details>
 
-	<details class="rounded-md border border-gray-200 bg-white p-3">
-		<summary class="cursor-pointer text-sm font-semibold text-gray-700">
-			Advanced: show full SHAP matrix
-		</summary>
+				<div class="overflow-x-auto">
+					<ShapHeatmap
+						shapValues={SHAP_values}
+						{problem}
+					/>
+				</div>
+			</section>
+		</Tabs.Content>
+	</Tabs.Root>
 
-		<p class="mt-2 text-xs text-gray-500">
-			The matrix shows all pairwise effects between desired values and achieved
-			objective values.
-		</p>
-
-		<div class="mt-3">
-			<ShapHeatmap shapValues={SHAP_values} {problem} />
-		</div>
-	</details>
-
-	<!-- Technical explanation collapsed -->
+	<!-- Optional generated explanation -->
 	{#if explanationText}
-		<details class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
-			<summary class="cursor-pointer font-semibold text-gray-700">
-				Show technical explanation
-			</summary>
-			<p class="mt-2 leading-relaxed">{explanationText}</p>
-		</details>
+		<div class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
+			<div class="mb-1 flex items-center gap-1.5">
+				<svg
+					aria-hidden="true"
+					class="h-4 w-4 shrink-0 text-gray-400"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<circle cx="12" cy="12" r="10"></circle>
+					<path d="M12 16v-4"></path>
+					<path d="M12 8h.01"></path>
+				</svg>
+
+				<span class="text-xs font-semibold text-gray-700">
+					Method note
+				</span>
+			</div>
+
+			<p class="text-xs leading-relaxed text-gray-500">
+				{explanationText}
+			</p>
+		</div>
 	{/if}
 </div>
-
-
-<style>
-  .card,
-  .details {
-    background: white;
-    border: 1px solid #d8e0eb;
-    border-radius: 0.65rem;
-    padding: 0.8rem;
-  }
-
-  .card + .card,
-  .details {
-    margin-top: 0.8rem;
-  }
-
-  h3 {
-    margin: 0 0 0.5rem;
-    font-size: 0.86rem;
-  }
-
-  p {
-    margin: 0;
-    line-height: 1.4;
-  }
-
-  .muted {
-    color: #64748b;
-  }
-
-  .impact-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .impact-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    font-size: 0.82rem;
-  }
-
-  .positive {
-    color: #059669;
-  }
-
-  .negative {
-    color: #dc2626;
-  }
-
-  summary {
-    cursor: pointer;
-    font-weight: 700;
-  }
-
-  table {
-    width: 100%;
-    margin-top: 0.6rem;
-    border-collapse: collapse;
-    font-size: 0.75rem;
-  }
-
-  th,
-  td {
-    padding: 0.35rem;
-    border-bottom: 1px solid #e2e8f0;
-    text-align: right;
-  }
-
-  th:first-child,
-  td:first-child {
-    text-align: left;
-  }
-</style>
