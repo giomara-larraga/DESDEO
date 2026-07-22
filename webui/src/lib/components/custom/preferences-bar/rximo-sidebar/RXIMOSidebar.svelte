@@ -1,21 +1,16 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import * as Tabs from '$lib/components/ui/tabs';
+	//import * as Tabs from '$lib/components/ui/tabs';
+	import * as Accordion from '$lib/components/ui/accordion';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import type { ProblemInfo, Solution } from '$lib/types';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
 	import {COLOR_PALETTE} from '$lib/components/visualizations/utils/colors';
-
-	import { ShapHeatmap, ShapBarchart } from '$lib/components/visualizations/shap-heatmap';
-	import { Combobox } from '$lib/components/ui/combobox';
-	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
-	import WhatIfCaseNetwork from '$lib/components/visualizations/what-if-case-network/WhatIfCaseNetwork.svelte';
 	import WhyTab from './WhyTab.svelte';
 	import HowTab from './HowTab.svelte';
 	import CompareTab from './CompareTab.svelte';
-	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
+	import AccordionItem from '$lib/components/ui/accordion/accordion-item.svelte';
 
 	interface RXIMOResultEntry {
 		rival_index: number;
@@ -496,13 +491,16 @@ const objectiveStatuses = $derived.by(() =>
 						</div> -->
 					</div>
 
-					<Tabs.Root bind:value={explanationTab} class="w-full">
-						<Tabs.List class="grid w-full grid-cols-3">
-							<Tabs.Trigger value="why">Understand</Tabs.Trigger>
-							<Tabs.Trigger value="how">Explore</Tabs.Trigger>
-							<Tabs.Trigger value="compare">Details</Tabs.Trigger>
-						</Tabs.List>
-						<Tabs.Content value="why" class="mt-3 w-full">
+					<Accordion.Root type="single" value="why" class="w-full">
+					    <Accordion.Item value="why">
+						<Accordion.Trigger class="w-full text-left">
+							<div class="flex items-center justify-between gap-2">
+								<span class="text-sm font-semibold">Why does {selectedObjectiveName} have this value?</span>
+								<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
+							</div>
+						</Accordion.Trigger>
+						
+						<Accordion.Content class="mt-3 w-full">
 								<WhyTab
 									{selectedObjectiveName}
 									{preferenceValues}
@@ -520,9 +518,16 @@ const objectiveStatuses = $derived.by(() =>
 									{explanationText}
 									onExploreClick={() => (explanationTab = 'how')}
 								/>
-							</Tabs.Content>
-
-						<Tabs.Content value="how" class="mt-3 w-full">
+							</Accordion.Content>
+						</Accordion.Item>
+						<AccordionItem value="how" class="mt-3 w-full">
+							<Accordion.Trigger class="w-full text-left">
+								<div class="flex items-center justify-between gap-2">
+									<span class="text-sm font-semibold">How can I improve {selectedObjectiveName}?</span>
+									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
+								</div>
+							</Accordion.Trigger>
+						<Accordion.Content class="mt-3 w-full">
 								<HowTab
 									{selectedObjectiveName}
 									selectedObjectiveSymbol={selectedObjectiveSymbol}
@@ -534,26 +539,33 @@ const objectiveStatuses = $derived.by(() =>
 									{maxAbsScenarioPercent}
 									{onApplyScenarioPreferences}
 								/>
-						</Tabs.Content>
-									
+						</Accordion.Content>
+						</AccordionItem>
+						<AccordionItem value="compare" class="mt-3 w-full">
+							<Accordion.Trigger class="w-full text-left">
+								<div class="flex items-center justify-between gap-2">
+									<span class="text-sm font-semibold">How was this explanation generated?</span>
+									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
+								</div>
+							</Accordion.Trigger>
 
-						<Tabs.Content value="compare" class="mt-3 w-full">
+						<Accordion.Content class="mt-3 w-full">
 								<CompareTab
 									{selectedObjectiveName}
-									mainHurter={mainHurter}
-									mainHelper={mainHelper}
-									ownInfluence={ownInfluence}
-									{influenceRows}
-									{maxAbsInfluence}
+									{selectedObjectiveSymbol}
+									selectedRow={selectedRow}
 									{problem}
 									{preferenceValues}
 									baselineObjectiveValues={baselineObjectiveValues}
 									SHAP_values={SHAP_values}
+									explanationText={explanationText}
+									selectedSHAPBaseline={selectedSHAPBaseline}
+									selectedSolutionValue={selectedSolutionValue}
 								/>
-							</Tabs.Content>
-									
+							</Accordion.Content>
+						</AccordionItem>
 						
-					</Tabs.Root>
+					</Accordion.Root>
 				</div>
 			{/if}
 		</Tooltip.Provider>

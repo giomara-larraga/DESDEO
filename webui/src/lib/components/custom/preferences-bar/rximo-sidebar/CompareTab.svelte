@@ -2,6 +2,7 @@
 	import type { ProblemInfo } from '$lib/types';
 	import ShapCaseRelationshipNetwork from '$lib/components/visualizations/shap-case-relationship-network/ShapCaseRelationshipNetwork.svelte';
 	import { ShapHeatmap } from '$lib/components/visualizations/shap-heatmap';
+	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
 
 	type InfluenceRow = {
 		symbol: string;
@@ -12,41 +13,36 @@
 		isHelpful: boolean;
 	};
 
-  type ObjectiveValue = number | number[] | null | undefined;
+  	type ObjectiveValue = number | number[] | null | undefined;
 
 
 	interface Props {
 		selectedObjectiveName: string;
-		mainHurter: InfluenceRow | undefined;
-		mainHelper: InfluenceRow | undefined;
-		ownInfluence: InfluenceRow | undefined;
-		influenceRows: InfluenceRow[];
-		maxAbsInfluence: number;
+		selectedObjectiveSymbol: string;
+		selectedRow: Record<string, number>;
 		problem: ProblemInfo;
 		preferenceValues: number[];
 		baselineObjectiveValues: Record<string, ObjectiveValue> | null;
 		SHAP_values: Record<string, Record<string, number>>;
+		explanationText: string | null;
+		selectedSHAPBaseline: number | undefined;
+		selectedSolutionValue: number | undefined;
 	}
 
 	let {
 		selectedObjectiveName,
-		mainHurter,
-		mainHelper,
-		ownInfluence,
-		influenceRows,
-		maxAbsInfluence,
+		selectedObjectiveSymbol,
+		selectedRow,
 		problem,
 		preferenceValues,
 		baselineObjectiveValues,
-		SHAP_values
+		SHAP_values,
+		explanationText,
+		selectedSHAPBaseline,
+		selectedSolutionValue
+
 	}: Props = $props();
 
-	function formatSigned(value: number): string {
-		const fixed = Math.abs(value).toFixed(3);
-		if (value > 0) return `+${fixed}`;
-		if (value < 0) return `-${fixed}`;
-		return '0.000';
-	}
 </script>
 
 <div class="space-y-3">
@@ -87,7 +83,7 @@
 	</div>
 
 	<!-- Explain connection to Understand / Explore -->
-	<div class="grid grid-cols-2 gap-2 text-xs">
+<!-- 	<div class="grid grid-cols-2 gap-2 text-xs">
 		<div class="rounded-md border border-gray-200 bg-white p-2">
 			<div class="font-semibold text-gray-800">Understand</div>
 			<div class="mt-1 text-gray-500">
@@ -101,7 +97,7 @@
 				Uses trade-offs to inspect possible compromises.
 			</div>
 		</div>
-	</div>
+	</div> -->
 
 	<!-- Technical detail collapsed -->
 	<details class="rounded-md border border-gray-200 bg-white p-3">
@@ -113,8 +109,26 @@
 			These bars show the SHAP contribution of each desired value to the achieved
 			value of <strong>{selectedObjectiveName}</strong>.
 		</p>
+			<div class="rounded-md border border-gray-200 bg-white p-3">
+		<!-- 		<div class="mb-2 text-sm font-semibold text-gray-900">
+					How was this value achieved?
+				</div> -->
 
-		<div class="mt-3 space-y-1.5">
+				<p class="mb-3 text-sm text-gray-600">
+					The chart shows how the desired values contribute to the achieved value of
+					<strong>{selectedObjectiveName}</strong>.
+				</p>
+
+				<ShapWaterfall
+					shapRow={selectedRow}
+					selectedOutputSymbol={selectedObjectiveSymbol}
+					{problem}
+					baseline={selectedSHAPBaseline}
+					achieved={selectedSolutionValue}
+				/>
+			</div>
+
+<!-- 		<div class="mt-3 space-y-1.5">
 			{#each influenceRows as row}
 				<div class="grid grid-cols-[82px_1fr_52px] items-center gap-2 text-sm">
 					<div class="truncate font-medium text-gray-700" title={row.symbol}>
@@ -137,7 +151,7 @@
 					</div>
 				</div>
 			{/each}
-		</div>
+		</div> -->
 	</details>
 
 	<details class="rounded-md border border-gray-200 bg-white p-3">
@@ -154,6 +168,16 @@
 			<ShapHeatmap shapValues={SHAP_values} {problem} />
 		</div>
 	</details>
+
+	<!-- Technical explanation collapsed -->
+	{#if explanationText}
+		<details class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
+			<summary class="cursor-pointer font-semibold text-gray-700">
+				Show technical explanation
+			</summary>
+			<p class="mt-2 leading-relaxed">{explanationText}</p>
+		</details>
+	{/if}
 </div>
 
 

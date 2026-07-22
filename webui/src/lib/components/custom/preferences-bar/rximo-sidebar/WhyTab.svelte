@@ -1,10 +1,8 @@
 <script lang="ts">
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import { formatNumber } from '$lib/helpers';
 	import type { ProblemInfo, Solution } from '$lib/types';
-	import ShapWaterfall from '$lib/components/visualizations/shap-waterfall/ShapWaterfall.svelte';
 
 	type InfluenceRow = {
 		symbol: string;
@@ -47,7 +45,6 @@
 		problem,
 		selectedSHAPBaseline,
 		selectedSolutionValue,
-		explanationText,
 		onExploreClick
 	}: Props = $props();
 
@@ -68,57 +65,6 @@
 		if (Math.abs(diff) <= tolerance) return 'has met the desired value';
 		return directionSelectedObjective() === 'max' ? (achieved > desired ? 'is better than the desired value' : 'is worse than the desired value') : (achieved < desired ? 'is better than the desired value' : 'is worse than the desired value');
 	}
-
-	type ObjectiveStatus = 'better' | 'same' | 'worse';
-
-	const objectiveSummary = $derived.by(() => {
-		let met = 0;
-		let unmet = 0;
-
-		for (let i = 0; i < problem.objectives.length; i++) {
-			const objective = problem.objectives[i];
-
-			const desired = preferenceValues[i];
-			const achieved = Number(selectedSolution?.objective_values?.[objective.symbol]);
-
-			if (!Number.isFinite(desired) || !Number.isFinite(achieved)) continue;
-
-			const meets = objective.maximize
-				? achieved >= desired
-				: achieved <= desired;
-
-			if (meets) met++;
-			else unmet++;
-		}
-
-		const ratio = met / Math.max(1, met + unmet);
-
-		let headline = '';
-		let description = '';
-
-		if (ratio >= 0.8) {
-			headline = 'Most desired values are achieved';
-			description =
-				mainTradeoff == null
-					? 'Only minor preference adjustments may be enough to improve the remaining objectives.'
-					: `Most desired values are already achieved, but improving ${selectedObjectiveName} may still require a trade-off with ${mainTradeoff.name}.`;
-		} else if (ratio >= 0.4) {
-			headline = 'Some desired values are achieved';
-			description =
-				'Improving the remaining objectives will likely require balancing trade-offs.';
-		} else {
-			headline = 'Several desired values remain unmet';
-			description =
-				'The current preferences are difficult to satisfy simultaneously, so trade-offs are expected.';
-		}
-
-		return {
-			met,
-			unmet,
-			headline,
-			description
-		};
-	});
 </script>
 
 <div class="space-y-3">
@@ -265,7 +211,7 @@
 				</Tooltip.Root>
 			</div>
 
-			<Tooltip.Root>
+<!-- 			<Tooltip.Root>
 				<Tooltip.Trigger asChild>
 					<Button
 						type="button"
@@ -282,7 +228,7 @@
 				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
 					Open the Explore tab to inspect what may happen if some desired values are adjusted.
 				</Tooltip.Content>
-			</Tooltip.Root>
+			</Tooltip.Root> -->
 
 		{:else}
 			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
@@ -299,7 +245,7 @@
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</div>
-
+<!-- 
 			<Tooltip.Root>
 				<Tooltip.Trigger asChild>
 					<Button
@@ -317,43 +263,9 @@
 				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
 					Open the Explore tab to inspect what may happen if some desired values are adjusted.
 				</Tooltip.Content>
-			</Tooltip.Root>
+			</Tooltip.Root> -->
 		{/if}
 	</div>
 
-	<!-- Waterfall as the main explanation -->
-	<div class="rounded-md border border-gray-200 bg-white p-3">
-		<div class="mb-2 text-sm font-semibold text-gray-900">
-			How was this value achieved?
-		</div>
 
-		<p class="mb-3 text-sm text-gray-600">
-			The chart shows how the desired values contribute to the achieved value of
-			<strong>{selectedObjectiveName}</strong>.
-		</p>
-
-		<ShapWaterfall
-			shapRow={selectedRow}
-			selectedOutputSymbol={selectedObjectiveSymbol}
-			{problem}
-			baseline={selectedSHAPBaseline}
-			achieved={selectedSolutionValue}
-		/>
-	</div>
-
-	<!-- Short bridge to Explore -->
-	<div class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-600">
-		<span class="font-semibold text-gray-800">Next:</span>
-		use <strong>Explore</strong> to test possible preference adjustments.
-	</div>
-
-	<!-- Technical explanation collapsed -->
-	{#if explanationText}
-		<details class="rounded-md border border-gray-200 bg-white p-3 text-sm text-gray-700">
-			<summary class="cursor-pointer font-semibold text-gray-700">
-				Show technical explanation
-			</summary>
-			<p class="mt-2 leading-relaxed">{explanationText}</p>
-		</details>
-	{/if}
 </div>
