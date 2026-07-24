@@ -37,7 +37,7 @@ from desdeo.api.models import (
     VotingPreference,
 )
 from desdeo.api.routers.gdm.gdm_aggregate import manager
-from desdeo.api.routers.gdm.utils import check_group_access, get_group_member_ids, get_group_or_404, get_group_session_or_404
+from desdeo.api.routers.gdm.utils import check_group_access, get_decision_maker_ids, get_group_or_404, get_group_session_or_404
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point
@@ -259,7 +259,7 @@ def full_iteration(  # noqa: C901, PLR0912
 
     full_iterations: list[FullIteration] = []
 
-    user_len = len(get_group_member_ids(group))
+    user_len = len(get_decision_maker_ids(group))
 
     if groupiter.info_container.method == "optimization":
         # There are no full results because the latest iteration is optimization,

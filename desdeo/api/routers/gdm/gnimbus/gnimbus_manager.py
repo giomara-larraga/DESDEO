@@ -28,7 +28,7 @@ from desdeo.api.models import (
     VotingPreference,
 )
 from desdeo.api.routers.gdm.gdm_base import GroupManager
-from desdeo.api.routers.gdm.utils import get_group_member_ids
+from desdeo.api.routers.gdm.utils import get_decision_maker_ids, get_group_or_404, get_group_session_or_404
 from desdeo.mcdm.gnimbus import solve_group_sub_problems, voting_procedure
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
@@ -682,7 +682,7 @@ class GNIMBUSManager(GroupManager):
                 return
 
             new_preferences = None
-            user_ids = get_group_member_ids(group)
+            user_ids = get_decision_maker_ids(group)
 
 
             # Diverge into different paths using PreferenceResult method type of the current iteration.

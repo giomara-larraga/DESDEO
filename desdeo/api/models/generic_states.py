@@ -36,6 +36,9 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    GDMSCOREBandsLearningState,
+    GDMSCOREBandsConsensusState,
+    GDMSCOREBandsDecisionState,
 )
 from .user import User
 
@@ -73,6 +76,9 @@ class StateKind(str, Enum):
     XNIMBUS_SAVE = "xnimbus.save_solutions"
     XNIMBUS_INIT = "xnimbus.initialize"
     XNIMBUS_FINAL = "xnimbus.final"
+    GDM_SCORE_BANDS_LEARNING = "gdm-score-bands.learning"
+    GDM_SCORE_BANDS_CONSENSUS = "gdm-score-bands.consensus"
+    GDM_SCORE_BANDS_DECISION = "gdm-score-bands.decision"
 
 
 class State(SQLModel, table=True):
@@ -227,6 +233,9 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
     StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
     StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
+    StateKind.GDM_SCORE_BANDS_LEARNING: GDMSCOREBandsLearningState,
+    StateKind.GDM_SCORE_BANDS_CONSENSUS: GDMSCOREBandsConsensusState,
+    StateKind.GDM_SCORE_BANDS_DECISION: GDMSCOREBandsDecisionState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -247,6 +256,9 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
     NautilusNavigatorNavigationState: StateKind.NAUTILUS_NAVIGATE,
     NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE,
+    GDMSCOREBandsLearningState: StateKind.GDM_SCORE_BANDS_LEARNING,
+    GDMSCOREBandsConsensusState: StateKind.GDM_SCORE_BANDS_CONSENSUS,
+    GDMSCOREBandsDecisionState: StateKind.GDM_SCORE_BANDS_DECISION,
 }
 
 

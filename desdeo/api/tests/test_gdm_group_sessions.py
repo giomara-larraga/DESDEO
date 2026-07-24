@@ -21,7 +21,7 @@ def test_group_uses_group_user_link(session: Session):
     dm1 = make_user(session, "dm1")
     dm2 = make_user(session, "dm2")
 
-    group = Group(name="test group", owner_id=owner.id, users=[owner, dm1, dm2])
+    group = Group(name="test group", owner_id=owner.id, users=[dm1, dm2])
     session.add(group)
     session.commit()
     session.refresh(group)
@@ -31,7 +31,8 @@ def test_group_uses_group_user_link(session: Session):
     ).all()
 
     assert {link.user_id for link in links} == {owner.id, dm1.id, dm2.id}
-    assert {user.id for user in group.users} == {owner.id, dm1.id, dm2.id}
+    assert {user.id for user in group.users} == {dm1.id, dm2.id}
+    assert group.owner_id == owner.id
 
 
 def test_group_can_have_multiple_sessions(session: Session):
@@ -47,7 +48,7 @@ def test_group_can_have_multiple_sessions(session: Session):
     session.refresh(problem1)
     session.refresh(problem2)
 
-    group = Group(name="test group", owner_id=owner.id, users=[owner, dm1])
+    group = Group(name="test group", owner_id=owner.id, users=[dm1])
     session.add(group)
     session.commit()
     session.refresh(group)
@@ -69,12 +70,14 @@ def test_group_can_have_multiple_sessions(session: Session):
 
 def test_iterations_belong_to_group_session(session: Session):
     owner = make_user(session, "owner", UserRole.analyst)
+    dm1 = make_user(session, "dm1")
+    dm2 = make_user(session, "dm2")
     problem = ProblemDB.from_problem(river_pollution_problem_discrete(False), user=owner)
     session.add(problem)
     session.commit()
     session.refresh(problem)
 
-    group = Group(name="test group", owner_id=owner.id, users=[owner])
+    group = Group(name="test group", owner_id=owner.id, users=[dm1, dm2])
     session.add(group)
     session.commit()
     session.refresh(group)
@@ -115,7 +118,9 @@ def test_two_sessions_do_not_share_head_iteration(session: Session):
     session.commit()
     session.refresh(problem)
 
-    group = Group(name="test group", owner_id=owner.id, users=[owner])
+    dm1 = make_user(session, "dm1")
+    dm2 = make_user(session, "dm2")
+    group = Group(name="test group", owner_id=owner.id, users=[dm1, dm2])
     session.add(group)
     session.commit()
     session.refresh(group)

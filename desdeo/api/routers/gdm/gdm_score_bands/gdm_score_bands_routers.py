@@ -4,9 +4,13 @@ I imagine these as simple interfaces to the GDMScoreBandsManager.
 """
 
 import logging
+from shutil import copy
 import sys
 from typing import Annotated
 
+from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandsLearningPreference
+from desdeo.api.models.generic_states import StateDB
+from desdeo.api.models.state import GDMSCOREBandsLearningState
 from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,7 +19,6 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
-    GDMSCOREBandInformation,
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
     GDMSCOREBandsLearningAdvanceRequest,
@@ -36,8 +39,9 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
 
 from desdeo.api.routers.gdm.utils import (
+    check_decision_maker,
     check_group_access,
-    get_group_member_ids,
+    check_group_owner,
     get_group_or_404,
     get_group_session_or_404,
 )
@@ -126,13 +130,7 @@ async def vote_for_a_band(
         session,
     )
 
-    member_ids = get_group_member_ids(group)
-
-    if user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only decision makers may vote.",
-        )
+    check_decision_maker(user, group)
 
     group_mgr: GDMScoreBandsManager = (
         await manager.get_group_manager(
@@ -189,11 +187,7 @@ async def confirm_vote(
         session,
     )
 
-    if user.id not in get_group_member_ids(group):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only decision makers may confirm.",
-        )
+    check_group_owner(user, group)
 
     group_mgr = await manager.get_group_manager(
         group_session_id=group_session.id,
@@ -285,31 +279,44 @@ async def get_or_initialize(
     score_bands_config.score_bands_config.axis_positions = result.score_bands_result.axis_positions
 
     # store necessary data to the database. Currently all "voting" related is null bc no voting has happened yet.
-    score_bands_info = GDMSCOREBandInformation(
-        phase="learning",
-        user_votes={},
-        user_confirms=[],
-        learning_completed_user_ids=[],
-        score_bands_config=score_bands_config,
-        score_bands_result=result,
+    learning_preference = GDMSCOREBandsLearningPreference(
+        completed_user_ids=[],
     )
 
+    learning_state = GDMSCOREBandsLearningState(
+        config=copy.deepcopy(score_bands_config),
+        result=copy.deepcopy(result),
+    )
+
+    state_db = StateDB.create(
+        database_session=session,
+        problem_id=group_session.problem_id,
+        group_session_id=group_session.id,
+        parent_id=None,
+        state=learning_state,
+    )
+
+    session.add(state_db)
+    session.flush()
+    session.refresh(state_db)
+    
     # Add group iteration and related stuff, then set new iteration to head.
-    iteration: GroupIteration = GroupIteration(
+    iteration = GroupIteration(
         session_id=group_session.id,
-        info_container=score_bands_info,
+        info_container=learning_preference,
         notified={},
-        state_id=None,
+        state_id=state_db.id,
         parent_id=None,
     )
 
     session.add(iteration)
-    session.commit()
-    session.refresh(iteration)
+    session.flush()
 
     group_session.head_iteration_id = iteration.id
     session.add(group_session)
+
     session.commit()
+    session.refresh(iteration)
     session.refresh(group_session)
 
     # Actually, return just the newly created score band data.
@@ -388,13 +395,7 @@ async def complete_learning_phase(
         session,
     )
 
-    member_ids = get_group_member_ids(group)
-
-    if user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only decision makers may vote.",
-        )
+    check_decision_maker(user, group)
 
     group_mgr: GDMScoreBandsManager = (
         await manager.get_group_manager(
@@ -493,13 +494,7 @@ async def advance_learning_phase(
         session,
     )
 
-    member_ids = get_group_member_ids(group)
-
-    if user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only decision makers may vote.",
-        )
+    check_group_owner(user, group)
 
     group_mgr: GDMScoreBandsManager = (
         await manager.get_group_manager(
@@ -556,11 +551,7 @@ async def revert(
         session,
     )
 
-    if user.id != group.owner_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the group owner may perform this action.",
-        )
+    check_group_owner(user, group)
 
     group_mgr: GDMScoreBandsManager = (
         await manager.get_group_manager(
@@ -605,11 +596,7 @@ async def configure_gdm(
         session,
     )
 
-    if user.id != group.owner_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the group owner may perform this action.",
-        )
+    check_group_owner(user, group)
 
     group_mgr: GDMScoreBandsManager = (
         await manager.get_group_manager(

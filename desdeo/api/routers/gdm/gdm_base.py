@@ -261,17 +261,34 @@ def create_group(
     found_user_ids = {user.id for user in members}
     requested_user_ids = set(request.user_ids)
 
+    if owner.id in request.user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "The group owner is the facilitator and cannot "
+                "also be added as a decision maker."
+            ),
+        )
+
+    members = session.exec(
+        select(UserDB).where(
+            UserDB.id.in_(requested_user_ids)
+        )
+    ).all()
+
+    found_user_ids = {
+        member.id
+        for member in members
+        if member.id is not None
+    }
+
     missing_user_ids = requested_user_ids - found_user_ids
 
     if missing_user_ids:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Users not found: {sorted(missing_user_ids)}",
         )
-
-    # Ensure owner is also a member
-    if owner.id not in found_user_ids:
-        members.append(owner)
 
     group = Group(
         name=request.name,
@@ -470,35 +487,41 @@ def add_to_group(
     if not group.owner_id == user.id:
         raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
 
-    if request.user_id in group.user_ids:
+    if request.user_id == group.owner_id:
         raise HTTPException(
-            detail=f"User with ID {request.user_id} already in this group!", status_code=status.HTTP_400_BAD_REQUEST
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "The group owner is the facilitator and cannot "
+                "be added as a decision maker."
+            ),
         )
 
-    addee = session.exec(select(User).where(User.id == request.user_id)).first()
-    # Make sure the user to be added exists
+    if any(
+        member.id == request.user_id
+        for member in group.users
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"User with ID {request.user_id} "
+                "is already a decision maker."
+            ),
+        )
+
+    addee = session.get(UserDB, request.user_id)
+
     if addee is None:
         raise HTTPException(
-            detail=f"There is no user with ID {request.user_id}!", status_code=status.HTTP_404_NOT_FOUND
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No user with ID {request.user_id} found.",
         )
 
-    users = group.user_ids.copy()
-    users.append(request.user_id)
-    group.user_ids = users
+    group.users.append(addee)
+
     session.add(group)
     session.commit()
     session.refresh(group)
 
-    if addee.group_ids is None:
-        addee.group_ids = [group.id]
-    else:
-        groups = addee.group_ids.copy()
-        groups.append(group.id)
-        addee.group_ids = groups
-
-    session.add(addee)
-    session.commit()
-    session.refresh(addee)
 
     return JSONResponse(
         content={"message": f"Added user {group.user_ids[-1]} to group {group.id}."}, status_code=status.HTTP_200_OK
@@ -539,19 +562,30 @@ def remove_from_group(
             detail=f"User with ID {request.user_id} is not in this group!", status_code=status.HTTP_400_BAD_REQUEST
         )
 
-    user_ids = group.user_ids.copy()
-    user_ids.remove(request.user_id)
-    group.user_ids = user_ids
+    member = next(
+        (
+            member
+            for member in group.users
+            if member.id == request.user_id
+        ),
+        None,
+    )
+
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"User with ID {request.user_id} "
+                "is not a decision maker in this group."
+            ),
+        )
+
+    group.users.remove(member)
+
     session.add(group)
     session.commit()
     session.refresh(group)
 
-    removed_user = session.exec(select(User).where(User.id == request.user_id)).first()
-    ugids = removed_user.group_ids.copy()
-    ugids.remove(group.id)
-    removed_user.group_ids = ugids
-    session.add(removed_user)
-    session.commit()
 
     if request.user_id in group.user_ids:
         raise HTTPException(

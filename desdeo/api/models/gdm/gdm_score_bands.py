@@ -20,47 +20,56 @@ from desdeo.problem.schema import VariableType
 from desdeo.tools.score_bands import SCOREBandsResult
 
 
-class GDMSCOREBandInformation(BaseGroupInfoContainer):
-    """Class for containing info on which band was voted for."""
-    method: str = "gdm-score-bands"
-    phase: Literal["learning", "consensus"] = Field(
-        default="consensus", description="Current group phase for GDM SCORE-bands."
-    )
-    user_votes: dict[str, int] = Field(
-        description="Dictionary of votes."
-    )
-    user_confirms: list[int] = Field(
-        description="List of users who want to move on."
-    )
-    learning_completed_user_ids: list[int] = Field(
+class GDMSCOREBandsLearningPreference(BaseGroupInfoContainer):
+    """Mutable information collected during the learning phase."""
+
+    method: str = "gdm-score-bands-learning"
+    phase: str = "learning"
+
+    completed_user_ids: list[int] = Field(
         default_factory=list,
-        description="Decision makers who have finished their private learning-phase exploration.",
+        description="Decision makers who completed learning.",
     )
-    learning_started_at: str = Field(
+
+    started_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
-        description="UTC timestamp at which the learning phase started.",
     )
-    learning_duration_seconds: int = Field(
-        default=900,
-        description="Configured duration of the learning phase in seconds.",
+
+    duration_seconds: int = 900
+
+    last_warning_at: str | None = None
+    last_warning_message: str | None = None
+
+
+class GDMSCOREBandsConsensusPreference(BaseGroupInfoContainer):
+    """Votes and confirmations collected during consensus."""
+
+    method: str = "gdm-score-bands-consensus"
+    phase: str = "consensus"
+
+    user_votes: dict[str, int] = Field(
+        default_factory=dict,
     )
-    learning_last_warning_at: str | None = Field(
-        default=None,
-        description="UTC timestamp of the latest owner warning about learning phase expiry.",
-    )
-    learning_last_warning_message: str | None = Field(
-        default=None,
-        description="Latest owner warning message sent during learning phase.",
-    )
-    score_bands_config: SCOREBandsGDMConfig = Field(
-        description="The configuration that led to this classification."
-    )
-    score_bands_result: SCOREBandsGDMResult = Field(
-        description="The results of the score bands."
+
+    user_confirms: list[int] = Field(
+        default_factory=list,
     )
 
 
-class GDMSCOREBandFinalSelection(BaseGroupInfoContainer):
+class GDMSCOREBandsDecisionPreference(BaseGroupInfoContainer):
+    """Votes and confirmations collected in the final decision phase."""
+
+    method: str = "gdm-score-bands-decision"
+    phase: str = "decision"
+
+    user_votes: dict[str, int] = Field(
+        default_factory=dict,
+    )
+
+    user_confirms: list[int] = Field(
+        default_factory=list,
+    )
+class GDMSCOREBandsFinalSelection(BaseGroupInfoContainer):
     """Class for containing the final 10 or less solutions, the final solution and the votes that led to it."""
     method: str = "gdm-score-bands-final"
     phase: Literal["decision"] = Field(default="decision")
@@ -171,7 +180,7 @@ class GDMSCOREBandsDecisionResponse(SQLModel):
     group_iter_id: int = Field(
         description="ID of the latest group iteration."
     )
-    result: GDMSCOREBandFinalSelection = Field(
+    result: GDMSCOREBandsFinalSelection = Field(
         description="The container for the solutions and the winner solution."
     )
 

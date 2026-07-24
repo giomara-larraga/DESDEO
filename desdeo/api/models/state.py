@@ -13,6 +13,11 @@ from sqlmodel import (
     SQLModel,
 )
 
+from desdeo.gdm.score_bands import (
+    SCOREBandsGDMConfig,
+    SCOREBandsGDMResult,
+)
+
 from desdeo.emo.options.templates import PreferenceOptions, TemplateOptions
 from desdeo.mcdm import ENautilusResult
 from desdeo.problem import Tensor, VariableType
@@ -554,3 +559,86 @@ class ENautilusFinalState(ResultInterface, SQLModel, table=True):
     def num_solutions(self) -> int:
         """Number of solutions stored in the state."""
         return 1
+
+
+class GDMSCOREBandsLearningState(ResultInterface, SQLModel, table=True):
+    """SCORE Bands data available during the learning phase."""
+
+    __tablename__ = "gdmscorebandslearningstate"
+
+    id: int | None = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("states.id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+    config: SCOREBandsGDMConfig = Field(
+        sa_column=Column(JSON),
+    )
+
+    result: SCOREBandsGDMResult = Field(
+        sa_column=Column(JSON),
+    )
+
+
+class GDMSCOREBandsConsensusState(ResultInterface, SQLModel, table=True):
+    """A SCORE Bands classification used during consensus."""
+
+    __tablename__ = "gdmscorebandsconsensusstate"
+
+    id: int | None = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("states.id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+    config: SCOREBandsGDMConfig = Field(
+        sa_column=Column(JSON),
+    )
+
+    result: SCOREBandsGDMResult = Field(
+        sa_column=Column(JSON),
+    )
+
+    selected_band_indices: list[int] = Field(
+        default_factory=list,
+        sa_column=Column(JSON),
+    )
+
+
+class GDMSCOREBandsDecisionState(ResultInterface, SQLModel, table=True):
+    """Candidate and selected solutions in the final decision phase."""
+
+    __tablename__ = "gdmscorebandsdecisionstate"
+
+    id: int | None = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("states.id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+    solution_variables: dict[str, list[VariableType]] = Field(
+        sa_column=Column(JSON),
+    )
+
+    solution_objectives: dict[str, list[float]] = Field(
+        sa_column=Column(JSON),
+    )
+
+    winner_index: int | None = None
+
+    winner_solution_variables: dict[str, VariableType] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )
+
+    winner_solution_objectives: dict[str, float] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+    )

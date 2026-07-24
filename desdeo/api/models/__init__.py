@@ -140,13 +140,15 @@ __all__ = [  # noqa: RUF022
     "GNIMBUSSwitchPhaseRequest",
     "GNIMBUSSwitchPhaseResponse",
     "GDMScoreBandsInitializationRequest",
-    "GDMSCOREBandInformation",
+    "GDMSCOREBandsLearningPreference",
+    "GDMSCOREBandsConsensusPreference",
+    "GDMSCOREBandsDecisionPreference",
     "GDMSCOREBandsLearningAdvanceRequest",
     "GDMSCOREBandsLearningStatusResponse",
     "GDMSCOREBandsLearningWarningRequest",
     "GDMSCOREBandsResponse",
     "GDMScoreBandsVoteRequest",
-    "GDMSCOREBandFinalSelection",
+    "GDMSCOREBandsFinalSelection",
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
     "GDMSCOREBandsHistoryResponse",
@@ -155,6 +157,9 @@ __all__ = [  # noqa: RUF022
     "GroupSessionPublic",
     "GroupUserPublic",
     "GroupInfoRequest",
+    "GDMSCOREBandsLearningState",
+    "GDMSCOREBandsConsensusState",
+    "GDMSCOREBandsDecisionState"
 ]
 
 
@@ -203,8 +208,10 @@ from .gdm.gdm_base import (
     ReferencePointDictType,
 )
 from .gdm.gdm_score_bands import (
-    GDMSCOREBandFinalSelection,
-    GDMSCOREBandInformation,
+    GDMSCOREBandsFinalSelection,
+    GDMSCOREBandsLearningPreference,
+    GDMSCOREBandsConsensusPreference,
+    GDMSCOREBandsDecisionPreference,
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
     GDMSCOREBandsLearningAdvanceRequest,
@@ -324,6 +331,9 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    GDMSCOREBandsLearningState,
+    GDMSCOREBandsConsensusState,
+    GDMSCOREBandsDecisionState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

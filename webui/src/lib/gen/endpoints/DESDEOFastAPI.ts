@@ -727,32 +727,32 @@ export interface FullIteration {
 /**
  * Dictionary of votes.
  */
-export type GDMSCOREBandFinalSelectionUserVotes = { [key: string]: number };
+export type GDMSCOREBandsFinalSelectionUserVotes = { [key: string]: number };
 
-export type GDMSCOREBandFinalSelectionSolutionVariables = { [key: string]: (number | boolean)[] };
+export type GDMSCOREBandsFinalSelectionSolutionVariables = { [key: string]: (number | boolean)[] };
 
-export type GDMSCOREBandFinalSelectionSolutionObjectives = { [key: string]: number[] };
+export type GDMSCOREBandsFinalSelectionSolutionObjectives = { [key: string]: number[] };
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionVariables = {
+export type GDMSCOREBandsFinalSelectionWinnerSolutionVariables = {
 	[key: string]: number | boolean;
 } | null;
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]: number } | null;
+export type GDMSCOREBandsFinalSelectionWinnerSolutionObjectives = { [key: string]: number } | null;
 
 /**
  * Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
  */
-export interface GDMSCOREBandFinalSelection {
+export interface GDMSCOREBandsFinalSelection {
 	method?: string;
 	phase?: 'decision';
 	/** Dictionary of votes. */
-	user_votes: GDMSCOREBandFinalSelectionUserVotes;
+	user_votes: GDMSCOREBandsFinalSelectionUserVotes;
 	/** List of users who want to move on. */
 	user_confirms: number[];
-	solution_variables: GDMSCOREBandFinalSelectionSolutionVariables;
-	solution_objectives: GDMSCOREBandFinalSelectionSolutionObjectives;
-	winner_solution_variables?: GDMSCOREBandFinalSelectionWinnerSolutionVariables;
-	winner_solution_objectives?: GDMSCOREBandFinalSelectionWinnerSolutionObjectives;
+	solution_variables: GDMSCOREBandsFinalSelectionSolutionVariables;
+	solution_objectives: GDMSCOREBandsFinalSelectionSolutionObjectives;
+	winner_solution_variables?: GDMSCOREBandsFinalSelectionWinnerSolutionVariables;
+	winner_solution_objectives?: GDMSCOREBandsFinalSelectionWinnerSolutionObjectives;
 }
 
 /**
@@ -766,7 +766,7 @@ export interface GDMSCOREBandsDecisionResponse {
 	/** ID of the latest group iteration. */
 	group_iter_id: number;
 	/** The container for the solutions and the winner solution. */
-	result: GDMSCOREBandFinalSelection;
+	result: GDMSCOREBandsFinalSelection;
 }
 
 export type GDMSCOREBandsResponsePhase =

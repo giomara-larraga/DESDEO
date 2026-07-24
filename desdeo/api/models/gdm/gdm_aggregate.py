@@ -9,11 +9,16 @@ from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
 from desdeo.api.models.gdm.gdm_base import BaseGroupInfoContainer
-from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandFinalSelection, GDMSCOREBandInformation
 from desdeo.api.models.gdm.gnimbus import EndProcessPreference, OptimizationPreference, VotingPreference
 from desdeo.tools import SolverResults
 from typing import TYPE_CHECKING
 from desdeo.api.models.gdm.group_user_link import GroupUserLink
+
+from desdeo.api.models.gdm.gdm_score_bands import (
+    GDMSCOREBandsConsensusPreference,
+    GDMSCOREBandsDecisionPreference,
+    GDMSCOREBandsLearningPreference,
+)
 
 if TYPE_CHECKING:
     from desdeo.api.models.user import User
@@ -46,19 +51,31 @@ class PreferenceType(TypeDecorator):
             match jsoned.get("method"):
                 case "voting":
                     return VotingPreference.model_validate(jsoned)
+
                 case "optimization":
                     return OptimizationPreference.model_validate(jsoned)
-                # As the different methods are implemented, add new types
+
                 case "end":
                     return EndProcessPreference.model_validate(jsoned)
-                case "gdm-score-bands":
-                    return GDMSCOREBandInformation.model_validate(jsoned)
-                case "gdm-score-bands-final":
-                    return GDMSCOREBandFinalSelection.model_validate(jsoned)
+
+                case "gdm-score-bands-learning":
+                    return GDMSCOREBandsLearningPreference.model_validate(
+                        jsoned
+                    )
+
+                case "gdm-score-bands-consensus":
+                    return GDMSCOREBandsConsensusPreference.model_validate(
+                        jsoned
+                    )
+
+                case "gdm-score-bands-decision":
+                    return GDMSCOREBandsDecisionPreference.model_validate(
+                        jsoned
+                    )
+
                 case _:
-                    print(f"Unable to deserialize Preference with method {jsoned['method']}.")
                     return None
-        return None
+        
 
 
 class GroupBase(SQLModel):

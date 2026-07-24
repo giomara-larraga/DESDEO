@@ -46,23 +46,44 @@ def get_group_or_404(
     return group
 
 
-def get_group_member_ids(group: Group) -> list[int]:
-    """Return all participants, including the group owner."""
-    user_ids = {member.id for member in group.users}
+def get_decision_maker_ids(group: Group) -> list[int]:
+    """Return users participating in the decision-making process."""
+    return [
+        member.id
+        for member in group.users
+        if member.id is not None
+    ]
 
-    if group.owner_id is not None:
-        user_ids.add(group.owner_id)
 
-    return list(user_ids)
+def check_group_access(user: User, group: Group) -> None:
+    """Allow decision makers and the facilitator to access the group."""
+    decision_maker_ids = get_decision_maker_ids(group)
 
-
-def check_group_access(user: User, group: Group):
-    member_ids = get_group_member_ids(group)
-
-    if user.id not in member_ids and user.id != group.owner_id:
+    if (
+        user.id not in decision_maker_ids
+        and user.id != group.owner_id
+    ):
         raise HTTPException(
             detail="Unauthorized user.",
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
+def check_decision_maker(user: User, group: Group) -> None:
+    """Require the user to be a decision maker."""
+    if user.id not in get_decision_maker_ids(group):
+        raise HTTPException(
+            detail="Only decision makers may perform this action.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
+def check_group_owner(user: User, group: Group) -> None:
+    """Require the user to be the group facilitator."""
+    if user.id != group.owner_id:
+        raise HTTPException(
+            detail="Only the group owner may perform this action.",
+            status_code=status.HTTP_403_FORBIDDEN,
         )
     
 def group_to_public(group: Group) -> GroupPublic:

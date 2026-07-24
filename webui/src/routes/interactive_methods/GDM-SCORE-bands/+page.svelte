@@ -70,7 +70,7 @@
 	import HistoryBrowser from './history-browser.svelte';
 	import ConfigPanel from './config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandsFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { auth } from '../../../stores/auth';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -313,7 +313,7 @@ function getConsensusClasses(axisName: string): string {
 		interval_size: 0.25
 	});
 	// Current iteration data for decision phase, when solutions exist and not bands
-	let decisionResult: GDMSCOREBandFinalSelection | null = $state(null);
+	let decisionResult: GDMSCOREBandsFinalSelection | null = $state(null);
 
 	// Derived state to determine which phase we're in, for conditional component rendering
 	//let isDecisionPhase = $derived(phase === 'Decision Phase');
@@ -989,7 +989,7 @@ function getConsensusClasses(axisName: string): string {
 				} else if (currentResponse.method === 'gdm-score-bands-final') {
 					// Decision phase response
 					const finalDecisionData =
-						currentResponse.result as GDMSCOREBandFinalSelection;
+						currentResponse.result as GDMSCOREBandsFinalSelection;
 					latestIteration = null;
 					decisionResult = finalDecisionData;
 					iteration_id = currentResponse.group_iter_id;
