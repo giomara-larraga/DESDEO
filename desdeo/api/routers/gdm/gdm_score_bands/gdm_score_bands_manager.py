@@ -31,7 +31,11 @@ from desdeo.api.models.state import (
     GDMSCOREBandsLearningState,
 )
 from desdeo.api.routers.gdm.gdm_base import GroupManager, ManagerError
-from desdeo.gdm.score_bands import SCOREBandsGDMConfig, SCOREBandsGDMResult, score_bands_gdm
+from desdeo.gdm.score_bands import (
+    SCOREBandsGDMConfig,
+    SCOREBandsGDMResult,
+    score_bands_gdm,
+)
 from desdeo.gdm.voting_rules import consensus_rule, majority_rule
 from desdeo.tools.score_bands import score_json
 
@@ -40,6 +44,7 @@ ScoreBandsPhaseState = (
     | GDMSCOREBandsConsensusState
     | GDMSCOREBandsDecisionState
 )
+
 
 class GDMScoreBandsManager(GroupManager):
     """The group manager implementation for GDM Score Bands."""
@@ -89,6 +94,7 @@ class GDMScoreBandsManager(GroupManager):
         session.refresh(state_db)
 
         return state_db
+
     def _create_iteration(
         self,
         *,
@@ -114,11 +120,10 @@ class GDMScoreBandsManager(GroupManager):
         session.add(group_session)
 
         return iteration
+
     def _get_group_session(self, session: Session) -> GroupSessionDB:
         group_session = session.exec(
-            select(GroupSessionDB).where(
-                GroupSessionDB.id == self.group_session_id
-            )
+            select(GroupSessionDB).where(GroupSessionDB.id == self.group_session_id)
         ).first()
 
         if group_session is None:
@@ -134,9 +139,7 @@ class GDMScoreBandsManager(GroupManager):
         ).first()
 
         if group is None:
-            raise ManagerError(
-                f"No group with ID {group_session.group_id} found!"
-            )
+            raise ManagerError(f"No group with ID {group_session.group_id} found!")
 
         return group
 
@@ -147,9 +150,7 @@ class GDMScoreBandsManager(GroupManager):
     ) -> GroupIteration:
 
         if group_session.head_iteration_id is None:
-            raise ManagerError(
-                "The group session has not been initialized."
-            )
+            raise ManagerError("The group session has not been initialized.")
 
         group_iteration = session.exec(
             select(GroupIteration).where(
@@ -159,16 +160,14 @@ class GDMScoreBandsManager(GroupManager):
         ).first()
 
         if group_iteration is None:
-            raise ManagerError("No such Group Iteration! Did you initialize this group session?")
+            raise ManagerError(
+                "No such Group Iteration! Did you initialize this group session?"
+            )
 
         return group_iteration
 
     def _get_member_ids(self, group: Group) -> list[int]:
-        return [
-            member.id
-            for member in group.users
-            if member.id is not None
-        ]
+        return [member.id for member in group.users if member.id is not None]
 
     def _check_decision_maker(
         self,
@@ -177,12 +176,9 @@ class GDMScoreBandsManager(GroupManager):
     ) -> None:
         if user.id not in self._get_member_ids(group):
             raise ManagerError(
-                detail=(
-                    f"User with ID {user.id} is not a decision "
-                    f"maker in group {group.id}."
-                ),
+                f"User with ID {user.id} is not a decision "
+                f"maker in group {group.id}."
             )
-
 
     def _check_owner(
         self,
@@ -191,10 +187,7 @@ class GDMScoreBandsManager(GroupManager):
     ) -> None:
         if user.id != group.owner_id:
             raise ManagerError(
-                detail=(
-                    f"User with ID {user.id} is not the owner "
-                    f"of group {group.id}."
-                ),
+                f"User with ID {user.id} is not the owner " f"of group {group.id}."
             )
 
     def _get_iteration_state(
@@ -205,9 +198,7 @@ class GDMScoreBandsManager(GroupManager):
     ) -> tuple[StateDB, ScoreBandsPhaseState]:
         """Load and validate the persisted state for an iteration."""
         if iteration.state_id is None:
-            raise ManagerError(
-                f"Group iteration {iteration.id} has no state."
-            )
+            raise ManagerError(f"Group iteration {iteration.id} has no state.")
 
         state_db = session.get(StateDB, iteration.state_id)
 
@@ -227,36 +218,30 @@ class GDMScoreBandsManager(GroupManager):
                 GDMSCOREBandsDecisionState,
             ),
         ):
-            raise ManagerError(
-                f"State {state_db.id} is not a SCORE Bands state."
-            )
+            raise ManagerError(f"State {state_db.id} is not a SCORE Bands state.")
 
         return state_db, state
-    
+
     def _get_result_history(
         self,
-        *,
         group_session: GroupSessionDB,
         session: Session,
     ) -> list[SCOREBandsGDMResult]:
-        """Return SCORE Bands results in group-iteration order."""
-        iterations = session.exec(
-            select(GroupIteration)
-            .where(GroupIteration.session_id == group_session.id)
-            .order_by(GroupIteration.id)
-        ).all()
+        history: list[SCOREBandsGDMResult] = []
 
-        results: list[SCOREBandsGDMResult] = []
+        iterations = session.exec(
+            select(GroupIteration).where(GroupIteration.session_id == group_session.id)
+        ).all()
 
         for iteration in iterations:
             if iteration.state_id is None:
                 continue
 
-            state_db = session.get(StateDB, iteration.state_id)
-            if state_db is None:
-                continue
+            _, state = self._get_iteration_state(
+                iteration=iteration,
+                session=session,
+            )
 
-            state = state_db.state
             if isinstance(
                 state,
                 (
@@ -264,10 +249,10 @@ class GDMScoreBandsManager(GroupManager):
                     GDMSCOREBandsConsensusState,
                 ),
             ):
-                results.append(copy.deepcopy(state.result))
+                history.append(SCOREBandsGDMResult.model_validate(state.result))
 
-        return results
-    
+        return history
+
     async def run_method(
         self,
         user_id: int,
@@ -297,13 +282,11 @@ class GDMScoreBandsManager(GroupManager):
 
             group_iteration = self._get_head_iteration(group_session, session)
 
-            preferences = copy.deepcopy(
-                group_iteration.info_container
-            )
+            preferences = copy.deepcopy(group_iteration.info_container)
 
             if not isinstance(
                 preferences,
-                (GDMSCOREBandsConsensusPreference, GDMSCOREBandsDecisionPreference)
+                (GDMSCOREBandsConsensusPreference, GDMSCOREBandsDecisionPreference),
             ):
                 raise ManagerError(
                     "Voting is only available during consensus or decision."
@@ -315,17 +298,15 @@ class GDMScoreBandsManager(GroupManager):
             )
 
             if isinstance(state, GDMSCOREBandsConsensusState):
-                number_of_choices = len(
-                    set(state.result.score_bands_result.clusters)
-                )
+                typed_result = SCOREBandsGDMResult.model_validate(state.result)
+
+                number_of_choices = len(set(typed_result.score_bands_result.clusters))
             elif isinstance(state, GDMSCOREBandsDecisionState):
                 number_of_choices = len(
                     next(iter(state.solution_objectives.values()), [])
                 )
             else:
-                raise ManagerError(
-                    "Voting is unavailable during the learning phase."
-                )
+                raise ManagerError("Voting is unavailable during the learning phase.")
 
             if voted_index < 0 or voted_index >= number_of_choices:
                 raise ManagerError(
@@ -357,10 +338,7 @@ class GDMScoreBandsManager(GroupManager):
 
             group_iteration = self._get_head_iteration(group_session, session)
 
-            preferences = copy.deepcopy(
-                            group_iteration.info_container
-                        )
-            
+            preferences = copy.deepcopy(group_iteration.info_container)
 
             if not isinstance(
                 preferences,
@@ -370,8 +348,7 @@ class GDMScoreBandsManager(GroupManager):
                 ),
             ):
                 raise ManagerError(
-                    "Vote confirmation is only allowed during "
-                    "consensus or decision."
+                    "Vote confirmation is only allowed during " "consensus or decision."
                 )
 
             if str(user.id) not in preferences.user_votes:
@@ -392,16 +369,12 @@ class GDMScoreBandsManager(GroupManager):
             confirmed_ids = sorted(preferences.user_confirms)
 
             if confirmed_ids != member_ids:
-                await self.broadcast(
-                    "UPDATE: A vote has been confirmed."
-                )
+                await self.broadcast("UPDATE: A vote has been confirmed.")
                 return
 
-            current_state_db, current_state = (
-                self._get_iteration_state(
-                    iteration=group_iteration,
-                    session=session,
-                )
+            current_state_db, current_state = self._get_iteration_state(
+                iteration=group_iteration,
+                session=session,
             )
             if isinstance(
                 preferences,
@@ -417,24 +390,18 @@ class GDMScoreBandsManager(GroupManager):
                 current_state.winner_index = winner
                 current_state.winner_solution_variables = {
                     key: values[winner]
-                    for key, values in (
-                        current_state.solution_variables.items()
-                    )
+                    for key, values in (current_state.solution_variables.items())
                 }
                 current_state.winner_solution_objectives = {
                     key: values[winner]
-                    for key, values in (
-                        current_state.solution_objectives.items()
-                    )
+                    for key, values in (current_state.solution_objectives.items())
                 }
 
                 session.add(current_state)
                 session.commit()
                 session.refresh(current_state)
 
-                await self.broadcast(
-                    "UPDATE: The final solution has been selected."
-                )
+                await self.broadcast("UPDATE: The final solution has been selected.")
                 return
 
             if not isinstance(
@@ -443,11 +410,13 @@ class GDMScoreBandsManager(GroupManager):
             ):
                 raise ManagerError("Invalid consensus state.")
 
-            current_result = current_state.result
+            current_result = SCOREBandsGDMResult.model_validate(current_state.result)
+            current_config = SCOREBandsGDMConfig.model_validate(current_state.config)
+
             votes = preferences.user_votes
             winners = consensus_rule(
                 votes,
-                current_state.config.minimum_votes,
+                current_config.minimum_votes,
             )
 
             relevant_ids = current_result.relevant_ids
@@ -466,22 +435,16 @@ class GDMScoreBandsManager(GroupManager):
             discrete_repr = self.discrete_representation
 
             if len(selected_solution_ids) <= solution_number_threshold:
-                objective_keys = list(
-                    discrete_repr.objective_values
-                )
-                variable_keys = list(
-                    discrete_repr.variable_values
-                )
+                objective_keys = list(discrete_repr.objective_values)
+                variable_keys = list(discrete_repr.variable_values)
 
                 objectives = pl.DataFrame(
                     discrete_repr.objective_values
                 ).with_row_index(name="index_")
-                variables = pl.DataFrame(
-                    discrete_repr.variable_values
-                ).with_row_index(name="index_")
-                selected_indices = pl.DataFrame(
-                    {"index_": selected_solution_ids}
+                variables = pl.DataFrame(discrete_repr.variable_values).with_row_index(
+                    name="index_"
                 )
+                selected_indices = pl.DataFrame({"index_": selected_solution_ids})
 
                 objectives = selected_indices.join(
                     objectives,
@@ -495,12 +458,8 @@ class GDMScoreBandsManager(GroupManager):
                 ).select(variable_keys)
 
                 next_state: SQLModel = GDMSCOREBandsDecisionState(
-                    solution_variables=variables.to_dict(
-                        as_series=False
-                    ),
-                    solution_objectives=objectives.to_dict(
-                        as_series=False
-                    ),
+                    solution_variables=variables.to_dict(as_series=False),
+                    solution_objectives=objectives.to_dict(as_series=False),
                     winner_index=None,
                     winner_solution_variables=None,
                     winner_solution_objectives=None,
@@ -512,19 +471,13 @@ class GDMScoreBandsManager(GroupManager):
                     )
                 )
             else:
-                objective_keys = list(
-                    discrete_repr.objective_values
+                objective_keys = list(discrete_repr.objective_values)
+                objectives = pl.DataFrame(discrete_repr.objective_values).select(
+                    objective_keys
                 )
-                objectives = pl.DataFrame(
-                    discrete_repr.objective_values
-                ).select(objective_keys)
 
-                next_config = copy.deepcopy(
-                    current_state.config
-                )
-                next_config.from_iteration = (
-                    current_result.iteration
-                )
+                next_config = current_config.model_copy(deep=True)
+                next_config.from_iteration = current_result.iteration
 
                 result_history = self._get_result_history(
                     group_session=group_session,
@@ -538,20 +491,16 @@ class GDMScoreBandsManager(GroupManager):
                 )
 
                 if not next_results:
-                    raise ManagerError(
-                        "SCORE Bands did not produce a new result."
-                    )
+                    raise ManagerError("SCORE Bands did not produce a new result.")
 
                 next_state = GDMSCOREBandsConsensusState(
-                    config=copy.deepcopy(next_config),
-                    result=copy.deepcopy(next_results[-1]),
+                    config=next_config.model_dump(mode="json"),
+                    result=next_results[-1].model_dump(mode="json"),
                     selected_band_indices=list(winners),
                 )
-                next_preferences = (
-                    GDMSCOREBandsConsensusPreference(
-                        user_votes={},
-                        user_confirms=[],
-                    )
+                next_preferences = GDMSCOREBandsConsensusPreference(
+                    user_votes={},
+                    user_confirms=[],
                 )
 
             next_state_db = self._create_state(
@@ -572,10 +521,8 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(new_iteration)
             session.refresh(group_session)
 
-            await self.broadcast(
-                "UPDATE: A new SCORE Bands phase has begun."
-            )
-            
+            await self.broadcast("UPDATE: A new SCORE Bands phase has begun.")
+
     async def mark_learning_complete(
         self,
         user: User,
@@ -589,9 +536,7 @@ class GDMScoreBandsManager(GroupManager):
 
             group_iteration = self._get_head_iteration(group_session, session)
 
-            learning_preferences = copy.deepcopy(
-                group_iteration.info_container
-            )
+            learning_preferences = copy.deepcopy(group_iteration.info_container)
             if not isinstance(
                 learning_preferences,
                 GDMSCOREBandsLearningPreference,
@@ -600,7 +545,7 @@ class GDMScoreBandsManager(GroupManager):
                     "Learning completion is only available "
                     "during the learning phase."
                 )
-            
+
             if user.id not in learning_preferences.completed_user_ids:
                 learning_preferences.completed_user_ids.append(user.id)
                 learning_preferences.completed_user_ids.sort()
@@ -623,9 +568,7 @@ class GDMScoreBandsManager(GroupManager):
         async with self.lock:
             group_iteration = self._get_head_iteration(group_session, session)
 
-            learning_preferences = copy.deepcopy(
-                group_iteration.info_container
-            )
+            learning_preferences = copy.deepcopy(group_iteration.info_container)
 
             if not isinstance(
                 learning_preferences,
@@ -635,9 +578,11 @@ class GDMScoreBandsManager(GroupManager):
                     "Learning deadline warnings can only be sent "
                     "during the learning phase."
                 )
-            
-            learning_preferences.learning_last_warning_at = datetime.now(timezone.utc).isoformat()
-            learning_preferences.learning_last_warning_message = (
+
+            learning_preferences.last_warning_at = datetime.now(
+                timezone.utc
+            ).isoformat()
+            learning_preferences.last_warning_message = (
                 message.strip()
                 if message and message.strip()
                 else "Learning phase is about to expire."
@@ -669,53 +614,35 @@ class GDMScoreBandsManager(GroupManager):
                 session,
             )
 
-            learning_preferences = copy.deepcopy(
-                learning_iteration.info_container
-            )
+            learning_preferences = copy.deepcopy(learning_iteration.info_container)
 
             if not isinstance(
                 learning_preferences,
                 GDMSCOREBandsLearningPreference,
             ):
-                raise ManagerError(
-                    "The group is not in the learning phase."
-                )
+                raise ManagerError("The group is not in the learning phase.")
 
-            required_users = sorted(
-                self._get_member_ids(group)
-            )
+            required_users = sorted(self._get_member_ids(group))
 
-            completed_users = sorted(
-                learning_preferences.completed_user_ids
-            )
+            completed_users = sorted(learning_preferences.completed_user_ids)
 
             if completed_users != required_users:
-                raise ManagerError(
-                    "Every decision maker must complete learning."
-                )
+                raise ManagerError("Every decision maker must complete learning.")
 
-            learning_state_db, learning_state = (
-                self._get_iteration_state(
-                    iteration=learning_iteration,
-                    session=session,
-                )
+            learning_state_db, learning_state = self._get_iteration_state(
+                iteration=learning_iteration,
+                session=session,
             )
 
             if not isinstance(
                 learning_state,
                 GDMSCOREBandsLearningState,
             ):
-                raise ManagerError(
-                    "Invalid learning state."
-                )
+                raise ManagerError("Invalid learning state.")
 
             consensus_state = GDMSCOREBandsConsensusState(
-                config=copy.deepcopy(
-                    learning_state.config
-                ),
-                result=copy.deepcopy(
-                    learning_state.result
-                ),
+                config=copy.deepcopy(learning_state.config),
+                result=copy.deepcopy(learning_state.result),
                 selected_band_indices=[],
             )
 
@@ -726,11 +653,9 @@ class GDMScoreBandsManager(GroupManager):
                 parent_state_id=learning_state_db.id,
             )
 
-            consensus_preferences = (
-                GDMSCOREBandsConsensusPreference(
-                    user_votes={},
-                    user_confirms=[],
-                )
+            consensus_preferences = GDMSCOREBandsConsensusPreference(
+                user_votes={},
+                user_confirms=[],
             )
 
             consensus_iteration = self._create_iteration(
@@ -745,10 +670,8 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(consensus_iteration)
             session.refresh(group_session)
 
-            await self.broadcast(
-                "UPDATE: Consensus phase has started."
-            )
-            
+            await self.broadcast("UPDATE: Consensus phase has started.")
+
     async def revert(
         self,
         user: User,
@@ -773,18 +696,18 @@ class GDMScoreBandsManager(GroupManager):
             ).first()
 
             if target_iteration is None:
-                raise ManagerError(f"No group iteration with ID {group_iteration_id} found.")
+                raise ManagerError(
+                    f"No group iteration with ID {group_iteration_id} found."
+                )
 
             if target_iteration.id == current_head.id:
                 raise ManagerError(
                     "The selected iteration is already the current iteration."
                 )
 
-            target_state_db, target_state = (
-                self._get_iteration_state(
-                    iteration=target_iteration,
-                    session=session,
-                )
+            target_state_db, target_state = self._get_iteration_state(
+                iteration=target_iteration,
+                session=session,
             )
 
             if not isinstance(
@@ -795,8 +718,7 @@ class GDMScoreBandsManager(GroupManager):
                 ),
             ):
                 raise ManagerError(
-                    "Only learning or consensus classifications "
-                    "can be restored."
+                    "Only learning or consensus classifications " "can be restored."
                 )
 
             result_history = self._get_result_history(
@@ -804,40 +726,34 @@ class GDMScoreBandsManager(GroupManager):
                 session=session,
             )
             if not result_history:
-                raise ManagerError(
-                    "No SCORE Bands result history exists."
-                )
+                raise ManagerError("No SCORE Bands result history exists.")
 
             latest_result = max(
                 result_history,
                 key=lambda item: item.iteration,
             )
-            restored_result = copy.deepcopy(
-                target_state.result
-            )
-            restored_result.previous_iteration = (
-                latest_result.iteration
-            )
-            restored_result.iteration = (
-                latest_result.iteration + 1
-            )
+
+            restored_result = SCOREBandsGDMResult.model_validate(target_state.result)
+            restored_config = SCOREBandsGDMConfig.model_validate(target_state.config)
+
+            restored_result.previous_iteration = latest_result.iteration
+            restored_result.iteration = latest_result.iteration + 1
 
             restored_state = GDMSCOREBandsConsensusState(
-                config=copy.deepcopy(target_state.config),
-                result=restored_result,
+                config=restored_config.model_dump(mode="json"),
+                result=restored_result.model_dump(mode="json"),
                 selected_band_indices=[],
             )
+
             restored_state_db = self._create_state(
                 session=session,
                 group_session=group_session,
                 state=restored_state,
                 parent_state_id=current_head.state_id,
             )
-            restored_preferences = (
-                GDMSCOREBandsConsensusPreference(
-                    user_votes={},
-                    user_confirms=[],
-                )
+            restored_preferences = GDMSCOREBandsConsensusPreference(
+                user_votes={},
+                user_confirms=[],
             )
             restored_iteration = self._create_iteration(
                 session=session,
@@ -852,13 +768,13 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(group_session)
 
             await self.broadcast("UPDATE: Iteration reverted.")
-            
+
     async def configure(
         self,
         group_session: GroupSessionDB,
         config: SCOREBandsGDMConfig,
         session: Session,
-    )-> None:
+    ) -> None:
         """Configure the SCORE Bands process."""
         async with self.lock:
             group_iteration = self._get_head_iteration(group_session, session)
@@ -866,13 +782,13 @@ class GDMScoreBandsManager(GroupManager):
                 group_iteration.info_container,
                 GDMSCOREBandsConsensusPreference,
             ):
-                raise ManagerError("Cannot reconfigure while the group is still in the learning phase!")
-
-            current_state_db, current_state = (
-                self._get_iteration_state(
-                    iteration=group_iteration,
-                    session=session,
+                raise ManagerError(
+                    "Cannot reconfigure while the group is still in the learning phase!"
                 )
+
+            current_state_db, current_state = self._get_iteration_state(
+                iteration=group_iteration,
+                session=session,
             )
 
             if not isinstance(
@@ -881,15 +797,13 @@ class GDMScoreBandsManager(GroupManager):
             ):
                 raise ManagerError("Invalid consensus state.")
 
-            current_result = current_state.result
+            current_result = SCOREBandsGDMResult.model_validate(current_state.result)
             relevant_indices = current_result.relevant_ids
             iteration_number = current_result.iteration
 
             index_frame = pl.DataFrame({"index": relevant_indices})
 
-            discrete_objectives = (
-                self.discrete_representation.objective_values
-            )
+            discrete_objectives = self.discrete_representation.objective_values
             objective_keys = list(discrete_objectives)
 
             objs_df = pl.DataFrame(discrete_objectives).with_row_index(name="index")
@@ -913,8 +827,8 @@ class GDMScoreBandsManager(GroupManager):
             )
 
             next_state = GDMSCOREBandsConsensusState(
-                config=copy.deepcopy(config),
-                result=next_result,
+                config=config.model_dump(mode="json"),
+                result=next_result.model_dump(mode="json"),
                 selected_band_indices=[],
             )
             next_state_db = self._create_state(
@@ -923,11 +837,9 @@ class GDMScoreBandsManager(GroupManager):
                 state=next_state,
                 parent_state_id=current_state_db.id,
             )
-            next_preferences = (
-                GDMSCOREBandsConsensusPreference(
-                    user_votes={},
-                    user_confirms=[],
-                )
+            next_preferences = GDMSCOREBandsConsensusPreference(
+                user_votes={},
+                user_confirms=[],
             )
 
             new_iteration = self._create_iteration(
@@ -935,7 +847,7 @@ class GDMScoreBandsManager(GroupManager):
                 group_session=group_session,
                 info_container=next_preferences,
                 state_id=next_state_db.id,
-                parent_iteration_id=group_session.id,
+                parent_iteration_id=group_iteration.id,
             )
             session.commit()
             session.refresh(new_iteration)

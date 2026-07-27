@@ -3,11 +3,8 @@ from fastapi import HTTPException
 
 from desdeo.api.routers.gdm.gnimbus.gnimbus_routers import (
     check_group_access,
-    get_group_member_ids,
 )
 from desdeo.api.tests.gdm.factories import create_group, create_user
-
-
 
 
 def test_group_member_has_access(db_session):
@@ -33,7 +30,7 @@ def test_unrelated_user_has_no_access(db_session):
     with pytest.raises(HTTPException) as error:
         check_group_access(outsider, group)
 
-    assert error.value.status_code == 401
+    assert error.value.status_code == 403
 
 
 def test_get_group_member_ids(db_session):
@@ -41,7 +38,6 @@ def test_get_group_member_ids(db_session):
     member = create_user(db_session, "member")
     group = create_group(db_session, owner, [member])
 
-    assert set(get_group_member_ids(group)) == {
-        owner.id,
+    assert {user.id for user in group.users} == {
         member.id,
     }

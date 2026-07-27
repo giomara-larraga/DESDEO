@@ -1,4 +1,12 @@
-"""A base group manager structure for group decision making."""
+"""A base group manager structure for group decision making.
+
+``Group.users`` contains the decision makers who participate in learning,
+preference elicitation, voting, and confirmation.
+
+``Group.owner_id`` identifies the facilitator/administrator. The owner may
+create and manage sessions, observe progress, configure a method, and perform
+other facilitator actions, but is not automatically a decision maker.
+"""
 
 import asyncio
 import logging
@@ -6,7 +14,12 @@ import sys
 from tokenize import group
 from typing import Annotated
 
-from desdeo.api.models.gdm.gdm_aggregate import GroupInfoRequest, GroupSessionDB, CreateGroupSessionRequest, GroupSessionPublic
+from desdeo.api.models.gdm.gdm_aggregate import (
+    GroupInfoRequest,
+    GroupSessionDB,
+    CreateGroupSessionRequest,
+    GroupSessionPublic,
+)
 from fastapi import (
     APIRouter,
     Depends,
@@ -30,13 +43,16 @@ from desdeo.api.models import (
     User,
 )
 from desdeo.api.models.gdm.group_user_link import GroupUserLink
+from desdeo.api.models.generic_states import StateDB
 from desdeo.api.routers.gdm.utils import group_to_public
 from desdeo.api.routers.user_authentication import get_current_user
 
 from desdeo.api.models.user import User as UserDB
 
 logging.basicConfig(
-    stream=sys.stdout, format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s", level=logging.INFO
+    stream=sys.stdout,
+    format="[%(filename)s:%(lineno)d] %(levelname)s: %(message)s",
+    level=logging.INFO,
 )
 
 router = APIRouter(prefix="/gdm", tags=["GDM"])
@@ -44,6 +60,29 @@ router = APIRouter(prefix="/gdm", tags=["GDM"])
 
 class ManagerError(Exception):
     """If something goes awry with the manager."""
+
+
+def _decision_maker_ids(group: Group) -> set[int]:
+    """Return the IDs of the group's decision makers only."""
+    return {member.id for member in group.users if member.id is not None}
+
+
+def _check_group_access(user: User, group: Group) -> None:
+    """Allow the facilitator or a decision maker to access the group."""
+    if user.id != group.owner_id and user.id not in _decision_maker_ids(group):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized user.",
+        )
+
+
+def _check_group_owner(user: User, group: Group) -> None:
+    """Require the authenticated user to be the group facilitator."""
+    if user.id != group.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner may perform this action.",
+        )
 
 
 class GroupManager:
@@ -60,31 +99,23 @@ class GroupManager:
         self.group_session_id = group_session_id
 
         group_session = db_session.exec(
-            select(GroupSessionDB).where(
-                GroupSessionDB.id == group_session_id
-            )
+            select(GroupSessionDB).where(GroupSessionDB.id == group_session_id)
         ).first()
 
         if group_session is None:
-            raise ManagerError(
-                f"No group session with ID {group_session_id} found!"
-            )
+            raise ManagerError(f"No group session with ID {group_session_id} found!")
 
         group = db_session.exec(
-            select(Group).where(
-                Group.id == group_session.group_id
-            )
+            select(Group).where(Group.id == group_session.group_id)
         ).first()
 
         if group is None:
-            raise ManagerError(
-                f"No group with ID {group_session.group_id} found!"
-            )
+            raise ManagerError(f"No group with ID {group_session.group_id} found!")
 
-        # Decision makers linked through GroupUserLink.
-        for user in group.users:
-            if user.id is not None:
-                self.sockets[user.id] = None
+        # Decision makers participate in the method.
+        for decision_maker in group.users:
+            if decision_maker.id is not None:
+                self.sockets[decision_maker.id] = None
 
         # The owner may be an observer and may not be in Group.users.
         if group.owner_id is not None:
@@ -117,9 +148,7 @@ class GroupManager:
         self.sockets[user_id] = websocket
 
         group_session = db_session.exec(
-            select(GroupSessionDB).where(
-                GroupSessionDB.id == self.group_session_id
-            )
+            select(GroupSessionDB).where(GroupSessionDB.id == self.group_session_id)
         ).first()
 
         if group_session is None:
@@ -135,13 +164,10 @@ class GroupManager:
             )
         ).first()
 
-        if head_iteration is None:
+        if head_iteration is None or head_iteration.parent is None:
             return
 
         previous_iteration = head_iteration.parent
-
-        if previous_iteration is None:
-            return
 
         # JSON object keys are strings after persistence.
         notified = dict(previous_iteration.notified or {})
@@ -220,6 +246,7 @@ class GroupManager:
         """
         raise NotImplementedError
 
+
 @router.post("/create_group")
 def create_group(
     request: GroupCreateRequest,
@@ -239,26 +266,18 @@ def create_group(
     Raises:
         HTTPException
     """
-    #problem = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
-    #if problem is None:
+    # problem = session.exec(select(ProblemDB).where(ProblemDB.id == request.problem_id)).first()
+    # if problem is None:
     #    raise HTTPException(
     #        detail=f"There's no problem with ID {request.problem_id}!", status_code=status.HTTP_404_NOT_FOUND
     #    )
 
-    owner = session.exec(
-        select(UserDB).where(UserDB.id == user.id)
-    ).first()
-
+    owner = session.exec(select(UserDB).where(UserDB.id == user.id)).first()
 
     if owner is None:
         raise HTTPException(status_code=404, detail="Owner not found.")
-    
-    # Fetch requested members
-    members = session.exec(
-        select(UserDB).where(UserDB.id.in_(request.user_ids))
-    ).all()
 
-    found_user_ids = {user.id for user in members}
+    # Fetch requested members
     requested_user_ids = set(request.user_ids)
 
     if owner.id in request.user_ids:
@@ -270,17 +289,11 @@ def create_group(
             ),
         )
 
-    members = session.exec(
-        select(UserDB).where(
-            UserDB.id.in_(requested_user_ids)
-        )
-    ).all()
+    members = list(
+        session.exec(select(UserDB).where(UserDB.id.in_(requested_user_ids))).all()
+    )
 
-    found_user_ids = {
-        member.id
-        for member in members
-        if member.id is not None
-    }
+    found_user_ids = {member.id for member in members if member.id is not None}
 
     missing_user_ids = requested_user_ids - found_user_ids
 
@@ -291,7 +304,7 @@ def create_group(
         )
 
     group = Group(
-        name=request.name,
+        name=request.group_name,
         owner_id=owner.id,
         users=members,
     )
@@ -300,14 +313,17 @@ def create_group(
     session.commit()
     session.refresh(group)
 
-    #group_ids = user.group_ids.copy() if user.group_ids is not None else []
-    #group_ids.append(group.id)
-    #user.group_ids = group_ids
+    # group_ids = user.group_ids.copy() if user.group_ids is not None else []
+    # group_ids.append(group.id)
+    # user.group_ids = group_ids
 
-    #session.add(user)
-    #session.commit()
+    # session.add(user)
+    # session.commit()
 
-    return JSONResponse(content={"message": f"Group with ID {group.id} created."}, status_code=status.HTTP_201_CREATED)
+    return JSONResponse(
+        content={"message": f"Group with ID {group.id} created."},
+        status_code=status.HTTP_201_CREATED,
+    )
 
 
 @router.post(
@@ -322,9 +338,7 @@ def create_group_session(
 ) -> GroupSessionPublic:
     """Create a decision-making session for a group."""
 
-    group = db_session.exec(
-        select(Group).where(Group.id == group_id)
-    ).first()
+    group = db_session.exec(select(Group).where(Group.id == group_id)).first()
 
     if group is None:
         raise HTTPException(
@@ -332,16 +346,10 @@ def create_group_session(
             detail=f"No group with ID {group_id} found.",
         )
 
-    if user.id != group.owner_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Only the group owner can create sessions.",
-        )
+    _check_group_owner(user, group)
 
     problem = db_session.exec(
-        select(ProblemDB).where(
-            ProblemDB.id == request.problem_id
-        )
+        select(ProblemDB).where(ProblemDB.id == request.problem_id)
     ).first()
 
     if problem is None:
@@ -380,6 +388,7 @@ def create_group_session(
         head_iteration_id=group_session.head_iteration_id,
     )
 
+
 @router.post("/delete_group")
 def delete_group(
     request: GroupSessionInfoRequest,
@@ -399,61 +408,86 @@ def delete_group(
     Raises:
         HTTPException: Insufficient authorization etc.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    group: Group = session.exec(
+        select(Group).where(Group.id == request.group_id)
+    ).first()
     if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found.", status_code=status.HTTP_404_NOT_FOUND)
-
-    if user.id != group.owner_id:
         raise HTTPException(
-            detail="Only the owner of a group may delete the group.", status_code=status.HTTP_401_UNAUTHORIZED
+            detail=f"No group with ID {request.group_id} found.",
+            status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    # Remove the group from users
-    user_ids = group.user_ids
-    for uid in user_ids:
-        group_user = session.exec(select(User).where(User.id == uid)).first()
-        ugids = group_user.group_ids.copy()
-        ugids.remove(group.id)
-        group_user.group_ids = ugids
-        session.add(group_user)
-        session.commit()
+    _check_group_owner(user, group)
 
-    ugids = user.group_ids.copy()
-    ugids.remove(group.id)
-    user.group_ids = ugids
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+    group_sessions = list(
+        session.exec(
+            select(GroupSessionDB).where(GroupSessionDB.group_id == group.id)
+        ).all()
+    )
 
-    # Get the root iteration
-    # TODO: Adapt this to the new cascade with multiple children
-    head: GroupIteration = session.exec(
-        select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
-    ).first()
-    iter_count = 0
-    if head is not None:
-        while head.parent is not None:
-            head = head.parent
-            iter_count += 1
+    deleted_iteration_count = 0
+    for group_session in group_sessions:
+        iterations = list(
+            session.exec(
+                select(GroupIteration).where(
+                    GroupIteration.session_id == group_session.id
+                )
+            ).all()
+        )
+        deleted_iteration_count += len(iterations)
 
-        # First delete the corresponding group iterations
-        # This deletes the rest of the iterations due to cascades
-        session.delete(head)
-        session.commit()
+        # Deleting root iterations removes descendants through the configured
+        # GroupIteration.children delete-orphan cascade.
+        root_iterations = [
+            iteration for iteration in iterations if iteration.parent_id is None
+        ]
+        for root_iteration in root_iterations:
+            session.delete(root_iteration)
 
-    # Then delete the group
+        # StateDB has its own lineage and delete-orphan cascade. Remove roots
+        # belonging to this group session after removing iteration references.
+        state_roots = list(
+            session.exec(
+                select(StateDB).where(
+                    StateDB.group_session_id == group_session.id,
+                    StateDB.parent_id.is_(None),
+                )
+            ).all()
+        )
+
+        session.flush()
+
+        for state_root in state_roots:
+            session.delete(state_root)
+
+        session.delete(group_session)
+
+    # Clear the many-to-many relationship so GroupUserLink rows are removed.
+    group.users.clear()
+    session.add(group)
+    session.flush()
+
     session.delete(group)
     session.commit()
 
-    # Make sure that the group IS deleted!
-    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is not None:
+    deleted_group = session.exec(
+        select(Group).where(Group.id == request.group_id)
+    ).first()
+
+    if deleted_group is not None:
         raise HTTPException(
-            detail="Couldn't delete group from the database!", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not delete the group from the database.",
         )
 
     return JSONResponse(
-        content={"message": f"Group with ID {request.group_id} and its {iter_count} iterations have been deleted."},
+        content={
+            "message": (
+                f"Group with ID {request.group_id} and its "
+                f"{len(group_sessions)} sessions containing "
+                f"{deleted_iteration_count} iterations were deleted."
+            )
+        },
         status_code=status.HTTP_200_OK,
     )
 
@@ -477,15 +511,16 @@ def add_to_group(
     Raises:
         HTTPException: Authorization issues, group or user not found.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    group: Group = session.exec(
+        select(Group).where(Group.id == request.group_id)
+    ).first()
     # Make sure the group exists
     if group is None:
         raise HTTPException(
-            detail=f"There's no group with ID {request.group_id}", status_code=status.HTTP_404_NOT_FOUND
+            detail=f"There's no group with ID {request.group_id}",
+            status_code=status.HTTP_404_NOT_FOUND,
         )
-    # Make sure of proper authorization
-    if not group.owner_id == user.id:
-        raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
+    _check_group_owner(user, group)
 
     if request.user_id == group.owner_id:
         raise HTTPException(
@@ -496,19 +531,16 @@ def add_to_group(
             ),
         )
 
-    if any(
-        member.id == request.user_id
-        for member in group.users
-    ):
+    if request.user_id in _decision_maker_ids(group):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"User with ID {request.user_id} "
-                "is already a decision maker."
+                f"User with ID {request.user_id} is already a decision "
+                "maker in this group."
             ),
         )
 
-    addee = session.get(UserDB, request.user_id)
+    addee = session.exec(select(UserDB).where(UserDB.id == request.user_id)).first()
 
     if addee is None:
         raise HTTPException(
@@ -522,9 +554,14 @@ def add_to_group(
     session.commit()
     session.refresh(group)
 
-
     return JSONResponse(
-        content={"message": f"Added user {group.user_ids[-1]} to group {group.id}."}, status_code=status.HTTP_200_OK
+        content={
+            "message": (
+                f"Added user {request.user_id} as a decision maker "
+                f"to group {group.id}."
+            )
+        },
+        status_code=status.HTTP_200_OK,
     )
 
 
@@ -547,26 +584,27 @@ def remove_from_group(
     Raises:
         HTTPException: Authorization issues, group or user not found.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
+    group: Group = session.exec(
+        select(Group).where(Group.id == request.group_id)
+    ).first()
     # Make sure the group exists
     if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found.", status_code=status.HTTP_404_NOT_FOUND)
-    # Make sure of proper authorization
-    authorized = user.id in (group.owner_id, request.user_id)
-
-    if not authorized:
-        raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
-
-    if request.user_id not in group.user_ids:
         raise HTTPException(
-            detail=f"User with ID {request.user_id} is not in this group!", status_code=status.HTTP_400_BAD_REQUEST
+            detail=f"No group with ID {request.group_id} found.",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    # Make sure of proper authorization
+    if user.id not in (group.owner_id, request.user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized user.",
         )
 
     member = next(
         (
-            member
-            for member in group.users
-            if member.id == request.user_id
+            decision_maker
+            for decision_maker in group.users
+            if decision_maker.id == request.user_id
         ),
         None,
     )
@@ -576,27 +614,28 @@ def remove_from_group(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"User with ID {request.user_id} "
-                "is not a decision maker in this group."
+                f"is not a decision maker in group {group.id}."
             ),
         )
 
     group.users.remove(member)
-
     session.add(group)
     session.commit()
     session.refresh(group)
 
-
-    if request.user_id in group.user_ids:
+    if request.user_id in _decision_maker_ids(group):
         raise HTTPException(
             detail=f"Could not remove User {request.user_id} from group {request.group_id}.",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
     return JSONResponse(
-        content={"message": f"User {request.user_id} removed from group {request.group_id}."},
+        content={
+            "message": f"User {request.user_id} removed from group {request.group_id}."
+        },
         status_code=status.HTTP_200_OK,
     )
+
 
 @router.post("/get_group_sessions_info")
 def get_group_sessions_info(
@@ -624,13 +663,7 @@ def get_group_sessions_info(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    member_ids = {member.id for member in group.users}
-
-    if user.id != group.owner_id and user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized user.",
-        )
+    _check_group_access(user, group)
 
     group_sessions = session.exec(
         select(GroupSessionDB).where(GroupSessionDB.group_id == request.group_id)
@@ -647,15 +680,18 @@ def get_group_sessions_info(
         for group_session in group_sessions
     ]
 
+
 @router.post("/get_group_info")
 def get_group_info(
     request: GroupInfoRequest,
+    user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GroupPublic:
     """Get information about the group.
 
     Args:
         request (GroupInfoRequest): the id of the group for which we desire info on
+        user (Annotated[User, Depends(get_current_user)]): the current user
         session (Annotated[Session, Depends(get_session)]): the database session
 
     Returns:
@@ -671,7 +707,8 @@ def get_group_info(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    return group
+    _check_group_access(user, group)
+    return group_to_public(group)
 
 
 @router.get(
@@ -684,9 +721,7 @@ def get_user_groups(
 ) -> list[GroupPublic]:
     """Return groups where the current user is an owner or member."""
 
-    owned_groups = db_session.exec(
-        select(Group).where(Group.owner_id == user.id)
-    ).all()
+    owned_groups = db_session.exec(select(Group).where(Group.owner_id == user.id)).all()
 
     member_groups = db_session.exec(
         select(Group)
@@ -697,15 +732,15 @@ def get_user_groups(
     groups_by_id: dict[int, Group] = {}
 
     for group in owned_groups:
-        groups_by_id[group.id] = group
+        if group.id is not None:
+            groups_by_id[group.id] = group
 
     for group in member_groups:
-        groups_by_id[group.id] = group
+        if group.id is not None:
+            groups_by_id[group.id] = group
 
-    return [
-        group_to_public(group)
-        for group in groups_by_id.values()
-    ]
+    return [group_to_public(group) for group in groups_by_id.values()]
+
 
 @router.get(
     "/groups/{group_id}/sessions",
@@ -718,9 +753,7 @@ def get_group_sessions(
 ) -> list[GroupSessionPublic]:
     """Return all decision-making sessions belonging to a group."""
 
-    group = db_session.exec(
-        select(Group).where(Group.id == group_id)
-    ).first()
+    group = db_session.exec(select(Group).where(Group.id == group_id)).first()
 
     if group is None:
         raise HTTPException(
@@ -728,18 +761,10 @@ def get_group_sessions(
             detail=f"No group with ID {group_id} found.",
         )
 
-    member_ids = {member.id for member in group.users}
-
-    if user.id != group.owner_id and user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized user.",
-        )
+    _check_group_access(user, group)
 
     group_sessions = db_session.exec(
-        select(GroupSessionDB).where(
-            GroupSessionDB.group_id == group_id
-        )
+        select(GroupSessionDB).where(GroupSessionDB.group_id == group_id)
     ).all()
 
     return [
@@ -753,6 +778,7 @@ def get_group_sessions(
         for group_session in group_sessions
     ]
 
+
 @router.get(
     "/group-sessions/{group_session_id}",
     response_model=GroupSessionPublic,
@@ -765,9 +791,7 @@ def get_group_session(
     """Return one group decision-making session."""
 
     group_session = db_session.exec(
-        select(GroupSessionDB).where(
-            GroupSessionDB.id == group_session_id
-        )
+        select(GroupSessionDB).where(GroupSessionDB.id == group_session_id)
     ).first()
 
     if group_session is None:
@@ -777,9 +801,7 @@ def get_group_session(
         )
 
     group = db_session.exec(
-        select(Group).where(
-            Group.id == group_session.group_id
-        )
+        select(Group).where(Group.id == group_session.group_id)
     ).first()
 
     if group is None:
@@ -788,13 +810,7 @@ def get_group_session(
             detail=f"No group with ID {group_session.group_id} found.",
         )
 
-    member_ids = {member.id for member in group.users}
-
-    if user.id != group.owner_id and user.id not in member_ids:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized user.",
-        )
+    _check_group_access(user, group)
 
     return GroupSessionPublic(
         id=group_session.id,
