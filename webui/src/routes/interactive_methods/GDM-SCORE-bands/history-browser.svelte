@@ -46,7 +46,7 @@
 			| GDMSCOREBandsResponse
 			| GDMSCOREBandsDecisionResponse
 		)[];
-		currentIterationId: number;
+		currentIterationId: number | null;
 		onRevertToIteration: (iteration: number) => void;
 		isOwner?: boolean;
 	}>();
@@ -91,8 +91,11 @@
 								<Button
 									onclick={() => onRevertToIteration(historyItem.group_iter_id)}
 									class="btn btn-xs btn-primary"
-									disabled={historyItem.group_iter_id === currentIterationId ||
-										historyItem.method === 'gdm-score-bands-final'}
+									disabled={
+										currentIterationId === null ||
+										historyItem.group_iter_id === currentIterationId ||
+										historyItem.method === 'gdm-score-bands-final'
+									}
 								>
 									Go to this iteration
 								</Button>

@@ -40,7 +40,7 @@ import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFas
 export function calculateAxisAgreement(
 	votes_and_confirms: {
 		confirms: number[];
-		votes: Record<number, number>;
+		votes: Record<string, number>;
 	},
 	medians: Record<string, Record<string, number>>,
 	scales: Record<string, [number, number]>,

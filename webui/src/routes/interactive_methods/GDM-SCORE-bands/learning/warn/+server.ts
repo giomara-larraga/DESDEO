@@ -1,9 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { customFetch } from '$lib/api/new-client';
 
-const BASE_URL = import.meta.env.VITE_API_URL as string;
-
+import { warnLearningPhaseGdmScoreBandsLearningWarnPost } from '$lib/gen/endpoints/DESDEOFastAPI';
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const refreshToken = cookies.get('refresh_token');
 	if (!refreshToken) {
@@ -21,15 +19,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				{ status: 400 }
 			);
 		}
-		const response = await customFetch<{ status: number; data: any }>(
-			`${BASE_URL}/gdm-score-bands/learning/warn`,
+		const response = await warnLearningPhaseGdmScoreBandsLearningWarnPost(
 			{
-				method: 'POST',
+				group_session_id,
+				message
+			},
+			{
 				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${refreshToken}`
-				},
-				body: JSON.stringify({ group_session_id, message })
+					Authorization: `Bearer  ${refreshToken}`
+				}
 			}
 		);
 

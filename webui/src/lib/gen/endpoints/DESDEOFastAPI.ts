@@ -5423,6 +5423,7 @@ export const getGroupSessionsInfoGdmGetGroupSessionsInfoPost = async (
 
 Args:
     request (GroupInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
     session (Annotated[Session, Depends(get_session)]): the database session
 
 Returns:

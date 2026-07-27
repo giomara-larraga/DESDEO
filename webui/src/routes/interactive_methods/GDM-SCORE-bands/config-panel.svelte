@@ -106,7 +106,7 @@
 	let include_medians = $state(true);
 	let interval_size = $state(0.25);
 	let minimum_votes = $state(1);
-	let latest_iteration = $state(0);
+	let latest_iteration = $state<number | null>(null);
 
 	// Sync form values when currentConfig or latestIteration props change
 	$effect(() => {

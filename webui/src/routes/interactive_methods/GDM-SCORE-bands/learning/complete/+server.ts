@@ -1,52 +1,73 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { customFetch } from '$lib/api/new-client';
 
-const BASE_URL = import.meta.env.VITE_API_URL as string;
+import {
+	completeLearningPhaseGdmScoreBandsLearningCompletePost
+} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
-	const refreshToken = cookies.get('refresh_token');
-	if (!refreshToken) {
-		return json({ error: 'Not authenticated' }, { status: 401 });
-	}
-
 	try {
+		const refreshToken = cookies.get('refresh_token');
+		if (!refreshToken) {
+			return json({ error: 'Not authenticated' }, { status: 401 });
+		}
+
 		const { group_session_id } = await request.json();
-		if (typeof group_session_id !== 'number') {
+
+		if (
+			typeof group_session_id !== 'number' ||
+			!Number.isInteger(group_session_id)
+		) {
 			return json(
 				{
+					success: false,
 					error: 'Invalid request',
-					details: 'group_session_id must be a number'
+					details: 'group_session_id must be an integer'
 				},
 				{ status: 400 }
 			);
 		}
-		const response = await customFetch<{ status: number; data: any }>(
-			`${BASE_URL}/gdm-score-bands/learning/complete`,
-			{
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${refreshToken}`
+
+		const response =
+			await completeLearningPhaseGdmScoreBandsLearningCompletePost(
+				{
+					group_session_id
 				},
-				body: JSON.stringify({ group_session_id })
-			}
+				{
+					headers: {
+						Authorization: `Bearer  ${refreshToken}`
+					}
+				}
+			);
+
+		return json({
+			success: true,
+			data: response.data
+		});
+	} catch (error: any) {
+		console.error(
+			'Failed to complete SCORE Bands learning phase:',
+			error?.response?.data ?? error
 		);
 
-		if (response.status !== 200) {
-			return json(
-				{
-					error: 'Failed to complete learning phase',
-					details: (response.data as any)?.detail || 'No data returned from API',
-					status: response.status
-				},
-				{ status: response.status }
-			);
-		}
+		const status =
+			error?.response?.status ??
+			error?.status ??
+			500;
 
-		return json({ success: true, data: response.data });
-	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		return json({ error: 'Server error', details: errorMessage }, { status: 500 });
+		const details =
+			error?.response?.data?.detail ??
+			error?.response?.data?.error ??
+			error?.message ??
+			'Unknown error occurred';
+
+		return json(
+			{
+				success: false,
+				error: 'Failed to complete learning phase',
+				details
+			},
+			{ status }
+		);
 	}
 };

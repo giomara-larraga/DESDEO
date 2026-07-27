@@ -1,8 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { customFetch } from '$lib/api/new-client';
 
-const BASE_URL = import.meta.env.VITE_API_URL as string;
+import {advanceLearningPhaseGdmScoreBandsLearningAdvancePost} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const refreshToken = cookies.get('refresh_token');
@@ -22,18 +21,17 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				{ status: 400 }
 			);
 		}
-		const response = await customFetch<{ status: number; data: any }>(
-			`${BASE_URL}/gdm-score-bands/learning/advance`,
+		const response = await advanceLearningPhaseGdmScoreBandsLearningAdvancePost(
 			{
-				method: 'POST',
+				group_session_id
+			},
+			{
 				headers: {
-					'Content-Type': 'application/json',
-					Authorization: `Bearer ${refreshToken}`
-				},
-				body: JSON.stringify({ group_session_id })
+					Authorization: `Bearer  ${refreshToken}`
+				}
 			}
 		);
-
+					
 		if (response.status !== 200) {
 			return json(
 				{

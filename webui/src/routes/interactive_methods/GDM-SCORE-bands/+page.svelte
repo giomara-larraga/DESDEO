@@ -132,6 +132,8 @@
 	let learningNowMs = $state(Date.now());
 	let learningClockTimer: ReturnType<typeof setInterval> | null = null;
 
+	let minimumVotes: number | undefined = $state(1);
+
 	const { data } = $props<{
 		data: {
 			refreshToken: string;
@@ -164,8 +166,15 @@
 	let vote_confirmed = $state(false);
 	let votes_and_confirms = $state({
 		confirms: [] as number[],
-		votes: {} as Record<number, number>,
+		votes: {} as Record<string, number>,
 		phase: 'learning' as GdmPhase,
+
+		completed_user_ids: [] as number[],
+		started_at: null as string | null,
+		duration_seconds: 900 as number | null,
+		last_warning_at: null as string | null,
+		last_warning_message: null as string | null,
+
 		learning_completed_user_ids: [] as number[],
 		learning_started_at: null as string | null,
 		learning_duration_seconds: 900 as number | null,
@@ -174,9 +183,21 @@
 	});
 	// If user has voted, usersVote is the id they voted for. If not, null.
 	let usersVote: number | null = $derived.by(() => {
-		if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
-			return votes_and_confirms.votes[userId];
+		if (userId == null) {
+			return null;
 		}
+
+		const userKey = String(userId);
+
+		if (
+			Object.prototype.hasOwnProperty.call(
+				votes_and_confirms.votes,
+				userKey
+			)
+		) {
+			return votes_and_confirms.votes[userKey];
+		}
+
 		return null;
 	});
 	const totalVoters = $derived((data.group.users ?? []).length);
@@ -294,12 +315,16 @@ function getConsensusClasses(axisName: string): string {
 	});
 
 	
-	let iteration_id = $state(0); // for header and fetch_score_bands
+	//let iteration_id = $state(0); // for header and fetch_score_bands
+
+	let groupIterationId = $state<number | null>(null); //Group iteration id from backend, used for history browser and fetch_score_bands
+	let latestIteration = $state<number | null>(null);	//SCOREBandsGDMResult.iteration 
+
 	// current iteration data for consensus reaching phase, when bands exist
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
 
 	// Configuration and latestIteration are used in initialization and configPanel
-	let latestIteration: number | null = $state(null);
+	//let latestIteration: number | null = $state(null);
 	let scoreBandsConfig: SCOREBandsConfig = $state({
 		clustering_algorithm: {
 			name: 'KMeans',
@@ -723,6 +748,13 @@ function getConsensusClasses(axisName: string): string {
 
 	function syncLearningMetadata(source: {
 		phase?: GdmPhase;
+
+		completed_user_ids?: number[];
+		started_at?: string | null;
+		duration_seconds?: number | null;
+		last_warning_at?: string | null;
+		last_warning_message?: string | null;
+
 		learning_completed_user_ids?: number[];
 		learning_started_at?: string | null;
 		learning_duration_seconds?: number | null;
@@ -733,14 +765,34 @@ function getConsensusClasses(axisName: string): string {
 			setPhase(source.phase);
 		}
 
-		learningProgress.completedUserIds = source.learning_completed_user_ids ?? [];
-		learningProgress.startedAt = source.learning_started_at ?? null;
-		learningProgress.durationSeconds = source.learning_duration_seconds ?? 900;
-		learningProgress.lastWarningAt = source.learning_last_warning_at ?? null;
-		learningProgress.lastWarningMessage = source.learning_last_warning_message ?? null;
+		learningProgress.completedUserIds =
+			source.completed_user_ids ??
+			source.learning_completed_user_ids ??
+			[];
+
+		learningProgress.startedAt =
+			source.started_at ??
+			source.learning_started_at ??
+			null;
+
+		learningProgress.durationSeconds =
+			source.duration_seconds ??
+			source.learning_duration_seconds ??
+			900;
+
+		learningProgress.lastWarningAt =
+			source.last_warning_at ??
+			source.learning_last_warning_at ??
+			null;
+
+		learningProgress.lastWarningMessage =
+			source.last_warning_message ??
+			source.learning_last_warning_message ??
+			null;
 
 		if (learningProgress.lastWarningMessage) {
-			learningNotice = learningProgress.lastWarningMessage;
+			learningNotice =
+				learningProgress.lastWarningMessage;
 		}
 	}
 
@@ -939,77 +991,117 @@ function getConsensusClasses(axisName: string): string {
 	 */
 	async function fetch_score_bands() {
 		try {
-			const previousIterationId = iteration_id;
+			const previousIterationId = groupIterationId;
 			const previousPhase = phase;
 
-			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_session_id: data.groupSession.id,
-					score_bands_config: scoreBandsConfig,
-					from_iteration: iteration_id
-				})
-			});
+			const scoreResponse = await fetch(
+				'/interactive_methods/GDM-SCORE-bands/fetch_score_bands',
+				{
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						group_session_id: data.groupSession.id,
+						score_bands_config: scoreBandsConfig,
+						minimum_votes: minimumVotes,
+						from_iteration: latestIteration
+					})
+				}
+			);
 
 			if (!scoreResponse.ok) {
 				const errorData = await scoreResponse.json();
+
 				throw new Error(
-					`Fetch score failed: ${errorData.error || `HTTP ${scoreResponse.status}: ${scoreResponse.statusText}`}`
+					`Fetch score failed: ${
+						errorData.error ??
+						`HTTP ${scoreResponse.status}: ${scoreResponse.statusText}`
+					}`
 				);
 			}
 
 			const scoreResult = await scoreResponse.json();
 
-			if (scoreResult.success) {
-				history = scoreResult.data.history;
-				console.log('Full history received:', history);
-
-				// The last item from history is the current response
-				const currentResponse = history[history.length - 1];
-				// Check which type of response we got and update state accordingly
-				if (currentResponse.method === 'gdm-score-bands') {
-					// Regular SCORE bands response - cast to proper type for TypeScript
-					const scoreBandsResponse = currentResponse as GDMSCOREBandsResponse & {
-						phase?: 'learning' | 'consensus';
-					};
-					latestIteration = scoreBandsResponse.latest_iteration
-						? scoreBandsResponse.latest_iteration
-						: null;
-					const scoreBandsData =
-						scoreBandsResponse.result as SCOREBandsResult;
-					scoreBandsResult = scoreBandsData;
-					scoreBandsConfig = scoreBandsData.options;
-					iteration_id = scoreBandsResponse.group_iter_id;
-					setPhase(scoreBandsResponse.phase ?? 'consensus');
-					decisionResult = null;
-					console.log('SCORE bands fetched successfully:', scoreBandsResponse);
-				} else if (currentResponse.method === 'gdm-score-bands-final') {
-					// Decision phase response
-					const finalDecisionData =
-						currentResponse.result as GDMSCOREBandsFinalSelection;
-					latestIteration = null;
-					decisionResult = finalDecisionData;
-					iteration_id = currentResponse.group_iter_id;
-					setPhase('decision');
-					scoreBandsResult = null;
-					console.log('Decision phase data fetched successfully:', currentResponse);
-				} else {
-					throw new Error(`Unknown method: ${currentResponse.method}`);
-				}
-
-				const iterationChanged = iteration_id !== previousIterationId;
-				const phaseChanged = phase !== previousPhase;
-
-				if (iterationChanged || phaseChanged) {
-					selected_band = null;
-					selected_solution = null;
-				}
-			} else {
-				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
+			if (!scoreResult.success) {
+				throw new Error(
+					`Fetch score failed: ${scoreResult.error ?? 'Unknown error'}`
+				);
 			}
+
+			history = scoreResult.data?.history ?? [];
+			console.log('Raw fetch_score_bands response:', scoreResult);
+
+			console.log('Full history received:', history);
+
+			if (!Array.isArray(history) || history.length === 0) {
+				throw new Error('SCORE Bands response contained no history entries.');
+			}
+
+			const currentResponse = history.at(-1);
+
+			if (!currentResponse) {
+				throw new Error('Could not determine the current SCORE Bands response.');
+			}
+
+			if (
+				currentResponse.phase === 'learning' ||
+				currentResponse.phase === 'consensus'
+			) {
+				const scoreBandsResponse =
+					currentResponse as GDMSCOREBandsResponse & {
+						phase: 'learning' | 'consensus';
+					};
+
+				latestIteration =
+					scoreBandsResponse.latest_iteration ?? null;
+
+				const scoreBandsData =
+					scoreBandsResponse.result as SCOREBandsResult;
+
+				scoreBandsResult = scoreBandsData;
+				scoreBandsConfig = scoreBandsData.options;
+				groupIterationId = scoreBandsResponse.group_iter_id;
+
+				setPhase(scoreBandsResponse.phase);
+				decisionResult = null;
+
+				console.log(
+					'SCORE bands fetched successfully:',
+					scoreBandsResponse
+				);
+			} else if (currentResponse.phase === 'decision') {
+				const finalDecisionData =
+					currentResponse.result as GDMSCOREBandsFinalSelection;
+
+				latestIteration = null;
+				decisionResult = finalDecisionData;
+				groupIterationId = currentResponse.group_iter_id;
+
+				setPhase('decision');
+				scoreBandsResult = null;
+
+				console.log(
+					'Decision phase data fetched successfully:',
+					currentResponse
+				);
+			} else {
+				throw new Error(
+					`Unknown SCORE Bands phase: ${currentResponse.phase}`
+				);
+			}
+
+			const iterationChanged =
+				groupIterationId !== previousIterationId;
+
+			const phaseChanged =
+				phase !== previousPhase;
+
+			if (iterationChanged || phaseChanged) {
+				selected_band = null;
+				selected_solution = null;
+			}
+
 			data_loaded = true;
 			loading_error = null;
 		} catch (error) {
@@ -1017,7 +1109,6 @@ function getConsensusClasses(axisName: string): string {
 			errorMessage.set(`${error}`);
 		}
 	}
-
 	/**
 	 * Submits user vote for selected band or solution
 	 */
@@ -1133,8 +1224,17 @@ function getConsensusClasses(axisName: string): string {
 				syncLearningMetadata(result.data);
 				// If user has voted already, select the band they voted for
 				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
-				if (userId && votes_and_confirms.votes.hasOwnProperty(userId) && selectVotedBand) {
-					selected_band = votes_and_confirms.votes[userId];
+				if (userId != null && selectVotedBand) {
+					const userKey = String(userId);
+
+					if (
+						Object.prototype.hasOwnProperty.call(
+							votes_and_confirms.votes,
+							userKey
+						)
+					) {
+						selected_band = votes_and_confirms.votes[userKey];
+					}
 				}
 			} else {
 				throw new Error(`Get votes and confirms failed: ${result.error || 'Unknown error'}`);
@@ -1331,8 +1431,10 @@ function getConsensusClasses(axisName: string): string {
 			const configureResult = await configureResponse.json();
 
 			if (configureResult.success) {
-				console.log('Configuration updated successfully:', configureResult.data.message);
-				console.log('config: ', config);
+				minimumVotes = config.minimum_votes;
+				await fetch_score_bands();
+				await fetch_votes_and_confirms(true);
+				clusters_to_visible();
 			} else {
 				throw new Error(`Configure failed: ${configureResult.error || 'Unknown error'}`);
 			}
@@ -1878,7 +1980,7 @@ function getConsensusClasses(axisName: string): string {
 
 			<HistoryBrowser
 				{history}
-				currentIterationId={iteration_id}
+				currentIterationId={groupIterationId}
 				onRevertToIteration={revert_to}
 				{isOwner}
 			/>
@@ -2101,7 +2203,7 @@ function getConsensusClasses(axisName: string): string {
 					<!-- History Browser Component -->
 					<HistoryBrowser
 						{history}
-						currentIterationId={iteration_id}
+						currentIterationId={groupIterationId}
 						onRevertToIteration={revert_to}
 						{isOwner}
 					/>

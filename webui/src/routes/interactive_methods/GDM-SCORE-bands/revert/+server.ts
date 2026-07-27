@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		return json({
 			success: true,
-			data: { message: 'Successfully reverted to previous iteration' }
+			data: revertResponse.data
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		return json({
 			success: true,
-			data: { message: 'Successfully configured SCORE bands settings' }
+			data: configureResponse.data
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';

@@ -20,7 +20,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 	try {
 		const requestData = await request.json();
-		const { group_session_id, score_bands_config, from_iteration } = requestData;
+		const {
+			group_session_id,
+			score_bands_config,
+			from_iteration,
+			minimum_votes
+		} = requestData;
 
 		if (typeof group_session_id !== 'number') {
 			return json(
@@ -37,9 +42,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				group_session_id,
 				score_bands_config: score_bands_config
 					? {
-							from_iteration,
+							from_iteration:
+								typeof from_iteration === 'number'
+									? from_iteration
+									: null,
 							score_bands_config,
-							minimum_votes: 1
+							minimum_votes:
+								typeof minimum_votes === 'number'
+									? minimum_votes
+									: 1
 						}
 					: null
 			};
