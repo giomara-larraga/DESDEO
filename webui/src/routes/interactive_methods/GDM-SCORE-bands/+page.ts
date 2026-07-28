@@ -16,7 +16,16 @@ type LoadData = {
 	refreshToken?: string;
 };
 
-export const load: PageLoad<LoadData> = async ({ url, data }) => {
+type RequestInitWithFetch = RequestInit & {
+	fetchImpl: typeof fetch;
+};
+
+function getErrorDetail(response: { data?: unknown }): string | undefined {
+	const payload = response.data as { detail?: unknown } | undefined;
+	return typeof payload?.detail === 'string' ? payload.detail : undefined;
+}
+
+export const load: PageLoad<LoadData> = async ({ url, data, fetch }) => {
 	const rawGroupSessionId = url.searchParams.get('group_session');
 
 	if (!rawGroupSessionId) {
@@ -29,13 +38,24 @@ export const load: PageLoad<LoadData> = async ({ url, data }) => {
 		throw new Error('Invalid group session ID');
 	}
 
+	const apiRequestOptions = {
+		fetchImpl: fetch
+	} as RequestInitWithFetch;
+
 	const groupSessionResponse =
 		await getGroupSessionGdmGroupSessionsGroupSessionIdGet(
-			groupSessionId
+			groupSessionId,
+			apiRequestOptions
 		);
 
 	if (groupSessionResponse.status !== 200) {
-		throw new Error('Failed to fetch group session');
+		throw new Error(
+			`Failed to fetch group session (status ${groupSessionResponse.status})${
+				getErrorDetail(groupSessionResponse)
+					? `: ${getErrorDetail(groupSessionResponse)}`
+					: ''
+			}`
+		);
 	}
 
 	const groupSession: GroupSessionPublic =
@@ -44,19 +64,32 @@ export const load: PageLoad<LoadData> = async ({ url, data }) => {
 	const groupResponse =
 		await getGroupInfoGdmGetGroupInfoPost({
 			group_id: groupSession.group_id
-		});
+		}, apiRequestOptions);
 
 	if (groupResponse.status !== 200) {
-		throw new Error('Failed to fetch group information');
+		throw new Error(
+			`Failed to fetch group information (status ${groupResponse.status})${
+				getErrorDetail(groupResponse)
+					? `: ${getErrorDetail(groupResponse)}`
+					: ''
+			}`
+		);
 	}
 
 	const problemResponse =
 		await getProblemProblemProblemIdGet(
-			groupSession.problem_id
+			groupSession.problem_id,
+			apiRequestOptions
 		);
 
 	if (problemResponse.status !== 200) {
-		throw new Error('Failed to fetch problem information');
+		throw new Error(
+			`Failed to fetch problem information (status ${problemResponse.status})${
+				getErrorDetail(problemResponse)
+					? `: ${getErrorDetail(problemResponse)}`
+					: ''
+			}`
+		);
 	}
 
 	return {

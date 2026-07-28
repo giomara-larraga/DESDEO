@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
 from desdeo.api.models import (
+    ProblemDB,
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
     GDMSCOREBandsLearningAdvanceRequest,
@@ -43,6 +44,12 @@ from desdeo.gdm.score_bands import (
     SCOREBandsGDMConfig,
     SCOREBandsGDMResult,
     score_bands_gdm,
+)
+
+from desdeo.api.models.gdm.gdm_score_bands import (
+    GDMSCOREBandsConsensusPreference,
+    GDMSCOREBandsDecisionPreference,
+    GDMSCOREBandsLearningPreference,
 )
 
 from desdeo.api.routers.gdm.utils import (
@@ -329,8 +336,35 @@ async def get_or_initialize(
     )
 
     # initial clustering for the objectives
-    discrete_representation_obj = group_mgr.discrete_representation.objective_values
-    objs = pl.DataFrame(discrete_representation_obj)
+    problem = session.get(
+        ProblemDB,
+        group_session.problem_id,
+    )
+
+    if problem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"Problem {group_session.problem_id} "
+                "was not found."
+            ),
+        )
+
+    if problem.discrete_representation is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "The problem has no discrete representation."
+            ),
+        )
+
+    discrete_representation_obj = (
+        problem.discrete_representation.objective_values
+    )
+
+    objs = pl.DataFrame(
+        discrete_representation_obj
+    )
     results = score_bands_gdm(
         data=objs,
         config=score_bands_config,
@@ -441,15 +475,23 @@ def get_votes_and_confirms(
     votes = getattr(info, "user_votes", {})
     confirms = getattr(info, "user_confirms", [])
 
+    if isinstance(info, GDMSCOREBandsLearningPreference):
+        phase = "learning"
+    elif isinstance(info, GDMSCOREBandsDecisionPreference):
+        phase = "decision"
+    elif isinstance(info, GDMSCOREBandsConsensusPreference):
+        phase = "consensus"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unknown SCORE Bands preference type.",
+        )
+
     return JSONResponse(
         content={
             "votes": votes,
             "confirms": confirms,
-            "phase": getattr(
-                info,
-                "phase",
-                ("decision" if info.method == "gdm-score-bands-final" else "consensus"),
-            ),
+            "phase": phase,
             "learning_completed_user_ids": getattr(
                 info,
                 "completed_user_ids",

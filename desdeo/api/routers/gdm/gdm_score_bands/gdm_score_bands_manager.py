@@ -19,6 +19,7 @@ from desdeo.api.models.gdm.gdm_score_bands import (
 
 from desdeo.api.models import (
     GDMSCOREBandsFinalSelection,
+    DiscreteRepresentationDB,
     Group,
     GroupIteration,
     ProblemDB,
@@ -69,9 +70,35 @@ class GDMScoreBandsManager(GroupManager):
             raise ManagerError(f"No problem with ID {group_session.problem_id} found!")
 
         if problem.discrete_representation is None:
-            raise ManagerError("The group's discrete representation does not exist!")
+            raise ManagerError(
+                "The group's discrete representation does not exist!"
+            )
 
-        self.discrete_representation = problem.discrete_representation
+        if problem.discrete_representation.id is None:
+            raise ManagerError(
+                "The group's discrete representation has no database ID."
+            )
+
+        self.discrete_representation_id = (
+            problem.discrete_representation.id
+        )
+
+    def _get_discrete_representation(
+        self,
+        session: Session,
+    ) -> DiscreteRepresentationDB:
+        discrete_repr = session.get(
+            DiscreteRepresentationDB,
+            self.discrete_representation_id,
+        )
+
+        if discrete_repr is None:
+            raise ManagerError(
+                "The group's discrete representation "
+                f"{self.discrete_representation_id} was not found."
+            )
+
+        return discrete_repr
 
     def _create_state(
         self,
@@ -89,8 +116,8 @@ class GDMScoreBandsManager(GroupManager):
             state=state,
         )
 
-        session.add(state_db)
-        session.flush()
+        #session.add(state_db)
+        #session.flush()
         session.refresh(state_db)
 
         return state_db
@@ -432,7 +459,9 @@ class GDMScoreBandsManager(GroupManager):
             ]
 
             solution_number_threshold = 10
-            discrete_repr = self.discrete_representation
+            discrete_repr = self._get_discrete_representation(
+                session
+            )
 
             if len(selected_solution_ids) <= solution_number_threshold:
                 objective_keys = list(discrete_repr.objective_values)
@@ -803,7 +832,13 @@ class GDMScoreBandsManager(GroupManager):
 
             index_frame = pl.DataFrame({"index": relevant_indices})
 
-            discrete_objectives = self.discrete_representation.objective_values
+            discrete_repr = self._get_discrete_representation(
+                session
+            )
+
+            discrete_objectives = (
+                discrete_repr.objective_values
+            )
             objective_keys = list(discrete_objectives)
 
             objs_df = pl.DataFrame(discrete_objectives).with_row_index(name="index")

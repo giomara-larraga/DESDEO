@@ -281,11 +281,15 @@ function getConsensusClasses(axisName: string): string {
 	let isDecisionPhase = $derived(phase === 'Decision Phase');
 	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
 	let learningCompletedCount = $derived(learningProgress.completedUserIds.length);
-	let hasCompletedLearning = $derived.by(() =>
-		userId !== undefined && userId !== null
-			? learningProgress.completedUserIds.includes(userId)
-			: false
-	);
+	let hasCompletedLearning = $derived.by(() => {
+		if (userId === undefined || userId === null) {
+			return false;
+		}
+
+		return learningProgress.completedUserIds
+			.map(String)
+			.includes(String(userId));
+	});
 	let allDecisionMakersFinishedLearning = $derived(learningCompletedCount === totalVoters);
 	let learningDeadlineMs = $derived.by(() => {
 		if (!learningProgress.startedAt) {
@@ -749,13 +753,13 @@ function getConsensusClasses(axisName: string): string {
 	function syncLearningMetadata(source: {
 		phase?: GdmPhase;
 
-		completed_user_ids?: number[];
+		completed_user_ids?: Array<number | string>;
 		started_at?: string | null;
 		duration_seconds?: number | null;
 		last_warning_at?: string | null;
 		last_warning_message?: string | null;
 
-		learning_completed_user_ids?: number[];
+		learning_completed_user_ids?: Array<number | string>;
 		learning_started_at?: string | null;
 		learning_duration_seconds?: number | null;
 		learning_last_warning_at?: string | null;
@@ -765,29 +769,41 @@ function getConsensusClasses(axisName: string): string {
 			setPhase(source.phase);
 		}
 
-		learningProgress.completedUserIds =
-			source.completed_user_ids ??
-			source.learning_completed_user_ids ??
-			[];
+		const completedIds =
+			source.learning_completed_user_ids?.length
+				? source.learning_completed_user_ids
+				: source.completed_user_ids ?? [];
+
+		learningProgress.completedUserIds = completedIds
+			.map(Number)
+			.filter(Number.isFinite);
+
+		console.log('Learning completion state:', {
+			currentUserId: userId,
+			completedUserIds: learningProgress.completedUserIds,
+			hasCurrentUserCompleted: learningProgress.completedUserIds
+				.map(String)
+				.includes(String(userId))
+		});
 
 		learningProgress.startedAt =
-			source.started_at ??
 			source.learning_started_at ??
+			source.started_at ??
 			null;
 
 		learningProgress.durationSeconds =
-			source.duration_seconds ??
 			source.learning_duration_seconds ??
+			source.duration_seconds ??
 			900;
 
 		learningProgress.lastWarningAt =
-			source.last_warning_at ??
 			source.learning_last_warning_at ??
+			source.last_warning_at ??
 			null;
 
 		learningProgress.lastWarningMessage =
-			source.last_warning_message ??
 			source.learning_last_warning_message ??
+			source.last_warning_message ??
 			null;
 
 		if (learningProgress.lastWarningMessage) {
@@ -795,7 +811,6 @@ function getConsensusClasses(axisName: string): string {
 				learningProgress.lastWarningMessage;
 		}
 	}
-
 	function formatDuration(totalSeconds: number): string {
 		const minutes = Math.floor(totalSeconds / 60);
 		const seconds = totalSeconds % 60;
@@ -1275,6 +1290,9 @@ function getConsensusClasses(axisName: string): string {
 			}
 
 			syncLearningMetadata(result.data);
+			// Fetch the authoritative shared status.
+			// hasCompletedLearning will still be calculated for this specific user.
+			await fetch_votes_and_confirms();
 		} catch (error) {
 			console.error('Error in complete_learning_phase:', error);
 			errorMessage.set(`${error}`);
