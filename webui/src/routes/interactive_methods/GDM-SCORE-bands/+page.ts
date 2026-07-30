@@ -79,6 +79,7 @@ export const load: PageLoad<LoadData> = async ({ url, data, fetch }) => {
 	const problemResponse =
 		await getProblemProblemProblemIdGet(
 			groupSession.problem_id,
+			undefined,
 			apiRequestOptions
 		);
 

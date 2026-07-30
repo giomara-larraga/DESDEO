@@ -22,6 +22,7 @@
  * - Native SVG DOM manipulation (no external charting libraries)
  */
 import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFastAPI';
+import { errorMessage, isLoading } from '../../../stores/uiState';
 
 /**
  * Calculate agreement level for each axis based on voting data
@@ -370,4 +371,60 @@ export function drawVotesChart(
 	xAxis.setAttribute('stroke', '#333');
 	xAxis.setAttribute('stroke-width', '1');
 	svg.appendChild(xAxis);
+}
+
+export async function callGSCOREBandsAPI<T>(
+	type: string,
+	data: Record<string, any>,
+	timeout = 10000 // 10s default
+): Promise<{
+	success: boolean;
+	data?: T;
+	error?: string;
+}> {
+	isLoading.set(true);
+	errorMessage.set(null);
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+	try {
+		const response = await fetch(`/interactive_methods/GDM-SCORE-bands/${type}`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data),
+			signal: controller.signal
+		});
+
+		clearTimeout(timeoutId);
+
+		const result = await response.json();
+
+		if (!response.ok || !result.success) {
+			const status = response.status;
+			console.log(status);
+			let errorMsg = result.error || `HTTP error! Status: ${status}`;
+			if (status === 401) errorMsg = `${errorMsg} Please log in again.`;
+			// if (status === 403) errorMsg = `${errorMsg} You do not have permission to perform this action.`; // TODO: use if needed
+			throw new Error(errorMsg);
+		}
+		return result;
+	} catch (error) {
+		let errorMsg: string;
+		if (error instanceof Error) {
+			if (error.name === 'AbortError') {
+				errorMsg = 'The request timed out. Please try again.';
+			} else {
+				errorMsg = error.message;
+			}
+		} else {
+			errorMsg = 'An unknown error occurred';
+		}
+		errorMessage.set(errorMsg);
+		console.error(`Error calling GDM-SCORE-bands ${type} API:`, errorMsg);
+		return { success: false, error: errorMsg };
+	} finally {
+		isLoading.set(false);
+	}
 }
