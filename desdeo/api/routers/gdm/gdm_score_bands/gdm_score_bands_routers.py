@@ -8,8 +8,8 @@ import logging
 # from shutil import copy
 import sys
 from typing import Annotated
-
-from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandsLearningPreference
+from desdeo.api.routers.gdm.gdm_base import ManagerError
+from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandsLearningPreference, GDMSCOREBandsRestartRequest
 from desdeo.api.models.generic_states import StateDB
 from desdeo.api.models.state import GDMSCOREBandsLearningState
 from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
@@ -828,3 +828,77 @@ async def configure_gdm(
         ) from e
 
     return JSONResponse(content={"message": "Configured. Re-clustered."})
+
+
+@router.post("/restart")
+async def restart_score_bands(
+    request: GDMSCOREBandsRestartRequest,
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    session: Annotated[
+        Session,
+        Depends(get_session),
+    ],
+) -> JSONResponse:
+    """Restart a SCORE Bands process from scratch.
+
+    Only the group owner may restart the process. The GroupSession,
+    group, participants, problem, and method are preserved.
+    """
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    check_group_owner(user, group)
+
+    group_mgr: GDMScoreBandsManager = (
+        await manager.get_group_manager(
+            group_session_id=group_session.id,
+            method="gdm-score-bands",
+            db_session=session,
+        )
+    )
+
+    try:
+        await group_mgr.restart(
+            user=user,
+            group_session=group_session,
+            session=session,
+        )
+    except ManagerError as error:
+        session.rollback()
+
+        logger.warning(
+            "Could not restart SCORE Bands session %s: %s",
+            group_session.id,
+            error,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+    except Exception as error:
+        session.rollback()
+
+        logger.exception(
+            "Unexpected error while restarting SCORE Bands session %s.",
+            group_session.id,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to restart the SCORE Bands process.",
+        ) from error
+
+    return JSONResponse(
+        content={
+            "message": "SCORE Bands process restarted.",
+            "group_session_id": group_session.id,
+            "head_iteration_id": None,
+        }
+    )

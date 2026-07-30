@@ -159,7 +159,8 @@ __all__ = [  # noqa: RUF022
     "GroupInfoRequest",
     "GDMSCOREBandsLearningState",
     "GDMSCOREBandsConsensusState",
-    "GDMSCOREBandsDecisionState"
+    "GDMSCOREBandsDecisionState",
+    "GDMSCOREBandsRestartRequest"
 ]
 
 
@@ -221,6 +222,7 @@ from .gdm.gdm_score_bands import (
     GDMSCOREBandsResponse,
     GDMSCOREBandsRevertRequest,
     GDMScoreBandsVoteRequest,
+    GDMSCOREBandsRestartRequest,
 )
 from .gdm.gnimbus import (
     EndProcessPreference,

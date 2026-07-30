@@ -1374,6 +1374,25 @@ function getConsensusClasses(axisName: string): string {
 			errorMessage.set(`${error}`);
 		}
 	}
+
+	async function restartScoreBands() {
+		try {
+			const restartResult = await callGSCOREBandsAPI('restart', {
+				group_session_id: data.groupSession.id
+			});
+
+			if (restartResult.success) {
+				await fetch_score_bands();
+				await fetch_votes_and_confirms(true);
+				clusters_to_visible();
+			} else {
+				throw new Error(`Restart failed: ${restartResult.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error in restartScoreBands:', error);
+			errorMessage.set(`${error}`);
+		}
+	}
 </script>
 
 <svelte:head>

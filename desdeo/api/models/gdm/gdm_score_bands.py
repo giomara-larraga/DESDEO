@@ -153,6 +153,11 @@ class GDMSCOREBandsRevertRequest(SQLModel):
         description="The number of the iteration that we want to revert to."
     )
 
+class GDMSCOREBandsRestartRequest(SQLModel):
+    """Request for restarting the entire GDM SCORE Bands process."""
+    group_session_id: int = Field(
+        description="Group Session ID."
+    )
 class GDMSCOREBandsResponse(SQLModel):
     """Response class for GDMSCOREBands, whether it is initialization or not."""
     method: str = "gdm-score-bands"

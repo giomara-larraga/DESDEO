@@ -889,3 +889,70 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(group_session)
 
             await self.broadcast("UPDATE: Reconfigured SCORE Bands.")
+
+    async def restart(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> None:
+        """Restart this SCORE Bands process from scratch.
+
+        Removes SCORE Bands iterations and states while preserving the
+        group session, group, owner, members, problem, and method.
+        """
+        async with self.lock:
+            group = self._get_group(
+                group_session=group_session,
+                session=session,
+            )
+            self._check_owner(user, group)
+
+            if group_session.id is None:
+                raise ManagerError(
+                    "The group session has no database ID."
+                )
+
+            iterations = list(
+                session.exec(
+                    select(GroupIteration)
+                    .where(
+                        GroupIteration.session_id
+                        == group_session.id
+                    )
+                    .order_by(GroupIteration.id.desc())
+                ).all()
+            )
+
+            states = list(
+                session.exec(
+                    select(StateDB)
+                    .where(
+                        StateDB.group_session_id
+                        == group_session.id
+                    )
+                    .order_by(StateDB.id.desc())
+                ).all()
+            )
+
+            # Remove the foreign-key reference to the current iteration.
+            group_session.head_iteration_id = None
+            session.add(group_session)
+            session.flush()
+
+            # Delete child iterations before parent iterations.
+            for iteration in iterations:
+                session.delete(iteration)
+
+            session.flush()
+
+            # Delete child states before parent states.
+            for state_db in states:
+                session.delete(state_db)
+
+            session.commit()
+            session.refresh(group_session)
+
+            await self.broadcast(
+                "UPDATE: The SCORE Bands process was restarted."
+            )

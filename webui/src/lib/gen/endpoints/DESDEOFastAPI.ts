@@ -1039,6 +1039,14 @@ export interface GDMSCOREBandsLearningWarningRequest {
 }
 
 /**
+ * Request for restarting the entire GDM SCORE Bands process.
+ */
+export interface GDMSCOREBandsRestartRequest {
+	/** Group Session ID. */
+	group_session_id: number;
+}
+
+/**
  * Request for reverting to a previous setup.
  */
 export interface GDMSCOREBandsRevertRequest {
@@ -6800,6 +6808,55 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(sCOREBandsGDMConfig)
+		}
+	);
+};
+
+/**
+ * Restart a SCORE Bands process from scratch.
+
+Only the group owner may restart the process. The GroupSession,
+group, participants, problem, and method are preserved.
+ * @summary Restart Score Bands
+ */
+export type restartScoreBandsGdmScoreBandsRestartPostResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponseSuccess =
+	restartScoreBandsGdmScoreBandsRestartPostResponse200 & {
+		headers: Headers;
+	};
+export type restartScoreBandsGdmScoreBandsRestartPostResponseError =
+	restartScoreBandsGdmScoreBandsRestartPostResponse422 & {
+		headers: Headers;
+	};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponse =
+	| restartScoreBandsGdmScoreBandsRestartPostResponseSuccess
+	| restartScoreBandsGdmScoreBandsRestartPostResponseError;
+
+export const getRestartScoreBandsGdmScoreBandsRestartPostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/restart`;
+};
+
+export const restartScoreBandsGdmScoreBandsRestartPost = async (
+	gDMSCOREBandsRestartRequest: GDMSCOREBandsRestartRequest,
+	options?: RequestInit
+): Promise<restartScoreBandsGdmScoreBandsRestartPostResponse> => {
+	return customFetch<restartScoreBandsGdmScoreBandsRestartPostResponse>(
+		getRestartScoreBandsGdmScoreBandsRestartPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsRestartRequest)
 		}
 	);
 };

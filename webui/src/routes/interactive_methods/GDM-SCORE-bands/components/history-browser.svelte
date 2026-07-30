@@ -55,6 +55,10 @@
 	let showHistory = $state(false);
 	let expandedIterations = $state(new Set<number>());
 
+	let isRestarting = $state(false);
+	let isRevertingTo = $state<number | null>(null);
+	let errorMessage = $state<string | null>(null);
+
 	// Helper function to toggle iteration expansion (for future use)
 	function toggleIterationExpansion(iterationId: number) {
 		if (expandedIterations.has(iterationId)) {
@@ -64,6 +68,48 @@
 		}
 		expandedIterations = new Set(expandedIterations); // Trigger reactivity
 	}
+
+	async function handleRestartProcess() {
+		if (isRestarting) {
+			return;
+		}
+
+		const confirmed = window.confirm(
+			'Restart the process from scratch? ' +
+				'All SCORE Bands iterations and workflow ' +
+				'progress for this session will be deleted. ' +
+				'The group and participants will be preserved.'
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		isRestarting = true;
+		errorMessage = null;
+
+		try {
+			await onRestartProcess();
+		} catch (error) {
+			console.error(
+				'Failed to restart process:',
+				error
+			);
+
+			errorMessage =
+				error instanceof Error
+					? error.message
+					: 'Failed to restart the process.';
+		} finally {
+			isRestarting = false;
+		}
+	}
+
+	function onRestartProcess() {
+		// Placeholder for restart process logic
+		console.log('Restarting process from scratch...');
+
+	}
 </script>
 
 {#if isOwner}
@@ -71,6 +117,19 @@
 		<div class="card-body">
 			<h2 class="card-title">History</h2>
 			<div class="space-y-2 p-2">
+				<Button
+					type="button"
+					onclick={handleRestartProcess}
+					class="btn btn-error"
+					disabled={
+						isRestarting ||
+						isRevertingTo !== null
+					}
+				>
+					{isRestarting
+						? 'Restarting...'
+						: 'Restart process from scratch'}
+				</Button>
 				<Button onclick={() => (showHistory = !showHistory)} class="btn btn-secondary">
 					{showHistory ? 'Hide History' : 'Show History'}
 				</Button>

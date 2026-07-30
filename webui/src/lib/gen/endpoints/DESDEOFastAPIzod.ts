@@ -8909,6 +8909,21 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 export const ConfigureGdmGdmScoreBandsConfigurePostResponse = zod.unknown();
 
 /**
+ * Restart a SCORE Bands process from scratch.
+
+Only the group owner may restart the process. The GroupSession,
+group, participants, problem, and method are preserved.
+ * @summary Restart Score Bands
+ */
+export const RestartScoreBandsGdmScoreBandsRestartPostBody = zod
+	.object({
+		group_session_id: zod.number().describe('Group Session ID.')
+	})
+	.describe('Request for restarting the entire GDM SCORE Bands process.');
+
+export const RestartScoreBandsGdmScoreBandsRestartPostResponse = zod.unknown();
+
+/**
  * Initialize NAUTILUS Navigator.
  * @summary Initialize Navigator
  */
