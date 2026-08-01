@@ -66,6 +66,12 @@
 	// Base methods without group parameters
 	const baseMethods: Method[] = [
 		{
+			name: 'SCORE bands',
+			path: '/interactive_methods/SCORE-bands',
+			description: 'SCORE bands method for MOO.',
+			preferencesType: ['reference point']
+		},
+		{
 			name: 'NIMBUS',
 			path: '/interactive_methods/NIMBUS',
 			description: 'NIMBUS method for MOO.',

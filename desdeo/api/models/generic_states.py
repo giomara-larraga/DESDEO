@@ -41,6 +41,7 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    SCOREBandsMethodState,
 )
 from .user import User
 
@@ -84,6 +85,7 @@ class StateKind(str, Enum):
     CUMULUS_FINAL = "cumulus.final"
     CUMULUS_MODIFY = "cumulus.modify"
     CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
+    SCORE_BANDS_METHOD = "score_bands_method.solve"
 
 
 class State(SQLModel, table=True):
@@ -226,6 +228,7 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_FINAL: CumulusFinalState,
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
     StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
+    StateKind.SCORE_BANDS_METHOD: SCOREBandsMethodState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -252,6 +255,7 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     CumulusSaveState: StateKind.CUMULUS_SAVE,
     CumulusModificationState: StateKind.CUMULUS_MODIFY,
     CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
+    SCOREBandsMethodState: StateKind.SCORE_BANDS_METHOD,
 }
 
 

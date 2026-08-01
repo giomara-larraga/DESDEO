@@ -18,6 +18,7 @@ from desdeo.api.routers import (
     user_authentication,
     utopia,
     xnimbus,
+    score_bands_method,
 )
 from desdeo.api.routers.gdm import gdm_aggregate, gdm_base
 from desdeo.api.routers.gdm.gdm_score_bands import gdm_score_bands_routers
@@ -47,7 +48,7 @@ app.include_router(site_selection.router)
 app.include_router(gdm_score_bands_routers.router)
 app.include_router(nautilus_navigator.router)
 app.include_router(solution_description.router)
-
+app.include_router(score_bands_method.router)
 
 @app.get("/health")
 def health():  # noqa: D103

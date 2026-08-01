@@ -174,6 +174,9 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
     "GDMSCOREBandsHistoryResponse",
+    "SCOREBandsMethodState",
+    "SCOREBandsMethodRequest",
+    "SCOREBandsMethodResponse",
 ]
 
 
@@ -362,6 +365,12 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    SCOREBandsMethodState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse
+
+from .score_bands_method import (
+    SCOREBandsMethodRequest,
+    SCOREBandsMethodResponse,
+)

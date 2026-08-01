@@ -37,10 +37,8 @@
 
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
-	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
-	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
 	import { onMount } from 'svelte';
-	import type { ProblemInfo, SCOREBandsResult, SCOREBandsConfig, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { ProblemInfo, SCOREBandsResult} from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -50,9 +48,13 @@
 		generateAxisOptions,
 		canToggleBands,
 		canToggleMedians,
-		createDemoData
 	} from './helper-functions.js';
 
+	import type {
+		SCOREBandsConfig,
+	} from '$lib/gen/endpoints/DESDEOFastAPI';
+
+	import { handle_initialize_scorebands } from './handlers';
 	// Page data props
 	type Problem = ProblemInfo;
 
@@ -69,21 +71,9 @@
 
 	// SCORE-bands state variables
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
-	let scoreBandsConfig: SCOREBandsConfig = $state({
-		clustering_algorithm: {
-			name: 'KMeans',
-			n_clusters: 5
-		},
-		distance_formula: 1,
-		distance_parameter: 0.05,
-		use_absolute_correlations: false,
-		include_solutions: false,
-		include_medians: true,
-		interval_size: 0.25
-	});
 
-	// EMO state for demonstration
-	let emoStateId: number | null = $state(null);
+
+	let StateId: number | null = $state(null);
 
 	let SCOREBands = $derived.by(() => {
 		if (!scoreBandsResult) {
@@ -200,33 +190,30 @@
 
 	// Load data on component mount
 	onMount(async () => {
-		if ($methodSelection.selectedProblemId) {
-			problem = problem_list.find(
-				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
-			);
+		const selectedProblemId =
+			$methodSelection.selectedProblemId;
 
-			if (problem) {
-				await initializeDemoData();
-				clusters_to_visible();
-			} else {
-				// No problem found but still show UI
-				data_loaded = true;
-			}
-		} else {
-			// No problem selected but still show UI
+		if (!selectedProblemId) {
+			loading_error = 'No problem selected.';
 			data_loaded = true;
+			return;
 		}
+
+		problem = problem_list.find(
+			(candidate: ProblemInfo) =>
+				String(candidate.id) ===
+				String(selectedProblemId)
+		);
+
+		if (!problem) {
+			loading_error =
+				'The selected problem could not be found.';
+			data_loaded = true;
+			return;
+		}
+
+		await fetch_score_bands();
 	});
-
-	// Initialize demo data using helper function for demonstration
-	async function initializeDemoData() {
-		// Use helper function to create sample data for testing visualization
-		scoreBandsResult = createDemoData();
-
-		data_loaded = true;
-		loading_error = null;
-		console.log('Demo mode: Sample data loaded for visualization');
-	}
 
 	let cluster_colors = $derived(
 		SCOREBands.clusterIds.length > 0 ? generateClusterColors(SCOREBands.clusterIds) : {}
@@ -257,102 +244,54 @@
 		console.log('Selected solution:', index, solutionData);
 	}
 
-	/**
-	 * Placeholder function for fetching SCORE bands data
-	 * Currently returns immediately as method is not implemented
-	 */
 	async function fetch_score_bands() {
+		if (!problem) {
+			const message = 'No problem selected.';
+
+			loading_error = message;
+			errorMessage.set(message);
+			return;
+		}
+
+		data_loaded = false;
+		loading_error = null;
+
 		try {
-			// This is now a placeholder - no longer fetching data
-			console.log('fetch_score_bands: Not implemented for individual method');
+			const response =
+				await handle_initialize_scorebands(problem);
+
+			if (!response) {
+				loading_error =
+					'SCORE Bands did not return a result.';
+				return;
+			}
+
+			StateId = response.state_id;
+			scoreBandsResult = response.result;
+
+			selected_band = null;
+			selected_axis = null;
+
+			cluster_visibility_map = Object.fromEntries(
+				Object.keys(response.result.bands).map(
+					(clusterId) => [Number(clusterId), true]
+				)
+			);
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: 'Unable to load SCORE Bands.';
+
+			loading_error = message;
+			errorMessage.set(message);
+
+			console.error(
+				'Error fetching SCORE Bands:',
+				error
+			);
+		} finally {
 			data_loaded = true;
-			loading_error = null;
-		} catch (error) {
-			console.error('Error in fetch_score_bands:', error);
-			errorMessage.set(`${error}`);
-		}
-	}
-
-	/**
-	 * Iteration function for progressing to new solutions based on band selection
-	 * Currently placeholder - would integrate with EMO iterate with preferences
-	 *
-	 * @param problem Current optimization problem
-	 * @param selected_band ID of the cluster/band to focus iteration on
-	 */
-	async function iterate(problem: ProblemInfo | undefined, selected_band: number | null) {
-		if (!problem || selected_band === null) {
-			errorMessage.set('Please select a problem and a band to iterate from.');
-			return;
-		}
-
-		console.log('Iterating from selected band:', selected_band);
-		try {
-			// For now, just show a message - this would call EMO iterate with preferences
-			errorMessage.set(
-				`Iterate functionality: Would generate new solutions focusing on cluster ${selected_band}`
-			);
-			console.log('Iteration completed');
-		} catch (error) {
-			console.error('Error in iterate:', error);
-			errorMessage.set(`${error}`);
-		}
-	}
-
-	/**
-	 * Confirms final solution selection for individual user
-	 * Currently placeholder - would save final decision to backend
-	 */
-	async function confirmFinalSolution() {
-		if (!problem || selected_solution === null) {
-			errorMessage.set('Please select a solution to confirm as final.');
-			return;
-		}
-
-		try {
-			// For now, just show a message - this would save the final solution
-			errorMessage.set(
-				`Final solution confirmed: Solution ${selected_solution + 1} has been selected as the final decision.`
-			);
-
-			console.log('Final solution confirmed:', selected_solution);
-		} catch (error) {
-			console.error('Error in confirm final solution:', error);
-			errorMessage.set(`${error}`);
-		}
-	}
-
-	/**
-	 * Revert iteration function - not applicable for single-user workflow
-	 * Individual users don't have group iterations to revert to
-	 *
-	 * @param iteration Iteration number to revert to (unused in single-user)
-	 */
-	async function revert(iteration: number) {
-		try {
-			// Not implemented for individual SCORE bands method
-			console.log('revert: Not implemented for individual method');
-			errorMessage.set('Revert functionality is not available in individual SCORE bands method');
-		} catch (error) {
-			console.error('Error in revert_iteration:', error);
-			errorMessage.set(`${error}`);
-		}
-	}
-
-	/**
-	 * Configuration function for SCORE bands parameters
-	 * Currently placeholder - would update method configuration
-	 *
-	 * @param config Configuration object with SCORE bands parameters
-	 */
-	async function configure(config: SCOREBandsGDMConfig) {
-		try {
-			// Not implemented for individual SCORE bands method
-			console.log('configure: Not implemented for individual method');
-			errorMessage.set('Configuration is not available in individual SCORE bands method');
-		} catch (error) {
-			console.error('Error in configure:', error);
-			errorMessage.set(`${error}`);
 		}
 	}
 </script>
@@ -466,15 +405,14 @@
 						<span class="label-text">Flip Axes</span>
 					</label>
 					<button
-						onclick={() => {}}
+						onclick={fetch_score_bands}
 						class="btn btn-primary"
-						disabled={SCOREBands.axisNames.length === 0}
+						disabled={!problem || !data_loaded}
 					>
-						Recalculate Parameters
+						{data_loaded
+							? 'Recalculate Parameters'
+							: 'Calculating...'}
 					</button>
-					<Button onclick={() => revert(1)} class="btn btn-primary" disabled={true}>
-						Revert to previous iteration
-					</Button>
 				</div>
 			</div>
 		</div>
@@ -621,7 +559,7 @@
 						<h2 class="card-title">Voting</h2>
 						<div class="space-y-2 p-2">
 							<Button
-								onclick={() => iterate(problem, selected_band)}
+								onclick={() => {}}
 								disabled={selected_band === null}
 							>
 								Iterate

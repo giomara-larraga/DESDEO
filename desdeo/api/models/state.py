@@ -20,6 +20,19 @@ from desdeo.tools import SolverResults
 from desdeo.tools.score_bands import SCOREBandsResult
 
 from .preference import PreferenceType, ReferencePoint
+from pydantic import TypeAdapter
+
+from desdeo.tools.score_bands import (
+    ClusteringOptions,
+    CustomClusterOptions,
+    DBSCANOptions,
+    DimensionClusterOptions,
+    DistanceFormula,
+    GMMOptions,
+    KMeansOptions,
+    SCOREBandsConfig,
+    SCOREBandsResult,
+)
 
 if TYPE_CHECKING:
     from .problem import RepresentativeNonDominatedSolutions
@@ -718,3 +731,352 @@ class ENautilusFinalState(ResultInterface, SQLModel, table=True):
     def num_solutions(self) -> int:
         """Number of solutions stored in the state."""
         return 1
+
+
+class ClusteringOptionsType(TypeDecorator):
+    """Convert SCORE clustering configuration models to and from JSON."""
+
+    impl = JSON
+    cache_ok = True
+
+    _models = {
+        "GMM": GMMOptions,
+        "DBSCAN": DBSCANOptions,
+        "KMeans": KMeansOptions,
+        "DimensionCluster": DimensionClusterOptions,
+        "Custom": CustomClusterOptions,
+    }
+
+    def _validate(self, value):
+        if isinstance(
+            value,
+            (
+                GMMOptions,
+                DBSCANOptions,
+                KMeansOptions,
+                DimensionClusterOptions,
+                CustomClusterOptions,
+            ),
+        ):
+            return value
+
+        if not isinstance(value, dict):
+            raise TypeError(
+                "Clustering options must be a clustering model or dictionary."
+            )
+
+        name = value.get("name")
+        model = self._models.get(name)
+
+        if model is None:
+            raise ValueError(
+                f"Unsupported clustering algorithm: {name!r}"
+            )
+
+        return model.model_validate(value)
+
+    def process_bind_param(self, value, dialect):
+        """Convert clustering options to JSON."""
+        if value is None:
+            return None
+
+        validated = self._validate(value)
+        return validated.model_dump(mode="json")
+
+    def process_result_value(self, value, dialect):
+        """Convert JSON back into the correct clustering model."""
+        if value is None:
+            return None
+
+        return self._validate(value)
+    
+from typing import Any
+
+from pydantic import TypeAdapter
+from sqlalchemy.types import TypeDecorator
+from sqlmodel import JSON
+
+
+class ValidatedJSONType(TypeDecorator):
+    """Store a validated Python/Pydantic-compatible value as JSON."""
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, value_type: Any) -> None:
+        super().__init__()
+        self.value_type = value_type
+        self._adapter = TypeAdapter(value_type)
+
+    def process_bind_param(self, value, dialect):
+        """Validate and serialize before storing."""
+        if value is None:
+            return None
+
+        validated = self._adapter.validate_python(value)
+        return self._adapter.dump_python(
+            validated,
+            mode="json",
+        )
+
+    def process_result_value(self, value, dialect):
+        """Validate and reconstruct after loading."""
+        if value is None:
+            return None
+
+        return self._adapter.validate_python(value)
+
+class SCOREBandsMethodState(SQLModel, table=True):
+
+    id: int | None = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("states.id", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # SCORE configuration
+    # ------------------------------------------------------------------
+
+    dimensions: list[str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(list[str]),
+            nullable=True,
+        ),
+    )
+
+    descriptive_names: dict[str, str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[str, str]),
+            nullable=True,
+        ),
+    )
+
+    units: dict[str, str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[str, str]),
+            nullable=True,
+        ),
+    )
+
+    # This is the manually configured value from SCOREBandsConfig.
+    # It is distinct from the calculated result axis_positions below.
+    configured_axis_positions: dict[str, float] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[str, float]),
+            nullable=True,
+        ),
+    )
+
+    axis_colours: dict[str, str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[str, str]),
+            nullable=True,
+        ),
+    )
+
+    highlight_cluster: int | None = None
+
+    clustering_algorithm: ClusteringOptions = Field(
+        default_factory=DBSCANOptions,
+        sa_column=Column(
+            ClusteringOptionsType(),
+            nullable=False,
+        ),
+    )
+
+    # Store the IntEnum as a regular integer column.
+    distance_formula: int = Field(default=1)
+
+    distance_parameter: float = Field(default=0.05)
+
+    use_absolute_correlations: bool = Field(default=False)
+
+    include_solutions: bool = Field(default=False)
+
+    include_medians: bool = Field(default=False)
+
+    interval_size: float = Field(default=0.95)
+
+    scales: dict[str, tuple[float, float]] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(
+                dict[str, tuple[float, float]]
+            ),
+            nullable=True,
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # SCORE results
+    # ------------------------------------------------------------------
+
+    ordered_dimensions: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(
+            ValidatedJSONType(list[str]),
+            nullable=False,
+        ),
+    )
+
+    # One cluster ID for each solution.
+    clusters: list[int] = Field(
+        default_factory=list,
+        sa_column=Column(
+            ValidatedJSONType(list[int]),
+            nullable=False,
+        ),
+    )
+
+    cluster_names: dict[int, str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[int, str]),
+            nullable=True,
+        ),
+    )
+
+    cluster_hover_info: dict[int, str] | None = Field(
+        default=None,
+        sa_column=Column(
+            ValidatedJSONType(dict[int, str]),
+            nullable=True,
+        ),
+    )
+
+    # Calculated positions returned by score_json().
+    axis_positions: dict[str, float] = Field(
+        default_factory=dict,
+        sa_column=Column(
+            ValidatedJSONType(dict[str, float]),
+            nullable=False,
+        ),
+    )
+
+    bands: dict[
+        int,
+        dict[str, tuple[float, float]],
+    ] = Field(
+        default_factory=dict,
+        sa_column=Column(
+            ValidatedJSONType(
+                dict[
+                    int,
+                    dict[str, tuple[float, float]],
+                ]
+            ),
+            nullable=False,
+        ),
+    )
+
+    medians: dict[int, dict[str, float]] = Field(
+        default_factory=dict,
+        sa_column=Column(
+            ValidatedJSONType(
+                dict[int, dict[str, float]]
+            ),
+            nullable=False,
+        ),
+    )
+
+    cardinalities: dict[int, int] = Field(
+        default_factory=dict,
+        sa_column=Column(
+            ValidatedJSONType(dict[int, int]),
+            nullable=False,
+        ),
+    )
+
+    @property
+    def num_solutions(self) -> int:
+        """Number of solutions represented by the cluster assignments."""
+        return len(self.clusters)
+
+    @property
+    def num_clusters(self) -> int:
+        """Number of SCORE clusters."""
+        return len(self.cardinalities)
+
+    @classmethod
+    def from_result(
+        cls,
+        result: SCOREBandsResult,
+        *,
+        state_id: int | None = None,
+    ) -> "SCOREBandsMethodState":
+        """Create a database state from a SCOREBandsResult."""
+
+        options = result.options
+
+        return cls(
+            id=state_id,
+            dimensions=options.dimensions,
+            descriptive_names=options.descriptive_names,
+            units=options.units,
+            configured_axis_positions=options.axis_positions,
+            axis_colours=options.axis_colours,
+            highlight_cluster=options.highlight_cluster,
+            clustering_algorithm=options.clustering_algorithm,
+            distance_formula=int(options.distance_formula),
+            distance_parameter=options.distance_parameter,
+            use_absolute_correlations=(
+                options.use_absolute_correlations
+            ),
+            include_solutions=options.include_solutions,
+            include_medians=options.include_medians,
+            interval_size=options.interval_size,
+            scales=options.scales,
+            ordered_dimensions=result.ordered_dimensions,
+            clusters=result.clusters,
+            cluster_names=result.cluster_names,
+            cluster_hover_info=result.cluster_hover_info,
+            axis_positions=result.axis_positions,
+            bands=result.bands,
+            medians=result.medians,
+            cardinalities=result.cardinalities,
+        )
+
+    @property
+    def result(self) -> SCOREBandsResult:
+        """Reconstruct the original Pydantic SCOREBandsResult."""
+
+        options = SCOREBandsConfig(
+            dimensions=self.dimensions,
+            descriptive_names=self.descriptive_names,
+            units=self.units,
+            axis_positions=self.configured_axis_positions,
+            axis_colours=self.axis_colours,
+            highlight_cluster=self.highlight_cluster,
+            clustering_algorithm=self.clustering_algorithm,
+            distance_formula=DistanceFormula(
+                self.distance_formula
+            ),
+            distance_parameter=self.distance_parameter,
+            use_absolute_correlations=(
+                self.use_absolute_correlations
+            ),
+            include_solutions=self.include_solutions,
+            include_medians=self.include_medians,
+            interval_size=self.interval_size,
+            scales=self.scales,
+        )
+
+        return SCOREBandsResult(
+            options=options,
+            ordered_dimensions=self.ordered_dimensions,
+            clusters=self.clusters,
+            cluster_names=self.cluster_names,
+            cluster_hover_info=self.cluster_hover_info,
+            axis_positions=self.axis_positions,
+            bands=self.bands,
+            medians=self.medians,
+            cardinalities=self.cardinalities,
+        )

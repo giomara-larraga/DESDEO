@@ -58,11 +58,17 @@ from desdeo.api.models import (
     SolverSelectionMetadata,
     User,
     UserPublic,
+    SCOREBandsMethodState,
+    StateDB,
 )
 from desdeo.api.models.nimbus import (
     NIMBUSInitializationResponse,
     NIMBUSMultiplierRequest,
     NIMBUSMultiplierResponse,
+)
+from desdeo.api.models.score_bands_method import (
+    SCOREBandsMethodRequest,
+    SCOREBandsMethodResponse,
 )
 from desdeo.api.models.problem import ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import create_access_token
@@ -71,6 +77,7 @@ from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
+from desdeo.problem.testproblems.river_pollution_problems import river_pollution_problem_discrete
 from desdeo.problem.testproblems.simple_problem import simple_scenario_model
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
@@ -2312,3 +2319,129 @@ def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient)
 
     assert result.hard_constraint_ids == []
     assert result.soft_constraint_ids == []
+
+
+def test_score_bands_method(
+    client: TestClient,
+    session_and_user: dict,
+):
+    """SCORE Bands should use and persist a problem's discrete representation."""
+
+    access_token = login(client)
+
+    user = session_and_user["user"]
+    db_session = session_and_user["session"]
+
+    problem = river_pollution_problem_discrete()
+
+    assert problem.discrete_representation is not None
+
+    problem_db = ProblemDB.from_problem(
+        problem,
+        user=user,
+    )
+    db_session.add(problem_db)
+    db_session.commit()
+    db_session.refresh(problem_db)
+
+    assert problem_db.id is not None
+
+    request = SCOREBandsMethodRequest(
+        problem_id=problem_db.id,
+        options=SCOREBandsConfig(
+            clustering_algorithm=KMeansOptions(
+                n_clusters=2,
+            ),
+        ),
+    )
+
+    response = post_json(
+        client=client,
+        endpoint="/method/score_bands_method/solve",
+        json=request.model_dump(mode="json"),
+        access_token=access_token,
+    )
+
+    assert response.status_code == status.HTTP_200_OK, response.text
+
+    result = SCOREBandsMethodResponse.model_validate(
+        response.json()
+    )
+
+    assert result.state_id is not None
+
+    discrete = problem.discrete_representation
+    objective_values = discrete.objective_values
+
+    objective_symbols = [
+        objective.symbol
+        for objective in problem.objectives
+        if objective.symbol in objective_values
+    ]
+
+    number_of_solutions = len(
+        objective_values[objective_symbols[0]]
+    )
+
+    # The route used the objective data from the Problem.
+    assert set(result.result.ordered_dimensions) == set(
+        objective_symbols
+    )
+    assert len(result.result.clusters) == number_of_solutions
+
+    # Every objective has a calculated axis position.
+    assert set(result.result.axis_positions) == set(
+        objective_symbols
+    )
+
+    # Every cluster assignment is represented in the cardinalities.
+    assert sum(
+        result.result.cardinalities.values()
+    ) == number_of_solutions
+
+    # KMeans was configured to use two clusters.
+    assert set(result.result.cardinalities) == {1, 2}
+
+    # Bands and medians exist for every generated cluster.
+    assert set(result.result.bands) == set(
+        result.result.cardinalities
+    )
+    assert set(result.result.medians) == set(
+        result.result.cardinalities
+    )
+
+    for cluster_id in result.result.cardinalities:
+        assert set(
+            result.result.bands[cluster_id]
+        ) == set(objective_symbols)
+
+        assert set(
+            result.result.medians[cluster_id]
+        ) == set(objective_symbols)
+
+    # Verify that StateDB.create() persisted the shared state.
+    persisted_state = db_session.get(
+        StateDB,
+        result.state_id,
+    )
+
+    assert persisted_state is not None
+    assert persisted_state.problem_id == problem_db.id
+    assert isinstance(
+        persisted_state.state,
+        SCOREBandsMethodState,
+    )
+
+    # Verify that the method-specific result survived a DB round trip.
+    persisted_result = persisted_state.state.result
+
+    assert persisted_result.ordered_dimensions == (
+        result.result.ordered_dimensions
+    )
+    assert persisted_result.clusters == result.result.clusters
+    assert persisted_result.axis_positions == (
+        result.result.axis_positions
+    )
+    assert persisted_result.cardinalities == (
+        result.result.cardinalities
+    )
