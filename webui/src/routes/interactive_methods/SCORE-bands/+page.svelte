@@ -3,7 +3,9 @@
 	 * +page.svelte (Single-User SCORE-bands)
 	 *
 	 * @author Stina Palomäki <palomakistina@gmail.com>
+	 * @author Giomara Larraga <glarragw@jyu.fi>
 	 * @created December 2025
+	 * @updated August 2026
 	 *
 	 * @description
 	 * Placeholder page for single-user SCORE-bands interactive multiobjective optimization method.
@@ -56,15 +58,11 @@
 
 	import { handle_initialize_scorebands } from './handlers';
 	// Page data props
-	type Problem = ProblemInfo;
+	//type Problem = ProblemInfo;
 
-	const { data } = $props<{
-		data: {
-			problems: Problem[];
-		};
-	}>();
-	let problem: ProblemInfo | undefined = $state(undefined);
-	let problem_list: ProblemInfo[] = $derived(data.problems);
+	let problem: ProblemInfo | null = $state(null);
+	const { data } = $props<{ data: ProblemInfo[] }>();
+	let problem_list = $derived(data.problems ?? []);
 
 	let data_loaded = $state(false);
 	let loading_error: string | null = $state(null);
@@ -114,7 +112,7 @@
 			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: result.medians,
 			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
-			scales: calculateScales(result, problem)
+			scales: calculateScales(problem, result)
 		};
 
 		return derivedData;
@@ -190,29 +188,15 @@
 
 	// Load data on component mount
 	onMount(async () => {
-		const selectedProblemId =
-			$methodSelection.selectedProblemId;
-
-		if (!selectedProblemId) {
-			loading_error = 'No problem selected.';
-			data_loaded = true;
-			return;
+		methodSelection.set($methodSelection.selectedProblemId, 'Explainable NIMBUS');
+		if ($methodSelection.selectedProblemId) {
+			problem = problem_list.find(
+				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
+			);
+			if (problem) {
+				await fetch_score_bands();
+			}
 		}
-
-		problem = problem_list.find(
-			(candidate: ProblemInfo) =>
-				String(candidate.id) ===
-				String(selectedProblemId)
-		);
-
-		if (!problem) {
-			loading_error =
-				'The selected problem could not be found.';
-			data_loaded = true;
-			return;
-		}
-
-		await fetch_score_bands();
 	});
 
 	let cluster_colors = $derived(
@@ -236,12 +220,6 @@
 
 	function handle_axis_select(axisIndex: number | null) {
 		selected_axis = axisIndex;
-	}
-
-	// Decision phase solution selection handler
-	function handle_solution_select(index: number | null, solutionData: any | null) {
-		selected_solution = index;
-		console.log('Selected solution:', index, solutionData);
 	}
 
 	async function fetch_score_bands() {
@@ -297,8 +275,8 @@
 </script>
 
 <svelte:head>
-	<title>SCORE-bands | DESDEO</title>
-	<meta name="description" content="Placeholder page for single-user SCORE-bands interactive multiobjective optimization method" />
+	<title>SCORE-bands Method | DESDEO</title>
+	<meta name="description" content="SCORE-bands interactive multiobjective optimization method" />
 </svelte:head>
 
 <div class="container mx-auto p-6">
@@ -318,12 +296,12 @@
 		</div>
 	{:else}
 		<!-- Header and Instructions -->
-		<div class="card bg-base-100 mb-6 shadow-xl">
-			<div class="card-body">
-				<div class="">
+		<div>
+			<div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
+				<div class="flex gap-4">
 					<!-- Header Section -->
 					<div class="font-semibold">SCORE Bands demo page</div>
-					<div>Click a cluster on the graph and iterate. Functionality is not implemented.</div>
+					<div>Select one band that best matches your preferred objective ranges, then click "Iterate"</div>
 				</div>
 			</div>
 		</div>
@@ -418,163 +396,165 @@
 		</div>
 		<!-- LEARNING PHASE: Existing SCORE Bands Content -->
 
-		<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
+		<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
 			<!-- Controls Panel -->
-			<div class="space-y-6 lg:col-span-1">
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title">Visualization Options</h2>
+			 <aside class="space-y-4">
+				<div class="space-y-6 lg:col-span-1">
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Visualization Options</h2>
 
-						<!-- Display Options -->
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text">Show Bands</span>
-								<input
-									type="checkbox"
-									bind:checked={show_bands}
-									disabled={!canToggleBands(show_bands, show_medians, show_solutions)}
-									class="checkbox checkbox-primary"
-									title={canToggleBands(show_bands, show_medians, show_solutions)
-										? ''
-										: 'At least one visualization option must remain active'}
-								/>
-							</label>
-						</div>
-
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text text-gray-500">Show Solutions</span>
-								<input
-									type="checkbox"
-									bind:checked={show_solutions}
-									disabled={true}
-									class="checkbox checkbox-primary"
-									title="Individual solutions are not available"
-								/>
-							</label>
-						</div>
-
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text">Show Medians</span>
-								<input
-									type="checkbox"
-									bind:checked={show_medians}
-									disabled={!canToggleMedians(show_bands, show_medians, show_solutions)}
-									class="checkbox checkbox-primary"
-									title={canToggleMedians(show_bands, show_medians, show_solutions)
-										? ''
-										: 'At least one visualization option must remain active'}
-								/>
-							</label>
-						</div>
-
-						<!-- Quantile Slider -->
-						<div class="form-control">
-							<label for="quantile_slider" class="label">
-								<span class="label-text">Quantile: {quantile_value}</span>
-							</label>
-							<input
-								id="quantile_slider"
-								type="range"
-								min="0.1"
-								max="0.5"
-								step="0.05"
-								bind:value={quantile_value}
-								class="range range-primary"
-								title="Adjust quantile to change band width (triggers API call)"
-							/>
-							<div class="flex w-full justify-between px-2 text-xs">
-								<span>0.1</span>
-								<span>0.3</span>
-								<span>0.5</span>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Cluster Visibility -->
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title">Cluster Visibility</h2>
-
-						{#each SCOREBands.clusterIds as clusterId}
+							<!-- Display Options -->
 							<div class="form-control">
 								<label class="label cursor-pointer">
-									<span class="label-text">
-										<span
-											class="inline-block h-4 w-4 rounded"
-											style="background-color: {cluster_colors[clusterId] || '#000000'};"
-										></span>
-										Cluster {clusterId}
-									</span>
+									<span class="label-text">Show Bands</span>
 									<input
 										type="checkbox"
-										bind:checked={cluster_visibility_map[clusterId]}
+										bind:checked={show_bands}
+										disabled={!canToggleBands(show_bands, show_medians, show_solutions)}
 										class="checkbox checkbox-primary"
+										title={canToggleBands(show_bands, show_medians, show_solutions)
+											? ''
+											: 'At least one visualization option must remain active'}
 									/>
 								</label>
 							</div>
-						{/each}
 
-						{#if SCOREBands.clusterIds.length === 0}
-							<p class="text-sm text-gray-500">No clusters available</p>
-						{/if}
+							<div class="form-control">
+								<label class="label cursor-pointer">
+									<span class="label-text text-gray-500">Show Solutions</span>
+									<input
+										type="checkbox"
+										bind:checked={show_solutions}
+										disabled={true}
+										class="checkbox checkbox-primary"
+										title="Individual solutions are not available"
+									/>
+								</label>
+							</div>
+
+							<div class="form-control">
+								<label class="label cursor-pointer">
+									<span class="label-text">Show Medians</span>
+									<input
+										type="checkbox"
+										bind:checked={show_medians}
+										disabled={!canToggleMedians(show_bands, show_medians, show_solutions)}
+										class="checkbox checkbox-primary"
+										title={canToggleMedians(show_bands, show_medians, show_solutions)
+											? ''
+											: 'At least one visualization option must remain active'}
+									/>
+								</label>
+							</div>
+
+							<!-- Quantile Slider -->
+							<div class="form-control">
+								<label for="quantile_slider" class="label">
+									<span class="label-text">Quantile: {quantile_value}</span>
+								</label>
+								<input
+									id="quantile_slider"
+									type="range"
+									min="0.1"
+									max="0.5"
+									step="0.05"
+									bind:value={quantile_value}
+									class="range range-primary"
+									title="Adjust quantile to change band width (triggers API call)"
+								/>
+								<div class="flex w-full justify-between px-2 text-xs">
+									<span>0.1</span>
+									<span>0.3</span>
+									<span>0.5</span>
+								</div>
+							</div>
+						</div>
 					</div>
-				</div>
 
-				<!-- Selection Info -->
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title">Selection</h2>
-						<div class="space-y-2">
-							{#if selected_band !== null}
-								<div class="alert alert-info">
-									<span class="font-medium">Band {selected_band} selected</span>
+					<!-- Cluster Visibility -->
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Cluster Visibility</h2>
+
+							{#each SCOREBands.clusterIds as clusterId}
+								<div class="form-control">
+									<label class="label cursor-pointer">
+										<span class="label-text">
+											<span
+												class="inline-block h-4 w-4 rounded"
+												style="background-color: {cluster_colors[clusterId] || '#000000'};"
+											></span>
+											Cluster {clusterId}
+										</span>
+										<input
+											type="checkbox"
+											bind:checked={cluster_visibility_map[clusterId]}
+											class="checkbox checkbox-primary"
+										/>
+									</label>
 								</div>
-							{:else}
-								<div class="text-sm text-gray-500">No band selected</div>
-							{/if}
+							{/each}
 
-							{#if selected_axis !== null}
-								<div class="alert alert-warning">
-									<span class="font-medium"
-										>Axis "{SCOREBands.axisNames[selected_axis] || 'Unknown'}" selected</span
-									>
-								</div>
-							{:else}
-								<div class="text-sm text-gray-500">No axis selected</div>
-							{/if}
-
-							{#if selected_band === null && selected_axis === null}
-								<div class="mt-2 text-xs text-gray-400">Click on bands or axes to select them</div>
+							{#if SCOREBands.clusterIds.length === 0}
+								<p class="text-sm text-gray-500">No clusters available</p>
 							{/if}
 						</div>
 					</div>
-				</div>
 
-				<!-- "Voting buttons" -->
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<h2 class="card-title">Voting</h2>
-						<div class="space-y-2 p-2">
-							<Button
-								onclick={() => {}}
-								disabled={selected_band === null}
-							>
-								Iterate
-							</Button>
+					<!-- Selection Info -->
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Selection</h2>
+							<div class="space-y-2">
+								{#if selected_band !== null}
+									<div class="alert alert-info">
+										<span class="font-medium">Band {selected_band} selected</span>
+									</div>
+								{:else}
+									<div class="text-sm text-gray-500">No band selected</div>
+								{/if}
+
+								{#if selected_axis !== null}
+									<div class="alert alert-warning">
+										<span class="font-medium"
+											>Axis "{SCOREBands.axisNames[selected_axis] || 'Unknown'}" selected</span
+										>
+									</div>
+								{:else}
+									<div class="text-sm text-gray-500">No axis selected</div>
+								{/if}
+
+								{#if selected_band === null && selected_axis === null}
+									<div class="mt-2 text-xs text-gray-400">Click on bands or axes to select them</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+
+					<!-- "Voting buttons" -->
+					<div class="card bg-base-100 shadow-xl">
+						<div class="card-body">
+							<h2 class="card-title">Voting</h2>
+							<div class="space-y-2 p-2">
+								<Button
+									onclick={() => {}}
+									disabled={selected_band === null}
+								>
+									Iterate
+								</Button>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
+			</aside>
 
 			<!-- Visualization Area -->
-			<div class="lg:col-span-3">
-				<div class="card bg-base-100 shadow-xl">
-					<div class="card-body">
-						<div class="flex h-[600px] w-full items-center justify-center">
-							{#if SCOREBands.axisNames.length > 0}
+			<main class="space-y-4">
+				<div class="rounded-lg border bg-card shadow-sm">
+					
+						<div class="h-[520px] p-4">
+							
 								<ScoreBands
 									data={SCOREBands.data}
 									axisNames={SCOREBands.axisNames}
@@ -594,25 +574,11 @@
 									selectedBand={selected_band}
 									selectedAxis={selected_axis}
 								/>
-							{:else}
-								<div class="text-center">
-									<div class="mb-2 text-lg font-semibold text-gray-500">
-										No SCORE bands data available
-									</div>
-									<div class="text-sm text-gray-400">
-										{#if !problem}
-											Select a problem from the NIMBUS method selection to see SCORE bands
-											visualization
-										{:else}
-											Run optimization to generate data for SCORE bands analysis
-										{/if}
-									</div>
-								</div>
-							{/if}
+							
 						</div>
-					</div>
+					
 				</div>
-			</div>
+			</main>
 		</div>
 	{/if}
 </div>

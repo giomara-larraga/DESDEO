@@ -12,7 +12,7 @@ from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
 from desdeo.problem.testproblems.river_pollution_problems import river_pollution_problem_discrete
 
-problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem(), river_pollution_problem_discrete()]
+problems = [dtlz2(10, 3), simple_knapsack(), river_pollution_problem(), river_pollution_problem_discrete(five_objective_variant=False)]
 
 if __name__ == "__main__":
     if SettingsConfig.debug:
