@@ -1125,7 +1125,7 @@ class phi_decision:
 
         return float(np.mean(weights * assessment_values))
 
-    def assess_decision_phase(self, set_of_RPs, main_RP):
+    def assess_decision_phase(self, set_of_RPs, main_RP) -> PHIDecisionResult:
         """Calculate the decision-phase FD assessment and lambda weights.
             ``main_RP`` must be the reference point from the final interaction,
             z-hat^d.
@@ -1149,7 +1149,7 @@ class phi_decision:
         shared_areas = self.interactions_areas(set_of_RPs, main_RP)
         weights = self.get_weights(shared_areas, main_area)
         fd = self.assess(weights, self.indicator_values)
-        return fd, weights
+        return PHIDecisionResult(fd=fd, weights=weights.tolist())
 
 
 # Additional unary indicators can be added here.
@@ -1157,31 +1157,3 @@ class phi_decision:
 # The function signature should be similar the already implemented functions, if reasonable.
 # Optionally, a batch version of the indicator can be added as well.
 # The methods should make similar assumptions about the input data as the already implemented functions.
-
-
-    ideal = np.array([0.0, 0.0])
-    dystopian = np.array([5.0, 5.0])
-
-    P = np.array([
-        [2.0, 4.0],
-        [4.0, 2.0],
-    ])
-
-    RP = np.array([3.0, 3.0])
-
-    phi_calc = phi(ideal)
-
-    result = phi_calc.get_phi(
-        P,
-        RP,
-        dystopian,
-    )
-
-    print(result.phi)
-    print(result.v_prec)
-    print(result.v_succ)
-    print(result.v_minus)
-    print(result.v_plus)
-    print(result.solution_hypervolume)
-    print(result.reference_point_hypervolume)
-    print(result.reference_point_is_dominated)
