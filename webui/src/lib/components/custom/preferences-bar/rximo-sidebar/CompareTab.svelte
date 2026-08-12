@@ -181,7 +181,7 @@
 				id="contributions-heading"
 				class="text-sm font-semibold text-gray-900"
 			>
-				Effects of {networkSelection.name}
+				Effects of desired value of {networkSelection.name}
 			</h4>
 
 			<p class="mt-1 text-xs text-gray-500">
@@ -199,7 +199,7 @@
 				id="contributions-heading"
 				class="text-sm font-semibold text-gray-900"
 			>
-				Influences on
+				Influences on achieved value of
 				{networkSelection?.name ?? selectedObjectiveName}
 			</h4>
 
