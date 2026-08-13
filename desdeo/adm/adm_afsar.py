@@ -1,12 +1,14 @@
 """Artificial decision maker (ADM) based on the approach by Afsar et al."""
 
+from typing import Literal
+
 import numpy as np
 
 from desdeo.adm.base_adm import BaseADM
 from desdeo.problem.schema import Problem
 from desdeo.tools import payoff_table_method
 from desdeo.tools.non_dominated_sorting import non_dominated as nds
-from desdeo.tools.reference_vectors import create_simplex
+from desdeo.tools.reference_vectors import create_simplex, create_two_layer_simplex
 
 
 class ADMAfsar(BaseADM):
@@ -32,6 +34,17 @@ class ADMAfsar(BaseADM):
         assigned_vectors (np.ndarray or None): Index of the reference vector assigned to each
             solution in the current composite front.
         preference (dict): Current preference information.
+
+    Example usage for more than 3 objectives with a two-layer simplex reference vector creation:
+        adm = ADMAfsar(
+            problem=problem,
+            it_learning_phase=10,
+            it_decision_phase=5,
+            reference_vector_creation="multi_layer_simplex",
+            boundary_lattice_resolution=4,
+            inside_lattice_resolution=2,
+            shrink_factor=0.5,
+        )
     """
 
     def __init__(
@@ -42,6 +55,10 @@ class ADMAfsar(BaseADM):
         lattice_resolution: int | None = None,
         number_of_vectors: int | None = None,
         seed: int | None = None,
+        reference_vector_creation: Literal["simplex", "multi_layer_simplex"] = "simplex",
+        boundary_lattice_resolution: int | None = None,
+        inside_lattice_resolution: int = 1,
+        shrink_factor: float = 0.5,
     ):
         """Initialize the artificial decision maker proposed by Afsar et al.
 
@@ -50,8 +67,29 @@ class ADMAfsar(BaseADM):
             it_learning_phase (int): Number of iterations for the learning phase.
             it_decision_phase (int): Number of iterations for the decision phase.
             lattice_resolution (int, optional): Lattice resolution for reference vectors.
+                Only used if `reference_vector_creation` is "simplex".
             number_of_vectors (int, optional): Number of reference vectors.
+                Only used if `reference_vector_creation` is "simplex".
             seed (int | None): Optional seed for the random number generator. Defaults to None.
+            reference_vector_creation (Literal["simplex", "multi_layer_simplex"]): The method used
+                to create the ADM's reference vectors. "simplex" (the default) uses a single
+                simplex-lattice layer via `create_simplex`, which is adequate for up to 3
+                objectives. For more than 3 objectives, a single layer concentrates most points
+                on the boundary of the simplex; use "multi_layer_simplex" to instead combine a
+                boundary and an interior layer via `create_two_layer_simplex` (backed by pymoo's
+                `MultiLayerReferenceDirectionFactory`), following Deb & Jain (2014).
+            boundary_lattice_resolution (int, optional): Number of partitions for the outer
+                (boundary) layer. Required if `reference_vector_creation` is "multi_layer_simplex".
+            inside_lattice_resolution (int): Number of partitions for the inner layer, before
+                shrinking towards the centroid. Only used if `reference_vector_creation` is
+                "multi_layer_simplex". Defaults to 1.
+            shrink_factor (float): Factor in `[0, 1]` controlling how close the inner layer's
+                vectors are shrunk towards the centroid. Only used if `reference_vector_creation`
+                is "multi_layer_simplex". Defaults to 0.5, as recommended by Deb & Jain (2014).
+
+        Raises:
+            ValueError: If `reference_vector_creation` is "multi_layer_simplex" and
+                `boundary_lattice_resolution` is not provided.
         """
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
         problem = problem.update_ideal_and_nadir(new_ideal=self.true_ideal, new_nadir=self.true_nadir)
@@ -62,7 +100,20 @@ class ADMAfsar(BaseADM):
         self.preference_type = "reference_point"
         number_of_objectives = len(problem.objectives)
 
-        self.reference_vectors = create_simplex(number_of_objectives, lattice_resolution, number_of_vectors)
+        if reference_vector_creation == "multi_layer_simplex":
+            if boundary_lattice_resolution is None:
+                raise ValueError(
+                    "boundary_lattice_resolution must be provided when reference_vector_creation is "
+                    "'multi_layer_simplex'."
+                )
+            self.reference_vectors = create_two_layer_simplex(
+                number_of_objectives,
+                boundary_lattice_resolution=boundary_lattice_resolution,
+                inside_lattice_resolution=inside_lattice_resolution,
+                shrink_factor=shrink_factor,
+            )
+        else:
+            self.reference_vectors = create_simplex(number_of_objectives, lattice_resolution, number_of_vectors)
 
         # CHANGE (point 5): removed the redundant second call to payoff_table_method.
         # generate_initial_preference() already reads the ideal/nadir directly from

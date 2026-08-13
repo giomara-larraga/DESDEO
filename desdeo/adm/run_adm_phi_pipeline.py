@@ -2,12 +2,17 @@
 import json
 from pathlib import Path
 from dataclasses import dataclass, field
+from collections.abc import Sequence
 import numpy as np
+import polars as pl
 from desdeo.adm.adm_afsar import ADMAfsar
-from desdeo.adm.adm_chen import ADMChen
+from desdeo.emo.options import algorithms
 from desdeo.tools.indicators_unary import phi
 from desdeo.emo.options.algorithms import rvea_options, nsga3_options
-from desdeo.emo.options.templates import emo_constructor, ReferencePointOptions
+from desdeo.emo.options.generator import ArchiveGeneratorOptions
+from desdeo.emo.options.templates import ReferencePointOptions
+from desdeo.tools.message import Message, MessageTopics, SelectorMessageTopics
+from desdeo.tools.patterns import Publisher, Subscriber
 
 
 def _serialize(x):
@@ -113,14 +118,92 @@ def _extract_objectives(result, n_obj: int, problem=None) -> np.ndarray:
     return arr
 
 
+def run_emo_iteration(problem, options_factory, preference_dict, n_generations, prev_result=None):
+    """Run a single EMO iteration with a given preference, optionally seeding the
+    population from the previous iteration's final population.
+
+    Also collects the selected population's objective front after every completed
+    generation (via a `GenerationFrontCollector` subscribed to the solver's
+    `Publisher`), so callers can inspect per-generation progress, not just the
+    final result.
+
+    Returns:
+        tuple[EMOResult, list[np.ndarray]]: The final result, and a list with one
+        objective-space front (array of shape (n_solutions, n_obj)) per completed
+        generation, in generation order.
+    """
+    opts = options_factory()
+    opts.template.termination.max_generations = n_generations
+    opts.preference = ReferencePointOptions(preference=preference_dict)
+
+    if prev_result is not None:
+        opts.template.generator = ArchiveGeneratorOptions(
+            solutions=prev_result.optimal_variables,
+            outputs=prev_result.optimal_outputs,
+        )
+
+    solver, extras = algorithms.emo_constructor(emo_options=opts, problem=problem)
+
+    collector = GenerationFrontCollector(publisher=extras.publisher, problem=problem)
+    extras.publisher.auto_subscribe(collector)
+
+    result = solver()
+    return result, collector.fronts
+
+
+class GenerationFrontCollector(Subscriber):
+    """Subscribes to a solver's `Publisher` to record the selected population's
+    objective-space front after every completed generation.
+
+    The selection operator publishes a `SELECTED_VERBOSE_OUTPUTS` message (a polars
+    DataFrame with decision variables + selected targets) once per generation, but
+    only if its `verbosity` is 2 -- the default for `rvea_options()`/`nsga3_options()`.
+    This subscriber does not itself publish anything (`verbosity=0`), it only listens.
+    """
+
+    def __init__(self, publisher: Publisher, problem):
+        super().__init__(publisher, verbosity=0)
+        self.symbols = [obj.symbol for obj in problem.objectives]
+        self.min_cols = [f"{s}_min" for s in self.symbols]
+        self.fronts: list[np.ndarray] = []
+
+    @property
+    def interested_topics(self) -> Sequence[MessageTopics]:
+        return [SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS]
+
+    @property
+    def provided_topics(self) -> dict[int, Sequence[MessageTopics]]:
+        return {0: []}
+
+    def update(self, message: Message) -> None:
+        if message.topic != SelectorMessageTopics.SELECTED_VERBOSE_OUTPUTS:
+            return
+        data = message.value
+        cols = data.columns
+        if all(c in cols for c in self.min_cols):
+            front = data.select(self.min_cols).to_numpy().astype(float)
+        elif all(s in cols for s in self.symbols):
+            front = data.select(self.symbols).to_numpy().astype(float)
+        else:
+            return  # cannot match objective columns; skip this message
+        self.fronts.append(front)
+
+    def state(self) -> Sequence[Message]:
+        return []
+
 @dataclass
 class MethodFrontResult:
-    """Holds the objective-space front produced by one method in one iteration,
-    plus the per-generation history of fronts collected along the way."""
+    """Holds the objective-space front produced by one method in one ADM iteration.
+
+    `generation_fronts` now holds one objective-space front per completed EA
+    generation within this ADM iteration (collected via `GenerationFrontCollector`
+    subscribed to the solver's `Publisher`), so downstream phi/hypervolume tracking
+    is truly per-generation, not just per ADM iteration.
+    """
     method_name: str
     solution_ids: list
     objectives: np.ndarray
-    generation_fronts: list  # list[np.ndarray], one entry per completed generation checkpoint
+    generation_fronts: list  # list[np.ndarray], one entry per completed generation
 
 
 ALGORITHM_OPTION_BUILDERS = {
@@ -130,13 +213,12 @@ ALGORITHM_OPTION_BUILDERS = {
 
 
 class RealAlgorithmRunner:
-    """Runs a real DESDEO EA (via emo_constructor) for one interactive iteration.
-    To obtain a genuine per-generation trajectory (rather than duplicating the
-    final result), the algorithm is re-run from scratch at each generation
-    checkpoint g = 1..generations_per_iteration, keeping the same seed so the
-    run is reproducible. Only the front from the final checkpoint (g ==
-    generations_per_iteration) is used to seed the next ADM interaction; all
-    checkpoints are kept to compute a real per-generation PHI/HV trajectory.
+    """Runs a real DESDEO EA (via emo_constructor) for one ADM iteration at a time.
+
+    Unlike the original implementation, this keeps track of the previous iteration's
+    final population (`self.prev_result`) and seeds each new iteration's initial
+    population from it via `ArchiveGeneratorOptions`, instead of generating a brand
+    new (LHS/random) population from scratch every iteration.
     """
 
     def __init__(self, method_name: str, problem, generations_per_iteration: int, seed: int):
@@ -144,29 +226,71 @@ class RealAlgorithmRunner:
         self.problem = problem
         self.generations_per_iteration = generations_per_iteration
         self.seed = seed
+        self.prev_result = None  # EMOResult from the previous ADM iteration, or None on the first call
+        self.symbols = [obj.symbol for obj in problem.objectives]
+        self.population_history: list[pl.DataFrame] = []  # one entry per recorded generation, across all iterations
 
-    def _run_for_generations(self, n_generations: int, preference_dict: dict) -> np.ndarray:
-        options = ALGORITHM_OPTION_BUILDERS[self.method_name]()
-        options.template.seed = self.seed
-        options.template.termination.max_generations = n_generations
-        options.preference = ReferencePointOptions(preference=preference_dict)
-        run_fn, extras = emo_constructor(options, self.problem)
-        result = run_fn()
-        return _extract_objectives(result, len(self.problem.objectives), self.problem)
+    def run_iteration(self, iteration: int, preference_dict: dict, phase: str | None = None) -> MethodFrontResult:
+        """Run one ADM iteration's worth of generations, chaining the population
+        from the previous call to this method (if any)."""
+        base_options_factory = ALGORITHM_OPTION_BUILDERS[self.method_name]
 
-    def run_iteration(self, iteration: int, preference_dict: dict) -> MethodFrontResult:
-        generation_fronts = []
-        objectives = None
-        for g in range(1, self.generations_per_iteration + 1):
-            objectives = self._run_for_generations(g, preference_dict)
-            generation_fronts.append(objectives)
-        solution_ids = [f"it{iteration}_{self.method_name}_{j + 1}" for j in range(len(objectives))]
+        def _options_factory():
+            opts = base_options_factory()
+            opts.template.seed = self.seed
+            return opts
+
+        result, generation_fronts = run_emo_iteration(
+            problem=self.problem,
+            options_factory=_options_factory,
+            preference_dict=preference_dict,
+            n_generations=self.generations_per_iteration,
+            prev_result=self.prev_result,
+        )
+        self.prev_result = result  # chain: next call seeds its population from this result
+
+        objectives = _extract_objectives(result, len(self.problem.objectives), self.problem)
+        solution_ids = [f"{self.method_name}_it{iteration}_{i}" for i in range(objectives.shape[0])]
+
+        if not generation_fronts:
+            # Fallback: verbosity was lowered below 2 somewhere, so no per-generation
+            # messages were published. Use the final front as the only data point.
+            generation_fronts = [objectives]
+
+        self._record_population_history(generation_fronts, iteration, phase)
+
         return MethodFrontResult(
             method_name=self.method_name,
             solution_ids=solution_ids,
             objectives=objectives,
             generation_fronts=generation_fronts,
         )
+
+    def _record_population_history(
+        self, generation_fronts: list[np.ndarray], iteration: int, phase: str | None
+    ) -> None:
+        """Append one row per solution, per recorded generation, to `self.population_history`."""
+        for generation_in_iteration, front in enumerate(generation_fronts, start=1):
+            df = pl.DataFrame(front, schema=self.symbols).with_columns(
+                method=pl.lit(self.method_name),
+                adm_iteration=pl.lit(iteration),
+                phase=pl.lit(phase),
+                generation_in_iteration=pl.lit(generation_in_iteration),
+                solution_index=pl.arange(0, front.shape[0]),
+            )
+            self.population_history.append(df)
+
+    def save_population_history(self, path) -> None:
+        """Write the objective-space population of every recorded generation, across
+        all ADM iterations run so far, to a single CSV file for this method.
+
+        Args:
+            path: Destination CSV file path.
+        """
+        if not self.population_history:
+            return
+        combined = pl.concat(self.population_history, how="vertical")
+        combined.write_csv(path)
 
 
 @dataclass
@@ -193,9 +317,9 @@ class ExperimentPipeline:
         decision_iterations: int,
         generations_per_iteration: int,
         seed: int,
-        adm_name: str = "afsar",
         number_of_vectors: int = 20,
         nadir_margin: float = 0.05,
+        output_dir: str | Path | None = None,
     ):
         self.problem = problem
         self.methods = methods
@@ -205,10 +329,16 @@ class ExperimentPipeline:
         self.seed = seed
         self.number_of_vectors = number_of_vectors
         self.nadir_margin = nadir_margin
+        self.output_dir = Path(output_dir) if output_dir is not None else None
         self.rng = np.random.default_rng(seed)
         np.random.seed(seed)
         self.n_obj = len(problem.objectives)
-        self.adm = self._build_adm(adm_name)
+        self.adm  = ADMAfsar(
+            problem,
+            learning_iterations,
+            decision_iterations,
+            number_of_vectors=number_of_vectors,
+        )
 
         # reference_vectors is read from the ADM's public property
         # (reference_vectors_), exposed specifically so the pipeline (and any
@@ -248,22 +378,7 @@ class ExperimentPipeline:
         self.phi_learning_values: list[float] = []
         self.phi_decision_values: list[float] = []
 
-    def _build_adm(self, adm_name: str):
-        if adm_name.lower() == "afsar":
-            # number_of_vectors is an explicit constructor argument of
-            # ExperimentPipeline (default 20) instead of a placeholder.
-            return ADMAfsar(
-                self.problem,
-                self.learning_iterations,
-                self.decision_iterations,
-                number_of_vectors=self.number_of_vectors,
-            )
-        if adm_name.lower() == "chen":
-            pareto_front = self.rng.random((20, self.n_obj))
-            return ADMChen(
-                self.problem, self.learning_iterations, self.decision_iterations, pareto_front=pareto_front
-            )
-        raise ValueError("Unsupported ADM")
+
 
     def _sync_nadir_to_adm(self) -> None:
         """CHANGE 4: propagates self.nadir back onto the ADM instance
@@ -341,10 +456,14 @@ class ExperimentPipeline:
         self._expand_nadir(pref_array.reshape(1, -1))
 
     def _phi_for_front(self, front: np.ndarray, pref_array: np.ndarray) -> tuple[float, float, float]:
-        """Computes (positive, negative, phi) for a single front against the current reference point."""
-        pos, total, neg, _rp = self.phi_calculator.get_phi(front, pref_array, self.nadir)
-        phi_value = total - neg
-        return float(pos), float(neg), float(phi_value)
+        """Computes (positive, negative, phi) for a single front against the current reference point.
+
+        `phi.get_phi` returns a `PHIResult` dataclass (not the old 4-tuple), so `v_plus`/`v_minus`
+        are used as the positive/negative hypervolume diagnostics and `phi` as the actual PHI
+        indicator value from Eq. (6) of Aghaei Pour et al. (2024).
+        """
+        result = self.phi_calculator.get_phi(front, pref_array, self.nadir)
+        return float(result.v_plus), float(result.v_minus), float(result.phi)
 
     def _build_assignments_from_adm(self, all_solution_ids: list) -> tuple[list, dict]:
         """Builds the per-vector assignment report using the ADM's own internal
@@ -396,7 +515,7 @@ class ExperimentPipeline:
         for iteration in range(1, total_iterations + 1):
             phase = "learning" if iteration <= self.learning_iterations else "decision"
             method_fronts = [
-                runner.run_iteration(iteration, current_preference_dict) for runner in self.runners
+                runner.run_iteration(iteration, current_preference_dict, phase=phase) for runner in self.runners
             ]
 
             # CHANGE 2: keep the nadir valid (dominating) w.r.t. every
@@ -476,7 +595,21 @@ class ExperimentPipeline:
             ))
             current_preference_dict = _to_preference_dict(pref, self.problem)
             current_pref_array = pref_array
+
+        if self.output_dir is not None:
+            self._save_population_histories()
+
         return self._build_output(initial_reference_point)
+
+    def _save_population_histories(self) -> None:
+        """Write one CSV per method with the objective-space population of every
+        recorded generation across all ADM iterations, to `self.output_dir`.
+        """
+        problem_name = getattr(self.problem, "name", None) or "DTLZ2"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        for runner in self.runners:
+            path = self.output_dir / f"{problem_name}_{runner.method_name}_population_history.csv"
+            runner.save_population_history(path)
 
     def _build_output(self, initial_reference_point) -> dict:
         problem_name = getattr(self.problem, "name", None) or "DTLZ2"
@@ -523,7 +656,7 @@ class ExperimentPipeline:
         }
 
 
-def run_experiment_suite(problems, methods, learning_iters, decision_iters, gens_per_iter, seed, adm_name="afsar"):
+def run_experiment_suite(problems, methods, learning_iters, decision_iters, gens_per_iter, seed, output_dir=None):
     """Runs the full experiment across a list of problems and returns a list of result dicts."""
     all_results = []
     for problem in problems:
@@ -534,7 +667,7 @@ def run_experiment_suite(problems, methods, learning_iters, decision_iters, gens
             decision_iterations=decision_iters,
             generations_per_iteration=gens_per_iter,
             seed=seed,
-            adm_name=adm_name,
+            output_dir=output_dir,
         )
         all_results.append(pipeline.run())
     return all_results
@@ -550,9 +683,9 @@ def main():
         methods=["iRVEA", "iNSGA-III"],
         learning_iters=4,
         decision_iters=3,
-        gens_per_iter=10,
+        gens_per_iter=100,
         seed=123,
-        adm_name="afsar",
+        output_dir=out,
     )
     path = out / "adm_phi_log.json"
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
