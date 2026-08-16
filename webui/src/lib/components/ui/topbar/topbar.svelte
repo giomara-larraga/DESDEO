@@ -66,6 +66,12 @@
 	const canManageUsers = derived(auth, ($auth) =>
 		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
 	);
+
+	const isAnalystOrAdmin = derived(auth, ($auth) =>
+		$auth.user?.role === 'analyst' || $auth.user?.role === 'admin'
+	);
+
+
 </script>
 
 <header class="bg-primary sticky top-0 flex h-12 items-center gap-4 border-b px-4 md:px-6">
@@ -108,7 +114,26 @@
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 
-		{#if $canManageUsers}
+		{#if $isAnalystOrAdmin}
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				<span
+					class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors hover:cursor-pointer"
+				>
+					<Method class="h-4 w-4" />
+					Tools
+				</span>
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="start">
+				<DropdownMenu.Item onSelect={() => goto('/manage-users')}
+					>Add users</DropdownMenu.Item
+				>
+				<DropdownMenu.Item onSelect={() => goto('/adm')}>ADM Viz</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
+		{/if}
+
+<!-- 		{#if $canManageUsers}
 			<a
 				href="/manage-users"
 				class="text-primary-foreground hover:text-secondary flex items-center gap-1 transition-colors"
@@ -116,7 +141,7 @@
 				<UserPlus class="h-4 w-4" />
 				Users
 			</a>
-		{/if}
+		{/if} -->
 
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>

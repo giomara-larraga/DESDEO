@@ -11,11 +11,13 @@ export type ADMLog = {
     decision_iterations: number;
     generations_per_iteration: number;
     number_of_reference_vectors: number;
+    seed: number;
   };
   initial_reference_point: number[];
+  final_nadir: number[];
   reference_vectors: ReferenceVectorRaw[];
   iterations: ADMIteration[];
-  overall_outputs: Record<string, any>;
+  phi_summary: Record<string, any>;
 };
 
 export type ReferenceVectorRaw = {

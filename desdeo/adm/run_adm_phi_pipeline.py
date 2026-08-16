@@ -629,6 +629,7 @@ class ExperimentPipeline:
                 "learning_iterations": self.learning_iterations,
                 "decision_iterations": self.decision_iterations,
                 "generations_per_iteration": self.generations_per_iteration,
+                "number_of_reference_vectors": self.number_of_vectors,
                 "seed": self.seed,
             },
             "initial_reference_point": initial_reference_point,
