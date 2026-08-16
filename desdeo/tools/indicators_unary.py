@@ -35,6 +35,9 @@ def hv(solution_set: np.ndarray, reference_point_component: float) -> float:
 
     Returns:
         float: The hypervolume indicator value.
+
+    Notes:
+        For PHI, ``reference_point`` should be the dystopian point z^dy.
     """
     hv = Hypervolume(reference_point_component)
     ind = hv(solution_set)
@@ -346,6 +349,807 @@ def get_pareto_front(solutions):
         if not is_dominated(solution, remaining_solutions):
             pareto_front.append(solution)
     return np.array(pareto_front)
+
+
+def get_pareto_front_indices(solutions: np.ndarray) -> np.ndarray:
+    """Extract the indices of the non-dominated (Pareto front) solutions."""
+    nd = []
+    for i, solution in enumerate(solutions):
+        remaining_solutions = np.delete(solutions, i, axis=0)
+        if not is_dominated(solution, remaining_solutions):
+            nd.append(i)
+    return np.array(nd, dtype=int)
+
+
+
+class PHIResult(BaseModel):
+    """Complete PHI assessment for one interaction."""
+
+    phi: float = Field(description="PHI defined by Eq. (6).")
+
+    v_prec: float = Field(
+        description="Positive contribution v^prec defined in Eq. (3)."
+    )
+
+    v_succ: float = Field(
+        description="Positive contribution v^succ defined in Eq. (4)."
+    )
+
+    v_minus: float = Field(
+        description="Negative hypervolume contribution v^- from Eq. (2)."
+    )
+
+    v_plus: float = Field(
+        description="Total positive contribution v+ = v^prec + v^succ."
+    )
+
+    solution_hypervolume: float = Field(
+        description="HV(P, z^dy)."
+    )
+
+    reference_point_hypervolume: float = Field(
+        description="HV(z-hat, z^dy)."
+    )
+
+    reference_point_is_dominated: bool = Field(
+        description=(
+            "True when at least one solution in P dominates z-hat."
+        )
+    )
+
+
+class PHIDecisionResult(BaseModel):
+    """Assessment of a complete PHI decision phase."""
+
+    fd: float = Field(
+        description="Fine-tuning decision-phase assessment FD from Eq. (10)."
+    )
+
+    weights: list[float] = Field(
+        description="Similarity coefficients lambda^j from Eq. (9)."
+    )
+
+class phi:
+    """Preference-based Hypervolume Indicator (PHI).
+
+        Implements the PHI indicator introduced by Aghaei Pour et al. (2024)
+        for minimization problems.
+
+        Notes
+        -----
+        The hypervolume reference point passed to ``get_phi`` must be the
+        dystopian point z^dy used by the PHI definition, not the mathematical
+        nadir point. The parameter is named ``nadir`` only for compatibility
+        with the legacy DESDEO API.
+
+        ``ideal`` is retained for compatibility with the legacy implementation.
+        It is not needed to calculate the PHI value itself; it is used only for
+        some of the additional legacy diagnostic values returned by ``get_phi``.
+
+        References
+        ----------
+        P. Aghaei Pour, S. Bandaru, B. Afsar, M. Emmerich, and K. Miettinen,
+        "A Performance Indicator for Interactive Evolutionary Multiobjective
+        Optimization Methods," IEEE Transactions on Evolutionary Computation,
+        vol. 28, no. 3, 2024.
+    """
+    def __init__(self, ideal: np.ndarray):
+        self.name = "phi"
+        self.ideal = np.asarray(ideal, dtype=float)
+
+  
+    def check_rp_dominated(self, set_of_s: np.ndarray, RP: np.ndarray)-> tuple[bool, list[bool]]:
+        """Check whether at least one solution dominates the reference point.
+
+        Parameters
+        ----------
+        set_of_s
+            Solution set P with shape (n_solutions, n_objectives).
+            Minimization is assumed.
+        RP
+            Decision maker's reference point z-hat with shape
+            (n_objectives,).
+
+        Returns
+        -------
+        tuple[bool, list[bool]]
+            First value is True when at least one solution dominates RP.
+            Second value contains one dominance flag per solution.
+        """
+        doms = [
+            bool(np.all(solution <= RP) and np.any(solution < RP))
+            for solution in set_of_s
+        ]
+        return any(doms), doms
+
+    
+    def RP_dom_cal(self, set_of_s, RP, doms, nadir)-> tuple[float, float, float, float]:
+        """Calculate PHI when at least one solution dominates the RP.
+
+        This corresponds to the second branch of Eq. (6):
+
+            PHI = 1 + v^succ / HV(P, z^dy)
+
+        where
+
+            v^succ = HV(P^succ, z^dy) - HV(RP, z^dy).
+
+        ``nadir`` is the legacy parameter name; it must contain z^dy.
+        """
+
+        dominated_rp_mask = np.asarray(doms, dtype=bool)
+
+        # P^succ: solutions that dominate the reference point.
+        dominating_solutions = np.asarray(set_of_s)[dominated_rp_mask]
+
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+
+        max_phv = hv(self.ideal.reshape(1, -1), nadir)
+        all_phv = hv(nondoms, nadir)  # HV(P, z^dy)
+        rp_phv = hv(RP.reshape(1, -1), nadir)
+
+         # v^succ from Eq. (4).
+        pos_phv = hv(dominating_solutions, nadir) - rp_phv
+
+        # v^- from Eq. (2).
+        neg_phv = all_phv - pos_phv - rp_phv
+
+        if all_phv <= 0:
+            raise ValueError(
+                "HV(P, z^dy) is zero. Check that the supplied hypervolume "
+                "reference point is a valid dystopian point."
+            )
+        phi_value = 1.0 + pos_phv / all_phv
+
+        if max_phv <= 0:
+            raise ValueError(
+                "HV(ideal, z^dy) is zero. The ideal and dystopian points "
+                "do not define a valid hypervolume region."
+            )
+        
+        return (
+            phi_value,
+            (pos_phv + rp_phv) / max_phv,
+            neg_phv / max_phv,
+            rp_phv / max_phv,
+        )
+
+    def RP_nondom_cal(self, set_of_s, RP, nadir) -> tuple[float, float, float, float]:
+        """Calculate PHI when no solution dominates the RP.
+
+        This corresponds to the first branch of Eq. (6):
+
+            PHI = v^prec / HV(RP, z^dy).
+
+        ``nadir`` is the legacy parameter name; it must contain z^dy.
+        """
+
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+
+        all_phv = hv(nondoms, nadir)
+        rp_phv = hv(RP.reshape(1, -1), nadir)
+        s_phv = hv(set_of_s, nadir)
+
+        # Hypervolume contributed by RP outside HV(P).
+        nondom_area = all_phv - s_phv
+
+        # v^prec from Eq. (3).
+        pos_phv = rp_phv - nondom_area
+
+        # v^- from Eq. (2).
+        neg_phv = all_phv - rp_phv
+
+
+        if rp_phv <= 0:
+            raise ValueError(
+                "HV(RP, z^dy) is zero. PHI is undefined in this case. "
+                "Check that z^dy is strictly worse than the reference point."
+            )
+
+        if all_phv <= 0:
+            raise ValueError(
+                "HV(P ∪ {RP}, z^dy) is zero. Check the dystopian point."
+            )
+
+
+        phi_value = pos_phv / rp_phv
+
+        return (
+            phi_value,
+            pos_phv / all_phv,
+            neg_phv / all_phv,
+            rp_phv,
+        )
+
+    def get_phi(self, set_of_s: np.ndarray, RP: np.ndarray, nadir: np.ndarray)-> tuple[float, float, float, float]:
+        """Calculate PHI for one interaction.
+
+        Parameters
+        ----------
+        set_of_s
+            Solution set P, shape (n_solutions, n_objectives).
+            Minimization is assumed.
+        RP
+            Reference point z-hat supplied by the decision maker.
+        nadir
+            Dystopian point z^dy used as the hypervolume reference point.
+            The name ``nadir`` is retained only for backward compatibility.
+
+        Returns
+        -------
+        tuple[float, float, float, float]
+            Legacy four-value result. The first element is always the actual
+            PHI value from Eq. (6). The remaining values are legacy
+            hypervolume diagnostics and use different normalizations in the
+            two PHI branches.
+
+        Notes
+        -----
+        For a valid nondegenerate problem:
+
+        * PHI is in [0, 1] when no solution dominates RP.
+        * PHI is in (1, 2) when at least one solution dominates RP.
+        """
+                
+        set_of_s = np.asarray(set_of_s, dtype=float)
+        RP = np.asarray(RP, dtype=float)
+        nadir = np.asarray(nadir, dtype=float)
+
+        if set_of_s.ndim != 2:
+            raise ValueError("set_of_s must be a 2D array.")
+
+        if RP.ndim != 1 or nadir.ndim != 1:
+            raise ValueError("RP and the dystopian point must be 1D arrays.")
+
+        if set_of_s.shape[1] != RP.size or RP.size != nadir.size:
+            raise ValueError(
+                "Solutions, RP, and dystopian point must have the same "
+                "number of objectives."
+            )
+
+        is_rp_dominated, doms = self.check_rp_dominated(set_of_s, RP)
+
+        if is_rp_dominated:
+            return self.RP_dom_cal(set_of_s, RP, doms, nadir)
+
+        return self.RP_nondom_cal(set_of_s, RP, nadir)
+
+
+# CHANGE 5: `phi_decision` class -- aggregates the PHI indicator at the
+# level of a full phase (several RPs across several iterations), not just
+# per iteration. Not yet used by run_adm_phi_pipeline.py, but available in
+# case phi_summary should later be weighted by phase instead of summed/averaged.
+class phi_decision:
+    """Decision-phase assessment based on PHI.
+
+    Implements the decision-phase similarity coefficients lambda^j
+    from Eq. (9) and the fine-tuning decision-phase assessment FD
+    from Eq. (10) of Aghaei Pour et al. (2024).
+
+    Parameters
+    ----------
+    n_interactions
+        Number d of interactions in the decision phase.
+    indicator_values
+        PHI values for the d decision-phase interactions.
+    nadir
+        Dystopian point z^dy used as the hypervolume reference point.
+        The parameter name is retained for compatibility with the
+        legacy DESDEO implementation.
+    """
+
+    def __init__(self, n_interactions: int, indicator_values, nadir: np.ndarray):
+        self.name = "phi_decision"
+        self.n_interactions = int(n_interactions)
+        self.indicator_values = np.asarray(indicator_values, dtype=float)
+        self.nadir = np.asarray(nadir, dtype=float)
+
+    def get_areas(self, rp1: np.ndarray, rp2: np.ndarray) -> float:
+        """Return the shared HV area between two reference-point regions.
+
+        The shared area is
+
+            HV(rp1) + HV(rp2) - HV({rp1, rp2}).
+
+        This is the quantity v^j used to calculate lambda^j in Eq. (9).
+        The inclusion-exclusion expression handles dominating,
+        non-dominating, and identical reference points uniformly.
+        """
+
+        #if rp1.ndim == 1:
+        #    rp1 = rp1.reshape(1, -1)
+        #if rp2.ndim == 1:
+        #    rp2 = rp2.reshape(1, -1)
+
+        rp1 = np.asarray(rp1, dtype=float).reshape(1, -1)
+        rp2 = np.asarray(rp2, dtype=float).reshape(1, -1)
+
+        #dom21 = is_dominated(rp2.flatten(), rp1)
+        #dom12 = is_dominated(rp1.flatten(), rp2)
+        hv_rp1 = hv(rp1, self.nadir)
+        hv_rp2 = hv(rp2, self.nadir)
+        hv_union = hv(np.vstack([rp1, rp2]), self.nadir)
+
+        shared_area = hv_rp1 + hv_rp2 - hv_union
+        #self.hv_rp12 = hv_rp12
+        # Protect against tiny negative floating-point errors.
+        if shared_area < 0 and np.isclose(shared_area, 0.0):
+            shared_area = 0.0
+
+        return float(shared_area)
+        
+
+    def interactions_areas(self, set_of_RPs, main_RP):
+        """Calculate v^j for every decision-phase reference point."""
+
+        set_of_RPs = np.asarray(set_of_RPs, dtype=float)
+
+        if set_of_RPs.ndim == 1:
+            set_of_RPs = set_of_RPs.reshape(1, -1)
+
+        return np.asarray(
+            [self.get_areas(rp, main_RP) for rp in set_of_RPs],
+            dtype=float,
+        )
+
+    @staticmethod
+    def get_weights(shared_areas, main_area):
+        """Calculate lambda^j according to Eq. (9).
+
+        lambda^j = v^j / HV(z_hat^d, z^dy)
+        """
+        if main_area <= 0:
+            raise ValueError(
+                "The final reference point has zero hypervolume with "
+                "respect to the dystopian point."
+            )
+        return np.asarray(shared_areas, dtype=float) / main_area
+
+    @staticmethod
+    def assess(  weights: np.ndarray, assessment_values: np.ndarray,    ) -> float:
+        """Calculate FD according to Eq. (10)."""
+        weights = np.asarray(weights, dtype=float)
+        assessment_values = np.asarray(assessment_values, dtype=float)
+
+        if weights.shape != assessment_values.shape:
+            raise ValueError(
+                "weights and assessment_values must have equal lengths."
+            )
+
+        return float(np.mean(weights * assessment_values))
+
+    def assess_decision_phase(self, set_of_RPs, main_RP)->PHIDecisionResult:
+        """Calculate the decision-phase FD assessment and lambda weights.
+            ``main_RP`` must be the reference point from the final interaction,
+            z-hat^d.
+        """
+        set_of_RPs = np.asarray(set_of_RPs, dtype=float)
+        main_RP = np.asarray(main_RP, dtype=float)
+
+        if main_RP.ndim != 1:
+            main_RP = main_RP.reshape(-1)
+
+        if set_of_RPs.ndim == 1:
+            set_of_RPs = set_of_RPs.reshape(1, -1)
+
+        if len(set_of_RPs) != len(self.indicator_values):
+            raise ValueError(
+                "There must be one PHI value for every decision-phase "
+                "reference point."
+            )
+
+        main_area = hv(main_RP.reshape(1, -1), self.nadir)
+        shared_areas = self.interactions_areas(set_of_RPs, main_RP)
+        weights = self.get_weights(shared_areas, main_area)
+        fd = self.assess(weights, self.indicator_values)
+        return PHIDecisionResult(fd=fd, weights=weights.tolist())
+
+
+# Additional unary indicators can be added here.
+# E.g. The IGD+ indicator, R2 indicator, averaged Hausdorff distance, etc.
+# The function signature should be similar the already implemented functions, if reasonable.
+# Optionally, a batch version of the indicator can be added as well.
+# The methods should make similar assumptions about the input data as the already implemented functions.
+def get_pareto_front_indices(solutions: np.ndarray) -> np.ndarray:
+    """Extract the indices of the non-dominated (Pareto front) solutions."""
+    nd = []
+    for i, solution in enumerate(solutions):
+        remaining_solutions = np.delete(solutions, i, axis=0)
+        if not is_dominated(solution, remaining_solutions):
+            nd.append(i)
+    return np.array(nd, dtype=int)
+
+
+
+class PHIResult(BaseModel):
+    """Complete PHI assessment for one interaction."""
+
+    phi: float = Field(description="PHI defined by Eq. (6).")
+
+    v_prec: float = Field(
+        description="Positive contribution v^prec defined in Eq. (3)."
+    )
+
+    v_succ: float = Field(
+        description="Positive contribution v^succ defined in Eq. (4)."
+    )
+
+    v_minus: float = Field(
+        description="Negative hypervolume contribution v^- from Eq. (2)."
+    )
+
+    v_plus: float = Field(
+        description="Total positive contribution v+ = v^prec + v^succ."
+    )
+
+    solution_hypervolume: float = Field(
+        description="HV(P, z^dy)."
+    )
+
+    reference_point_hypervolume: float = Field(
+        description="HV(z-hat, z^dy)."
+    )
+
+    reference_point_is_dominated: bool = Field(
+        description=(
+            "True when at least one solution in P dominates z-hat."
+        )
+    )
+
+
+class PHIDecisionResult(BaseModel):
+    """Assessment of a complete PHI decision phase."""
+
+    fd: float = Field(
+        description="Fine-tuning decision-phase assessment FD from Eq. (10)."
+    )
+
+    weights: list[float] = Field(
+        description="Similarity coefficients lambda^j from Eq. (9)."
+    )
+
+class phi:
+    """Preference-based Hypervolume Indicator (PHI).
+
+        Implements the PHI indicator introduced by Aghaei Pour et al. (2024)
+        for minimization problems.
+
+        Notes
+        -----
+        The hypervolume reference point passed to ``get_phi`` must be the
+        dystopian point z^dy used by the PHI definition, not the mathematical
+        nadir point. The parameter is named ``nadir`` only for compatibility
+        with the legacy DESDEO API.
+
+        ``ideal`` is retained for compatibility with the legacy implementation.
+        It is not needed to calculate the PHI value itself; it is used only for
+        some of the additional legacy diagnostic values returned by ``get_phi``.
+
+        References
+        ----------
+        P. Aghaei Pour, S. Bandaru, B. Afsar, M. Emmerich, and K. Miettinen,
+        "A Performance Indicator for Interactive Evolutionary Multiobjective
+        Optimization Methods," IEEE Transactions on Evolutionary Computation,
+        vol. 28, no. 3, 2024.
+    """
+    def __init__(self, ideal: np.ndarray):
+        self.name = "phi"
+        self.ideal = np.asarray(ideal, dtype=float)
+
+  
+    def check_rp_dominated(self, set_of_s: np.ndarray, RP: np.ndarray)-> tuple[bool, list[bool]]:
+        """Check whether at least one solution dominates the reference point.
+
+        Parameters
+        ----------
+        set_of_s
+            Solution set P with shape (n_solutions, n_objectives).
+            Minimization is assumed.
+        RP
+            Decision maker's reference point z-hat with shape
+            (n_objectives,).
+
+        Returns
+        -------
+        tuple[bool, list[bool]]
+            First value is True when at least one solution dominates RP.
+            Second value contains one dominance flag per solution.
+        """
+        doms = [
+            bool(np.all(solution <= RP) and np.any(solution < RP))
+            for solution in set_of_s
+        ]
+        return any(doms), doms
+
+    
+    def RP_dom_cal(self, set_of_s, RP, doms, nadir)-> PHIResult:
+        """Calculate PHI when at least one solution dominates the RP.
+
+        This corresponds to the second branch of Eq. (6):
+
+            PHI = 1 + v^succ / HV(P, z^dy)
+
+        where
+
+            v^succ = HV(P^succ, z^dy) - HV(RP, z^dy).
+
+        ``nadir`` is the legacy parameter name; it must contain z^dy.
+        """
+
+        dominated_rp_mask = np.asarray(doms, dtype=bool)
+
+        # P^succ: solutions that dominate the reference point.
+        dominating_solutions = np.asarray(set_of_s)[dominated_rp_mask]
+
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+
+        max_phv = hv(self.ideal.reshape(1, -1), nadir)
+        all_phv = hv(nondoms, nadir)  # HV(P, z^dy)
+        rp_phv = hv(RP.reshape(1, -1), nadir)
+
+         # v^succ from Eq. (4).
+        pos_phv = hv(dominating_solutions, nadir) - rp_phv
+
+        # v^- from Eq. (2).
+        neg_phv = all_phv - pos_phv - rp_phv
+
+        if all_phv <= 0:
+            raise ValueError(
+                "HV(P, z^dy) is zero. Check that the supplied hypervolume "
+                "reference point is a valid dystopian point."
+            )
+        phi_value = 1.0 + pos_phv / all_phv
+
+        if max_phv <= 0:
+            raise ValueError(
+                "HV(ideal, z^dy) is zero. The ideal and dystopian points "
+                "do not define a valid hypervolume region."
+            )
+        
+        return PHIResult(
+            phi=phi_value,
+            v_prec=rp_phv,
+            v_succ=pos_phv,
+            v_minus=neg_phv,
+            v_plus=rp_phv + pos_phv,
+            solution_hypervolume=all_phv,
+            reference_point_hypervolume=rp_phv,
+            reference_point_is_dominated=True,
+        )
+
+    def RP_nondom_cal(self, set_of_s, RP, nadir) -> PHIResult:
+        """Calculate PHI when no solution dominates the RP.
+
+        This corresponds to the first branch of Eq. (6):
+
+            PHI = v^prec / HV(RP, z^dy).
+
+        ``nadir`` is the legacy parameter name; it must contain z^dy.
+        """
+
+        stacked = np.vstack([set_of_s, RP])
+        nondoms = stacked[get_pareto_front_indices(stacked)]
+
+        all_phv = hv(nondoms, nadir)
+        rp_phv = hv(RP.reshape(1, -1), nadir)
+        s_phv = hv(set_of_s, nadir)
+
+        # Hypervolume contributed by RP outside HV(P).
+        nondom_area = all_phv - s_phv
+
+        # v^prec from Eq. (3).
+        pos_phv = rp_phv - nondom_area
+
+        # v^- from Eq. (2).
+        neg_phv = all_phv - rp_phv
+
+
+        if rp_phv <= 0:
+            raise ValueError(
+                "HV(RP, z^dy) is zero. PHI is undefined in this case. "
+                "Check that z^dy is strictly worse than the reference point."
+            )
+
+        if all_phv <= 0:
+            raise ValueError(
+                "HV(P ∪ {RP}, z^dy) is zero. Check the dystopian point."
+            )
+
+
+        phi_value = pos_phv / rp_phv
+
+        return PHIResult(
+            phi=phi_value,
+            v_prec=pos_phv,
+            v_succ=0.0,
+            v_minus=neg_phv,
+            v_plus=pos_phv,
+            solution_hypervolume=s_phv,
+            reference_point_hypervolume=rp_phv,
+            reference_point_is_dominated=False,
+        )
+    def get_phi(self, set_of_s: np.ndarray, RP: np.ndarray, nadir: np.ndarray)-> PHIResult:
+        """Calculate PHI for one interaction.
+
+        Parameters
+        ----------
+        set_of_s
+            Solution set P, shape (n_solutions, n_objectives).
+            Minimization is assumed.
+        RP
+            Reference point z-hat supplied by the decision maker.
+        nadir
+            Dystopian point z^dy used as the hypervolume reference point.
+            The name ``nadir`` is retained only for backward compatibility.
+
+        Returns
+        -------
+        PHIResult
+            The complete PHI assessment for the given interaction.
+
+        Notes
+        -----
+        For a valid nondegenerate problem:
+
+        * PHI is in [0, 1] when no solution dominates RP.
+        * PHI is in (1, 2) when at least one solution dominates RP.
+        """
+                
+        set_of_s = np.asarray(set_of_s, dtype=float)
+        RP = np.asarray(RP, dtype=float)
+        nadir = np.asarray(nadir, dtype=float)
+
+        if set_of_s.ndim != 2:
+            raise ValueError("set_of_s must be a 2D array.")
+
+        if RP.ndim != 1 or nadir.ndim != 1:
+            raise ValueError("RP and the dystopian point must be 1D arrays.")
+
+        if set_of_s.shape[1] != RP.size or RP.size != nadir.size:
+            raise ValueError(
+                "Solutions, RP, and dystopian point must have the same "
+                "number of objectives."
+            )
+
+        is_rp_dominated, doms = self.check_rp_dominated(set_of_s, RP)
+
+        if is_rp_dominated:
+            return self.RP_dom_cal(set_of_s, RP, doms, nadir)
+
+        return self.RP_nondom_cal(set_of_s, RP, nadir)
+
+
+# CHANGE 5: `phi_decision` class -- aggregates the PHI indicator at the
+# level of a full phase (several RPs across several iterations), not just
+# per iteration. Not yet used by run_adm_phi_pipeline.py, but available in
+# case phi_summary should later be weighted by phase instead of summed/averaged.
+class phi_decision:
+    """Decision-phase assessment based on PHI.
+
+    Implements the decision-phase similarity coefficients lambda^j
+    from Eq. (9) and the fine-tuning decision-phase assessment FD
+    from Eq. (10) of Aghaei Pour et al. (2024).
+
+    Parameters
+    ----------
+    n_interactions
+        Number d of interactions in the decision phase.
+    indicator_values
+        PHI values for the d decision-phase interactions.
+    nadir
+        Dystopian point z^dy used as the hypervolume reference point.
+        The parameter name is retained for compatibility with the
+        legacy DESDEO implementation.
+    """
+
+    def __init__(self, n_interactions: int, indicator_values, nadir: np.ndarray):
+        self.name = "phi_decision"
+        self.n_interactions = int(n_interactions)
+        self.indicator_values = np.asarray(indicator_values, dtype=float)
+        self.nadir = np.asarray(nadir, dtype=float)
+
+    def get_areas(self, rp1: np.ndarray, rp2: np.ndarray) -> float:
+        """Return the shared HV area between two reference-point regions.
+
+        The shared area is
+
+            HV(rp1) + HV(rp2) - HV({rp1, rp2}).
+
+        This is the quantity v^j used to calculate lambda^j in Eq. (9).
+        The inclusion-exclusion expression handles dominating,
+        non-dominating, and identical reference points uniformly.
+        """
+
+        #if rp1.ndim == 1:
+        #    rp1 = rp1.reshape(1, -1)
+        #if rp2.ndim == 1:
+        #    rp2 = rp2.reshape(1, -1)
+
+        rp1 = np.asarray(rp1, dtype=float).reshape(1, -1)
+        rp2 = np.asarray(rp2, dtype=float).reshape(1, -1)
+
+        #dom21 = is_dominated(rp2.flatten(), rp1)
+        #dom12 = is_dominated(rp1.flatten(), rp2)
+        hv_rp1 = hv(rp1, self.nadir)
+        hv_rp2 = hv(rp2, self.nadir)
+        hv_union = hv(np.vstack([rp1, rp2]), self.nadir)
+
+        shared_area = hv_rp1 + hv_rp2 - hv_union
+        #self.hv_rp12 = hv_rp12
+        # Protect against tiny negative floating-point errors.
+        if shared_area < 0 and np.isclose(shared_area, 0.0):
+            shared_area = 0.0
+
+        return float(shared_area)
+        
+
+    def interactions_areas(self, set_of_RPs, main_RP):
+        """Calculate v^j for every decision-phase reference point."""
+
+        set_of_RPs = np.asarray(set_of_RPs, dtype=float)
+
+        if set_of_RPs.ndim == 1:
+            set_of_RPs = set_of_RPs.reshape(1, -1)
+
+        return np.asarray(
+            [self.get_areas(rp, main_RP) for rp in set_of_RPs],
+            dtype=float,
+        )
+
+    @staticmethod
+    def get_weights(shared_areas, main_area):
+        """Calculate lambda^j according to Eq. (9).
+
+        lambda^j = v^j / HV(z_hat^d, z^dy)
+        """
+        if main_area <= 0:
+            raise ValueError(
+                "The final reference point has zero hypervolume with "
+                "respect to the dystopian point."
+            )
+        return np.asarray(shared_areas, dtype=float) / main_area
+
+    @staticmethod
+    def assess(  weights: np.ndarray, assessment_values: np.ndarray,    ) -> float:
+        """Calculate FD according to Eq. (10)."""
+        weights = np.asarray(weights, dtype=float)
+        assessment_values = np.asarray(assessment_values, dtype=float)
+
+        if weights.shape != assessment_values.shape:
+            raise ValueError(
+                "weights and assessment_values must have equal lengths."
+            )
+
+        return float(np.mean(weights * assessment_values))
+
+    def assess_decision_phase(self, set_of_RPs, main_RP) -> PHIDecisionResult:
+        """Calculate the decision-phase FD assessment and lambda weights.
+            ``main_RP`` must be the reference point from the final interaction,
+            z-hat^d.
+        """
+        set_of_RPs = np.asarray(set_of_RPs, dtype=float)
+        main_RP = np.asarray(main_RP, dtype=float)
+
+        if main_RP.ndim != 1:
+            main_RP = main_RP.reshape(-1)
+
+        if set_of_RPs.ndim == 1:
+            set_of_RPs = set_of_RPs.reshape(1, -1)
+
+        if len(set_of_RPs) != len(self.indicator_values):
+            raise ValueError(
+                "There must be one PHI value for every decision-phase "
+                "reference point."
+            )
+
+        main_area = hv(main_RP.reshape(1, -1), self.nadir)
+        shared_areas = self.interactions_areas(set_of_RPs, main_RP)
+        weights = self.get_weights(shared_areas, main_area)
+        fd = self.assess(weights, self.indicator_values)
+        return PHIDecisionResult(fd=fd, weights=weights.tolist())
 
 
 # Additional unary indicators can be added here.

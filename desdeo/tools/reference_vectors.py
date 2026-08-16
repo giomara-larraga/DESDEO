@@ -156,6 +156,80 @@ def create_simplex(
     return normalize(values)
 
 
+def create_two_layer_simplex(
+    number_of_objectives: int,
+    boundary_lattice_resolution: int,
+    inside_lattice_resolution: int = 1,
+    shrink_factor: float = 0.5,
+) -> np.ndarray:
+    """Create reference vectors using the two-layer (boundary + inside) simplex-lattice approach.
+
+    For many-objective problems (more than 3 objectives), a single simplex-lattice layer
+    concentrates most of its points on the boundary of the simplex, leaving the interior
+    sparsely covered. Deb & Jain (2014) address this in NSGA-III by combining two layers:
+    an outer "boundary" layer (a regular simplex-lattice, as in `create_simplex`) and an
+    inner "inside" layer, whose points are shrunk towards the centroid of the simplex by
+    `shrink_factor` before being combined with the boundary layer.
+
+    This delegates to pymoo's `MultiLayerReferenceDirectionFactory`
+    (`pymoo.util.reference_direction`), combined with the Das-Dennis
+    (`UniformReferenceDirectionFactory`, exposed as `"das-dennis"`) layer generator, rather
+    than reimplementing the combination/scaling/deduplication logic.
+
+    References:
+        K. Deb and H. Jain, "An Evolutionary Many-Objective Optimization Algorithm Using
+        Reference-Point-Based Nondominated Sorting Approach, Part I: Solving Problems With
+        Box Constraints," IEEE Transactions on Evolutionary Computation, vol. 18, no. 4,
+        pp. 577-601, Aug. 2014.
+
+    Args:
+        number_of_objectives (int): Number of objectives (dimensions).
+        boundary_lattice_resolution (int): Number of partitions (`n_partitions`) used to
+            create the outer (boundary) layer. Larger values produce more boundary vectors.
+        inside_lattice_resolution (int, optional): Number of partitions used to create the
+            inner layer, before shrinking. Defaults to 1, i.e., a single centroid-adjacent
+            ring of interior points, which is typically sufficient since these points are
+            shrunk close to the centroid anyway. Set to 0 to add only the centroid itself.
+        shrink_factor (float, optional): The factor `tau` in `[0, 1]` used to shrink the
+            inside layer's vectors towards the centroid, corresponding to pymoo's `scaling`
+            parameter: `tau * vector + (1 - tau) / n_dim`. Defaults to 0.5, as recommended
+            by Deb & Jain (2014).
+
+    Returns:
+        np.ndarray: Array of normalized (unit hypersphere) reference vectors, combining
+        both layers.
+
+    Raises:
+        ValueError: If `shrink_factor` is not in `[0, 1]`.
+    """
+    if not 0.0 <= shrink_factor <= 1.0:
+        raise ValueError("shrink_factor must be between 0 and 1.")
+
+    from pymoo.util.ref_dirs import get_reference_directions
+
+    if inside_lattice_resolution <= 0:
+        boundary = get_reference_directions(
+            "das-dennis", number_of_objectives, n_partitions=boundary_lattice_resolution
+        )
+        centroid = np.full((1, number_of_objectives), 1.0 / number_of_objectives)
+        combined = np.vstack([boundary, centroid])
+    else:
+        combined = get_reference_directions(
+            "multi-layer",
+            get_reference_directions(
+                "das-dennis", number_of_objectives, n_partitions=boundary_lattice_resolution, scaling=1.0
+            ),
+            get_reference_directions(
+                "das-dennis",
+                number_of_objectives,
+                n_partitions=inside_lattice_resolution,
+                scaling=shrink_factor,
+            ),
+        )
+
+    return normalize(combined)
+
+
 def normalize(values: np.ndarray) -> np.ndarray:
     """Normalize a set of vectors to unit length (project onto the unit hypersphere).
 

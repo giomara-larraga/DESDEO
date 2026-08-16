@@ -1,12 +1,14 @@
 """Artificial decision maker (ADM) based on the approach by Afsar et al."""
 
+from typing import Literal
+
 import numpy as np
 
 from desdeo.adm.base_adm import BaseADM
 from desdeo.problem.schema import Problem
 from desdeo.tools import payoff_table_method
 from desdeo.tools.non_dominated_sorting import non_dominated as nds
-from desdeo.tools.reference_vectors import create_simplex
+from desdeo.tools.reference_vectors import create_simplex, create_two_layer_simplex
 
 
 class ADMAfsar(BaseADM):
@@ -29,7 +31,20 @@ class ADMAfsar(BaseADM):
         composite_front (list): Stores the composite front of solutions.
         max_assigned_vector (int or None): Index of the vector with the maximum assigned solutions.
         reference_vectors (np.ndarray): Array of reference vectors.
+        assigned_vectors (np.ndarray or None): Index of the reference vector assigned to each
+            solution in the current composite front.
         preference (dict): Current preference information.
+
+    Example usage for more than 3 objectives with a two-layer simplex reference vector creation:
+        adm = ADMAfsar(
+            problem=problem,
+            it_learning_phase=10,
+            it_decision_phase=5,
+            reference_vector_creation="multi_layer_simplex",
+            boundary_lattice_resolution=4,
+            inside_lattice_resolution=2,
+            shrink_factor=0.5,
+        )
     """
 
     def __init__(
@@ -40,6 +55,10 @@ class ADMAfsar(BaseADM):
         lattice_resolution: int | None = None,
         number_of_vectors: int | None = None,
         seed: int | None = None,
+        reference_vector_creation: Literal["simplex", "multi_layer_simplex"] = "simplex",
+        boundary_lattice_resolution: int | None = None,
+        inside_lattice_resolution: int = 1,
+        shrink_factor: float = 0.5,
     ):
         """Initialize the artificial decision maker proposed by Afsar et al.
 
@@ -48,20 +67,59 @@ class ADMAfsar(BaseADM):
             it_learning_phase (int): Number of iterations for the learning phase.
             it_decision_phase (int): Number of iterations for the decision phase.
             lattice_resolution (int, optional): Lattice resolution for reference vectors.
+                Only used if `reference_vector_creation` is "simplex".
             number_of_vectors (int, optional): Number of reference vectors.
+                Only used if `reference_vector_creation` is "simplex".
             seed (int | None): Optional seed for the random number generator. Defaults to None.
+            reference_vector_creation (Literal["simplex", "multi_layer_simplex"]): The method used
+                to create the ADM's reference vectors. "simplex" (the default) uses a single
+                simplex-lattice layer via `create_simplex`, which is adequate for up to 3
+                objectives. For more than 3 objectives, a single layer concentrates most points
+                on the boundary of the simplex; use "multi_layer_simplex" to instead combine a
+                boundary and an interior layer via `create_two_layer_simplex` (backed by pymoo's
+                `MultiLayerReferenceDirectionFactory`), following Deb & Jain (2014).
+            boundary_lattice_resolution (int, optional): Number of partitions for the outer
+                (boundary) layer. Required if `reference_vector_creation` is "multi_layer_simplex".
+            inside_lattice_resolution (int): Number of partitions for the inner layer, before
+                shrinking towards the centroid. Only used if `reference_vector_creation` is
+                "multi_layer_simplex". Defaults to 1.
+            shrink_factor (float): Factor in `[0, 1]` controlling how close the inner layer's
+                vectors are shrunk towards the centroid. Only used if `reference_vector_creation`
+                is "multi_layer_simplex". Defaults to 0.5, as recommended by Deb & Jain (2014).
+
+        Raises:
+            ValueError: If `reference_vector_creation` is "multi_layer_simplex" and
+                `boundary_lattice_resolution` is not provided.
         """
         self.true_ideal, self.true_nadir = payoff_table_method(problem)
         problem = problem.update_ideal_and_nadir(new_ideal=self.true_ideal, new_nadir=self.true_nadir)
         super().__init__(problem, it_learning_phase, it_decision_phase, seed=seed)
         self.composite_front = []
         self.max_assigned_vector = None
+        self.assigned_vectors = None
         self.preference_type = "reference_point"
         number_of_objectives = len(problem.objectives)
 
-        self.reference_vectors = create_simplex(number_of_objectives, lattice_resolution, number_of_vectors)
-        self.true_ideal, self.true_nadir = payoff_table_method(problem)
+        if reference_vector_creation == "multi_layer_simplex":
+            if boundary_lattice_resolution is None:
+                raise ValueError(
+                    "boundary_lattice_resolution must be provided when reference_vector_creation is "
+                    "'multi_layer_simplex'."
+                )
+            self.reference_vectors = create_two_layer_simplex(
+                number_of_objectives,
+                boundary_lattice_resolution=boundary_lattice_resolution,
+                inside_lattice_resolution=inside_lattice_resolution,
+                shrink_factor=shrink_factor,
+            )
+        else:
+            self.reference_vectors = create_simplex(number_of_objectives, lattice_resolution, number_of_vectors)
 
+        # CHANGE (point 5): removed the redundant second call to payoff_table_method.
+        # generate_initial_preference() already reads the ideal/nadir directly from
+        # self.problem (via get_ideal_point() / get_nadir_point()), which was already
+        # updated a few lines above via update_ideal_and_nadir(). Recomputing it here
+        # via payoff_table_method was unnecessary duplicated work.
         self.generate_initial_preference()
 
     def generate_initial_preference(self):
@@ -69,16 +127,38 @@ class ADMAfsar(BaseADM):
 
         The preference is stored in self.preference as a numpy array.
         """
+        # CHANGE (bug fix): min()/max() are applied per-axis before calling rng.uniform(),
+        # since some problems internally store ideal/nadir in a maximization convention
+        # where ideal_point[i] can be greater than nadir_point[i] for a given objective i.
+        # Calling rng.uniform(high, low) with high < low raises "ValueError: high - low < 0".
         self.preference = np.array(
             [
-                self.rng.uniform(min_val, max_val)
-                for min_val, max_val in zip(
+                self.rng.uniform(min(a, b), max(a, b))
+                for a, b in zip(
                     self.problem.get_ideal_point().values(),
                     self.problem.get_nadir_point().values(),
                     strict=True,
                 )
             ]
         )
+
+    # ------------------------------------------------------------------
+    # CHANGE (points 3 & 4): public read-only access to the ADM's internal
+    # reference vectors and to the reference vector assigned to each solution
+    # in the current composite front.
+    # ------------------------------------------------------------------
+    @property
+    def reference_vectors_(self) -> np.ndarray:
+        """Public read-only access to the reference vectors used by this ADM."""
+        return self.reference_vectors
+
+    @property
+    def assigned_vectors_(self) -> np.ndarray:
+        """Public read-only access to the reference vector index assigned to each
+        solution in the current composite front (same order as self.composite_front).
+        Returns None if get_next_preference has not been called yet.
+        """
+        return self.assigned_vectors
 
     def get_next_preference(self, *fronts: np.ndarray, preference_type: str = "reference_point") -> np.ndarray:
         """Generate the next preference based on the current phase and provided solution fronts.
@@ -99,6 +179,12 @@ class ADMAfsar(BaseADM):
         translated_front = self.translate_front(self.composite_front, ideal_point)
         normalized_front = self.normalize_front(self.composite_front, translated_front)
         assigned_vectors = self.assign_vectors(normalized_front)
+
+        # CHANGE (points 3 & 4): persist assigned_vectors on the instance so it can be
+        # exposed publicly via assigned_vectors_ and consumed by the pipeline/notebook
+        # to show which reference vector each solution was assigned to.
+        self.assigned_vectors = assigned_vectors
+
         if self.iteration_counter < self.it_learning_phase:
             self.preference = self.generate_preference_learning(ideal_point, translated_front, assigned_vectors)
         else:
@@ -298,12 +384,18 @@ class ADMAfsar(BaseADM):
         """
         ideal_cf = ideal_point
         translated_cf = translated_front
-        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
+        sub_population_index = np.atleast_1d(
+            # CHANGE: max_assigned_vector may be an array with shape (N,) when there is a tie
+            # between reference vectors. Comparing assigned_vectors (M,) against an array of
+            # shape (N,) fails with a ValueError due to incompatible broadcasting.
+            # [0] is used to select the first winning index deterministically.
+            np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
+        )
         sub_population_fitness = translated_cf[sub_population_index]
         sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
         minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector]
+        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         return np.squeeze(reference_point + ideal_cf)
 
     def generate_ranges_learning(self, ideal_point, translated_front, assigned_vectors) -> np.ndarray:
@@ -360,12 +452,16 @@ class ADMAfsar(BaseADM):
         Returns:
             np.ndarray: an array of ranges.
         """
-        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
+        sub_population_index = np.atleast_1d(
+            # CHANGE: same fix - use max_assigned_vector[0] to avoid incompatible
+            # broadcasting between shapes (M,) and (N,) when there is a tie.
+            np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
+        )
         sub_population_fitness = translated_front[sub_population_index]
         sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
         minidx = np.where(sub_pop_fitness_magnitude == np.nanmin(sub_pop_fitness_magnitude))
         distance_selected = sub_pop_fitness_magnitude[minidx]
-        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector]
+        reference_point = distance_selected[0] * self.reference_vectors[max_assigned_vector[0]]
         distance = min(np.linalg.norm(reference_point - i) for i in sub_population_fitness)
         reference_point = np.squeeze(reference_point + ideal_point)
         reference_point = np.squeeze(reference_point - distance)
@@ -418,7 +514,11 @@ class ADMAfsar(BaseADM):
         Returns:
             np.ndarray: The preferred solutions.
         """
-        sub_population_index = np.atleast_1d(np.squeeze(np.where(assigned_vectors == max_assigned_vector)))
+        sub_population_index = np.atleast_1d(
+            # CHANGE: same fix - use max_assigned_vector[0] to avoid incompatible
+            # broadcasting between shapes (M,) and (N,) when there is a tie.
+            np.squeeze(np.where(assigned_vectors == max_assigned_vector[0]))
+        )
         sub_population_fitness = translated_front[sub_population_index]
         sub_pop_fitness_magnitude = np.sqrt(np.sum(np.power(sub_population_fitness, 2), axis=1))
         minidx = np.argpartition(sub_pop_fitness_magnitude, 4)
