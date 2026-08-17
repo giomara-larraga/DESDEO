@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { ADMLog } from "$lib/adm/types";
+
+  import type {
+    ADMLog,
+    PopulationSolution
+  } from "$lib/adm/types";
+
+
 
   import {
     getObjectives,
@@ -23,6 +29,8 @@
   import SolutionTable from "../solutions/SolutionTable.svelte";
 
   export let log: ADMLog;
+  export let populationHistory:
+    PopulationSolution[] = [];
 
   /*
    * Coordinated dashboard state
@@ -394,9 +402,10 @@
 
         <ParallelCoordinates
           {log}
+          {populationHistory}
           {selectedIteration}
+          bind:selectedGeneration
           {selectedVector}
-          {selectedGeneration}
         />
 
       </article>
@@ -436,13 +445,13 @@
           {/if}
         </div>
 
-        <ReferenceVectorExplorer
-          {log}
-          vectors={referenceVectors}
-          {objectives}
-          bind:selectedId={selectedVector}
-          onSelectIteration={selectIteration}
-        />
+       <ReferenceVectorExplorer
+        {log}
+        vectors={referenceVectors}
+        {objectives}
+        bind:selectedId={selectedVector}
+        onSelectIteration={selectIteration}
+      />
 
       </article>
 

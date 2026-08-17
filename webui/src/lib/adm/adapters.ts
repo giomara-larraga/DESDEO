@@ -4,6 +4,9 @@ import type {
   ReferenceVectorViewModel
 } from "$lib/adm/types";
 
+import type { DSVRowString } from "d3-dsv";
+import type { PopulationSolution } from "./types";
+
 export function getObjectives(log: ADMLog): string[] {
   return Array.from({ length: log.problem.objectives }, (_, i) => `f${i + 1}`);
 }
@@ -66,4 +69,35 @@ export function getCurrentPhi(log: ADMLog, selectedIteration: number) {
     method,
     phi: iteration.hypervolume[method].phi_iteration
   }));
+}
+
+
+
+export function parsePopulationRow(
+  row: DSVRowString,
+  objectiveCount: number
+): PopulationSolution {
+  return {
+    objectives: Array.from(
+      { length: objectiveCount },
+      (_, index) =>
+        Number(row[`f_${index + 1}`])
+    ),
+
+    method: String(row.method),
+
+    adm_iteration:
+      Number(row.adm_iteration),
+
+    phase:
+      row.phase as
+        | "learning"
+        | "decision",
+
+    generation_in_iteration:
+      Number(row.generation_in_iteration),
+
+    solution_index:
+      Number(row.solution_index)
+  };
 }
