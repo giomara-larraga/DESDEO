@@ -2270,17 +2270,17 @@ export interface RepresentativeSolutionSetBase {
 /**
  * Calculate and persist SCORE Bands for a discrete problem.
  */
-export interface SCOREBandsMethodRequest {
+export interface SCOREBandsMethodInitializeRequest {
 	problem_id: number;
 	session_id?: number | null;
 	parent_state_id?: number | null;
-	options?: SCOREBandsConfig;
+	scorebands_options?: SCOREBandsConfig;
 }
 
 /**
  * Persisted SCORE Bands result.
  */
-export interface SCOREBandsMethodResponse {
+export interface SCOREBandsMethodInitializeResponse {
 	state_id: number;
 	result: SCOREBandsResult;
 }
@@ -7745,7 +7745,7 @@ export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataP
 };
 
 export type calculateScoreBandsMethodScoreBandsMethodSolvePostResponse200 = {
-	data: SCOREBandsMethodResponse;
+	data: SCOREBandsMethodInitializeResponse;
 	status: 200;
 };
 
@@ -7781,8 +7781,8 @@ export const getCalculateScoreBandsMethodScoreBandsMethodSolvePostUrl = (
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `http://localhost:8000/method/score_bands_method/solve?${stringifiedParams}`
-		: `http://localhost:8000/method/score_bands_method/solve`;
+		? `http://localhost:8000/method/score_bands_method/initialize?${stringifiedParams}`
+		: `http://localhost:8000/method/score_bands_method/initialize`;
 };
 
 /**
@@ -7790,7 +7790,7 @@ export const getCalculateScoreBandsMethodScoreBandsMethodSolvePostUrl = (
  * @summary Calculate Score Bands
  */
 export const calculateScoreBandsMethodScoreBandsMethodSolvePost = async (
-	sCOREBandsMethodRequest: SCOREBandsMethodRequest,
+	sCOREBandsMethodInitializeRequest: SCOREBandsMethodInitializeRequest,
 	params?: CalculateScoreBandsMethodScoreBandsMethodSolvePostParams,
 	options?: RequestInit
 ): Promise<calculateScoreBandsMethodScoreBandsMethodSolvePostResponse> => {
@@ -7800,7 +7800,7 @@ export const calculateScoreBandsMethodScoreBandsMethodSolvePost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(sCOREBandsMethodRequest)
+			body: JSON.stringify(sCOREBandsMethodInitializeRequest)
 		}
 	);
 };

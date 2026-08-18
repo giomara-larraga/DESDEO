@@ -67,8 +67,9 @@ from desdeo.api.models.nimbus import (
     NIMBUSMultiplierResponse,
 )
 from desdeo.api.models.score_bands_method import (
-    SCOREBandsMethodRequest,
-    SCOREBandsMethodResponse,
+    OptimizationOptions,
+    SCOREBandsMethodInitializeRequest,
+    SCOREBandsMethodInitializeResponse,
 )
 from desdeo.api.models.problem import ProblemMetaDataDB
 from desdeo.api.routers.user_authentication import create_access_token
@@ -77,7 +78,7 @@ from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.gdm.score_bands import SCOREBandsGDMConfig
 from desdeo.problem import Problem
 from desdeo.problem.testproblems import dtlz2, simple_knapsack_vectors
-from desdeo.problem.testproblems.river_pollution_problems import river_pollution_problem_discrete
+from desdeo.problem.testproblems.river_pollution_problems import river_pollution_problem, river_pollution_problem_discrete
 from desdeo.problem.testproblems.simple_problem import simple_scenario_model
 from desdeo.tools.score_bands import KMeansOptions, SCOREBandsConfig
 from desdeo.tools.utils import available_solvers
@@ -2321,7 +2322,7 @@ def test_cumulus_initialize_no_constraints_returns_empty_ids(client: TestClient)
     assert result.soft_constraint_ids == []
 
 
-def test_score_bands_method(
+def test_score_bands_method_discrete(
     client: TestClient,
     session_and_user: dict,
 ):
@@ -2346,9 +2347,9 @@ def test_score_bands_method(
 
     assert problem_db.id is not None
 
-    request = SCOREBandsMethodRequest(
+    request = SCOREBandsMethodInitializeRequest(
         problem_id=problem_db.id,
-        options=SCOREBandsConfig(
+        scorebands_options=SCOREBandsConfig(
             clustering_algorithm=KMeansOptions(
                 n_clusters=2,
             ),
@@ -2357,14 +2358,14 @@ def test_score_bands_method(
 
     response = post_json(
         client=client,
-        endpoint="/method/score_bands_method/solve",
+        endpoint="/method/score_bands_method/initialize",
         json=request.model_dump(mode="json"),
         access_token=access_token,
     )
 
     assert response.status_code == status.HTTP_200_OK, response.text
 
-    result = SCOREBandsMethodResponse.model_validate(
+    result = SCOREBandsMethodInitializeResponse.model_validate(
         response.json()
     )
 
@@ -2445,3 +2446,56 @@ def test_score_bands_method(
     assert persisted_result.cardinalities == (
         result.result.cardinalities
     )
+
+def test_score_bands_method_continuous(
+    client: TestClient,
+    session_and_user: dict,
+):
+    """SCORE Bands method using the optimize option"""
+    
+    access_token = login(client)
+
+    user = session_and_user["user"]
+    db_session = session_and_user["session"]
+
+    problem = river_pollution_problem()
+
+    problem_db = ProblemDB.from_problem(
+        problem,
+        user=user,
+    )
+    db_session.add(problem_db)
+    db_session.commit()
+    db_session.refresh(problem_db)
+
+    assert problem_db.id is not None
+
+    request = SCOREBandsMethodInitializeRequest(
+        problem_id=problem_db.id,
+        optimization_options=OptimizationOptions(
+            optimize=True,
+            algorithm="nsga2",
+            algorithm_options={"population_size": 10, "num_generations": 5},
+        ),
+        scorebands_options=SCOREBandsConfig(
+            clustering_algorithm=KMeansOptions(
+                n_clusters=2,
+            ),
+        ),
+    )
+
+    response = post_json(
+        client=client,
+        endpoint="/method/score_bands_method/initialize",
+        json=request.model_dump(mode="json"),
+        access_token=access_token,
+    )
+
+    assert response.status_code == status.HTTP_200_OK, response.text
+
+    result = SCOREBandsMethodInitializeResponse.model_validate(
+        response.json()
+    )
+
+    assert result.state_id is not None
+    

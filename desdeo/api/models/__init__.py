@@ -175,8 +175,8 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsRevertRequest",
     "GDMSCOREBandsHistoryResponse",
     "SCOREBandsMethodState",
-    "SCOREBandsMethodRequest",
-    "SCOREBandsMethodResponse",
+    "SCOREBandsMethodInitializeRequest",
+    "SCOREBandsMethodInitializeResponse",
 ]
 
 
@@ -371,6 +371,6 @@ from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse
 
 from .score_bands_method import (
-    SCOREBandsMethodRequest,
-    SCOREBandsMethodResponse,
+    SCOREBandsMethodInitializeRequest,
+    SCOREBandsMethodInitializeResponse,
 )

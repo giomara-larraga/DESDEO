@@ -3,8 +3,8 @@ import {
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import type {
-	SCOREBandsMethodRequest,
-	SCOREBandsMethodResponse
+	SCOREBandsMethodInitializeRequest,
+	SCOREBandsMethodInitializeResponse
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import type { ProblemInfo } from '$lib/types';
@@ -15,14 +15,14 @@ import { errorMessage, isLoading } from '../../../stores/uiState';
  */
 export async function handle_initialize_scorebands(
 	problem: ProblemInfo
-): Promise<SCOREBandsMethodResponse | null> {
+): Promise<SCOREBandsMethodInitializeResponse | null> {
 	isLoading.set(true);
 	errorMessage.set(null);
 
 	try {
-		const request: SCOREBandsMethodRequest = {
+		const request: SCOREBandsMethodInitializeRequest = {
 			problem_id: problem.id,
-			options: {
+			scorebands_options: {
 				clustering_algorithm: {
 					name: 'KMeans',
 					n_clusters: 5
