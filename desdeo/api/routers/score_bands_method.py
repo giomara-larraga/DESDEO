@@ -16,16 +16,33 @@ from desdeo.api.routers.utils import (
     SessionContext,
     SessionContextGuard,
 )
+from desdeo.emo.operators.selection import ReferenceVectorOptions
+from desdeo.emo.operators.selection import ReferenceVectorOptions
 from desdeo.problem import Problem
 from desdeo.tools.score_bands import score_json
 
 from desdeo.api.models.score_bands_method import (
     SCOREBandsMethodInitializeRequest,
     SCOREBandsMethodInitializeResponse,
+    SCOREBandsMethodIterationRequest,
 )
 
 router = APIRouter(prefix="/method/score_bands_method")
 
+def get_objective_ranges(problem: Problem, relevant_solutions):
+    """Get the ranges for each objective from the relevant solutions."""
+    objective_ranges = {}
+    for objective in problem.objectives:
+        symbol = objective.symbol
+        if symbol in relevant_solutions:
+            values = relevant_solutions[symbol]
+            objective_ranges[symbol] = [min(values), max(values)]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Objective {symbol} not found in relevant solutions.",
+            )
+    return objective_ranges
 
 @router.post("/initialize")
 def initialize_or_get_score_bands_method(
@@ -193,18 +210,7 @@ def initialize_score_bands_method_without_optimization(
             for symbol in dimensions
         }
 
-    try:
-        result = score_json(
-            data=data,
-            options=scorebands_options,
-        )
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-
-    score_state = SCOREBandsMethodState.from_result(result)
+    score_state, result = get_score_bands_state(data, scorebands_options)
 
     state = StateDB.create(
         database_session=db_session,
@@ -230,6 +236,74 @@ def initialize_score_bands_method_without_optimization(
         state_id=state.id,
         result=result,
     )
+
+def compute_score_bands_with_optimization(problem: Problem, request: SCOREBandsMethodInitializeRequest, preferred_ranges=None):
+    """Compute SCORE Bands using an optimization algorithm based on the request."""
+    algorithm = request.optimization_options.algorithm
+    algorithm_options = request.optimization_options.algorithm_options
+
+    if algorithm is None:
+        # Use default algorithm (e.g., NSGA-III)
+        algorithm = "nsga3"
+    else:
+        # Validate the specified algorithm
+        if algorithm not in ["nsga3", "rvea"]:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"Invalid optimization algorithm: {algorithm}. "
+                    "Supported algorithms are 'nsga3' and 'rvea'."
+                ),
+            )
+    match algorithm:
+        case "nsga3":
+            # Set up NSGA-III optimization algorithm with provided options
+            options = algorithms.nsga3_options()
+
+        case "rvea":
+            # Set up RVEA optimization algorithm with provided options
+            options = algorithms.rvea_options()
+
+    if preferred_ranges is not None:
+        options.preference = preference_handling.DesirableRangesOptions(preferred_ranges)
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+
+    result_optimizer = solver()
+
+    return result_optimizer
+
+def get_dataset_from_solver_result(problem: Problem, result_optimizer):
+    """Extract the dataset from the solver result for SCORE Bands calculation."""
+    dimensions = [
+        objective.symbol
+        for objective in problem.objectives
+        if objective.symbol in result_optimizer.optimal_outputs
+    ]
+
+    data = pl.DataFrame(
+        {
+            symbol: result_optimizer.optimal_outputs[symbol]
+            for symbol in dimensions
+        }
+    )
+
+    return data, dimensions
+
+def get_score_bands_state(data: pl.DataFrame, scorebands_options):
+    try:
+        result = score_json(
+            data=data,
+            options=scorebands_options,
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    score_state = SCOREBandsMethodState.from_result(result)
+
+    return score_state, result
 
 def initialize_score_bands_method_with_optimization(
     request: SCOREBandsMethodInitializeRequest,
@@ -254,34 +328,9 @@ def initialize_score_bands_method_with_optimization(
 
     # Use NSGA-III or RVEA optimization algorithm based on the request. If no algorithm is specified, use the default algorithm.
     if request.optimization_options is not None:
-        algorithm = request.optimization_options.algorithm
-        algorithm_options = request.optimization_options.algorithm_options
-
-        if algorithm is None:
-            # Use default algorithm (e.g., NSGA-III)
-            algorithm = "nsga3"
-        else:
-            # Validate the specified algorithm
-            if algorithm not in ["nsga3", "rvea"]:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=(
-                        f"Invalid optimization algorithm: {algorithm}. "
-                        "Supported algorithms are 'nsga3' and 'rvea'."
-                    ),
-                )
-        match algorithm:
-            case "nsga3":
-                # Set up NSGA-III optimization algorithm with provided options
-                options = algorithms.nsga3_options()
-
-            case "rvea":
-                # Set up RVEA optimization algorithm with provided options
-                options = algorithms.rvea_options()
-
-        solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
-
-        result_optimizer = solver()
+        # Here you would implement the logic to run the optimization algorithm based on the request.
+        # For example, you might call a function that runs NSGA-III or RVEA and returns the results.
+        result_optimizer = compute_score_bands_with_optimization(problem, request)
     else:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -291,18 +340,7 @@ def initialize_score_bands_method_with_optimization(
         )
 
     # Get the data from the solver result for SCORE Bands calculation. This assumes that the solver result contains the necessary objective values in a suitable format.
-    dimensions = [
-                objective.symbol
-                for objective in problem.objectives
-                if objective.symbol in result_optimizer.optimal_outputs
-            ]
-    
-    data = pl.DataFrame(
-        {
-            symbol: result_optimizer.optimal_outputs[symbol]
-            for symbol in dimensions
-        }
-    )
+    data, dimensions = get_dataset_from_solver_result(problem, result_optimizer)
 
     objective_by_symbol = {
         objective.symbol: objective
@@ -326,18 +364,7 @@ def initialize_score_bands_method_with_optimization(
             for symbol in dimensions
         }
 
-    try:
-        result = score_json(
-            data=data,
-            options=scorebands_options,
-        )
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-
-    score_state = SCOREBandsMethodState.from_result(result)
+    score_state, result = get_score_bands_state(data, scorebands_options)
 
     state = StateDB.create(
         database_session=db_session,
@@ -363,3 +390,35 @@ def initialize_score_bands_method_with_optimization(
         state_id=state.id,
         result=result,
     )
+
+def score_bands_method_iterate(
+    request: SCOREBandsMethodInitializeRequest,
+    context: Annotated[
+        SessionContext,
+        Depends(
+            SessionContextGuard(
+                require=[ContextField.PROBLEM]
+            ).post
+        ),
+    ],
+) -> SCOREBandsMethodInitializeResponse:
+    """Iterate the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
+    # This function can be implemented to perform iterative calculations of SCORE Bands if needed.
+    # For now, it simply calls the initialize function to get or calculate the latest SCORE Bands.
+    return initialize_or_get_score_bands_method(request, context)
+
+def score_bands_method_iteration(
+    request: SCOREBandsMethodIterationRequest,
+    context: Annotated[
+        SessionContext,
+        Depends(
+            SessionContextGuard(
+                require=[ContextField.PROBLEM]
+            ).post
+        ),
+    ],
+) -> SCOREBandsMethodInitializeResponse:
+    """Perform an iteration of the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
+    # This function takes one selected band and compute new score bands based on that selection. 
+    pass
+
