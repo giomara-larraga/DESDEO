@@ -50,7 +50,7 @@
 	// ── SVG layout constants ─────────────────────────────────────────────────
 	const CELL = 52;
 	const LABEL_W = 88; // left margin for row labels
-	const TOP_MARGIN = 86; // top margin for rotated column labels
+	const TOP_MARGIN = 42; // top margin for rotated column labels
 
 	const svgWidth = $derived(LABEL_W + colSymbols.length * CELL);
 	const svgHeight = $derived(TOP_MARGIN + rowSymbols.length * CELL + 8);
@@ -131,11 +131,11 @@
 		<!-- ── Column headers (rotated -45°) ──────────────────────────────── -->
 		{#each colSymbols as col, ci}
 			{@const cx = LABEL_W + ci * CELL + CELL / 2}
+
 			<text
 				x={cx}
 				y={TOP_MARGIN - 10}
-				transform={`rotate(-40,${cx},${TOP_MARGIN - 10})`}
-				text-anchor="end"
+				text-anchor="middle"
 				dominant-baseline="middle"
 				font-size="10"
 				fill="#374151"
@@ -148,13 +148,14 @@
 		<!-- ── Column axis title ──────────────────────────────────────────── -->
 		<text
 			x={LABEL_W + (colSymbols.length * CELL) / 2}
-			y={8}
+			y={9}
 			text-anchor="middle"
+			dominant-baseline="middle"
 			font-size="9"
-			fill="#9ca3af"
-			font-style="italic"
+			fill="#6B7280"
+			font-weight="500"
 		>
-			Aspirations →
+			Desired values
 		</text>
 
 		<!-- ── Rows ──────────────────────────────────────────────────────── -->
@@ -235,15 +236,16 @@
 
 		<!-- ── Row axis title (rotated) ──────────────────────────────────── -->
 		<text
-			x={axisX}
+			x={14}
 			y={axisY}
-			transform={`rotate(-90,${axisX},${axisY})`}
+			transform={`rotate(-90,14,${axisY})`}
 			text-anchor="middle"
+			dominant-baseline="middle"
 			font-size="9"
-			fill="#9ca3af"
-			font-style="italic"
+			fill="#6B7280"
+			font-weight="500"
 		>
-			← Outcomes
+			Achieved values
 		</text>
 	</svg>
 	<div class="mt-2 flex items-start gap-1 text-[11px] text-gray-500">

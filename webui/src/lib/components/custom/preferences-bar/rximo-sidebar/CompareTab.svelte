@@ -136,27 +136,34 @@
 			</p>
 		</div>
 
-		<div
-			class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500"
-			aria-label="Influence legend"
-		>
-			<span class="inline-flex items-center gap-1.5">
-				<span
-					class="h-0.5 w-4 rounded-full bg-[#0C7BDC]"
-					aria-hidden="true"
-				></span>
-				Supports
-			</span>
+<div
+	class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500"
+	aria-label="Influence legend"
+>
+	<span class="inline-flex items-center gap-1.5">
+		<span
+			class="h-0.5 w-4 rounded-full bg-[#0C7BDC]"
+			aria-hidden="true"
+		></span>
+		Supports
+	</span>
 
-			<span class="inline-flex items-center gap-1.5">
-				<span
-					class="h-0.5 w-4 rounded-full bg-[#DC3220]"
-					aria-hidden="true"
-				></span>
-				Limits
-			</span>
-		</div>
-	</div>
+	<span class="inline-flex items-center gap-1.5">
+		<span
+			class="h-0.5 w-4 rounded-full bg-[#DC3220]"
+			aria-hidden="true"
+		></span>
+		Limits
+	</span>
+
+<span class="inline-flex items-center gap-1.5">
+	<span class="inline-flex items-center gap-0.5" aria-hidden="true">
+		<span class="h-px w-3 rounded-full bg-gray-400"></span>
+		<span class="h-1 w-3 rounded-full bg-gray-400"></span>
+	</span>
+	Thicker = stronger influence
+</span>
+</div>
 
 	<ShapCaseRelationshipNetwork
 		{objectives}
@@ -165,7 +172,7 @@
 		shapValues={SHAP_values}
 		threshold={0}
 		targetObjectiveSymbol={selectedObjectiveSymbol}
-			onNodeSelect={(node) => {
+		onNodeSelect={(node) => {
 			networkSelection = node;
 		}}
 	/>

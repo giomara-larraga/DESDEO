@@ -87,17 +87,13 @@
 <div class="space-y-3">
 
 		<div class="space-y-3">
-      <div class="rounded-md border border-blue-100 bg-blue-50 p-3">
-          <div class="font-semibold text-sm text-gray-900">
-              Explore possible compromises
-          </div>
 
-          <p class="mt-1 text-gray-600 text-sm">
+          <p class="text-xs leading-relaxed text-gray-700">
             To improve <strong>{selectedObjectiveName}</strong>, you may need to relax the
             desired value of another objective. Select an objective in the graph to inspect
             what happens when it is relaxed.
           </p>
-      </div>
+
 <!-- 			<div class="flex items-center gap-1">
 				<button
 					type="button"
@@ -121,6 +117,34 @@
 					No perturbed cases available yet.
 				</div>
 			{:else}
+			<div
+	class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500"
+	aria-label="Influence legend"
+>
+	<span class="inline-flex items-center gap-1.5">
+		<span
+			class="h-0.5 w-4 rounded-full bg-[#0C7BDC]"
+			aria-hidden="true"
+		></span>
+		Supports
+	</span>
+
+	<span class="inline-flex items-center gap-1.5">
+		<span
+			class="h-0.5 w-4 rounded-full bg-[#DC3220]"
+			aria-hidden="true"
+		></span>
+		Limits
+	</span>
+
+<span class="inline-flex items-center gap-1.5">
+	<span class="inline-flex items-center gap-0.5" aria-hidden="true">
+		<span class="h-px w-3 rounded-full bg-gray-400"></span>
+		<span class="h-1 w-3 rounded-full bg-gray-400"></span>
+	</span>
+	Thicker = stronger influence
+</span>
+</div>
 				<WhatIfCaseNetwork
 					objectives={problem.objectives.map((o) => ({ symbol: o.symbol, name: o.name }))}
 					cases={hypotheticalScenarios.map((caseItem) => ({

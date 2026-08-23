@@ -48,6 +48,8 @@
 	//let chartWidth = $state<number>(minWidth);
 	let resizeObserver: ResizeObserver | null = null;
 
+	
+
 	function normalizeSymbol(symbol: string): string {
 		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
 	}
@@ -89,7 +91,7 @@
 		if (!objectives.length || !achievedValues || !shapValues) return;
 
 		const leftX = 10;
-		const rightX = width - boxWidth - 80;
+		const rightX = width - boxWidth - 10;
 		const topY = 34;
 		const bottomY = height - 54;
 		const stepY = objectives.length > 1 ? (bottomY - topY) / (objectives.length - 1) : 0;
@@ -431,7 +433,7 @@
 </script>
 
 <div >
-	<div class="mb-2 rounded-md bg-blue-50 p-2 text-[12px] text-gray-600">
+<!-- 	<div class="mb-2 rounded-md bg-blue-50 p-2 text-[12px] text-gray-600">
 
 		{#if activeNodeId}
 			<button
@@ -445,7 +447,7 @@
 				Clear focus
 			</button>
 		{/if}
-	</div>
+	</div> -->
 	<div bind:this={containerEl} class="overflow-auto">
 		<svg
 			bind:this={svgEl}
