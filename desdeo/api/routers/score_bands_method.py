@@ -1,9 +1,18 @@
+import copy
+import logging
+
 from typing import Annotated
 
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from desdeo.api.db import get_session
+from desdeo.api.models.problem import ProblemDB
+from desdeo.api.models.session import InteractiveSessionDB
+from desdeo.api.models.user import User
+from desdeo.api.routers.gdm.utils import check_decision_maker
+from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.emo import algorithms, preference_handling
 
 
@@ -17,7 +26,6 @@ from desdeo.api.routers.utils import (
     SessionContextGuard,
 )
 from desdeo.emo.operators.selection import ReferenceVectorOptions
-from desdeo.emo.operators.selection import ReferenceVectorOptions
 from desdeo.problem import Problem
 from desdeo.tools.score_bands import score_json
 
@@ -27,7 +35,9 @@ from desdeo.api.models.score_bands_method import (
     SCOREBandsMethodIterationRequest,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/method/score_bands_method")
+
 
 def get_objective_ranges(problem: Problem, relevant_solutions):
     """Get the ranges for each objective from the relevant solutions."""
@@ -44,19 +54,15 @@ def get_objective_ranges(problem: Problem, relevant_solutions):
             )
     return objective_ranges
 
+
 @router.post("/initialize")
 def initialize_or_get_score_bands_method(
     request: SCOREBandsMethodInitializeRequest,
     context: Annotated[
         SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[ContextField.PROBLEM]
-            ).post
-        ),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
-
     """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
 
     db_session = context.db_session
@@ -70,7 +76,12 @@ def initialize_or_get_score_bands_method(
         select(StateDB)
         .where(
             StateDB.problem_id == request.problem_id,
-            StateDB.session_id == (interactive_session.id if interactive_session else user.active_session_id),
+            StateDB.session_id
+            == (
+                interactive_session.id
+                if interactive_session
+                else user.active_session_id
+            ),
         )
         .order_by(StateDB.id.desc())
     )
@@ -99,19 +110,14 @@ def initialize_or_get_score_bands_method(
         # If optimization is not requested, we can proceed with SCORE Bands calculation without additional checks.
         return initialize_score_bands_method_without_optimization(request, context)
 
-    
+
 def initialize_score_bands_method_without_optimization(
     request: SCOREBandsMethodInitializeRequest,
     context: Annotated[
         SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[ContextField.PROBLEM]
-            ).post
-        ),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
-
     """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
 
     db_session = context.db_session
@@ -128,8 +134,7 @@ def initialize_score_bands_method_without_optimization(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "SCORE Bands requires a problem with a "
-                "discrete representation."
+                "SCORE Bands requires a problem with a " "discrete representation."
             ),
         )
 
@@ -153,9 +158,7 @@ def initialize_score_bands_method_without_optimization(
         )
 
     unknown_dimensions = [
-        symbol
-        for symbol in dimensions
-        if symbol not in objective_values
+        symbol for symbol in dimensions if symbol not in objective_values
     ]
 
     if unknown_dimensions:
@@ -167,10 +170,7 @@ def initialize_score_bands_method_without_optimization(
             ),
         )
 
-    column_lengths = {
-        symbol: len(objective_values[symbol])
-        for symbol in dimensions
-    }
+    column_lengths = {symbol: len(objective_values[symbol]) for symbol in dimensions}
 
     if len(set(column_lengths.values())) != 1:
         raise HTTPException(
@@ -181,16 +181,10 @@ def initialize_score_bands_method_without_optimization(
             ),
         )
 
-    data = pl.DataFrame(
-        {
-            symbol: objective_values[symbol]
-            for symbol in dimensions
-        }
-    )
+    data = pl.DataFrame({symbol: objective_values[symbol] for symbol in dimensions})
 
     objective_by_symbol = {
-        objective.symbol: objective
-        for objective in problem.objectives
+        objective.symbol: objective for objective in problem.objectives
     }
 
     # Copy so the request object itself is not modified.
@@ -200,14 +194,12 @@ def initialize_score_bands_method_without_optimization(
     # Fill display metadata from the problem only when not supplied.
     if scorebands_options.descriptive_names is None:
         scorebands_options.descriptive_names = {
-            symbol: objective_by_symbol[symbol].name
-            for symbol in dimensions
+            symbol: objective_by_symbol[symbol].name for symbol in dimensions
         }
 
     if scorebands_options.units is None:
         scorebands_options.units = {
-            symbol: objective_by_symbol[symbol].unit or ""
-            for symbol in dimensions
+            symbol: objective_by_symbol[symbol].unit or "" for symbol in dimensions
         }
 
     score_state, result = get_score_bands_state(data, scorebands_options)
@@ -216,15 +208,9 @@ def initialize_score_bands_method_without_optimization(
         database_session=db_session,
         problem_id=problem_db.id,
         session_id=(
-            interactive_session.id
-            if interactive_session is not None
-            else None
+            interactive_session.id if interactive_session is not None else None
         ),
-        parent_id=(
-            parent_state.id
-            if parent_state is not None
-            else None
-        ),
+        parent_id=(parent_state.id if parent_state is not None else None),
         state=score_state,
     )
 
@@ -237,7 +223,10 @@ def initialize_score_bands_method_without_optimization(
         result=result,
     )
 
-def compute_score_bands_with_optimization(problem: Problem, request: SCOREBandsMethodInitializeRequest, preferred_ranges=None):
+
+def compute_score_bands_with_optimization(
+    problem: Problem, request: SCOREBandsMethodInitializeRequest, preferred_ranges=None
+):
     """Compute SCORE Bands using an optimization algorithm based on the request."""
     algorithm = request.optimization_options.algorithm
     algorithm_options = request.optimization_options.algorithm_options
@@ -265,12 +254,15 @@ def compute_score_bands_with_optimization(problem: Problem, request: SCOREBandsM
             options = algorithms.rvea_options()
 
     if preferred_ranges is not None:
-        options.preference = preference_handling.DesirableRangesOptions(preferred_ranges)
+        options.preference = preference_handling.DesirableRangesOptions(
+            preferred_ranges
+        )
     solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
 
     result_optimizer = solver()
 
     return result_optimizer
+
 
 def get_dataset_from_solver_result(problem: Problem, result_optimizer):
     """Extract the dataset from the solver result for SCORE Bands calculation."""
@@ -281,15 +273,17 @@ def get_dataset_from_solver_result(problem: Problem, result_optimizer):
     ]
 
     data = pl.DataFrame(
-        {
-            symbol: result_optimizer.optimal_outputs[symbol]
-            for symbol in dimensions
-        }
+        {symbol: result_optimizer.optimal_outputs[symbol] for symbol in dimensions}
     )
 
     return data, dimensions
 
-def get_score_bands_state(data: pl.DataFrame, scorebands_options):
+
+def get_score_bands_state(
+    data: pl.DataFrame,
+    scorebands_options,
+    relevant_solution_ids: list[int] | None = None,
+):
     try:
         result = score_json(
             data=data,
@@ -301,22 +295,21 @@ def get_score_bands_state(data: pl.DataFrame, scorebands_options):
             detail=str(exc),
         ) from exc
 
-    score_state = SCOREBandsMethodState.from_result(result)
+    score_state = SCOREBandsMethodState.from_result(
+        result,
+        relevant_solution_ids=relevant_solution_ids,
+    )
 
     return score_state, result
+
 
 def initialize_score_bands_method_with_optimization(
     request: SCOREBandsMethodInitializeRequest,
     context: Annotated[
         SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[ContextField.PROBLEM]
-            ).post
-        ),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
-
     """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
 
     db_session = context.db_session
@@ -343,8 +336,7 @@ def initialize_score_bands_method_with_optimization(
     data, dimensions = get_dataset_from_solver_result(problem, result_optimizer)
 
     objective_by_symbol = {
-        objective.symbol: objective
-        for objective in problem.objectives
+        objective.symbol: objective for objective in problem.objectives
     }
 
     # Copy so the request object itself is not modified.
@@ -354,14 +346,12 @@ def initialize_score_bands_method_with_optimization(
     # Fill display metadata from the problem only when not supplied.
     if scorebands_options.descriptive_names is None:
         scorebands_options.descriptive_names = {
-            symbol: objective_by_symbol[symbol].name
-            for symbol in dimensions
+            symbol: objective_by_symbol[symbol].name for symbol in dimensions
         }
 
     if scorebands_options.units is None:
         scorebands_options.units = {
-            symbol: objective_by_symbol[symbol].unit or ""
-            for symbol in dimensions
+            symbol: objective_by_symbol[symbol].unit or "" for symbol in dimensions
         }
 
     score_state, result = get_score_bands_state(data, scorebands_options)
@@ -370,15 +360,9 @@ def initialize_score_bands_method_with_optimization(
         database_session=db_session,
         problem_id=problem_db.id,
         session_id=(
-            interactive_session.id
-            if interactive_session is not None
-            else None
+            interactive_session.id if interactive_session is not None else None
         ),
-        parent_id=(
-            parent_state.id
-            if parent_state is not None
-            else None
-        ),
+        parent_id=(parent_state.id if parent_state is not None else None),
         state=score_state,
     )
 
@@ -391,15 +375,12 @@ def initialize_score_bands_method_with_optimization(
         result=result,
     )
 
+
 def score_bands_method_iterate(
     request: SCOREBandsMethodInitializeRequest,
     context: Annotated[
         SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[ContextField.PROBLEM]
-            ).post
-        ),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
     """Iterate the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
@@ -407,18 +388,14 @@ def score_bands_method_iterate(
     # For now, it simply calls the initialize function to get or calculate the latest SCORE Bands.
     return initialize_or_get_score_bands_method(request, context)
 
+
 def score_bands_method_iteration(
     request: SCOREBandsMethodIterationRequest,
     context: Annotated[
         SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[ContextField.PROBLEM]
-            ).post
-        ),
+        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
     """Perform an iteration of the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
-    # This function takes one selected band and compute new score bands based on that selection. 
+    # This function takes one selected band and compute new score bands based on that selection.
     pass
-

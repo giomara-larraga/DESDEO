@@ -88,7 +88,13 @@ class CustomClusterOptions(BaseModel):
     """List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs."""
 
 
-ClusteringOptions = GMMOptions | DBSCANOptions | KMeansOptions | DimensionClusterOptions | CustomClusterOptions
+ClusteringOptions = (
+    GMMOptions
+    | DBSCANOptions
+    | KMeansOptions
+    | DimensionClusterOptions
+    | CustomClusterOptions
+)
 
 
 class DistanceFormula(int, Enum):
@@ -200,7 +206,12 @@ def _gaussianmixtureclusteringwithBIC(data: pl.DataFrame) -> np.ndarray:  # noqa
     lowest_bic = np.inf
     bic = []
     n_components_range = range(1, min(11, len(data_copy)))
-    cv_types: list[Literal["full", "tied", "diag", "spherical"]] = ["spherical", "tied", "diag", "full"]
+    cv_types: list[Literal["full", "tied", "diag", "spherical"]] = [
+        "spherical",
+        "tied",
+        "diag",
+        "full",
+    ]
     for cv_type in cv_types:
         for n_components in n_components_range:
             # Fit a Gaussian mixture with EM
@@ -221,7 +232,12 @@ def _gaussianmixtureclusteringwithsilhouette(data: pl.DataFrame) -> np.ndarray:
     best_score = -np.inf
     best_labels = np.ones(len(data))
     n_components_range = range(1, min(11, len(data)))
-    cv_types: list[Literal["full", "tied", "diag", "spherical"]] = ["spherical", "tied", "diag", "full"]
+    cv_types: list[Literal["full", "tied", "diag", "spherical"]] = [
+        "spherical",
+        "tied",
+        "diag",
+        "full",
+    ]
     for cv_type in cv_types:
         for n_components in n_components_range:
             # Fit a Gaussian mixture with EM
@@ -260,7 +276,9 @@ def _DBSCANClustering(data: pl.DataFrame) -> np.ndarray:  # noqa: N802
     return best_labels
 
 
-def cluster_by_dimension(data: pl.DataFrame, options: DimensionClusterOptions) -> np.ndarray:
+def cluster_by_dimension(
+    data: pl.DataFrame, options: DimensionClusterOptions
+) -> np.ndarray:
     """Cluster the data by a specific dimension."""
     if options.dimension_name not in data.columns:
         raise ValueError(f"Objective '{options.dimension_name}' not found in data.")
@@ -274,13 +292,22 @@ def cluster_by_dimension(data: pl.DataFrame, options: DimensionClusterOptions) -
         max_val: float = dimension.max()
         SMALL_VALUE = 1e-8  # noqa: N806
         thresholds = np.linspace(
-            min_val * (1 - SMALL_VALUE),  # Ensure the minimum value is included in the first cluster
-            max_val * (1 + SMALL_VALUE),  # Ensure the maximum value is included in the last cluster
+            min_val
+            * (
+                1 - SMALL_VALUE
+            ),  # Ensure the minimum value is included in the first cluster
+            max_val
+            * (
+                1 + SMALL_VALUE
+            ),  # Ensure the maximum value is included in the last cluster
             options.n_clusters + 1,
         )
         return np.digitize(dimension.to_numpy(), thresholds)  # Cluster IDs start at 1
     if options.kind == "EqualFrequency":
-        levels: list[float] = [dimension.quantile(i / options.n_clusters) for i in range(1, options.n_clusters)]
+        levels: list[float] = [
+            dimension.quantile(i / options.n_clusters)
+            for i in range(1, options.n_clusters)
+        ]
         thresholds = [-np.inf, *levels, np.inf]
         return np.digitize(dimension.to_numpy(), thresholds)  # Cluster IDs start at 1
     raise ValueError(f"Unknown clustering kind: {options.kind}")
@@ -303,12 +330,16 @@ def cluster(data: pl.DataFrame, options: ClusteringOptions) -> np.ndarray:
             return _gaussianmixtureclusteringwithBIC(data)
     if isinstance(options, CustomClusterOptions):
         if len(options.clusters) != len(data):
-            raise ValueError("Length of custom clusters must match number of solutions in data.")
+            raise ValueError(
+                "Length of custom clusters must match number of solutions in data."
+            )
         return np.array(options.clusters)
     raise ValueError(f"Unknown clustering algorithm: {options}")
 
 
-def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: list | np.ndarray) -> go.Figure:
+def annotated_heatmap(
+    correlation_matrix: np.ndarray, col_names: list, order: list | np.ndarray
+) -> go.Figure:
     """Create a heatmap of the correlation matrix. Probably should be named something else.
 
     Args:
@@ -321,7 +352,9 @@ def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: li
     """
     corr = pl.DataFrame(correlation_matrix, index=col_names, columns=col_names)
     corr = corr[col_names[order]].loc[col_names[order[::-1]]]
-    corr = np.rint(corr * 100) / 100  # Take upto two significant figures only to make heatmap readable.
+    corr = (
+        np.rint(corr * 100) / 100
+    )  # Take upto two significant figures only to make heatmap readable.
     fig = ff.create_annotated_heatmap(
         corr.to_numpy(),
         x=list(corr.columns),
@@ -332,7 +365,9 @@ def annotated_heatmap(correlation_matrix: np.ndarray, col_names: list, order: li
     return fig
 
 
-def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False) -> tuple[np.ndarray, list[int]]:
+def order_dimensions(
+    data: pl.DataFrame, use_absolute_corr: bool = False
+) -> tuple[np.ndarray, list[int]]:
     """Calculate the order of objectives.
 
     Also returns the correlation matrix.
@@ -348,7 +383,10 @@ def order_dimensions(data: pl.DataFrame, use_absolute_corr: bool = False) -> tup
     # corr = spearmanr(data).correlation  # Pearson's coeff is better than Spearmann's, in some cases
     corr = np.asarray(
         [
-            [pearsonr(data.to_numpy()[:, i], data.to_numpy()[:, j])[0] for j in range(len(data.columns))]
+            [
+                pearsonr(data.to_numpy()[:, i], data.to_numpy()[:, j])[0]
+                for j in range(len(data.columns))
+            ]
             for i in range(len(data.columns))
         ]
     )
@@ -413,7 +451,9 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
     data_copy = data.select([pl.col(col) for col in options.dimensions])
 
     if options.axis_positions is None:
-        corr, dimension_order = order_dimensions(data_copy, use_absolute_corr=options.use_absolute_correlations)
+        corr, dimension_order = order_dimensions(
+            data_copy, use_absolute_corr=options.use_absolute_correlations
+        )
 
         axis_dist = calculate_axes_positions(
             dimension_order,
@@ -423,7 +463,9 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
         )
 
         ordered_dimension_names = [data_copy.columns[i] for i in dimension_order]
-        axis_positions = {name: axis_dist[i] for i, name in enumerate(ordered_dimension_names)}
+        axis_positions = {
+            name: axis_dist[i] for i, name in enumerate(ordered_dimension_names)
+        }
     else:
         axis_positions = options.axis_positions
         ordered_dimension_names = sorted(axis_positions.keys(), key=axis_positions.get)
@@ -468,19 +510,24 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
     }
     medians_dict = {
         cluster_id: {
-            col_name: medians.filter(pl.col(cluster_column_name) == cluster_id)[col_name][0]
+            col_name: medians.filter(pl.col(cluster_column_name) == cluster_id)[
+                col_name
+            ][0]
             for col_name in ordered_dimension_names
         }
         for cluster_id in medians[cluster_column_name].to_list()
     }
     frequencies_dict = {
-        cluster_id: frequencies.filter(pl.col(cluster_column_name) == cluster_id)["len"][0]
+        cluster_id: frequencies.filter(pl.col(cluster_column_name) == cluster_id)[
+            "len"
+        ][0]
         for cluster_id in frequencies[cluster_column_name].to_list()
     }
 
     if options.scales is None:
         scales: dict[str, tuple[float, float]] = {
-            dimension: (data_copy[dimension].min(), data_copy[dimension].max()) for dimension in ordered_dimension_names
+            dimension: (data_copy[dimension].min(), data_copy[dimension].max())
+            for dimension in ordered_dimension_names
         }
         options.scales = scales
     return SCOREBandsResult(
@@ -514,10 +561,14 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
 
     cluster_th = 8  # max number of clusters to use 'Accent' color map with, otherwise use 'tab20'
     colorscale = (
-        cm.get_cmap("Accent", len(clusters)) if len(clusters) <= cluster_th else cm.get_cmap("tab20", len(clusters))
+        cm.get_cmap("Accent", len(clusters))
+        if len(clusters) <= cluster_th
+        else cm.get_cmap("tab20", len(clusters))
     )
     if result.options.scales is None:
-        raise ValueError("Scales must be provided in the SCOREBandsResult to plot the figure.")
+        raise ValueError(
+            "Scales must be provided in the SCOREBandsResult to plot the figure."
+        )
 
     # Original scaling (not used in final version, but keeping for reference)
     # scaled_data = data.select((pl.all() - pl.all().min()) / (pl.all().max() - pl.all().min()))
@@ -539,19 +590,28 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
     # Avoid overwriting existing column just in case data has a 'cluster' column
     if cluster_column_name in scaled_data.columns:
         cluster_column_name = "cluster_id"
-    scaled_data = scaled_data.with_columns(pl.Series(cluster_column_name, result.clusters))
+    scaled_data = scaled_data.with_columns(
+        pl.Series(cluster_column_name, result.clusters)
+    )
 
     if result.options.descriptive_names is None:
         descriptive_names = {name: name for name in column_names}
     else:
         descriptive_names = result.options.descriptive_names
-    units = dict.fromkeys(column_names, "") if result.options.units is None else result.options.units
+    units = (
+        dict.fromkeys(column_names, "")
+        if result.options.units is None
+        else result.options.units
+    )
 
     # Add axes
     for _, col_name in enumerate(column_names):
         # check if axis_colours is provided, otherwise use black
         current_axis_colour = "black"
-        if result.options.axis_colours is not None and col_name in result.options.axis_colours:
+        if (
+            result.options.axis_colours is not None
+            and col_name in result.options.axis_colours
+        ):
             current_axis_colour = result.options.axis_colours[col_name]
         # Calculate "nice" tick positions and values
         label_text, heights = smart_axis_tick_placement(
@@ -598,10 +658,15 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         )
     # Add bands
     for cluster_id in sorted(result.bands.keys()):
-        r, g, b, a = colorscale(cluster_id - 1)  # Needed as cluster numbering starts at 1
+        r, g, b, a = colorscale(
+            cluster_id - 1
+        )  # Needed as cluster numbering starts at 1
         a = 0.6
         highlight = None
-        if result.options.highlight_cluster is not None and cluster_id == result.options.highlight_cluster:
+        if (
+            result.options.highlight_cluster is not None
+            and cluster_id == result.options.highlight_cluster
+        ):
             highlight = {"shape": "x"}
         hovertext = (
             result.cluster_hover_info.get(cluster_id, f"Cluster {cluster_id}")
@@ -679,7 +744,9 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
         # become the y values in the parallel coordinates plot in this order (1, 2, 3, 6, 5, 4). Subsets of these points
         # which belong to the same solution are given the same hovertext
         if result.options.include_solutions:
-            cluster_solutions = scaled_data.filter(pl.col(cluster_column_name) == cluster_id).select(column_names)
+            cluster_solutions = scaled_data.filter(
+                pl.col(cluster_column_name) == cluster_id
+            ).select(column_names)
 
             x = []
             y = []
@@ -695,14 +762,11 @@ def plot_score(data: pl.DataFrame, result: SCOREBandsResult) -> go.Figure:
                     y = y + list(row)[::-1]
                 # Scale values back to original scale for hovertext
                 hovertext = [
-                    (
-                        f"<b>{col}</b>: "
-                        f"{
+                    (f"<b>{col}</b>: " f"{
                             (
                                 val * (result.options.scales[col][1] - result.options.scales[col][0])
                                 + result.options.scales[col][0]
-                            ):.2f} <br>"
-                    )
+                            ):.2f} <br>")
                     for col, val in zip(column_names, row, strict=True)
                 ]
                 hovertext = "".join(hovertext)

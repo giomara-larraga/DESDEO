@@ -4,14 +4,21 @@ I imagine these as simple interfaces to the GDMScoreBandsManager.
 """
 
 import logging
+import copy
 
 # from shutil import copy
 import sys
 from typing import Annotated
+from desdeo.api.models.score_bands_method import SCOREBandsMethodInitializeResponse
+from desdeo.api.models.session import InteractiveSessionDB
 from desdeo.api.routers.gdm.gdm_base import ManagerError
-from desdeo.api.models.gdm.gdm_score_bands import GDMSCOREBandsLearningPreference, GDMSCOREBandsRestartRequest
+from desdeo.api.models.gdm.gdm_score_bands import (
+    GDMSCOREBandsLearningExploreRequest,
+    GDMSCOREBandsLearningPreference,
+    GDMSCOREBandsRestartRequest,
+)
 from desdeo.api.models.generic_states import StateDB
-from desdeo.api.models.state import GDMSCOREBandsLearningState
+from desdeo.api.models.state import GDMSCOREBandsLearningState, SCOREBandsMethodState
 from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -39,6 +46,7 @@ from desdeo.api.routers.gdm.gdm_aggregate import manager
 from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import (
     GDMScoreBandsManager,
 )
+from desdeo.api.routers.score_bands_method import get_score_bands_state
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.gdm.score_bands import (
     SCOREBandsGDMConfig,
@@ -344,27 +352,18 @@ async def get_or_initialize(
     if problem is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                f"Problem {group_session.problem_id} "
-                "was not found."
-            ),
+            detail=(f"Problem {group_session.problem_id} " "was not found."),
         )
 
     if problem.discrete_representation is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "The problem has no discrete representation."
-            ),
+            detail=("The problem has no discrete representation."),
         )
 
-    discrete_representation_obj = (
-        problem.discrete_representation.objective_values
-    )
+    discrete_representation_obj = problem.discrete_representation.objective_values
 
-    objs = pl.DataFrame(
-        discrete_representation_obj
-    )
+    objs = pl.DataFrame(discrete_representation_obj)
     results = score_bands_gdm(
         data=objs,
         config=score_bands_config,
@@ -855,12 +854,10 @@ async def restart_score_bands(
 
     check_group_owner(user, group)
 
-    group_mgr: GDMScoreBandsManager = (
-        await manager.get_group_manager(
-            group_session_id=group_session.id,
-            method="gdm-score-bands",
-            db_session=session,
-        )
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_session_id=group_session.id,
+        method="gdm-score-bands",
+        db_session=session,
     )
 
     try:
@@ -901,4 +898,389 @@ async def restart_score_bands(
             "group_session_id": group_session.id,
             "head_iteration_id": None,
         }
+    )
+
+
+@router.post("/learning/explore")
+async def explore_learning_band(
+    request: GDMSCOREBandsLearningExploreRequest,
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    session: Annotated[
+        Session,
+        Depends(get_session),
+    ],
+) -> SCOREBandsMethodInitializeResponse:
+    """Privately explore a SCORE band during the learning phase.
+
+    The first call drills into a cluster of the shared GDM learning result.
+
+    Later calls may provide ``parent_state_id`` to drill further into a
+    previously generated personal SCORE Bands state.
+
+    Personal exploration is persisted in the decision maker's
+    InteractiveSessionDB and does not create or modify GroupIteration rows.
+    """
+
+    # ---------------------------------------------------------------
+    # 1. Validate GDM session and decision-maker role
+    # ---------------------------------------------------------------
+
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    check_decision_maker(user, group)
+
+    if user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The current user has no database ID.",
+        )
+
+    # ---------------------------------------------------------------
+    # 2. Validate the user's private interactive session
+    # ---------------------------------------------------------------
+    if user.active_session_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=("The current user does not have an active " "interactive session."),
+        )
+
+    interactive_session = session.exec(
+        select(InteractiveSessionDB).where(
+            InteractiveSessionDB.id == user.active_session_id,
+            InteractiveSessionDB.user_id == user.id,
+        )
+    ).first()
+
+    if interactive_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "The current user's active interactive session " "could not be found."
+            ),
+        )
+    # ---------------------------------------------------------------
+    # 3. SCORE Bands may only be explored privately during learning
+    # ---------------------------------------------------------------
+
+    shared_iteration = get_score_bands_head_iteration(
+        group_session,
+        session,
+    )
+
+    if not isinstance(
+        shared_iteration.info_container,
+        GDMSCOREBandsLearningPreference,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Personal SCORE Bands exploration is only available "
+                "during the learning phase."
+            ),
+        )
+
+    if shared_iteration.state_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The learning iteration has no persisted state.",
+        )
+
+    shared_state_db = session.get(
+        StateDB,
+        shared_iteration.state_id,
+    )
+
+    if shared_state_db is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The learning state could not be found.",
+        )
+
+    shared_state = shared_state_db.state
+
+    if not isinstance(
+        shared_state,
+        GDMSCOREBandsLearningState,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The current GDM state is not a learning state.",
+        )
+
+    # ---------------------------------------------------------------
+    # 4. Determine which original solution IDs belong to the
+    #    selected band.
+    # ---------------------------------------------------------------
+
+    parent_state_db: StateDB | None = None
+
+    if request.parent_state_id is None:
+        # -----------------------------------------------------------
+        # First personal drill-down:
+        #
+        # Shared GDM result
+        #      -> selected GDM cluster
+        #      -> original solution IDs
+        # -----------------------------------------------------------
+
+        shared_result = shared_state.result
+
+        relevant_ids = shared_result.relevant_ids
+        cluster_assignments = shared_result.score_bands_result.clusters
+
+        if len(relevant_ids) != len(cluster_assignments):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "The shared SCORE Bands result contains an "
+                    "invalid solution-to-cluster mapping."
+                ),
+            )
+
+        valid_clusters = set(cluster_assignments)
+
+        if request.selected_cluster_id not in valid_clusters:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cluster {request.selected_cluster_id} "
+                    "does not exist in the current SCORE Bands result."
+                ),
+            )
+
+        selected_solution_ids = [
+            solution_id
+            for solution_id, cluster_id in zip(
+                relevant_ids,
+                cluster_assignments,
+                strict=True,
+            )
+            if cluster_id == request.selected_cluster_id
+        ]
+
+        # Start with the configuration used by the shared
+        # learning SCORE Bands result.
+        scorebands_options = copy.deepcopy(shared_state.config.score_bands_config)
+
+    else:
+        # -----------------------------------------------------------
+        # Recursive personal drill-down:
+        #
+        # Personal SCOREBandsMethodState
+        #      -> selected personal cluster
+        #      -> original solution IDs
+        # -----------------------------------------------------------
+
+        parent_state_db = session.get(
+            StateDB,
+            request.parent_state_id,
+        )
+
+        if parent_state_db is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    f"Personal SCORE Bands state "
+                    f"{request.parent_state_id} was not found."
+                ),
+            )
+
+        # This is essential: another DM must not be able to use
+        # somebody else's private state.
+        if parent_state_db.session_id != interactive_session.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "The selected SCORE Bands state does not "
+                    "belong to the current interactive session."
+                ),
+            )
+
+        parent_state = parent_state_db.state
+
+        if not isinstance(
+            parent_state,
+            SCOREBandsMethodState,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "The selected parent state is not a " "personal SCORE Bands state."
+                ),
+            )
+
+        relevant_ids = parent_state.relevant_solution_ids
+        cluster_assignments = parent_state.clusters
+
+        if len(relevant_ids) != len(cluster_assignments):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "The personal SCORE Bands state contains "
+                    "an invalid solution-to-cluster mapping."
+                ),
+            )
+
+        valid_clusters = set(cluster_assignments)
+
+        if request.selected_cluster_id not in valid_clusters:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cluster {request.selected_cluster_id} "
+                    "does not exist in the selected personal state."
+                ),
+            )
+
+        selected_solution_ids = [
+            solution_id
+            for solution_id, cluster_id in zip(
+                relevant_ids,
+                cluster_assignments,
+                strict=True,
+            )
+            if cluster_id == request.selected_cluster_id
+        ]
+
+        # Reuse the configuration represented by the parent result.
+        scorebands_options = parent_state.result.options.model_copy(deep=True)
+
+    # ---------------------------------------------------------------
+    # 5. Allow explicit personal configuration to override the
+    #    inherited one.
+    # ---------------------------------------------------------------
+
+    if request.scorebands_options is not None:
+        scorebands_options = request.scorebands_options.model_copy(deep=True)
+
+    # ---------------------------------------------------------------
+    # 6. Make sure there is enough data to run SCORE Bands
+    # ---------------------------------------------------------------
+
+    if len(selected_solution_ids) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "The selected band contains fewer than two "
+                "solutions and cannot be subdivided further."
+            ),
+        )
+
+    # ---------------------------------------------------------------
+    # 7. Load the original discrete objective matrix
+    # ---------------------------------------------------------------
+
+    problem = session.get(
+        ProblemDB,
+        group_session.problem_id,
+    )
+
+    if problem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(f"Problem {group_session.problem_id} " "was not found."),
+        )
+
+    if problem.discrete_representation is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=("The problem does not have a discrete " "representation."),
+        )
+
+    objective_values = problem.discrete_representation.objective_values
+
+    objective_names = list(objective_values)
+
+    all_objectives = pl.DataFrame(objective_values).with_row_index(name="solution_id")
+
+    # ---------------------------------------------------------------
+    # 8. Select only the solutions contained in the chosen band
+    # ---------------------------------------------------------------
+
+    selected_id_frame = pl.DataFrame(
+        {
+            "solution_id": selected_solution_ids,
+        }
+    )
+
+    selected_objectives = selected_id_frame.join(
+        all_objectives,
+        how="left",
+        on="solution_id",
+    ).select(objective_names)
+
+    if selected_objectives.height != len(selected_solution_ids):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Could not reconstruct every selected solution "
+                "from the problem's discrete representation."
+            ),
+        )
+
+    # ---------------------------------------------------------------
+    # 9. Run the normal single-DM SCORE Bands calculation
+    # ---------------------------------------------------------------
+
+    try:
+        score_state, result = get_score_bands_state(
+            data=selected_objectives,
+            scorebands_options=scorebands_options,
+            relevant_solution_ids=selected_solution_ids,
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.exception("Failed to calculate personal SCORE Bands.")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=("Failed to calculate personal SCORE Bands."),
+        ) from error
+
+    # ---------------------------------------------------------------
+    # 10. Persist as a NORMAL interactive-method StateDB.
+    #
+    #     Important:
+    #       session_id       -> personal InteractiveSessionDB
+    #       group_session_id -> NOT USED
+    #
+    #     Therefore this does not touch the shared GDM workflow.
+    # ---------------------------------------------------------------
+
+    state_db = StateDB.create(
+        database_session=session,
+        problem_id=group_session.problem_id,
+        session_id=interactive_session.id,
+        parent_id=(parent_state_db.id if parent_state_db is not None else None),
+        state=score_state,
+    )
+
+    # session.add(state_db)
+
+    try:
+        session.commit()
+        session.refresh(state_db)
+    except Exception as error:
+        session.rollback()
+
+        logger.exception("Failed to persist personal SCORE Bands state.")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Personal SCORE Bands were calculated but " "could not be persisted."
+            ),
+        ) from error
+
+    return SCOREBandsMethodInitializeResponse(
+        state_id=state_db.id,
+        result=result,
     )
