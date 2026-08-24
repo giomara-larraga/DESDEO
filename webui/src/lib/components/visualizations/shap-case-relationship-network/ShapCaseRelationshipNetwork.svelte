@@ -19,7 +19,7 @@
 	let {
 		objectives,
 		preferenceValues,
-		achievedValues,
+		           achievedValues,
 		shapValues,
 		threshold = 0.0,
 		targetObjectiveSymbol = null,

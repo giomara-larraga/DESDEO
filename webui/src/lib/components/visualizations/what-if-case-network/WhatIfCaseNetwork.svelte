@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as d3 from 'd3';
-    import { IMPAIRING_COLOR, IMPROVING_COLOR } from '$lib/constants';
+	import { IMPAIRING_COLOR, IMPROVING_COLOR } from '$lib/constants';
 
 	/**
 	 * Component: WhatIfCaseNetwork
 	 * Author: Giomara Larraga (glarragw@jyu.fi)
 	 * Note: Some parts of this component were fine-tuned with GitHub Copilot.
 	 * Created on: May 2026
-     * Modified on: May 2026
-     * 
+	 * Modified on: May 2026
+	 *
 	 * Summary:
 	 * Renders a directed objective-to-objective network for What-if Cases.
 	 * Each edge represents the aggregated effect of impairing one objective on another
@@ -50,6 +50,7 @@
 	type ObjectiveNode = {
 		symbol: string;
 		name?: string;
+		maximize?: boolean;
 	};
 
 	/**
@@ -92,14 +93,23 @@
 
 	//const width = 500;
 	//const height = 200;
-	//let height = $state(220);	
+	//let height = $state(220);
 
-	let nodeRadius = $derived(Math.max(22, Math.min(32, height * 0.14)));	
+	let nodeRadius = $derived(Math.max(22, Math.min(32, height * 0.14)));
 	//let containerEl: HTMLDivElement | null = null;
-
 
 	let svgEl: SVGSVGElement | undefined;
 	let activeNodeSymbol = $state<string | null>(null);
+
+	function formatImpairment(value: number): string {
+		const amount = Math.abs(value);
+
+		if (mode === 'percent') {
+			return `↓ ${amount.toFixed(2)}%`;
+		}
+
+		return `↓ ${amount.toFixed(3)}`;
+	}
 
 	/** Formats edge labels as signed values based on the selected display mode. */
 	function formatSigned(value: number): string {
@@ -122,7 +132,7 @@
 
 		if (objectives.length === 0 || cases.length === 0) return;
 
-		const padding = nodeRadius/2;
+		const padding = nodeRadius / 2;
 
 		const centerX = width / 2;
 		const centerY = height / 2;
@@ -151,13 +161,34 @@
 
 		// Aggregate links across all cases so each source-target pair is rendered once.
 		const linkAccumulator = new Map<string, { source: string; target: string; value: number }>();
+		// How much the selected objective would be impaired
+		const selfEffectBySymbol = new Map<string, number>();
 
 		for (const caseItem of cases) {
 			for (const delta of caseItem.deltas) {
-				const value = mode === 'percent' ? Number(delta.percentDelta ?? 0) : Number(delta.delta ?? 0);
+				const value =
+					mode === 'percent' ? Number(delta.percentDelta ?? 0) : Number(delta.delta ?? 0);
 				if (!Number.isFinite(value) || value === 0) continue;
-				if (!nodeById.has(caseItem.impairedSymbol) || !nodeById.has(delta.symbol)) continue;
-				if (caseItem.impairedSymbol === delta.symbol) continue;
+				//if (!nodeById.has(caseItem.impairedSymbol) || !nodeById.has(delta.symbol)) continue;
+				//if (caseItem.impairedSymbol === delta.symbol) continue;
+
+				/*
+				 * Store how much the objective that was intentionally
+				 * impaired actually changed.
+				 */
+				if (caseItem.impairedSymbol === delta.symbol) {
+					const existing = selfEffectBySymbol.get(caseItem.impairedSymbol) ?? 0;
+
+					selfEffectBySymbol.set(caseItem.impairedSymbol, existing + value);
+
+					continue;
+				}
+
+				if (value === 0) continue;
+
+				if (!nodeById.has(caseItem.impairedSymbol) || !nodeById.has(delta.symbol)) {
+					continue;
+				}
 
 				const key = `${caseItem.impairedSymbol}__${delta.symbol}`;
 				const existing = linkAccumulator.get(key);
@@ -177,9 +208,7 @@
 		if (links.length === 0) return;
 
 		const maxAbs = d3.max(links, (link) => Math.abs(link.value)) ?? 1;
-		const strokeWidth = d3.scaleLinear()
-			.domain([0, maxAbs])
-			.range([minStroke, maxStroke]);
+		const strokeWidth = d3.scaleLinear().domain([0, maxAbs]).range([minStroke, maxStroke]);
 
 		svg
 			.append('defs')
@@ -220,9 +249,7 @@
 
 		const linksGroup = svg.append('g');
 
-		const visibleLinks = links.filter(
-			link => link.source !== disabledNodeSymbol
-		);
+		const visibleLinks = links.filter((link) => link.source !== disabledNodeSymbol);
 
 		linksGroup
 			.selectAll('path')
@@ -257,7 +284,7 @@
 			// When focused, keep only outgoing effects from the selected source objective prominent.
 			.attr('opacity', (d) => {
 				if (!activeNodeSymbol) return 0.9;
-				return d.source === activeNodeSymbol ? 1 : 0.10;
+				return d.source === activeNodeSymbol ? 1 : 0.1;
 			});
 
 		linksGroup
@@ -292,14 +319,12 @@
 			.join('g')
 			.attr('transform', (d) => `translate(${d.x}, ${d.y})`);
 
-		nodeGroup
-			.append('title')
-			.text((d) => {
-				if (d.id === disabledNodeSymbol) {
-						return `${d.label} is the objective you want to improve. Select another objective to explore possible trade-offs.`;
-					}
-				return '';
-			});
+		nodeGroup.append('title').text((d) => {
+			if (d.id === disabledNodeSymbol) {
+				return `${d.label} is the objective you want to improve. Select another objective to explore possible trade-offs.`;
+			}
+			return '';
+		});
 
 		nodeGroup
 			.append('circle')
@@ -340,6 +365,24 @@
 			.attr('font-size', 12)
 			.attr('pointer-events', 'none')
 			.text((d) => d.label);
+
+		nodeGroup
+			.filter((d) => d.id === activeNodeSymbol)
+			.append('text')
+			.attr('text-anchor', 'middle')
+			.attr('dominant-baseline', 'middle')
+			.attr('y', 10)
+			.attr('font-size', 10)
+			.attr('font-weight', '600')
+			.attr('fill', IMPAIRING_COLOR)
+			.attr('pointer-events', 'none')
+			.text((d) => {
+				const value = selfEffectBySymbol.get(d.id);
+
+				if (value === undefined) return '';
+
+				return formatImpairment(value);
+			});
 	}
 
 	let resizeObserver: ResizeObserver | null = null;
@@ -380,20 +423,23 @@
 			<button
 				type="button"
 				class="rounded bg-gray-100 px-2 py-0.5 text-[12px] text-gray-700 hover:bg-gray-200"
-				onclick={() => {(activeNodeSymbol = null);onSelectNode?.(null);}}
+				onclick={() => {
+					activeNodeSymbol = null;
+					onSelectNode?.(null);
+				}}
 			>
 				Clear focus
 			</button>
 		{/if}
 	</div>
-<!-- 	<div class="mb-2 text-[12px] text-gray-500">
+	<!-- 	<div class="mb-2 text-[12px] text-gray-500">
 		Click an objective to highlight the possible effects of worsening it.
 	</div> -->
 	<div bind:this={containerEl} class="w-full">
 		<svg
 			bind:this={svgEl}
 			width="100%"
-			height={height}
+			{height}
 			viewBox={`0 0 ${width} ${height}`}
 			preserveAspectRatio="xMidYMid meet"
 			role="img"

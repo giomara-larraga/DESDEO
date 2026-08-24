@@ -58,21 +58,27 @@
 		return objective.maximize ? 'max' : 'min';
 	});
 
-
-	function computeDifferenceWithTolerance(desired: number, achieved: number, tolerance: number): string {
+	function computeDifferenceWithTolerance(
+		desired: number,
+		achieved: number,
+		tolerance: number
+	): string {
 		if (!Number.isFinite(desired) || !Number.isFinite(achieved)) return 'unchanged';
 		const diff = achieved - desired;
 		if (Math.abs(diff) <= tolerance) return 'has met the desired value';
-		return directionSelectedObjective() === 'max' ? (achieved > desired ? 'is better than the desired value' : 'is worse than the desired value') : (achieved < desired ? 'is better than the desired value' : 'is worse than the desired value');
+		return directionSelectedObjective() === 'max'
+			? achieved > desired
+				? 'is better than the desired value'
+				: 'is worse than the desired value'
+			: achieved < desired
+				? 'is better than the desired value'
+				: 'is worse than the desired value';
 	}
 </script>
 
 <div class="space-y-3">
-
-	
-
 	<!-- Solution overview -->
-<!-- 	<div class="rounded-md border border-sky-100 bg-sky-50 p-3">
+	<!-- 	<div class="rounded-md border border-sky-100 bg-sky-50 p-3">
 		<div class="mb-2 text-sm font-semibold text-gray-900">
 			Current solution overview
 		</div>
@@ -126,16 +132,18 @@
 			</div>
 		</div>
 		<div class="mt-2 text-sm text-gray-600">
-			The achieved value {computeDifferenceWithTolerance(preferenceValues[selectedObjectiveIndex], achievedValueNumber, 0.01)}.
+			The achieved value {computeDifferenceWithTolerance(
+				preferenceValues[selectedObjectiveIndex],
+				achievedValueNumber,
+				0.01
+			)}.
 		</div>
 	</div>
 
 	<!-- Main visual relationship -->
 	<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
 		{#if mainTradeoff}
-			<div class="mb-2 text-sm font-semibold text-gray-900">
-				Main trade-off
-			</div>
+			<div class="mb-2 text-sm font-semibold text-gray-900">Main trade-off</div>
 
 			<div class="rounded-md bg-white p-3">
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -144,9 +152,7 @@
 						<div class="font-semibold">{mainTradeoff.name}</div>
 					</div>
 
-					<div class="text-sm font-medium text-[#DC3220]">
-						limits →
-					</div>
+					<div class="text-sm font-medium text-[#DC3220]">limits →</div>
 
 					<div class="text-center">
 						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
@@ -159,7 +165,6 @@
 				Relaxing the desired value for <strong>{mainTradeoff.name}</strong>
 				could create room for improving <strong>{selectedObjectiveName}</strong>.
 			</p>
-
 		{:else if mainSynergy}
 			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
 				<span>Main synergy</span>
@@ -170,8 +175,8 @@
 					</Tooltip.Trigger>
 
 					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-						A synergy means that the desired value for another objective appears to
-						support the achieved value of <strong>{selectedObjectiveName}</strong>.
+						A synergy means that the desired value for another objective appears to support the
+						achieved value of <strong>{selectedObjectiveName}</strong>.
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</div>
@@ -183,9 +188,7 @@
 						<div class="font-semibold">{mainSynergy.name}</div>
 					</div>
 
-					<div class="text-sm font-medium text-[#0C7BDC]">
-						supports →
-					</div>
+					<div class="text-sm font-medium text-[#0C7BDC]">supports →</div>
 
 					<div class="text-center">
 						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
@@ -194,7 +197,9 @@
 				</div>
 			</div>
 
-			<div class="mt-2 flex items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1 text-sm text-gray-600">
+			<div
+				class="mt-2 flex items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1 text-sm text-gray-600"
+			>
 				<span>No major trade-offs detected.</span>
 
 				<Tooltip.Root>
@@ -204,14 +209,14 @@
 
 					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
 						No desired value for another objective appears to limit
-						<strong>{selectedObjectiveName}</strong>. Further improvements may depend
-						mainly on adjusting the desired value for
+						<strong>{selectedObjectiveName}</strong>. Further improvements may depend mainly on
+						adjusting the desired value for
 						<strong>{selectedObjectiveName}</strong> itself.
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</div>
 
-<!-- 			<Tooltip.Root>
+			<!-- 			<Tooltip.Root>
 				<Tooltip.Trigger asChild>
 					<Button
 						type="button"
@@ -229,7 +234,6 @@
 					Open the Explore tab to inspect what may happen if some desired values are adjusted.
 				</Tooltip.Content>
 			</Tooltip.Root> -->
-
 		{:else}
 			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
 				<span>No major interactions detected</span>
@@ -240,12 +244,13 @@
 					</Tooltip.Trigger>
 
 					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-						No desired value for another objective appears to strongly affect
-						the achieved value of <strong>{selectedObjectiveName}</strong>.
+						No desired value for another objective appears to strongly affect the achieved value of <strong
+							>{selectedObjectiveName}</strong
+						>.
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</div>
-<!-- 
+			<!-- 
 			<Tooltip.Root>
 				<Tooltip.Trigger asChild>
 					<Button
@@ -266,6 +271,4 @@
 			</Tooltip.Root> -->
 		{/if}
 	</div>
-
-
 </div>
