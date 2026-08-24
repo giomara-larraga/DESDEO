@@ -32,36 +32,59 @@ import type { SCOREBandsResult, ProblemInfo } from '$lib/gen/endpoints/DESDEOFas
  * @param problem Problem information containing ideal/nadir values
  * @returns Record mapping axis names to [min, max] scale ranges
  */
+/**
+ * Calculate axis scales for SCORE bands visualization
+ *
+ * Determines the min/max range for each axis using a priority order:
+ * 1. Problem definition (ideal/nadir from objectives)
+ * 2. API-provided scales from result.options.scales
+ * 3. Fallback: calculate from actual bands and medians data
+ *
+ * TODO: When API scales functionality is fully implemented, prioritize using
+ * result.options.scales over problem definition. Evaluate if fallback calculation
+ * from bands data is still needed or should be removed.
+ *
+ * @param problem - Problem definition containing objectives with ideal/nadir values
+ * @param result - SCORE bands result containing bands data and configuration
+ * @returns Record mapping axis name to [min, max] range tuple
+ */
 export function calculateScales(
-	result: SCOREBandsResult,
-	problem?: ProblemInfo
+	problem: ProblemInfo | null,
+	result: SCOREBandsResult
 ): Record<string, [number, number]> {
-	// First try to use ideal and nadir from problem (highest priority)
-	if (problem?.objectives) {
-		const scales: Record<string, [number, number]> = {};
-		problem.objectives.forEach((objective: any) => {
-			const name = objective.name;
-			const ideal = objective.ideal;
-			const nadir = objective.nadir;
-			if (ideal !== undefined && nadir !== undefined) {
-				scales[name] = [nadir, ideal];
-			}
-		});
-		// Only return scales from problem if we found at least one complete objective
-		if (Object.keys(scales).length > 0) {
-			return scales;
-		}
+	// First, try to use ideal and nadir from problem definition
+	const scales: Record<string, [number, number]> = {};
+	let allObjectivesHaveScales = true;
+
+	if (!problem) {
+		return scales;
 	}
 
-	// Second try to use scales from API (medium priority)
+	problem.objectives.forEach((objective: any) => {
+		const name = objective.symbol || objective.name; // Use symbol if available, otherwise name
+		const ideal = objective.ideal;
+		const nadir = objective.nadir;
+		if (ideal !== undefined && nadir !== undefined) {
+			scales[name] = [nadir, ideal];
+		} else {
+			allObjectivesHaveScales = false;
+		}
+	});
+
+	// Only use problem scales if ALL objectives have complete ideal/nadir values
+	if (allObjectivesHaveScales && Object.keys(scales).length === problem.objectives.length) {
+		return scales;
+	}
+
+	// Second, try to use scales from API
 	if (result.options?.scales) {
 		return result.options.scales;
 	}
 
-	// Fallback: calculate scales from bands data (lowest priority)
+	// Fallback: calculate scales from bands data
 	const fallbackScales: Record<string, [number, number]> = {};
 
-	result.ordered_dimensions.forEach((axisName: string) => {
+	result.ordered_dimensions.forEach((axisName) => {
 		let min = Infinity;
 		let max = -Infinity;
 
@@ -88,6 +111,7 @@ export function calculateScales(
 
 	return fallbackScales;
 }
+
 
 /**
  * Generates consistent cluster colors using predefined palette
@@ -171,33 +195,4 @@ export function canToggleMedians(
 ): boolean {
 	// Can toggle medians off only if bands or solutions would remain on
 	return !show_medians || show_bands || show_solutions;
-}
-
-/**
- * Creates sample/demo SCORE-bands result for visualization testing
- * Useful for development and demonstration when actual method is not implemented
- *
- * @returns Mock SCOREBandsResult with realistic test data
- */
-export function createDemoData(): SCOREBandsResult {
-	return {
-		ordered_dimensions: ['Objective 1', 'Objective 3', 'Objective 2'],
-		axis_positions: { 'Objective 1': 0, 'Objective 2': 1, 'Objective 3': 0.2 },
-		bands: {
-			'1': { 'Objective 1': [0.1, 0.3], 'Objective 2': [0.4, 0.6], 'Objective 3': [0.2, 0.4] },
-			'2': { 'Objective 1': [0.6, 0.8], 'Objective 2': [0.1, 0.3], 'Objective 3': [0.7, 0.9] }
-		},
-		medians: {
-			'1': { 'Objective 1': 0.2, 'Objective 2': 0.5, 'Objective 3': 0.3 },
-			'2': { 'Objective 1': 0.7, 'Objective 2': 0.2, 'Objective 3': 0.8 }
-		},
-		options: {
-			scales: {
-				'Objective 1': [0.0, 1.0],
-				'Objective 2': [0.0, 1.0],
-				'Objective 3': [0.0, 1.0]
-			}
-		},
-		clusters: {}
-	} as unknown as SCOREBandsResult;
 }

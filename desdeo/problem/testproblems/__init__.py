@@ -6,6 +6,15 @@ testing and illustration purposed are defined here.
 
 __all__ = [  # noqa: RUF022
     "binh_and_korn",
+    "car_side_impact",
+    "ctp1",
+    "ctp2",
+    "ctp3",
+    "ctp4",
+    "ctp5",
+    "ctp6",
+    "ctp7",
+    "ctp8",
     "dtlz1",
     "dtlz2",
     "dtlz4",
@@ -55,13 +64,17 @@ __all__ = [  # noqa: RUF022
     "summer_cabin_battery_problem",
     "summer_cabin_battery_problem_split",
     "summer_cabin_battery_problem_split_scenario",
+    "summer_cabin_battery_robust_ev_problem",
     "lame_superspheres",
     "water_management",
+    "vehicle_crashworthiness",
 ]
 
 
 from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
+from .car_side_impact_problem import car_side_impact
+from .ctp_problems import ctp1, ctp2, ctp3, ctp4, ctp5, ctp6, ctp7, ctp8
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz_problems import dtlz1, dtlz2, dtlz4
 from .forest_problem import forest_problem, forest_problem_discrete
@@ -104,6 +117,8 @@ from .summer_cabin_electricity import (
     summer_cabin_battery_problem,
     summer_cabin_battery_problem_split,
     summer_cabin_battery_problem_split_scenario,
+    summer_cabin_battery_robust_ev_problem,
 )
+from .vehicle_crashworthiness_problem import vehicle_crashworthiness
 from .water_management_problem import water_management
 from .zdt_problem import zdt1, zdt2, zdt3, zdt4, zdt6

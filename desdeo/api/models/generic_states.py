@@ -21,6 +21,12 @@ from desdeo.problem import Tensor, VariableType
 
 from .nautilus_navigator import NautilusNavigatorInitializationState, NautilusNavigatorNavigationState
 from .state import (
+    CumulusClassificationState,
+    CumulusFinalState,
+    CumulusInitializationState,
+    CumulusModificationState,
+    CumulusObjectiveConstraintState,
+    CumulusSaveState,
     EMOFetchState,
     EMOIterateState,
     EMOSaveState,
@@ -36,6 +42,7 @@ from .state import (
     NIMBUSInitializationState,
     NIMBUSSaveState,
     RPMState,
+    SCOREBandsMethodState,
     GDMSCOREBandsLearningState,
     GDMSCOREBandsConsensusState,
     GDMSCOREBandsDecisionState,
@@ -76,6 +83,13 @@ class StateKind(str, Enum):
     XNIMBUS_SAVE = "xnimbus.save_solutions"
     XNIMBUS_INIT = "xnimbus.initialize"
     XNIMBUS_FINAL = "xnimbus.final"
+    CUMULUS_SOLVE = "cumulus.solve_candidates"
+    CUMULUS_SAVE = "cumulus.save_solutions"
+    CUMULUS_INIT = "cumulus.initialize"
+    CUMULUS_FINAL = "cumulus.final"
+    CUMULUS_MODIFY = "cumulus.modify"
+    CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
+    SCORE_BANDS_METHOD_INITIALIZE = "score_bands_method.initialize"
     GDM_SCORE_BANDS_LEARNING = "gdm-score-bands.learning"
     GDM_SCORE_BANDS_CONSENSUS = "gdm-score-bands.consensus"
     GDM_SCORE_BANDS_DECISION = "gdm-score-bands.decision"
@@ -233,6 +247,13 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.XNIMBUS_SAVE: NIMBUSSaveState,
     StateKind.XNIMBUS_INIT: NIMBUSInitializationState,
     StateKind.XNIMBUS_FINAL: NIMBUSFinalState,
+    StateKind.CUMULUS_SOLVE: CumulusClassificationState,
+    StateKind.CUMULUS_SAVE: CumulusSaveState,
+    StateKind.CUMULUS_INIT: CumulusInitializationState,
+    StateKind.CUMULUS_FINAL: CumulusFinalState,
+    StateKind.CUMULUS_MODIFY: CumulusModificationState,
+    StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
+    StateKind.SCORE_BANDS_METHOD_INITIALIZE: SCOREBandsMethodState,
     StateKind.GDM_SCORE_BANDS_LEARNING: GDMSCOREBandsLearningState,
     StateKind.GDM_SCORE_BANDS_CONSENSUS: GDMSCOREBandsConsensusState,
     StateKind.GDM_SCORE_BANDS_DECISION: GDMSCOREBandsDecisionState,
@@ -256,6 +277,13 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     ENautilusFinalState: StateKind.ENAUTILUS_FINAL,
     NautilusNavigatorNavigationState: StateKind.NAUTILUS_NAVIGATE,
     NautilusNavigatorInitializationState: StateKind.NAUTILUS_INITIALIZE,
+    CumulusClassificationState: StateKind.CUMULUS_SOLVE,
+    CumulusInitializationState: StateKind.CUMULUS_INIT,
+    CumulusFinalState: StateKind.CUMULUS_FINAL,
+    CumulusSaveState: StateKind.CUMULUS_SAVE,
+    CumulusModificationState: StateKind.CUMULUS_MODIFY,
+    CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
+    SCOREBandsMethodState: StateKind.SCORE_BANDS_METHOD_INITIALIZE,
     GDMSCOREBandsLearningState: StateKind.GDM_SCORE_BANDS_LEARNING,
     GDMSCOREBandsConsensusState: StateKind.GDM_SCORE_BANDS_CONSENSUS,
     GDMSCOREBandsDecisionState: StateKind.GDM_SCORE_BANDS_DECISION,
