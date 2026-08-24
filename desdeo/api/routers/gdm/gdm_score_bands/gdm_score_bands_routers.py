@@ -901,6 +901,64 @@ async def restart_score_bands(
     )
 
 
+def get_or_create_gdm_learning_session(
+    *,
+    user: User,
+    group_session,
+    db_session: Session,
+) -> InteractiveSessionDB:
+    """Get or create a private SCORE Bands session for a DM.
+
+    The session belongs to one DM and one shared GDM learning
+    iteration. It is used only for private SCORE Bands exploration.
+    """
+
+    if user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The current user has no database ID.",
+        )
+
+    if group_session.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The group session has no database ID.",
+        )
+
+    if group_session.head_iteration_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The GDM session has not been initialized.",
+        )
+
+    session_info = (
+        "gdm-score-bands-learning:"
+        f"{group_session.id}:"
+        f"{group_session.head_iteration_id}"
+    )
+
+    personal_session = db_session.exec(
+        select(InteractiveSessionDB).where(
+            InteractiveSessionDB.user_id == user.id,
+            InteractiveSessionDB.info == session_info,
+        )
+    ).first()
+
+    if personal_session is not None:
+        return personal_session
+
+    personal_session = InteractiveSessionDB(
+        user_id=user.id,
+        info=session_info,
+    )
+
+    db_session.add(personal_session)
+    db_session.commit()
+    db_session.refresh(personal_session)
+
+    return personal_session
+
+
 @router.post("/learning/explore")
 async def explore_learning_band(
     request: GDMSCOREBandsLearningExploreRequest,
@@ -945,26 +1003,21 @@ async def explore_learning_band(
     # ---------------------------------------------------------------
     # 2. Validate the user's private interactive session
     # ---------------------------------------------------------------
-    if user.active_session_id is None:
+    try:
+        # ---------------------------------------------------------------
+        # 2. Get or create this DM's private learning session
+        # ---------------------------------------------------------------
+
+        interactive_session = get_or_create_gdm_learning_session(
+            user=user,
+            group_session=group_session,
+            db_session=session,
+        )
+    except ManagerError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=("The current user does not have an active " "interactive session."),
-        )
-
-    interactive_session = session.exec(
-        select(InteractiveSessionDB).where(
-            InteractiveSessionDB.id == user.active_session_id,
-            InteractiveSessionDB.user_id == user.id,
-        )
-    ).first()
-
-    if interactive_session is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "The current user's active interactive session " "could not be found."
-            ),
-        )
+            detail=str(error),
+        ) from error
     # ---------------------------------------------------------------
     # 3. SCORE Bands may only be explored privately during learning
     # ---------------------------------------------------------------
@@ -1022,17 +1075,12 @@ async def explore_learning_band(
     parent_state_db: StateDB | None = None
 
     if request.parent_state_id is None:
-        # -----------------------------------------------------------
-        # First personal drill-down:
-        #
-        # Shared GDM result
-        #      -> selected GDM cluster
-        #      -> original solution IDs
-        # -----------------------------------------------------------
+        # First personal drill-down from the shared GDM learning result.
 
-        shared_result = shared_state.result
+        shared_result = SCOREBandsGDMResult.model_validate(shared_state.result)
 
         relevant_ids = shared_result.relevant_ids
+
         cluster_assignments = shared_result.score_bands_result.clusters
 
         if len(relevant_ids) != len(cluster_assignments):
@@ -1065,10 +1113,9 @@ async def explore_learning_band(
             if cluster_id == request.selected_cluster_id
         ]
 
-        # Start with the configuration used by the shared
-        # learning SCORE Bands result.
-        scorebands_options = copy.deepcopy(shared_state.config.score_bands_config)
+        shared_config = SCOREBandsGDMConfig.model_validate(shared_state.config)
 
+        scorebands_options = copy.deepcopy(shared_config.score_bands_config)
     else:
         # -----------------------------------------------------------
         # Recursive personal drill-down:

@@ -70,7 +70,7 @@
 	import HistoryBrowser from './components/history-browser.svelte';
 	import ConfigPanel from './components/config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandsFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { GroupPublic, GroupSessionPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandsFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { auth } from '../../../stores/auth';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -103,22 +103,11 @@
 		createdAt: string;
 	};
 
-	type LearningSubBand = {
-		id: string;
-		parentClusterId: number;
-		label: string;
-		solutionIndices: number[];
-		color: string;
-	};
-
 	let learningState = $state({
 		selectedBand: null as number | null,
 		savedBands: [] as number[],
 		comparedBands: [] as number[],
 		notes: [] as LearningNote[],
-		zoomedBand: null as number | null,
-		subBands: [] as LearningSubBand[],
-		subBandsHistory: [] as LearningSubBand[][] // stack for undo
 	});
 	let learningProgress = $state({
 		completedUserIds: [] as number[],
@@ -137,10 +126,37 @@
 
 	let minimumVotes: number | undefined = $state(1);
 
+	type PersonalExplorationFrame = {
+	stateId: number;
+	parentClusterId: number;
+	result: SCOREBandsResult;
+};
+
+let personalExplorationStack = $state<
+	PersonalExplorationFrame[]
+>([]);
+
+let isExploringBand = $state(false);
+
+let activeLearningScoreBandsResult =
+	$derived.by(() => {
+		if (
+			isLearningPhase &&
+			personalExplorationStack.length > 0
+		) {
+			return personalExplorationStack[
+				personalExplorationStack.length - 1
+			].result;
+		}
+
+		return scoreBandsResult;
+	});
+
 	const { data } = $props<{
 		data: {
 			refreshToken: string;
 			group: GroupPublic;
+			groupSession:GroupSessionPublic;
 			problem: ProblemInfo;
 		};
 	}>();
@@ -378,21 +394,26 @@ function getConsensusClasses(axisName: string): string {
 
 	// Data from scoreBandsResult stored in format that is actually used in UI
 	let SCOREBands = $derived.by(() => {
-		if (!scoreBandsResult || scoreBandsResult === null) {
-			return {
-				axisNames: [] as string[],
-				clusterIds: [] as number[],
-				axisPositions: [] as number[],
-				axisSigns: [] as number[],
-				data: [] as number[][],
-				bands: {},
-				medians: {},
-				scales: undefined,
-				solutions_per_cluster: {} as Record<string, number>
-			};
-		}
+	const result =
+		isLearningPhase
+			? activeLearningScoreBandsResult
+			: scoreBandsResult;
 
-		const rawAxisNames = scoreBandsResult.ordered_dimensions;
+	if (!result) {
+		return {
+			axisNames: [] as string[],
+			clusterIds: [] as number[],
+			axisPositions: [] as number[],
+			axisSigns: [] as number[],
+			data: [] as number[][],
+			bands: {},
+			medians: {},
+			scales: undefined,
+			solutions_per_cluster:
+				{} as Record<string, number>
+		};
+	}
+		const rawAxisNames = result.ordered_dimensions;
 		const displayAxisNames = rawAxisNames.map(
 			(axisName) => objectiveDisplayMap[axisName] || axisName
 		);
@@ -413,7 +434,7 @@ function getConsensusClasses(axisName: string): string {
 			);
 		};
 
-		const rawScales = calculateScales(data.problem, scoreBandsResult);
+		const rawScales = calculateScales(data.problem, result);
 		const remappedScales = displayAxisNames.reduce(
 			(acc, displayAxisName, index) => {
 				const rawAxisName = rawAxisNames[index];
@@ -426,21 +447,21 @@ function getConsensusClasses(axisName: string): string {
 
 		const derivedData = {
 			axisNames: displayAxisNames,
-			clusterIds: Object.keys(scoreBandsResult.bands)
+			clusterIds: Object.keys(result.bands)
 				.sort((a, b) => parseInt(a) - parseInt(b))
 				.map((id) => Number(id)),
 			// Convert axis_positions dict to ordered array
 			axisPositions: rawAxisNames.map(
-				(objName) => scoreBandsResult?.axis_positions[objName]
+				(objName) => result?.axis_positions[objName]
 			) as number[],
 
 			// TODO: Visualization used axisSigns, but is the info from backend or user in UI? "Flip axes" -checkbox?
 			axisSigns: new Array(rawAxisNames.length).fill(1),
 			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copy-paste from old function, not tested.
-			bands: remapAxisKeyedObject(scoreBandsResult.bands),
-			medians: remapAxisKeyedObject(scoreBandsResult.medians),
+			bands: remapAxisKeyedObject(result.bands),
+			medians: remapAxisKeyedObject(result.medians),
 			scales: remappedScales,
-			solutions_per_cluster: scoreBandsResult.cardinalities
+			solutions_per_cluster: result.cardinalities
 		};
 		return derivedData;
 	});
@@ -540,16 +561,6 @@ function getConsensusClasses(axisName: string): string {
 		SCOREBands.clusterIds.length > 0 ? generate_cluster_colors(SCOREBands.clusterIds) : {}
 	);
 
-	// When a band is zoomed in the learning phase, show only that band in the plot.
-	// Outside zoom mode the user's own visibility toggle map is used.
-	let learningPlotVisibility = $derived.by((): Record<number, boolean> => {
-		if (learningState.zoomedBand === null) return cluster_visibility_map;
-		const m: Record<number, boolean> = {};
-		SCOREBands.clusterIds.forEach((id) => {
-			m[id] = id === learningState.zoomedBand;
-		});
-		return m;
-	});
 
 	let clusterBandRows = $derived.by(() => {
 		if (
@@ -635,52 +646,30 @@ function getConsensusClasses(axisName: string): string {
 		learningState.comparedBands = [...learningState.comparedBands, clusterId];
 	}
 
-	function zoomIntoBand(clusterId: number) {
-		learningState.zoomedBand = clusterId;
-		learningState.selectedBand = clusterId;
-		// Automatically create sub-bands on zoom and record as first history entry
-		learningState.subBands = [];
-		learningState.subBandsHistory = [];
-		createPersonalSubBands(3);
+
+	function backOneExplorationLevel() {
+	if (
+		personalExplorationStack.length === 0
+	) {
+		return;
 	}
 
-	function exitBandZoom() {
-		learningState.zoomedBand = null;
-		learningState.subBands = [];
-		learningState.subBandsHistory = [];
-	}
+	personalExplorationStack =
+		personalExplorationStack.slice(
+			0,
+			-1
+		);
 
-	function undoSubBandChange() {
-		if (learningState.subBandsHistory.length === 0) return;
-		const prev = learningState.subBandsHistory[learningState.subBandsHistory.length - 1];
-		learningState.subBands = prev;
-		learningState.subBandsHistory = learningState.subBandsHistory.slice(0, -1);
-	}
+	learningState.selectedBand = null;
+	cluster_visibility_map = {};
+}
 
-	function createPersonalSubBands(numberOfSubBands = 3) {
-		if (learningState.zoomedBand === null || !scoreBandsResult) return;
+	function exitPersonalExploration() {
+	personalExplorationStack = [];
+	learningState.selectedBand = null;
+	cluster_visibility_map = {};
+}
 
-		// Push current sub-bands to history before overwriting
-		if (learningState.subBands.length > 0) {
-			learningState.subBandsHistory = [...learningState.subBandsHistory, [...learningState.subBands]];
-		}
-
-		const visibleIndices = scoreBandsResult.clusters
-			.map((clusterId, index) => ({ clusterId, index }))
-			.filter((item) => item.clusterId === learningState.zoomedBand)
-			.map((item) => item.index);
-
-		const chunkSize = Math.ceil(visibleIndices.length / numberOfSubBands);
-		const colors = ['#8b5cf6', '#06b6d4', '#f97316', '#22c55e'];
-
-		learningState.subBands = Array.from({ length: numberOfSubBands }, (_, i) => ({
-			id: `${learningState.zoomedBand}-${i + 1}`,
-			parentClusterId: learningState.zoomedBand!,
-			label: `Sub-band ${learningState.zoomedBand}.${i + 1}`,
-			solutionIndices: visibleIndices.slice(i * chunkSize, (i + 1) * chunkSize),
-			color: colors[i % colors.length]
-		}));
-	}
 	function handle_band_select(clusterId: number | null) {
 		if (!isBandVisible(clusterId)) {
 			return;
@@ -1134,6 +1123,120 @@ function getConsensusClasses(axisName: string): string {
 			errorMessage.set(`${error}`);
 		}
 	}
+
+	async function exploreLearningBand(
+	clusterId: number
+) {
+	if (
+		isExploringBand ||
+		!isDecisionMaker
+	) {
+		return;
+	}
+
+	isExploringBand = true;
+
+	try {
+		const parent =
+			personalExplorationStack.length > 0
+				? personalExplorationStack[
+						personalExplorationStack.length -
+							1
+					]
+				: null;
+
+		const response = await fetch(
+			'/interactive_methods/GDM-SCORE-bands/learning/explore',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type':
+						'application/json'
+				},
+				body: JSON.stringify({
+					group_session_id:
+						data.groupSession.id,
+
+					selected_cluster_id:
+						clusterId,
+
+					parent_state_id:
+						parent?.stateId ?? null
+				})
+			}
+		);
+
+		const payload =
+			await response.json();
+
+		if (
+			!response.ok ||
+			payload.success === false
+		) {
+			throw new Error(
+				payload.details ??
+					payload.error ??
+					'Failed to explore band.'
+			);
+		}
+
+		const exploration =
+			payload.data;
+
+		if (
+			typeof exploration?.state_id !==
+			'number'
+		) {
+			throw new Error(
+				'The personal SCORE Bands response did not contain a state ID.'
+			);
+		}
+
+		if (!exploration.result) {
+			throw new Error(
+				'The personal SCORE Bands response did not contain a result.'
+			);
+		}
+
+		personalExplorationStack = [
+			...personalExplorationStack,
+			{
+				stateId:
+					exploration.state_id,
+
+				parentClusterId:
+					clusterId,
+
+				result:
+					exploration.result as SCOREBandsResult
+			}
+		];
+
+		learningState.selectedBand =
+			null;
+
+		// Reset visibility for the newly returned clusters.
+		cluster_visibility_map = {};
+
+		console.log(
+			'Personal SCORE Bands exploration:',
+			exploration
+		);
+	} catch (error) {
+		console.error(
+			'Failed to explore learning band:',
+			error
+		);
+
+		errorMessage.set(
+			error instanceof Error
+				? error.message
+				: String(error)
+		);
+	} finally {
+		isExploringBand = false;
+	}
+}
 	/**
 	 * Submits user vote for selected band or solution
 	 */
@@ -1537,40 +1640,71 @@ function getConsensusClasses(axisName: string): string {
 		<main class="space-y-4">
 			<div class="rounded-lg border bg-card shadow-sm">
 				<div class="flex items-center justify-between border-b px-4 py-3">
-					<div>
-						{#if learningState.zoomedBand !== null}
-							<h2 class="text-sm font-semibold">
-								Band {learningState.zoomedBand} — zoomed view
-							</h2>
-							<p class="mt-1 text-xs text-muted-foreground">
-								Showing only this band. Sub-bands are listed on the right.
-							</p>
-						{:else}
-							<h2 class="text-sm font-semibold">Explore the solution space</h2>
-							<p class="mt-1 text-xs text-muted-foreground">
-								Your exploration is private and does not affect the group.
-							</p>
-						{/if}
-					</div>
-					{#if learningState.zoomedBand !== null}
-						<div class="flex gap-2">
-							<button
-								type="button"
-								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
-								onclick={undoSubBandChange}
-								disabled={learningState.subBandsHistory.length === 0}
-							>
-								Undo
-							</button>
-							<button
-								type="button"
-								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
-								onclick={exitBandZoom}
-							>
-								← Back to all bands
-							</button>
-						</div>
-					{/if}
+					<div
+	class="
+		flex items-center justify-between
+		border-b px-4 py-3
+	"
+>
+	<div>
+		{#if personalExplorationStack.length > 0}
+			{@const currentExploration =
+				personalExplorationStack[
+					personalExplorationStack.length -
+						1
+				]}
+
+			<h2 class="text-sm font-semibold">
+				Personal exploration
+			</h2>
+
+			<p
+				class="
+					mt-1 text-xs
+					text-muted-foreground
+				"
+			>
+				Exploring inside band
+				{currentExploration.parentClusterId}.
+				This view is private.
+			</p>
+		{:else}
+			<h2 class="text-sm font-semibold">
+				Explore the solution space
+			</h2>
+
+			<p
+				class="
+					mt-1 text-xs
+					text-muted-foreground
+				"
+			>
+				Your exploration is private and
+				does not affect the group.
+			</p>
+		{/if}
+	</div>
+
+	{#if personalExplorationStack.length > 0}
+		<div class="flex gap-2">
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={backOneExplorationLevel}
+			>
+				← Back
+			</Button>
+
+			<Button
+				variant="outline"
+				size="sm"
+				onclick={exitPersonalExploration}
+			>
+				All bands
+			</Button>
+		</div>
+	{/if}
+</div>
 				</div>
 
 				<div class="h-[520px] p-4">
@@ -1584,7 +1718,7 @@ function getConsensusClasses(axisName: string): string {
 						bands={SCOREBands.bands}
 						medians={SCOREBands.medians}
 						scales={SCOREBands.scales}
-						clusterVisibility={learningPlotVisibility}
+						clusterVisibility={cluster_visibility_map}
 						clusterColors={cluster_colors}
 						axisOptions={axis_options}
 						axisOrder={effective_axis_order}
@@ -1605,43 +1739,63 @@ function getConsensusClasses(axisName: string): string {
 		</main>
 
 		<ScoreBandsRightSidebar
-			phase="learning"
-			{isOwner}
-			{isDecisionMaker}
-			learning={{
-				totalVoters,
-				learningCompletedCount,
-				hasCompletedLearning,
-				allDecisionMakersFinishedLearning,
-				isMarkingLearningComplete,
-				isWarningUsers,
-				isAdvancingToConsensus,
-				ownerWarningMessage,
-				selectedLearningBand: learningState.selectedBand,
-				zoomedBand: learningState.zoomedBand,
-				savedBands: learningState.savedBands,
-				subBands: learningState.subBands,
-				subBandsHistoryLength:
-					learningState.subBandsHistory.length,
-				solutionsPerCluster:
-					SCOREBands.solutions_per_cluster,
-				onOwnerWarningMessageChange:
-					setOwnerWarningMessage,
-				onFinishExploring:
-					complete_learning_phase,
-				onSaveBand: toggleSavedBand,
-				onZoomIntoBand: zoomIntoBand,
-				onRemoveSavedBand: toggleSavedBand,
-				onRecreateSubBands: () =>
-					createPersonalSubBands(3),
-				onUndoSubBandChange:
-					undoSubBandChange,
-				onExitBandZoom: exitBandZoom,
-				onWarnUsers: warn_learning_time,
-				onAdvanceToConsensus:
-					advance_to_consensus
-			}}
-		/>
+	phase="learning"
+	{isOwner}
+	{isDecisionMaker}
+	learning={{
+		totalVoters,
+		learningCompletedCount,
+		hasCompletedLearning,
+		allDecisionMakersFinishedLearning,
+
+		isMarkingLearningComplete,
+		isWarningUsers,
+		isAdvancingToConsensus,
+
+		ownerWarningMessage,
+
+		selectedLearningBand:
+			learningState.selectedBand,
+
+		savedBands:
+			learningState.savedBands,
+
+		solutionsPerCluster:
+			SCOREBands.solutions_per_cluster,
+
+		isExploringBand,
+
+		explorationDepth:
+			personalExplorationStack.length,
+
+		onOwnerWarningMessageChange:
+			setOwnerWarningMessage,
+
+		onFinishExploring:
+			complete_learning_phase,
+
+		onSaveBand:
+			toggleSavedBand,
+
+		onRemoveSavedBand:
+			toggleSavedBand,
+
+		onExploreBand:
+			exploreLearningBand,
+
+		onBackOneLevel:
+			backOneExplorationLevel,
+
+		onExitExploration:
+			exitPersonalExploration,
+
+		onWarnUsers:
+			warn_learning_time,
+
+		onAdvanceToConsensus:
+			advance_to_consensus
+	}}
+/>
 	</div>
 		{:else if isConsensusPhase}
 	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">

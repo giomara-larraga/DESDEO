@@ -25,22 +25,28 @@
 		onOwnerWarningMessageChange: (value: string) => void;
 
 		selectedLearningBand: number | null;
-		zoomedBand: number | null;
 		savedBands: number[];
-		subBands: LearningSubBand[];
-		subBandsHistoryLength: number;
 
 		solutionsPerCluster: Record<string, number>;
 
 		onFinishExploring: () => void | Promise<void>;
 		onSaveBand: (clusterId: number) => void;
-		onZoomIntoBand: (clusterId: number) => void;
 		onRemoveSavedBand: (clusterId: number) => void;
-		onRecreateSubBands: () => void;
-		onUndoSubBandChange: () => void;
-		onExitBandZoom: () => void;
 		onWarnUsers: () => void | Promise<void>;
 		onAdvanceToConsensus: () => void | Promise<void>;
+
+		isExploringBand: boolean;
+		explorationDepth: number;
+
+		onExploreBand:
+			(clusterId: number) =>
+				void | Promise<void>;
+
+		onBackOneLevel:
+			() => void;
+
+		onExitExploration:
+			() => void;
 	};
 
 	type ConsensusSidebarContext = {
@@ -126,91 +132,117 @@
 					</Button>
 				{/if}
 
-				{#if learning.zoomedBand !== null}
-					<div class="rounded-md border border-violet-200 bg-violet-50 p-3 text-sm">
-						<div class="font-medium text-violet-900">
-							Inside Cluster {learning.zoomedBand}
-						</div>
-						<div class="text-muted-foreground">
-							{learning.subBands.reduce(
-								(total, band) => total + band.solutionIndices.length,
-								0
-							)} solutions split into {learning.subBands.length} sub-bands
-						</div>
-					</div>
+			    {#if learning.explorationDepth > 0}
+	<div
+		class="
+			rounded-md border border-violet-200
+			bg-violet-50 p-3 text-sm
+		"
+	>
+		<div
+			class="
+				font-medium text-violet-900
+			"
+		>
+			Private exploration
+		</div>
 
-					{#each learning.subBands as subBand}
-						<div class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-							<span
-								class="h-3 w-3 shrink-0 rounded-full"
-								style:background-color={subBand.color}
-							></span>
-							<span class="flex-1 font-medium">{subBand.label}</span>
-							<span class="text-muted-foreground">{subBand.solutionIndices.length}</span>
-						</div>
-					{/each}
+		<div class="text-muted-foreground">
+			Depth {learning.explorationDepth}
+		</div>
+	</div>
+{/if}
 
-					<Button
-						class="w-full"
-						variant="outline"
-						size="sm"
-						onclick={learning.onRecreateSubBands}
-					>
-						Recreate sub-bands
-					</Button>
+{#if learning.selectedLearningBand !== null}
+	<div
+		class="
+			rounded-md border p-3 text-sm
+		"
+	>
+		<div class="font-medium">
+			Band
+			{learning.selectedLearningBand}
+		</div>
 
-					<div class="flex gap-2">
-						<Button
-							class="flex-1"
-							variant="outline"
-							size="sm"
-							onclick={learning.onUndoSubBandChange}
-							disabled={learning.subBandsHistoryLength === 0}
-						>
-							Undo
-						</Button>
+		<div class="text-muted-foreground">
+			{learning.solutionsPerCluster[
+				String(
+					learning.selectedLearningBand
+				)
+			] ?? 0}
+			solutions
+		</div>
+	</div>
 
-						<Button
-							class="flex-1"
-							variant="outline"
-							size="sm"
-							onclick={learning.onExitBandZoom}
-						>
-							All bands
-						</Button>
-					</div>
-				{:else if learning.selectedLearningBand !== null}
-					<div class="rounded-md border p-3 text-sm">
-						<div class="font-medium">Cluster {learning.selectedLearningBand}</div>
-						<div class="text-muted-foreground">
-							{learning.solutionsPerCluster[String(learning.selectedLearningBand)] ?? 0}
-							solutions
-						</div>
-					</div>
+	{#if isDecisionMaker}
+		<Button
+			class="w-full"
+			onclick={() =>
+				learning.onSaveBand(
+					learning
+						.selectedLearningBand!
+				)}
+		>
+			{learning.savedBands.includes(
+				learning.selectedLearningBand
+			)
+				? 'Remove saved band'
+				: 'Save band'}
+		</Button>
 
-					{#if isDecisionMaker}
-						<Button
-							class="w-full"
-							onclick={() => learning.onSaveBand(learning.selectedLearningBand!)}
-						>
-							{learning.savedBands.includes(learning.selectedLearningBand)
-								? 'Remove saved band'
-								: 'Save band'}
-						</Button>
-					{/if}
+		<Button
+			class="w-full"
+			variant="outline"
+			onclick={() =>
+				learning.onExploreBand(
+					learning
+						.selectedLearningBand!
+				)}
+			disabled={
+				learning.isExploringBand
+			}
+		>
+			{learning.isExploringBand
+				? 'Generating bands...'
+				: 'Explore inside band'}
+		</Button>
+	{/if}
+{:else}
+	<p
+		class="
+			text-sm text-muted-foreground
+		"
+	>
+		Select a band to inspect or
+		explore it.
+	</p>
+{/if}
 
-					<Button
-						class="w-full"
-						variant="outline"
-						onclick={() => learning.onZoomIntoBand(learning.selectedLearningBand!)}
-					>
-						Explore inside band
-					</Button>
-				{:else}
-					<p class="text-sm text-muted-foreground">
-						Select a band to inspect or explore it.
-					</p>
-				{/if}
+{#if learning.explorationDepth > 0}
+	<div class="flex gap-2">
+		<Button
+			class="flex-1"
+			variant="outline"
+			size="sm"
+			onclick={
+				learning.onBackOneLevel
+			}
+		>
+			← Back
+		</Button>
+
+		<Button
+			class="flex-1"
+			variant="outline"
+			size="sm"
+			onclick={
+				learning.onExitExploration
+			}
+		>
+			All bands
+		</Button>
+	</div>
+{/if}
 			</div>
 		</section>
 

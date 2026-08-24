@@ -1414,6 +1414,13 @@ export interface GDMSCOREBandsLearningAdvanceRequest {
 	group_session_id: number;
 }
 
+export interface GDMSCOREBandsLearningExploreRequest {
+	group_session_id: number;
+	selected_cluster_id: number;
+	parent_state_id?: number | null;
+	scorebands_options?: SCOREBandsConfig | null;
+}
+
 export type GDMSCOREBandsLearningStatusResponsePhase =
 	(typeof GDMSCOREBandsLearningStatusResponsePhase)[keyof typeof GDMSCOREBandsLearningStatusResponsePhase];
 
@@ -7954,6 +7961,60 @@ export const restartScoreBandsGdmScoreBandsRestartPost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(gDMSCOREBandsRestartRequest)
+		}
+	);
+};
+
+/**
+ * Privately explore a SCORE band during the learning phase.
+
+The first call drills into a cluster of the shared GDM learning result.
+
+Later calls may provide ``parent_state_id`` to drill further into a
+previously generated personal SCORE Bands state.
+
+Personal exploration is persisted in the decision maker's
+InteractiveSessionDB and does not create or modify GroupIteration rows.
+ * @summary Explore Learning Band
+ */
+export type exploreLearningBandGdmScoreBandsLearningExplorePostResponse200 = {
+	data: SCOREBandsMethodInitializeResponse;
+	status: 200;
+};
+
+export type exploreLearningBandGdmScoreBandsLearningExplorePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type exploreLearningBandGdmScoreBandsLearningExplorePostResponseSuccess =
+	exploreLearningBandGdmScoreBandsLearningExplorePostResponse200 & {
+		headers: Headers;
+	};
+export type exploreLearningBandGdmScoreBandsLearningExplorePostResponseError =
+	exploreLearningBandGdmScoreBandsLearningExplorePostResponse422 & {
+		headers: Headers;
+	};
+
+export type exploreLearningBandGdmScoreBandsLearningExplorePostResponse =
+	| exploreLearningBandGdmScoreBandsLearningExplorePostResponseSuccess
+	| exploreLearningBandGdmScoreBandsLearningExplorePostResponseError;
+
+export const getExploreLearningBandGdmScoreBandsLearningExplorePostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/explore`;
+};
+
+export const exploreLearningBandGdmScoreBandsLearningExplorePost = async (
+	gDMSCOREBandsLearningExploreRequest: GDMSCOREBandsLearningExploreRequest,
+	options?: RequestInit
+): Promise<exploreLearningBandGdmScoreBandsLearningExplorePostResponse> => {
+	return customFetch<exploreLearningBandGdmScoreBandsLearningExplorePostResponse>(
+		getExploreLearningBandGdmScoreBandsLearningExplorePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsLearningExploreRequest)
 		}
 	);
 };
