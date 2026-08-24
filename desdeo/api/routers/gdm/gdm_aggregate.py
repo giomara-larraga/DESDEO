@@ -30,6 +30,7 @@ from desdeo.api.models import (
     Group,
     User,
 )
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 from desdeo.api.routers.gdm.gdm_base import GroupManager
 from desdeo.api.routers.gdm.gdm_score_bands.gdm_score_bands_manager import GDMScoreBandsManager
 from desdeo.api.routers.gdm.gnimbus.gnimbus_manager import GNIMBUSManager
@@ -57,12 +58,14 @@ class ManagerManager:
         self.lock = asyncio.Lock()
 
     async def get_group_manager(
-        self, group_id: int, method: str, db_session: Session
+        self, group_session_id: int, method: str, db_session: Session
     ) -> GroupManager | GNIMBUSManager | GDMScoreBandsManager | None:
         """Return the correct group manager for the caller.
 
         Args:
-            group_id (int): The ID of the group of the mgr
+            group_session_id (int): The ID of the group session
+            method (str): The method of the group mgr
+            db_session (Session): the database session passed to the manager.
             method (str): The method of the group mgr
             db_session (Session): the database session passed to the manager.
 
@@ -70,60 +73,77 @@ class ManagerManager:
             GroupManager | GNIMBUSManager | GDMScoreBandsManager | None: The manager (or not if not implemented.)
         """
         async with self.lock:
-            if group_id in self.group_managers:
-                managers = self.group_managers[group_id]
-                if method in managers:
-                    return managers[method]
-                # If there is no manager, create it.
-                match method:
-                    case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-                    case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-            else:
-                self.group_managers[group_id] = {}
-                match method:
-                    case "gnimbus":
-                        manager = GNIMBUSManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
-                    case "gdm-score-bands":
-                        manager = GDMScoreBandsManager(group_id=group_id, db_session=db_session)
-                        self.group_managers[group_id][method] = manager
-                        return manager
+            method_managers = self.group_managers.setdefault(
+                group_session_id,
+                {},
+            )
 
-    async def check_disconnect(self, group_id: int, method: str):
+            existing_manager = method_managers.get(method)
+
+            if existing_manager is not None:
+                return existing_manager
+        
+            # If there is no manager, create it.
+            match method:
+                case "gnimbus":
+                    group_manager = GNIMBUSManager(
+                        group_session_id=group_session_id,
+                        db_session=db_session,
+                    )
+
+                case "gdm-score-bands":
+                    group_manager = GDMScoreBandsManager(
+                        group_session_id=group_session_id,
+                        db_session=db_session,
+                    )
+
+                case _:
+                    return None
+
+            method_managers[method] = group_manager
+
+            return group_manager
+
+
+    async def check_disconnect(self, group_session_id: int, method: str):
         """Checks if a group manager has active connections. If no, delete it.
 
         Args:
-            group_id (int): ID of the group
+            group_session_id (int): ID of the group session
             method (str): method of the manager
 
         Returns:
             Nothing.
         """
         async with self.lock:
-            # check if group has any managers
-            if group_id in self.group_managers:
-                managers = self.group_managers[group_id]
-                # Check if method has a manager
-                if method in managers:
-                    manager = managers[method]
-                    # check if the manager has any active websockets
-                    for _, socket in manager.sockets.items():
-                        if socket is not None:
-                            return
-                    # No active sockets, delete the manager.
-                    async with manager.lock:
-                        del self.group_managers[group_id][method]
-                        # If group has no managers, delete the group entry.
-                        if self.group_managers[group_id] == {}:
-                            del self.group_managers[group_id]
+            method_managers = self.group_managers.get(
+                group_session_id
+            )
 
+            if method_managers is None:
+                return
+
+            group_manager = method_managers.get(method)
+
+            if group_manager is None:
+                return
+
+            has_active_connection = any(
+                socket is not None
+                for socket in group_manager.sockets.values()
+            )
+
+            if has_active_connection:
+                return
+
+            async with group_manager.lock:
+                method_managers.pop(method, None)
+
+                if not method_managers:
+                    self.group_managers.pop(
+                        group_session_id,
+                        None,
+                    )
 
 manager = ManagerManager()
 
@@ -168,66 +188,143 @@ async def websocket_endpoint(
     session: Annotated[Session, Depends(get_session)],
     websocket: WebSocket,
     token: str = Query(),
-    group_id: int = Query(),
+    group_session_id: int = Query(),
     method: str = Query(),
 ):
-    """The websocket endpoint to which the user connects.
+    """Connect a user to a group decision-making session WebSocket.
 
-    Both the access token and the group id is given as a query parameter to the endpoint.
-    The call to this endpoint looks like the following:
+    Example:
 
-    ws://[DOMAIN]:[PORT]/gdm/ws?token=[TOKEN]&group_id=[GROUP_ID]&method=[METHOD]
-
-    See further details in the documentation. (Explanations -> GDM and websockets)
+    ws://[DOMAIN]:[PORT]/gdm/ws
+        ?token=[TOKEN]
+        &group_session_id=[GROUP_SESSION_ID]
+        &method=[METHOD]
     """
-    # Accept the websocket (to send back stuff if something goes wrong)
     await websocket.accept()
 
     user = await auth_user(token, session, websocket)
     if user is None:
         return
 
-    group = session.exec(select(Group).where(Group.id == group_id)).first()
+    group_session = session.exec(
+        select(GroupSessionDB).where(
+            GroupSessionDB.id == group_session_id
+        )
+    ).first()
+
+    if group_session is None:
+        await websocket.send_text(
+            f"There is no group session with ID {group_session_id}."
+        )
+        await websocket.close()
+        return
+
+    if group_session.method != method:
+        await websocket.send_text(
+            f"Group session {group_session_id} uses method "
+            f"'{group_session.method}', not '{method}'."
+        )
+        await websocket.close()
+        return
+
+    group = session.exec(
+        select(Group).where(
+            Group.id == group_session.group_id
+        )
+    ).first()
+
     if group is None:
-        await websocket.send_text(f"There is no group with ID {group_id}.")
+        await websocket.send_text(
+            f"There is no group with ID {group_session.group_id}."
+        )
         await websocket.close()
         return
 
-    if not (user.id in group.user_ids or user.id is group.owner_id):
-        await websocket.send_text(f"User {user.username} doesn't belong in group {group.name}")
+    participant_ids = {member.id for member in group.users}
+
+    if group.owner_id is not None:
+        participant_ids.add(group.owner_id)
+
+    if user.id not in participant_ids:
+        await websocket.send_text(
+            f"User {user.username} does not belong to group {group.name}."
+        )
         await websocket.close()
         return
 
-    # Get the group manager object from the manager of group managers
-    group_manager = await manager.get_group_manager(group_id=group_id, method=method, db_session=session)
+    group_manager = await manager.get_group_manager(
+        group_session_id=group_session_id,
+        method=method,
+        db_session=session,
+    )
+
     if group_manager is None:
-        session.close()
         await websocket.send_text(f"Unknown method: {method}")
         await websocket.close()
         return
 
-    await group_manager.connect(user.id, websocket, db_session=session)
-    # Session is only needed for manager initialization/connection bookkeeping.
-    session.close()
-    logger.info(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
-    logger.info(f"Existing GroupManagers: {manager.group_managers}")
-    while True:
-        try:
-            # Get data from socket
+    await group_manager.connect(
+        user.id,
+        websocket,
+        db_session=session,
+    )
+
+    logger.info(
+        "Group session ID %s manager active connections: %s",
+        group_session_id,
+        group_manager.sockets,
+    )
+    logger.info(
+        "Existing GroupManagers: %s",
+        manager.group_managers,
+    )
+
+    try:
+        while True:
             data = await websocket.receive_text()
-            # send data for preference setting
-            if user.id in group.user_ids:
-                await group_manager.run_method(user.id, data)
+
+            # Only decision makers submit preferences.
+            # The owner may still connect and observe.
+            decision_maker_ids = {
+                member.id for member in group.users
+            }
+
+            if user.id in decision_maker_ids:
+                await group_manager.run_method(
+                    user.id,
+                    data,
+                    session,
+                )
             else:
                 logger.warning(
-                    f"User {user.username} is not part of group {group.name}! They're likely the group owner."
+                    "User %s is connected as group owner/observer "
+                    "and cannot submit GNIMBUS preferences.",
+                    user.username,
                 )
-        except WebSocketDisconnect:
-            await group_manager.disconnect(user.id, websocket)
-            await manager.check_disconnect(group_id=group_id, method=method)
-            logger.info(f"Group ID {group_id} manager's active connections {group_manager.sockets}")
-            logger.info(f"Existing GroupManagers: {manager.group_managers}")
-            break
-        except RuntimeError as e:
-            logger.warning(f"RuntimeError: {e}")
-            break
+
+    except WebSocketDisconnect:
+        await group_manager.disconnect(
+            user.id,
+            websocket,
+        )
+
+        await manager.check_disconnect(
+            group_session_id=group_session_id,
+            method=method,
+        )
+
+        logger.info(
+            "Group session ID %s manager active connections: %s",
+            group_session_id,
+            group_manager.sockets,
+        )
+        logger.info(
+            "Existing GroupManagers: %s",
+            manager.group_managers,
+        )
+
+    except RuntimeError as error:
+        logger.warning("WebSocket RuntimeError: %s", error)
+
+    finally:
+        session.close()

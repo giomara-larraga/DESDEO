@@ -125,10 +125,10 @@ __all__ = [  # noqa: RUF022
     "Group",
     "GroupModifyRequest",
     "GroupCreateRequest",
-    "GroupRevertRequest",
+    "GroupSessionRevertRequest",
     "GroupIteration",
     "GroupPublic",
-    "GroupInfoRequest",
+    "GroupSessionInfoRequest",
     "BaseGroupInfoContainer",
     "ReferencePointDictType",
     "BooleanDictTypeDecorator",
@@ -167,16 +167,30 @@ __all__ = [  # noqa: RUF022
     "GNIMBUSSwitchPhaseRequest",
     "GNIMBUSSwitchPhaseResponse",
     "GDMScoreBandsInitializationRequest",
-    "GDMSCOREBandInformation",
+    "GDMSCOREBandsLearningPreference",
+    "GDMSCOREBandsConsensusPreference",
+    "GDMSCOREBandsDecisionPreference",
+    "GDMSCOREBandsLearningAdvanceRequest",
+    "GDMSCOREBandsLearningStatusResponse",
+    "GDMSCOREBandsLearningWarningRequest",
     "GDMSCOREBandsResponse",
     "GDMScoreBandsVoteRequest",
-    "GDMSCOREBandFinalSelection",
+    "GDMSCOREBandsFinalSelection",
     "GDMSCOREBandsDecisionResponse",
     "GDMSCOREBandsRevertRequest",
     "GDMSCOREBandsHistoryResponse",
     "SCOREBandsMethodState",
     "SCOREBandsMethodInitializeRequest",
     "SCOREBandsMethodInitializeResponse",
+    "GroupSessionDB",
+    "CreateGroupSessionRequest",
+    "GroupSessionPublic",
+    "GroupUserPublic",
+    "GroupInfoRequest",
+    "GDMSCOREBandsLearningState",
+    "GDMSCOREBandsConsensusState",
+    "GDMSCOREBandsDecisionState",
+    "GDMSCOREBandsRestartRequest"
 ]
 
 
@@ -229,11 +243,16 @@ from .enautilus import (
 from .gdm.gdm_aggregate import (
     Group,
     GroupCreateRequest,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupIteration,
     GroupModifyRequest,
     GroupPublic,
-    GroupRevertRequest,
+    GroupSessionRevertRequest,
+    GroupSessionDB,
+    CreateGroupSessionRequest,
+    GroupSessionPublic,
+    GroupUserPublic,
+    GroupInfoRequest
 )
 from .gdm.gdm_base import (
     BaseGroupInfoContainer,
@@ -241,14 +260,20 @@ from .gdm.gdm_base import (
     ReferencePointDictType,
 )
 from .gdm.gdm_score_bands import (
-    GDMSCOREBandFinalSelection,
-    GDMSCOREBandInformation,
+    GDMSCOREBandsFinalSelection,
+    GDMSCOREBandsLearningPreference,
+    GDMSCOREBandsConsensusPreference,
+    GDMSCOREBandsDecisionPreference,
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
+    GDMSCOREBandsLearningAdvanceRequest,
+    GDMSCOREBandsLearningStatusResponse,
+    GDMSCOREBandsLearningWarningRequest,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMSCOREBandsRevertRequest,
     GDMScoreBandsVoteRequest,
+    GDMSCOREBandsRestartRequest,
 )
 from .gdm.gnimbus import (
     EndProcessPreference,
@@ -275,6 +300,8 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
+
+
 )
 from .nautilus_navigator import (
     NautilusNavigatorInitializationState,
@@ -366,6 +393,9 @@ from .state import (
     NIMBUSSaveState,
     RPMState,
     SCOREBandsMethodState,
+    GDMSCOREBandsLearningState,
+    GDMSCOREBandsConsensusState,
+    GDMSCOREBandsDecisionState,
 )
 from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse

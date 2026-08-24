@@ -12,10 +12,15 @@ import type {
 	ProblemInfo,
 	GNIMBUSAllIterationsResponse,
 	GroupPublic,
+	GroupSessionPublic,
 	FullIteration
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 export type { ProblemInfo };
+
+export type GroupSession = GroupSessionPublic;
+
+
 export type Solution = {
 	/**
 	 * Name

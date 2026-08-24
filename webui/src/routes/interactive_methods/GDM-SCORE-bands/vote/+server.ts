@@ -18,13 +18,26 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 
 	try {
-		const { group_id, vote } = await request.json();
+		const { group_session_id, vote } = await request.json();
+
+		if (
+			typeof group_session_id !== 'number' ||
+			typeof vote !== 'number'
+		) {
+			return json(
+				{
+					error: 'Invalid request',
+					details: 'group_session_id and vote must be numbers'
+				},
+				{ status: 400 }
+			);
+		}
 
 		const options: RequestInit = {
 			headers: { Authorization: `Bearer ${refreshToken}` }
 		};
 
-		const response = await voteForABandGdmScoreBandsVotePost({ group_id, vote }, options);
+		const response = await voteForABandGdmScoreBandsVotePost({ group_session_id, vote }, options);
 
 		if (response.status !== 200) {
 			console.error('Vote error:', { status: response.status, data: response.data });

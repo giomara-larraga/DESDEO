@@ -65,12 +65,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
 	import ParallelCoordinates from '$lib/components/visualizations/parallel-coordinates/parallel-coordinates.svelte';
-	import ScoreBandsSolutionTable from './score-bands-solution-table.svelte';
+	import ScoreBandsSolutionTable from './components/score-bands-solution-table.svelte';
 	import ClusterBandTable from '$lib/components/custom/score-bands-table/solution-table.svelte';
-	import HistoryBrowser from './history-browser.svelte';
-	import ConfigPanel from './config-panel.svelte';
+	import HistoryBrowser from './components/history-browser.svelte';
+	import ConfigPanel from './components/config-panel.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { GroupPublic, ProblemInfo, GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse, SCOREBandsResult, SCOREBandsConfig, GDMSCOREBandsFinalSelection, SCOREBandsGDMConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { auth } from '../../../stores/auth';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -81,12 +81,19 @@
 
 	import {
 		drawVotesChart,
+		callGSCOREBandsAPI,
 		calculateAxisAgreement,
 		generate_axis_options,
 		generate_cluster_colors,
 		calculateScales
 	} from './helper-functions';
-	import { json } from 'd3';
+	import ScoreBandsLeftSidebar from './components/score-bands-left-sidebar.svelte';
+	import ScoreBandsRightSidebar from './components/score-bands-right-sidebar.svelte';
+
+	type GdmPhase = 'learning' | 'consensus' | 'decision';
+	type ScoreBandsHistoryItem =
+		| (GDMSCOREBandsResponse & { phase?: 'learning' | 'consensus' })
+		| (GDMSCOREBandsDecisionResponse & { phase?: 'decision' });
 
 	type LearningNote = {
 		id: string;
@@ -110,8 +117,25 @@
 		comparedBands: [] as number[],
 		notes: [] as LearningNote[],
 		zoomedBand: null as number | null,
-		subBands: [] as LearningSubBand[]
+		subBands: [] as LearningSubBand[],
+		subBandsHistory: [] as LearningSubBand[][] // stack for undo
 	});
+	let learningProgress = $state({
+		completedUserIds: [] as number[],
+		startedAt: null as string | null,
+		durationSeconds: 900,
+		lastWarningAt: null as string | null,
+		lastWarningMessage: null as string | null
+	});
+	let learningNotice = $state<string | null>(null);
+	let ownerWarningMessage = $state('');
+	let isMarkingLearningComplete = $state(false);
+	let isWarningUsers = $state(false);
+	let isAdvancingToConsensus = $state(false);
+	let learningNowMs = $state(Date.now());
+	let learningClockTimer: ReturnType<typeof setInterval> | null = null;
+
+	let minimumVotes: number | undefined = $state(1);
 
 	const { data } = $props<{
 		data: {
@@ -129,7 +153,9 @@
 	// Initialize user roles
 	$effect(() => {
 		isOwner = userId === data.group.owner_id;
-		isDecisionMaker = data.group.user_ids.includes(userId);
+		isDecisionMaker = (data.group.users ?? []).some(
+				(member:any) => member.id === userId
+			);
 	});
 
 	// WebSocket service for real-time updates
@@ -143,16 +169,41 @@
 	let vote_confirmed = $state(false);
 	let votes_and_confirms = $state({
 		confirms: [] as number[],
-		votes: {} as Record<number, number>
+		votes: {} as Record<string, number>,
+		phase: 'learning' as GdmPhase,
+
+		completed_user_ids: [] as number[],
+		started_at: null as string | null,
+		duration_seconds: 900 as number | null,
+		last_warning_at: null as string | null,
+		last_warning_message: null as string | null,
+
+		learning_completed_user_ids: [] as number[],
+		learning_started_at: null as string | null,
+		learning_duration_seconds: 900 as number | null,
+		learning_last_warning_at: null as string | null,
+		learning_last_warning_message: null as string | null
 	});
 	// If user has voted, usersVote is the id they voted for. If not, null.
 	let usersVote: number | null = $derived.by(() => {
-		if (userId && votes_and_confirms.votes.hasOwnProperty(userId)) {
-			return votes_and_confirms.votes[userId];
+		if (userId == null) {
+			return null;
 		}
+
+		const userKey = String(userId);
+
+		if (
+			Object.prototype.hasOwnProperty.call(
+				votes_and_confirms.votes,
+				userKey
+			)
+		) {
+			return votes_and_confirms.votes[userKey];
+		}
+
 		return null;
 	});
-	const totalVoters = $derived(data.group.user_ids.length);
+	const totalVoters = $derived((data.group.users ?? []).length);
 	let have_all_voted = $derived.by(() => {
 		return totalVoters === Object.keys(votes_and_confirms.votes || {}).length;
 	});
@@ -176,7 +227,14 @@
 		return counts;
 	});
 
-	function getClusterVoteCount(clusterId: number): number {
+function setOwnerWarningMessage(value: string) {
+	ownerWarningMessage = value;
+}
+
+function voteForSelectedBand() {
+	return vote(selected_band);
+}
+function getClusterVoteCount(clusterId: number): number {
 	return votes_per_cluster[clusterId] ?? 0;
 }
 
@@ -225,24 +283,62 @@ function getConsensusClasses(axisName: string): string {
 	});
 
 	// Iteration info: history, current iteration, phase, etc.
-	let history: (
-		| GDMSCOREBandsResponse
-		| GDMSCOREBandsDecisionResponse
-	)[] = $state([]);
-	//let phase = $state('Consensus Reaching Phase'); // 'Consensus reaching phase' or 'Decision phase'
+	let history: ScoreBandsHistoryItem[] = $state([]);
+	let currentPhase = $state<GdmPhase>('learning');
 	let phase = $state('Learning Phase');
 
 	let isLearningPhase = $derived(phase === 'Learning Phase');
 	let isDecisionPhase = $derived(phase === 'Decision Phase');
 	let isConsensusPhase = $derived(phase === 'Consensus Reaching Phase');
+	let learningCompletedCount = $derived(learningProgress.completedUserIds.length);
+	let hasCompletedLearning = $derived.by(() => {
+		if (userId === undefined || userId === null) {
+			return false;
+		}
+
+		return learningProgress.completedUserIds
+			.map(String)
+			.includes(String(userId));
+	});
+	let allDecisionMakersFinishedLearning = $derived(learningCompletedCount === totalVoters);
+	let learningDeadlineMs = $derived.by(() => {
+		if (!learningProgress.startedAt) {
+			return null;
+		}
+
+		const startedAtMs = new Date(learningProgress.startedAt).getTime();
+		if (Number.isNaN(startedAtMs)) {
+			return null;
+		}
+
+		return startedAtMs + learningProgress.durationSeconds * 1000;
+	});
+	let learningSecondsRemaining = $derived.by(() => {
+		if (!learningDeadlineMs) {
+			return null;
+		}
+
+		return Math.max(0, Math.ceil((learningDeadlineMs - learningNowMs) / 1000));
+	});
+	let learningTimeLabel = $derived.by(() => {
+		if (learningSecondsRemaining === null) {
+			return 'Not started';
+		}
+
+		return formatDuration(learningSecondsRemaining);
+	});
 
 	
-	let iteration_id = $state(0); // for header and fetch_score_bands
+	//let iteration_id = $state(0); // for header and fetch_score_bands
+
+	let groupIterationId = $state<number | null>(null); //Group iteration id from backend, used for history browser and fetch_score_bands
+	let latestIteration = $state<number | null>(null);	//SCOREBandsGDMResult.iteration 
+
 	// current iteration data for consensus reaching phase, when bands exist
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
 
 	// Configuration and latestIteration are used in initialization and configPanel
-	let latestIteration: number | null = $state(null);
+	//let latestIteration: number | null = $state(null);
 	let scoreBandsConfig: SCOREBandsConfig = $state({
 		clustering_algorithm: {
 			name: 'KMeans',
@@ -256,7 +352,7 @@ function getConsensusClasses(axisName: string): string {
 		interval_size: 0.25
 	});
 	// Current iteration data for decision phase, when solutions exist and not bands
-	let decisionResult: GDMSCOREBandFinalSelection | null = $state(null);
+	let decisionResult: GDMSCOREBandsFinalSelection | null = $state(null);
 
 	// Derived state to determine which phase we're in, for conditional component rendering
 	//let isDecisionPhase = $derived(phase === 'Decision Phase');
@@ -354,6 +450,25 @@ function getConsensusClasses(axisName: string): string {
 	let show_solutions = $state(false); // Disabled and hidden for now - no individual solutions
 	let show_medians = $state(false); // Hide medians by default
 
+	function setClusterVisibility(
+		clusterId: number,
+		visible: boolean
+	) {
+		cluster_visibility_map[clusterId] = visible;
+	}
+
+	function setShowBands(value: boolean) {
+		if (value || canToggleBands()) {
+			show_bands = value;
+		}
+	}
+
+	function setShowMedians(value: boolean) {
+		if (value || canToggleMedians()) {
+			show_medians = value;
+		}
+	}
+
 	// Helper functions to prevent deselecting all visualization options
 	function canToggleBands() {
 		// Can toggle bands off only if medians would remain on
@@ -425,6 +540,17 @@ function getConsensusClasses(axisName: string): string {
 		SCOREBands.clusterIds.length > 0 ? generate_cluster_colors(SCOREBands.clusterIds) : {}
 	);
 
+	// When a band is zoomed in the learning phase, show only that band in the plot.
+	// Outside zoom mode the user's own visibility toggle map is used.
+	let learningPlotVisibility = $derived.by((): Record<number, boolean> => {
+		if (learningState.zoomedBand === null) return cluster_visibility_map;
+		const m: Record<number, boolean> = {};
+		SCOREBands.clusterIds.forEach((id) => {
+			m[id] = id === learningState.zoomedBand;
+		});
+		return m;
+	});
+
 	let clusterBandRows = $derived.by(() => {
 		if (
 			!(isLearningPhase || isConsensusPhase) ||
@@ -463,7 +589,7 @@ function getConsensusClasses(axisName: string): string {
 
 			return {
 				id: Number(clusterId),
-				label: `Cluster ${clusterId} band`,
+				label: `Band ${clusterId}`,
 				color: cluster_colors[Number(clusterId)] || '#64748b',
 				numSolutions: SCOREBands.solutions_per_cluster[clusterId] ?? 0,
 				objectiveRanges
@@ -512,15 +638,32 @@ function getConsensusClasses(axisName: string): string {
 	function zoomIntoBand(clusterId: number) {
 		learningState.zoomedBand = clusterId;
 		learningState.selectedBand = clusterId;
+		// Automatically create sub-bands on zoom and record as first history entry
+		learningState.subBands = [];
+		learningState.subBandsHistory = [];
+		createPersonalSubBands(3);
 	}
 
 	function exitBandZoom() {
 		learningState.zoomedBand = null;
 		learningState.subBands = [];
+		learningState.subBandsHistory = [];
+	}
+
+	function undoSubBandChange() {
+		if (learningState.subBandsHistory.length === 0) return;
+		const prev = learningState.subBandsHistory[learningState.subBandsHistory.length - 1];
+		learningState.subBands = prev;
+		learningState.subBandsHistory = learningState.subBandsHistory.slice(0, -1);
 	}
 
 	function createPersonalSubBands(numberOfSubBands = 3) {
 		if (learningState.zoomedBand === null || !scoreBandsResult) return;
+
+		// Push current sub-bands to history before overwriting
+		if (learningState.subBands.length > 0) {
+			learningState.subBandsHistory = [...learningState.subBandsHistory, [...learningState.subBands]];
+		}
 
 		const visibleIndices = scoreBandsResult.clusters
 			.map((clusterId, index) => ({ clusterId, index }))
@@ -626,11 +769,112 @@ function getConsensusClasses(axisName: string): string {
 	let isConsensusVoteSyncing = $state(false);
 	let isConsensusIterationSyncing = $state(false);
 
+	function setPhase(nextPhase: GdmPhase) {
+		currentPhase = nextPhase;
+		phase =
+			nextPhase === 'learning'
+				? 'Learning Phase'
+				: nextPhase === 'consensus'
+					? 'Consensus Reaching Phase'
+					: 'Decision Phase';
+	}
+
+	function syncLearningMetadata(source: {
+		phase?: GdmPhase;
+
+		completed_user_ids?: Array<number | string>;
+		started_at?: string | null;
+		duration_seconds?: number | null;
+		last_warning_at?: string | null;
+		last_warning_message?: string | null;
+
+		learning_completed_user_ids?: Array<number | string>;
+		learning_started_at?: string | null;
+		learning_duration_seconds?: number | null;
+		learning_last_warning_at?: string | null;
+		learning_last_warning_message?: string | null;
+	}) {
+		if (source.phase) {
+			setPhase(source.phase);
+		}
+
+		const completedIds =
+			source.learning_completed_user_ids?.length
+				? source.learning_completed_user_ids
+				: source.completed_user_ids ?? [];
+
+		learningProgress.completedUserIds = completedIds
+			.map(Number)
+			.filter(Number.isFinite);
+
+		console.log('Learning completion state:', {
+			currentUserId: userId,
+			completedUserIds: learningProgress.completedUserIds,
+			hasCurrentUserCompleted: learningProgress.completedUserIds
+				.map(String)
+				.includes(String(userId))
+		});
+
+		learningProgress.startedAt =
+			source.learning_started_at ??
+			source.started_at ??
+			null;
+
+		learningProgress.durationSeconds =
+			source.learning_duration_seconds ??
+			source.duration_seconds ??
+			900;
+
+		learningProgress.lastWarningAt =
+			source.learning_last_warning_at ??
+			source.last_warning_at ??
+			null;
+
+		learningProgress.lastWarningMessage =
+			source.learning_last_warning_message ??
+			source.last_warning_message ??
+			null;
+
+		if (learningProgress.lastWarningMessage) {
+			learningNotice =
+				learningProgress.lastWarningMessage;
+		}
+	}
+	function formatDuration(totalSeconds: number): string {
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+
 	// Update votes chart when votes change
 	$effect(() => {
 		if (votesChartContainer) {
 			drawVotesChart(votesChartContainer, votes_per_cluster, totalVoters, cluster_colors);
 		}
+	});
+
+	$effect(() => {
+		if (!isLearningPhase) {
+			if (learningClockTimer) {
+				clearInterval(learningClockTimer);
+				learningClockTimer = null;
+			}
+			return;
+		}
+
+		if (!learningClockTimer) {
+			learningNowMs = Date.now();
+			learningClockTimer = setInterval(() => {
+				learningNowMs = Date.now();
+			}, 1000);
+		}
+
+		return () => {
+			if (learningClockTimer) {
+				clearInterval(learningClockTimer);
+				learningClockTimer = null;
+			}
+		};
 	});
 
 	$effect(() => {
@@ -709,7 +953,11 @@ function getConsensusClasses(axisName: string): string {
 		// Initialize WebSocket connection
 		if (data.group) {
 			console.log('Initializing WebSocket for group:', data.group.id);
-			wsService = new WebSocketService(data.group.id, 'gdm-score-bands', data.refreshToken, () => {
+			wsService = wsService = new WebSocketService(
+			data.groupSession.id,
+			'gdm-score-bands',
+			data.refreshToken,
+			() => {
 				// This runs when connection is re-established after disconnection
 				console.log('WebSocket reconnected, refreshing gdm-score-bands state...');
 				// TODO: Would be nice to have a pop up message to user: 'Reconnected to server'. At least exists in GNIMBUS.
@@ -728,6 +976,10 @@ function getConsensusClasses(axisName: string): string {
 
 				// Handle update messages (messages don't show to user, just trigger state updates)
 				if (msg.includes('UPDATE: A vote has been cast.')) {
+					fetch_votes_and_confirms();
+					return;
+				} else if (msg.includes('NOTICE:')) {
+					learningNotice = msg.replace(/NOTICE:\s*/gi, '');
 					fetch_votes_and_confirms();
 					return;
 				} else if (msg.includes('UPDATE')) {
@@ -766,6 +1018,11 @@ function getConsensusClasses(axisName: string): string {
 		}
 		isConsensusIterationSyncing = false;
 
+		if (learningClockTimer) {
+			clearInterval(learningClockTimer);
+			learningClockTimer = null;
+		}
+
 		if (wsService) {
 			console.log('Closing WebSocket connection');
 			wsService.close();
@@ -778,76 +1035,98 @@ function getConsensusClasses(axisName: string): string {
 	 */
 	async function fetch_score_bands() {
 		try {
-			const previousIterationId = iteration_id;
+			const previousIterationId = groupIterationId;
 			const previousPhase = phase;
 
-			const scoreResponse = await fetch('/interactive_methods/GDM-SCORE-bands/fetch_score_bands', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_id: data.group.id,
+			const scoreResult = await callGSCOREBandsAPI<{ history: ScoreBandsHistoryItem[] }>(
+				'fetch_score_bands',
+				{
+					group_session_id: data.groupSession.id,
 					score_bands_config: scoreBandsConfig,
-					from_iteration: iteration_id
-				})
-			});
+					minimum_votes: minimumVotes,
+					from_iteration: latestIteration
+				}
+			);
 
-			if (!scoreResponse.ok) {
-				const errorData = await scoreResponse.json();
+			if (!scoreResult.success) {
 				throw new Error(
-					`Fetch score failed: ${errorData.error || `HTTP ${scoreResponse.status}: ${scoreResponse.statusText}`}`
+					`Fetch score failed: ${scoreResult.error ?? 'Unknown error'}`
 				);
 			}
 
-			const scoreResult = await scoreResponse.json();
+			history = scoreResult.data?.history ?? [];
+			console.log('Raw fetch_score_bands response:', scoreResult);
 
-			if (scoreResult.success) {
-				history = scoreResult.data.history;
-				console.log('Full history received:', history);
+			console.log('Full history received:', history);
 
-				// The last item from history is the current response
-				const currentResponse = history[history.length - 1];
-				// Check which type of response we got and update state accordingly
-				if (currentResponse.method === 'gdm-score-bands') {
-					// Regular SCORE bands response - cast to proper type for TypeScript
-					const scoreBandsResponse =
-						currentResponse as GDMSCOREBandsResponse;
-					latestIteration = scoreBandsResponse.latest_iteration
-						? scoreBandsResponse.latest_iteration
-						: null;
-					const scoreBandsData =
-						scoreBandsResponse.result as SCOREBandsResult;
-					scoreBandsResult = scoreBandsData;
-					scoreBandsConfig = scoreBandsData.options;
-					iteration_id = scoreBandsResponse.group_iter_id;
-					phase = 'Consensus Reaching Phase';
-					decisionResult = null;
-					console.log('SCORE bands fetched successfully:', scoreBandsResponse);
-				} else if (currentResponse.method === 'gdm-score-bands-final') {
-					// Decision phase response
-					const finalDecisionData =
-						currentResponse.result as GDMSCOREBandFinalSelection;
-					latestIteration = null;
-					decisionResult = finalDecisionData;
-					iteration_id = currentResponse.group_iter_id;
-					phase = 'Decision Phase';
-					scoreBandsResult = null;
-					console.log('Decision phase data fetched successfully:', currentResponse);
-				} else {
-					throw new Error(`Unknown method: ${currentResponse.method}`);
-				}
-
-				const iterationChanged = iteration_id !== previousIterationId;
-				const phaseChanged = phase !== previousPhase;
-
-				if (iterationChanged || phaseChanged) {
-					selected_band = null;
-					selected_solution = null;
-				}
-			} else {
-				throw new Error(`Fetch score failed: ${scoreResult.error || 'Unknown error'}`);
+			if (!Array.isArray(history) || history.length === 0) {
+				throw new Error('SCORE Bands response contained no history entries.');
 			}
+
+			const currentResponse = history.at(-1);
+
+			if (!currentResponse) {
+				throw new Error('Could not determine the current SCORE Bands response.');
+			}
+
+			if (
+				currentResponse.phase === 'learning' ||
+				currentResponse.phase === 'consensus'
+			) {
+				const scoreBandsResponse =
+					currentResponse as GDMSCOREBandsResponse & {
+						phase: 'learning' | 'consensus';
+					};
+
+				latestIteration =
+					scoreBandsResponse.latest_iteration ?? null;
+
+				const scoreBandsData =
+					scoreBandsResponse.result as SCOREBandsResult;
+
+				scoreBandsResult = scoreBandsData;
+				scoreBandsConfig = scoreBandsData.options;
+				groupIterationId = scoreBandsResponse.group_iter_id;
+
+				setPhase(scoreBandsResponse.phase);
+				decisionResult = null;
+
+				console.log(
+					'SCORE bands fetched successfully:',
+					scoreBandsResponse
+				);
+			} else if (currentResponse.phase === 'decision') {
+				const finalDecisionData =
+					currentResponse.result as GDMSCOREBandsFinalSelection;
+
+				latestIteration = null;
+				decisionResult = finalDecisionData;
+				groupIterationId = currentResponse.group_iter_id;
+
+				setPhase('decision');
+				scoreBandsResult = null;
+
+				console.log(
+					'Decision phase data fetched successfully:',
+					currentResponse
+				);
+			} else {
+				throw new Error(
+					`Unknown SCORE Bands phase: ${currentResponse.phase}`
+				);
+			}
+
+			const iterationChanged =
+				groupIterationId !== previousIterationId;
+
+			const phaseChanged =
+				phase !== previousPhase;
+
+			if (iterationChanged || phaseChanged) {
+				selected_band = null;
+				selected_solution = null;
+			}
+
 			data_loaded = true;
 			loading_error = null;
 		} catch (error) {
@@ -855,7 +1134,6 @@ function getConsensusClasses(axisName: string): string {
 			errorMessage.set(`${error}`);
 		}
 	}
-
 	/**
 	 * Submits user vote for selected band or solution
 	 */
@@ -866,28 +1144,13 @@ function getConsensusClasses(axisName: string): string {
 		}
 		console.log('Selection to vote for:', selection);
 		try {
-			const voteResponse = await fetch('/interactive_methods/GDM-SCORE-bands/vote', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_id: data.group.id,
-					vote: selection
-				})
+			const voteResult = await callGSCOREBandsAPI<{ message: string }>('vote', {
+				group_session_id: data.groupSession.id,
+				vote: selection
 			});
 
-			if (!voteResponse.ok) {
-				const errorData = await voteResponse.json();
-				throw new Error(
-					`Vote failed: ${errorData.error || `HTTP ${voteResponse.status}: ${voteResponse.statusText}`}`
-				);
-			}
-
-			const voteResult = await voteResponse.json();
-
 			if (voteResult.success) {
-				console.log('Voted successfully:', voteResult.data.message);
+				console.log('Voted successfully:', voteResult.data?.message);
 				// Refresh local voting state immediately so vote counters update without
 				// waiting for a websocket update event.
 				await fetch_votes_and_confirms();
@@ -908,27 +1171,12 @@ function getConsensusClasses(axisName: string): string {
 			return;
 		}
 		try {
-			const confirmResponse = await fetch('/interactive_methods/GDM-SCORE-bands/confirm_vote', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_id: data.group.id
-				})
+			const confirmResult = await callGSCOREBandsAPI<{ message: string }>('confirm_vote', {
+				group_session_id: data.groupSession.id
 			});
 
-			if (!confirmResponse.ok) {
-				const errorData = await confirmResponse.json();
-				throw new Error(
-					`Confirm failed: ${errorData.error || `HTTP ${confirmResponse.status}: ${confirmResponse.statusText}`}`
-				);
-			}
-
-			const confirmResult = await confirmResponse.json();
-
 			if (confirmResult.success) {
-				console.log('Confirmed vote successfully:', confirmResult.data.message);
+				console.log('Confirmed vote successfully:', confirmResult.data?.message);
 			} else {
 				throw new Error(`Confirm failed: ${confirmResult.error || 'Unknown error'}`);
 			}
@@ -948,30 +1196,29 @@ function getConsensusClasses(axisName: string): string {
 	 */
 	async function fetch_votes_and_confirms(selectVotedBand = false) {
 		try {
-			const response = await fetch('/interactive_methods/GDM-SCORE-bands/get_votes_and_confirms', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_id: data.group.id
-				})
-			});
+			const result = await callGSCOREBandsAPI<typeof votes_and_confirms>(
+				'get_votes_and_confirms',
+				{
+					group_session_id: data.groupSession.id
+				}
+			);
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					`Get votes and confirms failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`
-				);
-			}
-
-			const result = await response.json();
-			if (result.success) {
+			if (result.success && result.data) {
 				votes_and_confirms = result.data;
+				syncLearningMetadata(result.data);
 				// If user has voted already, select the band they voted for
 				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
-				if (userId && votes_and_confirms.votes.hasOwnProperty(userId) && selectVotedBand) {
-					selected_band = votes_and_confirms.votes[userId];
+				if (userId != null && selectVotedBand) {
+					const userKey = String(userId);
+
+					if (
+						Object.prototype.hasOwnProperty.call(
+							votes_and_confirms.votes,
+							userKey
+						)
+					) {
+						selected_band = votes_and_confirms.votes[userKey];
+					}
 				}
 			} else {
 				throw new Error(`Get votes and confirms failed: ${result.error || 'Unknown error'}`);
@@ -982,32 +1229,113 @@ function getConsensusClasses(axisName: string): string {
 		}
 	}
 
+	async function complete_learning_phase() {
+		if (hasCompletedLearning || isMarkingLearningComplete) {
+			return;
+		}
+
+		isMarkingLearningComplete = true;
+		try {
+			const result = await callGSCOREBandsAPI<typeof votes_and_confirms>(
+				'learning/complete',
+				{
+					group_session_id: data.groupSession.id
+				}
+			);
+
+			if (!result.success) {
+				throw new Error(`Finish exploring failed: ${result.error || 'Unknown error'}`);
+			}
+
+			if (result.data) {
+				syncLearningMetadata(result.data);
+			}
+			// Fetch the authoritative shared status.
+			// hasCompletedLearning will still be calculated for this specific user.
+			await fetch_votes_and_confirms();
+		} catch (error) {
+			console.error('Error in complete_learning_phase:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isMarkingLearningComplete = false;
+		}
+	}
+
+	async function warn_learning_time() {
+		if (isWarningUsers) {
+			return;
+		}
+
+		isWarningUsers = true;
+		try {
+			const result = await callGSCOREBandsAPI<typeof votes_and_confirms>(
+				'learning/warn',
+				{
+					group_session_id: data.groupSession.id,
+					message: ownerWarningMessage.trim() || undefined
+				}
+			);
+
+			if (!result.success) {
+				throw new Error(`Warn users failed: ${result.error || 'Unknown error'}`);
+			}
+
+			if (result.data) {
+				syncLearningMetadata(result.data);
+			}
+			ownerWarningMessage = '';
+		} catch (error) {
+			console.error('Error in warn_learning_time:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isWarningUsers = false;
+		}
+	}
+
+	async function advance_to_consensus() {
+		if (isAdvancingToConsensus) {
+			return;
+		}
+
+		isAdvancingToConsensus = true;
+		try {
+			const result = await callGSCOREBandsAPI<typeof votes_and_confirms>(
+				'learning/advance',
+				{
+					group_session_id: data.groupSession.id
+				}
+			);
+
+			if (!result.success) {
+				throw new Error(`Start consensus failed: ${result.error || 'Unknown error'}`);
+			}
+
+			if (result.data) {
+				syncLearningMetadata(result.data);
+			}
+			await fetch_score_bands();
+			await fetch_votes_and_confirms(true);
+			clusters_to_visible();
+		} catch (error) {
+			console.error('Error in advance_to_consensus:', error);
+			errorMessage.set(`${error}`);
+		} finally {
+			isAdvancingToConsensus = false;
+		}
+	}
+
 	/**
 	 * Reverts group to specified iteration (owner only)
 	 */
 	async function revert_to(iteration: number) {
 		try {
-			const response = await fetch('/interactive_methods/GDM-SCORE-bands/revert', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					group_id: data.group.id,
-					iteration_number: iteration
-				})
+			const result = await callGSCOREBandsAPI<{ message: string }>('revert', {
+				group_session_id: data.groupSession.id,
+				group_iteration_id: iteration
 			});
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					`Revert iteration failed: ${errorData.error || `HTTP ${response.status}: ${response.statusText}`}`
-				);
-			}
-
-			const result = await response.json();
 			if (result.success) {
-				console.log('Reverted to previous iteration successfully:', result.data.message);
+				console.log('Reverted to previous iteration successfully:', result.data?.message);
 				// Refresh score bands and votes after reverting
 				await fetch_score_bands();
 				await fetch_votes_and_confirms();
@@ -1026,36 +1354,42 @@ function getConsensusClasses(axisName: string): string {
 	 */
 	async function configure(config: SCOREBandsGDMConfig) {
 		try {
-			const configureResponse = await fetch('/interactive_methods/GDM-SCORE-bands/configure', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					// Group ID for which to apply the configuration
-					group_id: data.group.id,
-					// Configuration object with all SCORE bands settings
-					config: config
-				})
+			const configureResult = await callGSCOREBandsAPI('configure', {
+				// Group ID for which to apply the configuration
+				group_session_id: data.groupSession.id,
+				// Configuration object with all SCORE bands settings
+				config: config
 			});
 
-			if (!configureResponse.ok) {
-				const errorData = await configureResponse.json();
-				throw new Error(
-					`Configure failed: ${errorData.error || `HTTP ${configureResponse.status}: ${configureResponse.statusText}`}`
-				);
-			}
-
-			const configureResult = await configureResponse.json();
-
 			if (configureResult.success) {
-				console.log('Configuration updated successfully:', configureResult.data.message);
-				console.log('config: ', config);
+				minimumVotes = config.minimum_votes;
+				await fetch_score_bands();
+				await fetch_votes_and_confirms(true);
+				clusters_to_visible();
 			} else {
 				throw new Error(`Configure failed: ${configureResult.error || 'Unknown error'}`);
 			}
 		} catch (error) {
 			console.error('Error in configure:', error);
+			errorMessage.set(`${error}`);
+		}
+	}
+
+	async function restartScoreBands() {
+		try {
+			const restartResult = await callGSCOREBandsAPI('restart', {
+				group_session_id: data.groupSession.id
+			});
+
+			if (restartResult.success) {
+				await fetch_score_bands();
+				await fetch_votes_and_confirms(true);
+				clusters_to_visible();
+			} else {
+				throw new Error(`Restart failed: ${restartResult.error || 'Unknown error'}`);
+			}
+		} catch (error) {
+			console.error('Error in restartScoreBands:', error);
 			errorMessage.set(`${error}`);
 		}
 	}
@@ -1082,6 +1416,11 @@ function getConsensusClasses(axisName: string): string {
 			</div>
 		</div>
 	{:else}
+		{#if isLearningPhase && learningNotice}
+			<div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+				{learningNotice}
+			</div>
+		{/if}
 		<!-- Header and Instructions -->
 		<div>
 			<div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
@@ -1091,12 +1430,24 @@ function getConsensusClasses(axisName: string): string {
 					</div>
 					<div class="flex-1">
 						<h2 class="text-md font-semibold text-slate-900">
-							Consensus-reaching phase
+							{phase === 'Learning Phase'
+								? 'Learning Phase'
+								: phase === 'Consensus Reaching Phase'
+								? `Consensus Reaching Phase (Iteration ${latestIteration})`
+								: phase === 'Decision Phase'
+								? 'Decision Phase'
+								: ''}
 						</h2>
 					<!-- Header Section -->
 					{#if isDecisionMaker}
 						<!-- Instructions Section -->
-						{#if isConsensusPhase && usersVote === null}
+						{#if isLearningPhase}
+							<p class="mt-2 text-sm text-slate-600">
+								Explore the SCORE bands privately. Your saved bands, comparisons, and zoomed
+								views do not affect the rest of the group. Mark yourself finished when you are
+								done exploring.
+							</p>
+						{:else if isConsensusPhase && usersVote === null}
 
 
 										<p class="mt-2 text-sm text-slate-600">
@@ -1142,7 +1493,9 @@ function getConsensusClasses(axisName: string): string {
 					{/if}
 					{#if isOwner}
 						<div class="mt-2 text-sm text-gray-600">
-							You can revert to a previous iteration using the History Browser.
+							{isLearningPhase
+								? 'You can monitor who has finished exploring, warn users before the timer expires, and manually start the consensus phase once everyone is ready.'
+								: 'You can revert to a previous iteration using the History Browser.'}
 							{isConsensusPhase
 								? 'You can also adjust the SCORE Bands parameters and recalculate the bands below.'
 								: ''}
@@ -1156,68 +1509,68 @@ function getConsensusClasses(axisName: string): string {
 
 		{#if isLearningPhase}
 	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
-		<aside class="space-y-4">
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">How to explore</h2>
-				</div>
-
-				<div class="space-y-4 p-4 text-sm">
-					<div>
-						<div class="font-medium">1. Explore bands</div>
-						<p class="text-muted-foreground">Click a band to inspect it.</p>
-					</div>
-
-					<div>
-						<div class="font-medium">2. Save preferences</div>
-						<p class="text-muted-foreground">Bookmark interesting bands privately.</p>
-					</div>
-
-					<div>
-						<div class="font-medium">3. Explore inside a band</div>
-						<p class="text-muted-foreground">Zoom in and optionally create personal sub-bands.</p>
-					</div>
-				</div>
-			</div>
-
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">Filters</h2>
-				</div>
-
-				<div class="space-y-3 p-4">
-					<div class="text-sm font-medium">Visible clusters</div>
-
-					{#each SCOREBands.clusterIds as clusterId}
-						<label class="flex items-center justify-between gap-2 text-sm">
-							<span class="flex items-center gap-2">
-								<span
-									class="h-3 w-3 rounded-full"
-									style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
-								></span>
-								Cluster {clusterId}
-							</span>
-
-							<input
-								type="checkbox"
-								bind:checked={cluster_visibility_map[clusterId]}
-								class="checkbox checkbox-primary checkbox-sm"
-							/>
-						</label>
-					{/each}
-				</div>
-			</div>
-		</aside>
+		<ScoreBandsLeftSidebar
+			phase="learning"
+			{isOwner}
+			{isDecisionMaker}
+			problemName={data.problem.name ?? 'Current problem'}
+			{learningTimeLabel}
+			clusterIds={SCOREBands.clusterIds}
+			clusterColors={cluster_colors}
+			clusterVisibilityMap={cluster_visibility_map}
+			onVisibilityChange={setClusterVisibility}
+			showBands={show_bands}
+			showMedians={show_medians}
+			canToggleBands={canToggleBands()}
+			canToggleMedians={canToggleMedians()}
+			onShowBandsChange={setShowBands}
+			onShowMediansChange={setShowMedians}
+			currentConfig={scoreBandsResult?.options ?? null}
+			{latestIteration}
+			{totalVoters}
+			onRecalculate={configure}
+			{history}
+			currentIterationId={groupIterationId}
+			onRevertToIteration={revert_to}
+		/>
 
 		<main class="space-y-4">
 			<div class="rounded-lg border bg-card shadow-sm">
 				<div class="flex items-center justify-between border-b px-4 py-3">
 					<div>
-						<h2 class="text-sm font-semibold">Explore the solution space</h2>
-						<p class="mt-1 text-xs text-muted-foreground">
-							Your exploration is private and does not affect the group.
-						</p>
+						{#if learningState.zoomedBand !== null}
+							<h2 class="text-sm font-semibold">
+								Band {learningState.zoomedBand} — zoomed view
+							</h2>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Showing only this band. Sub-bands are listed on the right.
+							</p>
+						{:else}
+							<h2 class="text-sm font-semibold">Explore the solution space</h2>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Your exploration is private and does not affect the group.
+							</p>
+						{/if}
 					</div>
+					{#if learningState.zoomedBand !== null}
+						<div class="flex gap-2">
+							<button
+								type="button"
+								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+								onclick={undoSubBandChange}
+								disabled={learningState.subBandsHistory.length === 0}
+							>
+								Undo
+							</button>
+							<button
+								type="button"
+								class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+								onclick={exitBandZoom}
+							>
+								← Back to all bands
+							</button>
+						</div>
+					{/if}
 				</div>
 
 				<div class="h-[520px] p-4">
@@ -1231,7 +1584,7 @@ function getConsensusClasses(axisName: string): string {
 						bands={SCOREBands.bands}
 						medians={SCOREBands.medians}
 						scales={SCOREBands.scales}
-						clusterVisibility={cluster_visibility_map}
+						clusterVisibility={learningPlotVisibility}
 						clusterColors={cluster_colors}
 						axisOptions={axis_options}
 						axisOrder={effective_axis_order}
@@ -1251,217 +1604,71 @@ function getConsensusClasses(axisName: string): string {
 			/>
 		</main>
 
-		<aside class="space-y-4">
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">My exploration</h2>
-					<p class="mt-1 text-xs text-muted-foreground">Visible only to you.</p>
-				</div>
-
-				<div class="space-y-3 p-4">
-					{#if learningState.selectedBand !== null}
-						<div class="rounded-md border p-3 text-sm">
-							<div class="font-medium">Cluster {learningState.selectedBand}</div>
-							<div class="text-muted-foreground">
-								{SCOREBands.solutions_per_cluster[learningState.selectedBand] ?? 0} solutions
-							</div>
-						</div>
-
-						<Button
-							class="w-full"
-							onclick={() => toggleSavedBand(learningState.selectedBand!)}
-						>
-							{learningState.savedBands.includes(learningState.selectedBand)
-								? 'Remove saved band'
-								: 'Save band'}
-						</Button>
-
-						<Button
-							class="w-full"
-							variant="outline"
-							onclick={() => toggleCompareBand(learningState.selectedBand!)}
-						>
-							Compare band ({learningState.comparedBands.length}/3)
-						</Button>
-
-						<Button
-							class="w-full"
-							variant="outline"
-							onclick={() => zoomIntoBand(learningState.selectedBand!)}
-						>
-							Explore inside band
-						</Button>
-					{:else}
-						<p class="text-sm text-muted-foreground">
-							Select a band to save, compare, or explore it.
-						</p>
-					{/if}
-				</div>
-			</div>
-
-			{#if learningState.savedBands.length > 0}
-				<div class="rounded-lg border bg-card shadow-sm">
-					<div class="border-b px-4 py-3">
-						<h2 class="text-sm font-semibold">Saved bands</h2>
-					</div>
-
-					<div class="space-y-2 p-4">
-						{#each learningState.savedBands as clusterId}
-							<div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-								<span>Cluster {clusterId}</span>
-								<button
-									type="button"
-									class="text-muted-foreground hover:text-foreground"
-									onclick={() => toggleSavedBand(clusterId)}
-								>
-									Remove
-								</button>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-
-			{#if learningState.zoomedBand !== null}
-				<div class="rounded-lg border bg-card shadow-sm">
-					<div class="border-b px-4 py-3">
-						<h2 class="text-sm font-semibold">
-							Explore inside Cluster {learningState.zoomedBand}
-						</h2>
-						<p class="mt-1 text-xs text-muted-foreground">
-							Private zoomed-in exploration.
-						</p>
-					</div>
-					<div class="space-y-3 p-4">
-						<Button
-							class="w-full"
-							variant="outline"
-							onclick={() => createPersonalSubBands(3)}
-							disabled={
-								vote_confirmed ||
-								learningState.zoomedBand === null ||
-								!isBandVisible(learningState.zoomedBand)
-							}
-						>
-							Create personal sub-bands
-						</Button>
-
-						{#each learningState.subBands as subBand}
-							<div class="rounded-md border p-3 text-sm">
-								<div class="font-medium">{subBand.label}</div>
-								<div class="text-muted-foreground">
-									{subBand.solutionIndices.length} solutions
-								</div>
-							</div>
-						{/each}
-
-						<Button class="w-full" variant="outline" onclick={exitBandZoom}>
-							Back to all bands
-						</Button>
-					</div>
-				</div>
-			{/if}
-
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">What’s next?</h2>
-				</div>
-
-				<div class="space-y-3 p-4 text-sm text-muted-foreground">
-					<p>
-						Once you are familiar with the solution space, you will move to the consensus
-						phase and vote for a preferred band.
-					</p>
-
-					{#if isOwner}
-						<Button class="w-full">
-							Continue to consensus phase
-						</Button>
-					{/if}
-				</div>
-			</div>
-		</aside>
+		<ScoreBandsRightSidebar
+			phase="learning"
+			{isOwner}
+			{isDecisionMaker}
+			learning={{
+				totalVoters,
+				learningCompletedCount,
+				hasCompletedLearning,
+				allDecisionMakersFinishedLearning,
+				isMarkingLearningComplete,
+				isWarningUsers,
+				isAdvancingToConsensus,
+				ownerWarningMessage,
+				selectedLearningBand: learningState.selectedBand,
+				zoomedBand: learningState.zoomedBand,
+				savedBands: learningState.savedBands,
+				subBands: learningState.subBands,
+				subBandsHistoryLength:
+					learningState.subBandsHistory.length,
+				solutionsPerCluster:
+					SCOREBands.solutions_per_cluster,
+				onOwnerWarningMessageChange:
+					setOwnerWarningMessage,
+				onFinishExploring:
+					complete_learning_phase,
+				onSaveBand: toggleSavedBand,
+				onZoomIntoBand: zoomIntoBand,
+				onRemoveSavedBand: toggleSavedBand,
+				onRecreateSubBands: () =>
+					createPersonalSubBands(3),
+				onUndoSubBandChange:
+					undoSubBandChange,
+				onExitBandZoom: exitBandZoom,
+				onWarnUsers: warn_learning_time,
+				onAdvanceToConsensus:
+					advance_to_consensus
+			}}
+		/>
 	</div>
 		{:else if isConsensusPhase}
 	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
 		<!-- LEFT: Data & Settings -->
-		<aside class="space-y-4">
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="flex items-center justify-between border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">Data & Settings</h2>
-				</div>
-
-				<div class="space-y-4 p-4">
-					<div>
-						<div class="text-xs text-muted-foreground">Input data</div>
-						<div class="mt-1 text-sm font-medium">
-							{data.problem.name ?? 'Current problem'}
-						</div>
-					</div>
-
-					<div class="space-y-2">
-						<div class="text-sm font-medium">Visualization options</div>
-
-						<label class="flex items-center gap-2 text-sm">
-							<input
-								type="checkbox"
-								bind:checked={show_bands}
-								disabled={!canToggleBands()}
-								class="checkbox checkbox-primary checkbox-sm"
-							/>
-							Show bands
-						</label>
-
-						<label class="flex items-center gap-2 text-sm">
-							<input
-								type="checkbox"
-								bind:checked={show_medians}
-								disabled={!canToggleMedians()}
-								class="checkbox checkbox-primary checkbox-sm"
-							/>
-							Show medians
-						</label>
-					</div>
-
-					<div class="space-y-2">
-						<div class="text-sm font-medium">Visible clusters</div>
-
-						{#each SCOREBands.clusterIds as clusterId}
-							<label class="flex items-center justify-between gap-2 text-sm">
-								<span class="flex items-center gap-2">
-									<span
-										class="h-3 w-3 rounded-full"
-										style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
-									></span>
-									Cluster {clusterId}
-								</span>
-
-								<input
-									type="checkbox"
-									bind:checked={cluster_visibility_map[clusterId]}
-									class="checkbox checkbox-primary checkbox-sm"
-								/>
-							</label>
-						{/each}
-					</div>
-				</div>
-			</div>
-
-			<ConfigPanel
-				currentConfig={scoreBandsResult?.options || null}
-				{latestIteration}
-				{totalVoters}
-				onRecalculate={configure}
-				isVisible={isOwner && isConsensusPhase}
-			/>
-
-			<HistoryBrowser
-				{history}
-				currentIterationId={iteration_id}
-				onRevertToIteration={revert_to}
-				{isOwner}
-			/>
-		</aside>
+		<ScoreBandsLeftSidebar
+			phase="consensus"
+			{isOwner}
+			{isDecisionMaker}
+			problemName={data.problem.name ?? 'Current problem'}
+			clusterIds={SCOREBands.clusterIds}
+			clusterColors={cluster_colors}
+			clusterVisibilityMap={cluster_visibility_map}
+			onVisibilityChange={setClusterVisibility}
+			showBands={show_bands}
+			showMedians={show_medians}
+			canToggleBands={canToggleBands()}
+			canToggleMedians={canToggleMedians()}
+			onShowBandsChange={setShowBands}
+			onShowMediansChange={setShowMedians}
+			currentConfig={scoreBandsResult?.options ?? null}
+			{latestIteration}
+			{totalVoters}
+			onRecalculate={configure}
+			{history}
+			currentIterationId={groupIterationId}
+			onRevertToIteration={revert_to}
+		/>
 
 		<!-- CENTER: Visualization + band table -->
 		<main class="space-y-4">
@@ -1512,104 +1719,29 @@ function getConsensusClasses(axisName: string): string {
 		</main>
 
 		<!-- RIGHT: Voting + consensus -->
-		<aside class="space-y-4">
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">Group voting</h2>
-					<p class="mt-1 text-xs text-muted-foreground">
-						{totalVoters} decision makers
-					</p>
-					{#if isConsensusPhase}
-						<p class="mt-1 text-xs text-muted-foreground">
-							Vote sync: {isConsensusVoteSyncing ? 'updating...' : 'live'}
-						</p>
-					{/if}
-				</div>
-
-				<div class="space-y-2 p-4">
-					<div class="text-sm font-medium">Select your preferred band</div>
-
-					{#each SCOREBands.clusterIds as clusterId}
-						<button
-							type="button"
-							class="flex w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm hover:bg-muted
-								{selected_band === clusterId ? 'border-primary bg-muted' : ''}"
-							onclick={() => handle_band_select(clusterId)}
-							disabled={vote_confirmed}
-						>
-							<span class="flex items-center gap-2">
-								<span
-									class="h-3 w-3 rounded-full"
-									style={`background-color: ${cluster_colors[clusterId] || '#64748b'};`}
-								></span>
-								Cluster {clusterId}
-							</span>
-
-							<span class="text-muted-foreground">
-								{getClusterVoteCount(clusterId)} / {totalVoters}
-								({getClusterVotePercent(clusterId)}%)
-							</span>
-						</button>
-					{/each}
-
-					{#if isDecisionMaker}
-						<div class="pt-4">
-							<Button
-								class="w-full"
-								onclick={() => vote(selected_band)}
-								disabled={selected_band === null || vote_confirmed}
-							>
-								Vote
-							</Button>
-
-							<Button
-								class="mt-2 w-full"
-								variant="outline"
-								onclick={confirm_vote}
-								disabled={!have_all_voted || vote_confirmed}
-							>
-								Confirm vote
-							</Button>
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<div class="rounded-lg border bg-card shadow-sm">
-				<div class="flex items-center justify-between border-b px-4 py-3">
-					<h2 class="text-sm font-semibold">Consensus status</h2>
-					<span class="text-xs text-muted-foreground">Updates after all votes</span>
-				</div>
-
-				<div class="divide-y">
-					{#each SCOREBands.axisNames as axisName}
-						<div class="flex items-center justify-between px-4 py-3">
-							<div>
-								<div class="font-medium">{axisName}</div>
-								<div class={`text-sm ${getConsensusClasses(axisName)}`}>
-									{getConsensusLabel(axisName)}
-								</div>
-							</div>
-
-							<div
-								class="h-2 w-24 rounded-full bg-muted"
-								title={getConsensusLabel(axisName)}
-							>
-								<div
-									class="h-2 rounded-full
-										{axis_agreement?.[axisName] === 'agreement'
-											? 'bg-green-600'
-											: axis_agreement?.[axisName] === 'disagreement'
-												? 'bg-red-600'
-												: 'bg-muted-foreground/40'}"
-									style="width: {axis_agreement?.[axisName] === 'neutral' ? 40 : 80}%"
-								></div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		</aside>
+		<ScoreBandsRightSidebar
+			phase="consensus"
+			{isOwner}
+			{isDecisionMaker}
+			consensus={{
+				totalVoters,
+				clusterIds: SCOREBands.clusterIds,
+				clusterColors: cluster_colors,
+				selectedBand: selected_band,
+				voteConfirmed: vote_confirmed,
+				haveAllVoted: have_all_voted,
+				isConsensusVoteSyncing,
+				axisNames: SCOREBands.axisNames,
+				axisAgreement: axis_agreement,
+				getClusterVoteCount,
+				getClusterVotePercent,
+				getConsensusLabel,
+				getConsensusClasses,
+				onBandSelect: handle_band_select,
+				onVote: voteForSelectedBand,
+				onConfirmVote: confirm_vote
+			}}
+		/>
 	</div>
 		{:else if isDecisionPhase}
 			<!-- DECISION PHASE: Solution Selection Content -->
@@ -1680,7 +1812,7 @@ function getConsensusClasses(axisName: string): string {
 					<!-- History Browser Component -->
 					<HistoryBrowser
 						{history}
-						currentIterationId={iteration_id}
+						currentIterationId={groupIterationId}
 						onRevertToIteration={revert_to}
 						{isOwner}
 					/>

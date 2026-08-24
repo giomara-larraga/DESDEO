@@ -70,7 +70,6 @@
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
 
 	import type {
-		ProblemInfo,
 		Solution,
 		AllIterations,
 		Group,
@@ -97,6 +96,13 @@
 		getChosenPreference,
 		type HistoryData
 	} from './helper-functions';
+
+	import type {
+		GroupPublic,
+		GroupSessionPublic,
+		ProblemInfo
+	} from '$lib/gen/endpoints/DESDEOFastAPI';
+
 	import SolutionDisplay from './components/SolutionDisplay.svelte';
 	import EndStateView from './components/EndStateView.svelte';
 
@@ -106,8 +112,14 @@
 	let full_iterations: AllIterations = $state({} as AllIterations);
 
 	let problem: ProblemInfo | null = $state(null);
-	const { data } = $props<{ data: { problem: ProblemInfo; group: Group; refreshToken: string } }>();
-
+	const { data } = $props<{
+		data: {
+			problem: ProblemInfo;
+			group: GroupPublic;
+			groupSession: GroupSessionPublic;
+			refreshToken: string;
+		};
+	}>();
 	// User role state
 	let isOwner = $state(false);
 	let isDecisionMaker = $state(false);
@@ -263,68 +275,58 @@
 	}
 
 	// Main function to fetch and update state
-	async function getResultsAndUpdate(group_id: number) {
-		const fullResult = await callGNimbusAPI<AllIterations>('get_all_iterations', {
-			group_id: group_id
-		});
-
-		if (!fullResult.success || !fullResult.data) {
-			console.error('Failed to fetch the full response:', fullResult.error);
-			return fullResult;
-		}
-
-		// Update full history
-		full_iterations = fullResult.data;
-
-		const latestIteration = fullResult.data.all_full_iterations[0];
-		if (!latestIteration) return fullResult;
-
-		// Get the current phase (since all_iterations might have outdated phase)
-		const phaseResult = await callGNimbusAPI<Response>('get_phase', {
-			group_id: group_id
-		});
-		let phase =
-			phaseResult.success && phaseResult.data ? phaseResult.data.phase : latestIteration.phase;
-		if (latestIteration.phase === 'init') phase = 'init';
-		// Update current state with correct phase
-		current_state = {
-			...latestIteration,
-			phase
-		};
-		step = determineStep(current_state);
-		history_option = 'current';
-		// Update preferences if user is a decision maker
-		if (userId && isDecisionMaker && problem) {
-			if (!latestIteration.optimization_preferences) {
-				// Use ideal values if no previous preferences
-				current_preference = problem.objectives.map((obj) => obj.ideal ?? 0);
-			} else {
-				// Use previous preferences
-				current_preference =
-					problem.objectives.map(
-						(obj) =>
-							latestIteration.optimization_preferences!.set_preferences[userId].aspiration_levels[
-								obj.symbol
-							]
-					) || [];
+	async function getResultsAndUpdate(
+	groupSessionId: number
+) {
+	const fullResult =
+		await callGNimbusAPI<AllIterations>(
+			'get_all_iterations',
+			{
+				group_session_id: groupSessionId
 			}
-		}
+		);
 
-		// Update selection state
-		selected_solution_index =
-			latestIteration.phase === 'decision' || latestIteration.phase == 'compromise'
-				? 0
-				: step === 'optimization'
-					? 0
-					: -1;
-
-		// Update dependent states
-		update_solution_selection(current_state);
-		last_iterated_preference = [...current_preference];
-		isActionDone = false;
-
+	if (!fullResult.success) {
 		return fullResult;
 	}
+
+	full_iterations = fullResult.data as AllIterations;
+
+	if (
+		!full_iterations.all_full_iterations ||
+		full_iterations.all_full_iterations.length === 0
+	) {
+		return {
+			success: false,
+			error: 'not_initialized'
+		};
+	}
+
+	current_state =
+		full_iterations.all_full_iterations[0];
+
+	step = determineStep(current_state);
+
+	const phaseResult =
+		await callGNimbusAPI<{ phase: string }>(
+			'get_phase',
+			{
+				group_session_id: groupSessionId
+			}
+		);
+
+	if (
+		phaseResult.success &&
+		phaseResult.data?.phase
+	) {
+		current_state.phase =
+			phaseResult.data.phase;
+	}
+
+	update_solution_selection(current_state);
+
+	return fullResult;
+}
 
 	// Validation: iteration is allowed when at least one preference is better and one is worse than current objectives
 	let is_iteration_allowed = $derived.by(() => {
@@ -362,7 +364,7 @@
 		// function that gets the solution from the place of selected_index, takes its state_id, and sends a change_iteration http request with body {group_id, state_id}
 		// and after that make sure that everything updates. Might happen if socket message says "UPDATE:" If there is a socket message. But should be for sure.
 		const result = await callGNimbusAPI<string>('revert_iteration', {
-			group_id: data.group.id,
+			group_session_id: data.groupSession.id,
 			state_id: solution_options[selected_solution_index]?.state_id
 		});
 	}
@@ -523,7 +525,7 @@
 		try {
 			// Switch to the new phase
 			const switchResult = await callGNimbusAPI<Response>('switch_phase', {
-				group_id: data.group.id,
+				group_session_id: data.groupSession.id,
 				new_phase: phaseId
 			});
 
@@ -536,7 +538,7 @@
 
 			// Get the updated phase state
 			const phaseResult = await callGNimbusAPI<Response>('get_phase', {
-				group_id: data.group.id
+				group_session_id: data.groupSession.id
 			});
 
 			if (phaseResult.success && phaseResult.data) {
@@ -549,9 +551,9 @@
 		}
 	}
 
-	async function initializeGNIMBUS(groupId: number) {
+	async function initializeGNIMBUS(groupSessionId: number) {
 		try {
-			const result = await callGNimbusAPI<Response>('initialize', { group_id: groupId });
+			const result = await callGNimbusAPI<Response>('initialize', { group_session_id: groupSessionId });
 			if (!result.success) {
 				throw new Error(result.error);
 			}
@@ -565,8 +567,13 @@
 	onMount(async () => {
 		// Set user roles
 		if (userId) {
-			isOwner = userId === data.group.owner_id;
-			isDecisionMaker = data.group.user_ids.includes(userId);
+			isOwner =
+			userId === data.group.owner_id;
+
+		isDecisionMaker =
+			(data.group.users ?? []).some(
+				(member:any) => member.id === userId
+			);
 		}
 
 		if (!data.problem) {
@@ -579,11 +586,11 @@
 		hasUtopiaMetadata = checkUtopiaMetadata(problem);
 
 		// Initialize WebSocket
-		wsService = new WebSocketService(data.group.id, 'gnimbus', data.refreshToken, () => {
+		wsService = new WebSocketService(data.groupSession.id, 'gnimbus', data.refreshToken, () => {
 			// This runs only when connection is re-established
 			console.log('WebSocket reconnected, updating state...');
 			showTemporaryMessage('Reconnected to server');
-			getResultsAndUpdate(data.group.id);
+			getResultsAndUpdate(data.groupSession.id);
 		});
 		wsService.messageStore.subscribe((store) => {
 			// Filters for specific messages. All socket messages that imply need for state updates start with "UPDATE"
@@ -591,7 +598,7 @@
 			let msg = store.message;
 			if (msg.includes('UPDATE')) {
 				// Don't show these messages, but only update state
-				getResultsAndUpdate(data.group.id);
+				getResultsAndUpdate(data.groupSession.id);
 				return;
 			}
 
@@ -601,13 +608,13 @@
 			// Filter out "same phase to same phase" messages for non-owners
 			if (!isOwner && /from (\w+) to \1/i.test(displayMessage)) {
 				// Don't show "changed from X to X" messages to non-owners, but still update state
-				getResultsAndUpdate(data.group.id);
+				getResultsAndUpdate(data.groupSession.id);
 				return;
 			}
 			if (displayMessage.includes('The phase was changed')) {
 				// Show "phase was changed" to dm AND update state
 				showTemporaryMessage(displayMessage);
-				getResultsAndUpdate(data.group.id);
+				getResultsAndUpdate(data.groupSession.id);
 				return;
 			}
 
@@ -616,13 +623,13 @@
 		});
 
 		// Try to get existing results from backend
-		const result = await getResultsAndUpdate(data.group.id);
+		const result = await getResultsAndUpdate(data.groupSession.id);
 		// Initialize only if there are no results beforehand
 		if (!result?.success && result?.error === 'not_initialized') {
 			console.log('GNIMBUS not initialized, initializing...');
-			const initResult = await initializeGNIMBUS(data.group.id);
+			const initResult = await initializeGNIMBUS(data.groupSession.id);
 			if (initResult) {
-				getResultsAndUpdate(data.group.id);
+				getResultsAndUpdate(data.groupSession.id);
 			}
 		}
 	});

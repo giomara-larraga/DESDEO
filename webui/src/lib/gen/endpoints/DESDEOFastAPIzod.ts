@@ -148,6 +148,16 @@ export const AddNewAnalystAddNewAnalystPostResponse = zod.unknown();
  *
  * Returns:
  *     list[ProblemInfoSmall]: a list of information on the problems.
+Other users see:
+    - problems they own, and
+    - problems shared with them through group sessions.
+
+Args:
+    user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
+
+Returns:
+    list[ProblemInfoSmall]: a list of information on the problems.
  * @summary Get Problems
  */
 export const getProblemsProblemAllGetResponseProblemMetadataOneForestMetadataOneItemMetadataTypeDefault = `forest_problem_metadata`;
@@ -6664,6 +6674,375 @@ export const InitializeMethodCumulusInitializePostResponse = zod
 						state_id: zod.number(),
 						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
 						variable_values: zod.union([
+		is_utopia: zod.boolean().describe('True if map exists for this problem.'),
+		map_name: zod.string().describe('Name of the map.'),
+		map_json: zod
+			.record(zod.string(), zod.unknown())
+			.describe('MapJSON representation of the geography.'),
+		options: zod
+			.record(zod.string(), zod.unknown())
+			.describe('A dict with given years as keys containing options for each year.'),
+		description: zod.string().describe('Description shown above the map.'),
+		years: zod
+			.array(zod.string())
+			.describe('A list of years for which the maps have been generated.')
+	})
+	.describe('The response to an UtopiaRequest.');
+
+/**
+ * Create group.
+
+Args:
+    request (GroupCreateRequest): a request that holds information to be used in creation of the group.
+    user (Annotated[User, Depends(get_current_user)]): the current user.
+    session (Annotated[Session, Depends(get_session)]): the database session.
+
+Returns:
+    JSONResponse: Acknowledgement that the group was created
+
+Raises:
+    HTTPException
+ * @summary Create Group
+ */
+export const CreateGroupGdmCreateGroupPostBody = zod
+	.object({
+		group_name: zod.string(),
+		user_ids: zod.array(zod.number())
+	})
+	.describe('Used for requesting a group to be created.');
+
+export const CreateGroupGdmCreateGroupPostResponse = zod.unknown();
+
+/**
+ * Create a decision-making session for a group.
+ * @summary Create Group Session
+ */
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostParams = zod.object({
+	group_id: zod.number()
+});
+
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostBody = zod.object({
+	problem_id: zod.number(),
+	method: zod.string()
+});
+
+export const CreateGroupSessionGdmGroupsGroupIdSessionsPostResponse = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+/**
+ * Return all decision-making sessions belonging to a group.
+ * @summary Get Group Sessions
+ */
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetParams = zod.object({
+	group_id: zod.number()
+});
+
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetResponseItem = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+export const GetGroupSessionsGdmGroupsGroupIdSessionsGetResponse = zod.array(
+	GetGroupSessionsGdmGroupsGroupIdSessionsGetResponseItem
+);
+
+/**
+ * Delete the group with given ID.
+
+Args:
+    request (GroupSessionInfoRequest): Contains the ID of the group to be deleted
+    user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
+    session (Annotated[Session, Depends(get_session)]): The database session
+
+Returns:
+    JSONResponse: Acknowledgement of the deletion
+
+Raises:
+    HTTPException: Insufficient authorization etc.
+ * @summary Delete Group
+ */
+export const DeleteGroupGdmDeleteGroupPostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const DeleteGroupGdmDeleteGroupPostResponse = zod.unknown();
+
+/**
+ * Add a user to a group.
+
+Args:
+    request (GroupModifyRequest): Request object that has group and user IDs.
+    user (Annotated[User, Depends(get_current_user)]): the current user.
+    session (Annotated[Session, Depends(get_session)]): the database session.
+
+Returns:
+    JSONResponse: Aknowledge that user has been added to the group
+
+Raises:
+    HTTPException: Authorization issues, group or user not found.
+ * @summary Add To Group
+ */
+export const AddToGroupGdmAddToGroupPostBody = zod
+	.object({
+		group_id: zod.number(),
+		user_id: zod.number()
+	})
+	.describe('Used for adding a user into group and removing a user from group.');
+
+export const AddToGroupGdmAddToGroupPostResponse = zod.unknown();
+
+/**
+ * Remove user from group.
+
+Args:
+    request (GroupModifyRequest): Request object that has group and user IDs.
+    user (Annotated[User, Depends(get_current_user)]): the current user.
+    session (Annotated[Session, Depends(get_session)]): the database session.
+
+Returns:
+    JSONResponse: Aknowledge that user has been removed from the group.
+
+Raises:
+    HTTPException: Authorization issues, group or user not found.
+ * @summary Remove From Group
+ */
+export const RemoveFromGroupGdmRemoveFromGroupPostBody = zod
+	.object({
+		group_id: zod.number(),
+		user_id: zod.number()
+	})
+	.describe('Used for adding a user into group and removing a user from group.');
+
+export const RemoveFromGroupGdmRemoveFromGroupPostResponse = zod.unknown();
+
+/**
+ * Get information about the sessions of a group.
+
+Args:
+    request (GroupSessionInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
+    session (Annotated[Session, Depends(get_session)]): the database session
+
+Returns:
+    list[GroupSessionPublic]: public info of the sessions of the group
+
+Raises:
+    HTTPException: If there's no group with the requests group id
+ * @summary Get Group Sessions Info
+ */
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseItem = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+export const GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse = zod.array(
+	GetGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseItem
+);
+
+/**
+ * Get information about the group.
+
+Args:
+    request (GroupInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
+    session (Annotated[Session, Depends(get_session)]): the database session
+
+Returns:
+    GroupPublic: public info of the group
+
+Raises:
+    HTTPException: If there's no group with the requests group id
+ * @summary Get Group Info
+ */
+export const GetGroupInfoGdmGetGroupInfoPostBody = zod
+	.object({
+		group_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const GetGroupInfoGdmGetGroupInfoPostResponse = zod
+	.object({
+		id: zod.number(),
+		name: zod.string(),
+		owner_id: zod.number(),
+		users: zod
+			.array(
+				zod.object({
+					id: zod.number(),
+					username: zod.string()
+				})
+			)
+			.optional()
+	})
+	.describe('Response model for Group.');
+
+/**
+ * Return groups where the current user is an owner or member.
+ * @summary Get User Groups
+ */
+export const GetUserGroupsGdmGroupsGetResponseItem = zod
+	.object({
+		id: zod.number(),
+		name: zod.string(),
+		owner_id: zod.number(),
+		users: zod
+			.array(
+				zod.object({
+					id: zod.number(),
+					username: zod.string()
+				})
+			)
+			.optional()
+	})
+	.describe('Response model for Group.');
+export const GetUserGroupsGdmGroupsGetResponse = zod.array(GetUserGroupsGdmGroupsGetResponseItem);
+
+/**
+ * Return one group decision-making session.
+ * @summary Get Group Session
+ */
+export const GetGroupSessionGdmGroupSessionsGroupSessionIdGetParams = zod.object({
+	group_session_id: zod.number()
+});
+
+export const GetGroupSessionGdmGroupSessionsGroupSessionIdGetResponse = zod.object({
+	id: zod.number(),
+	group_id: zod.number(),
+	problem_id: zod.number(),
+	method: zod.string(),
+	head_iteration_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+/**
+ * Initialize the problem for GNIMBUS.
+ * @summary Gnimbus Initialize
+ */
+export const GnimbusInitializeGnimbusInitializePostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const GnimbusInitializeGnimbusInitializePostResponse = zod.unknown();
+
+/**
+ * Get the latest results from group iteration.
+
+(OBSOLETE AND OUT OF DATE!)
+
+Args:
+    request (GroupSessionInfoRequest): essentially just the ID of the group session
+    user (Annotated[User, Depends(get_current_user)]): Current user
+    session (Annotated[Session, Depends(get_session)]): Database session.
+
+Returns:
+    GNIMBUSResultResponse: A GNIMBUSResultResponse response containing the latest gnimbus results
+
+Raises:
+    HTTPException: Validation errors or no results
+ * @summary Get Latest Results
+ */
+export const GetLatestResultsGnimbusGetLatestResultsPostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesOneMethodDefault = `voting`;
+export const getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoMethodDefault = `optimization`;
+export const getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoPhaseDefault = `learning`;
+export const getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoSetPreferencesPreferenceTypeDefault = `reference_point`;
+
+export const GetLatestResultsGnimbusGetLatestResultsPostResponse = zod
+	.object({
+		method: zod.string(),
+		phase: zod.string(),
+		preferences: zod.union([
+			zod
+				.object({
+					method: zod
+						.string()
+						.default(
+							getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesOneMethodDefault
+						),
+					set_preferences: zod.record(zod.string(), zod.number())
+				})
+				.describe('A structure for storing voting preferences.'),
+			zod
+				.object({
+					method: zod
+						.string()
+						.default(
+							getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoMethodDefault
+						),
+					phase: zod
+						.string()
+						.default(getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoPhaseDefault),
+					set_preferences: zod.record(
+						zod.string(),
+						zod
+							.object({
+								preference_type: zod
+									.literal('reference_point')
+									.default(
+										getLatestResultsGnimbusGetLatestResultsPostResponsePreferencesTwoSetPreferencesPreferenceTypeDefault
+									),
+								aspiration_levels: zod.record(zod.string(), zod.number())
+							})
+							.describe('Model for representing a reference point type of preference.')
+					)
+				})
+				.describe('A structure for storing optimization preferences. See GNIMBUS for details.')
+		]),
+		common_results: zod.array(
+			zod
+				.object({
+					name: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe('Optional name to help identify the solution if, e.g., saved.'),
+					solution_index: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe(
+							'The index of the referenced solution, if multiple solutions exist in the reference state.'
+						),
+					state: zod
+						.object({
+							id: zod.union([zod.number(), zod.null()]).optional(),
+							problem_id: zod.union([zod.number(), zod.null()]).optional(),
+							session_id: zod.union([zod.number(), zod.null()]).optional(),
+							parent_id: zod.union([zod.number(), zod.null()]).optional(),
+							state_id: zod.union([zod.number(), zod.null()]).optional(),
+							group_session_id: zod.union([zod.number(), zod.null()]).optional()
+						})
+						.describe('The reference state with the solution information.'),
+					state_id: zod.number().describe('The state id.'),
+					num_solutions: zod
+						.number()
+						.describe('Number of solutions contained in the referenced state.'),
+					objective_values_all: zod
+						.array(zod.record(zod.string(), zod.number()))
+						.describe('All the objective values of the result.'),
+					variable_values_all: zod
+						.array(
 							zod.record(
 								zod.string(),
 								zod.union([
@@ -6732,6 +7111,66 @@ export const InitializeMethodCumulusInitializePostResponse = zod
 						state_id: zod.number(),
 						objective_values: zod.union([zod.record(zod.string(), zod.number()), zod.null()]),
 						variable_values: zod.union([
+						.describe('The variable values of the referenced solution. None if not apllicable.')
+				})
+				.describe('A full solution reference with objectives and variables.')
+		),
+		user_results: zod.array(
+			zod
+				.object({
+					name: zod
+						.union([zod.string(), zod.null()])
+						.optional()
+						.describe('Optional name to help identify the solution if, e.g., saved.'),
+					solution_index: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe(
+							'The index of the referenced solution, if multiple solutions exist in the reference state.'
+						),
+					state: zod
+						.object({
+							id: zod.union([zod.number(), zod.null()]).optional(),
+							problem_id: zod.union([zod.number(), zod.null()]).optional(),
+							session_id: zod.union([zod.number(), zod.null()]).optional(),
+							parent_id: zod.union([zod.number(), zod.null()]).optional(),
+							state_id: zod.union([zod.number(), zod.null()]).optional(),
+							group_session_id: zod.union([zod.number(), zod.null()]).optional()
+						})
+						.describe('The reference state with the solution information.'),
+					state_id: zod.number().describe('The state id.'),
+					num_solutions: zod
+						.number()
+						.describe('Number of solutions contained in the referenced state.'),
+					objective_values_all: zod
+						.array(zod.record(zod.string(), zod.number()))
+						.describe('All the objective values of the result.'),
+					variable_values_all: zod
+						.array(
+							zod.record(
+								zod.string(),
+								zod.union([
+									zod.number(),
+									zod.number(),
+									zod.boolean(),
+									zod.union([
+										zod.array(zod.unknown()),
+										zod.array(zod.union([zod.number(), zod.number(), zod.boolean()])),
+										zod.number(),
+										zod.number(),
+										zod.boolean(),
+										zod.literal('List'),
+										zod.null()
+									])
+								])
+							)
+						)
+						.describe('All the variable values of the result.'),
+					objective_values: zod
+						.union([zod.record(zod.string(), zod.number()), zod.null()])
+						.describe('The objective values of the referenced solution. None if not applicable.'),
+					variable_values: zod
+						.union([
 							zod.record(
 								zod.string(),
 								zod.union([
@@ -6807,6 +7246,7 @@ export const SaveMethodCumulusSavePostResponse = zod
 			.literal('cumulus.save')
 			.default(saveMethodCumulusSavePostResponseResponseTypeDefault),
 		state_id: zod.union([zod.number(), zod.null()]).describe('The id of the newest state.')
+		group_session_id: zod.number()
 	})
 	.describe('Response from the CUMULUS save endpoint.');
 
@@ -6963,6 +7403,44 @@ export const GetOrInitializeMethodCumulusGetOrInitializePostResponse = zod.union
 											zod.null()
 										])
 									])
+							'The preferences related to the voting phase of the iteration.             either actual votes or a vote to see whether to just continue.'
+						),
+					starting_result: zod
+						.union([
+							zod
+								.object({
+									name: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Optional name to help identify the solution if, e.g., saved.'),
+									solution_index: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'The index of the referenced solution, if multiple solutions exist in the reference state.'
+										),
+									state: zod
+										.object({
+											id: zod.union([zod.number(), zod.null()]).optional(),
+											problem_id: zod.union([zod.number(), zod.null()]).optional(),
+											session_id: zod.union([zod.number(), zod.null()]).optional(),
+											parent_id: zod.union([zod.number(), zod.null()]).optional(),
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
+										})
+										.describe('The reference state with the solution information.'),
+									state_id: zod.number().describe('The state id.'),
+									num_solutions: zod
+										.number()
+										.describe('Number of solutions contained in the referenced state.'),
+									objective_values: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.describe(
+											'The objective values of the referenced solution. None if not applicable.'
+										)
+								})
+								.describe(
+									'The same as SolutionReference, but without decision variables for more efficient transport over the internet.'
 								),
 								zod.null()
 							])
@@ -7031,6 +7509,125 @@ export const GetOrInitializeMethodCumulusGetOrInitializePostResponse = zod.union
 											zod.null()
 										])
 									])
+							"The starting result of the optimization process. Fetched from the previous             iteration's final result."
+						),
+					common_results: zod
+						.array(
+							zod
+								.object({
+									name: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Optional name to help identify the solution if, e.g., saved.'),
+									solution_index: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'The index of the referenced solution, if multiple solutions exist in the reference state.'
+										),
+									state: zod
+										.object({
+											id: zod.union([zod.number(), zod.null()]).optional(),
+											problem_id: zod.union([zod.number(), zod.null()]).optional(),
+											session_id: zod.union([zod.number(), zod.null()]).optional(),
+											parent_id: zod.union([zod.number(), zod.null()]).optional(),
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
+										})
+										.describe('The reference state with the solution information.'),
+									state_id: zod.number().describe('The state id.'),
+									num_solutions: zod
+										.number()
+										.describe('Number of solutions contained in the referenced state.'),
+									objective_values: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.describe(
+											'The objective values of the referenced solution. None if not applicable.'
+										)
+								})
+								.describe(
+									'The same as SolutionReference, but without decision variables for more efficient transport over the internet.'
+								)
+						)
+						.describe('The common results (1 to 4) generated by gnimbus.'),
+					user_results: zod
+						.array(
+							zod
+								.object({
+									name: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Optional name to help identify the solution if, e.g., saved.'),
+									solution_index: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'The index of the referenced solution, if multiple solutions exist in the reference state.'
+										),
+									state: zod
+										.object({
+											id: zod.union([zod.number(), zod.null()]).optional(),
+											problem_id: zod.union([zod.number(), zod.null()]).optional(),
+											session_id: zod.union([zod.number(), zod.null()]).optional(),
+											parent_id: zod.union([zod.number(), zod.null()]).optional(),
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
+										})
+										.describe('The reference state with the solution information.'),
+									state_id: zod.number().describe('The state id.'),
+									num_solutions: zod
+										.number()
+										.describe('Number of solutions contained in the referenced state.'),
+									objective_values: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.describe(
+											'The objective values of the referenced solution. None if not applicable.'
+										)
+								})
+								.describe(
+									'The same as SolutionReference, but without decision variables for more efficient transport over the internet.'
+								)
+						)
+						.describe('The user specific results generated by gnimbus in phases learning and crp.'),
+					personal_result_index: zod
+						.union([zod.number(), zod.null()])
+						.describe('The user result index of requester.'),
+					final_result: zod
+						.union([
+							zod
+								.object({
+									name: zod
+										.union([zod.string(), zod.null()])
+										.optional()
+										.describe('Optional name to help identify the solution if, e.g., saved.'),
+									solution_index: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'The index of the referenced solution, if multiple solutions exist in the reference state.'
+										),
+									state: zod
+										.object({
+											id: zod.union([zod.number(), zod.null()]).optional(),
+											problem_id: zod.union([zod.number(), zod.null()]).optional(),
+											session_id: zod.union([zod.number(), zod.null()]).optional(),
+											parent_id: zod.union([zod.number(), zod.null()]).optional(),
+											state_id: zod.union([zod.number(), zod.null()]).optional(),
+											group_session_id: zod.union([zod.number(), zod.null()]).optional()
+										})
+										.describe('The reference state with the solution information.'),
+									state_id: zod.number().describe('The state id.'),
+									num_solutions: zod
+										.number()
+										.describe('Number of solutions contained in the referenced state.'),
+									objective_values: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.describe(
+											'The objective values of the referenced solution. None if not applicable.'
+										)
+								})
+								.describe(
+									'The same as SolutionReference, but without decision variables for more efficient transport over the internet.'
 								),
 								zod.null()
 							])
@@ -9440,6 +10037,8 @@ export const LoadMetadataSiteSelectionLoadMetadataPostBody = zod
 		coverage_threshold: zod
 			.number()
 			.default(loadMetadataSiteSelectionLoadMetadataPostBodyCoverageThresholdDefault)
+		group_session_id: zod.number(),
+		new_phase: zod.string()
 	})
 	.describe('Request body for loading site selection metadata.');
 
@@ -9517,6 +10116,7 @@ export const BuildMapSiteSelectionMapPostResponse = zod
 		center: zod.array(zod.number()),
 		site_variable_symbols: zod.array(zod.string()),
 		site_node_names: zod.array(zod.string())
+		group_session_id: zod.number()
 	})
 	.describe('Response body for the site selection map endpoint.');
 
@@ -9539,6 +10139,12 @@ export const VoteForABandGdmScoreBandsVotePostBody = zod
 	.object({
 		group_id: zod.number().describe('ID of the group in question'),
 		vote: zod.number().describe('The vote. Vaalisalaisuus.')
+		group_session_id: zod.number().describe('The ID of the group session we wish to revert.'),
+		state_id: zod
+			.number()
+			.describe(
+				"The state's ID to which we want to revert to. Corresponds to state_id in GroupIteration."
+			)
 	})
 	.describe('Request for voting for a band.');
 
@@ -10631,6 +11237,25 @@ export const UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataP
 export const CalculateScoreBandsMethodScoreBandsMethodSolvePostQueryParams = zod.object({
 	problem_id: zod.union([zod.number(), zod.null()]).optional()
 });
+export const VoteForABandGdmScoreBandsVotePostBody = zod
+	.object({
+		group_session_id: zod.number().describe('ID of the group session in question'),
+		vote: zod.number().describe('The vote. Vaalisalaisuus.')
+	})
+	.describe('Request for voting for a band.');
+
+export const VoteForABandGdmScoreBandsVotePostResponse = zod.unknown();
+
+/**
+ * Confim the vote. If all confirm, the clustering and new iteration begins.
+
+Args:
+    request (GroupSessionInfoRequest): Simple request to get the group ID.
+    user (Annotated[User, Depends): The current user.
+    session (Annotated[Session, Depends): Database session.
+
+Raises:
+    HTTPException: If something goes awry. It should let you know what went wrong, though.
 
 export const calculateScoreBandsMethodScoreBandsMethodSolvePostBodyOptionsClusteringAlgorithmOneNameDefault = `GMM`;
 export const calculateScoreBandsMethodScoreBandsMethodSolvePostBodyOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
@@ -10906,6 +11531,316 @@ export const CalculateScoreBandsMethodScoreBandsMethodSolvePostResponse = zod
 						clustering_algorithm: zod
 							.union([
 								zod
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const ConfirmVoteGdmScoreBandsConfirmPostResponse = zod.unknown();
+
+/**
+ * An endpoint for two things: Initializing the GDM Score Bands things and Fetching results.
+
+If a group hasn't been initialized, initialize and then return initial clustering information.
+If it has been initialized, just fetch the latest iteration's information (clustering, etc.)
+
+Args:
+    request (GDMScoreBandsInitializationRequest): Request that contains necessary information for initialization.
+    user (Annotated[User, Depends): The current user.
+    session (Annotated[Session, Depends): Database session.
+
+Raises:
+    HTTPException: It'll let you know.
+
+Returns:
+    GDMSCOREBandsResponse: A response containing Group id, group iter id and ScoreBandsResponse.
+ * @summary Get Or Initialize
+ */
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneNameDefault = `GMM`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFiveNameDefault = `Custom`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' };
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceFormulaDefault = 1;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceParameterDefault = 0.05;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigUseAbsoluteCorrelationsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeSolutionsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeMediansDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIntervalSizeDefault = 0.95;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesDefault = 1;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesExclusiveMin = 0;
+
+export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
+	.object({
+		group_session_id: zod.number().describe('ID of the group session.'),
+		score_bands_config: zod
+			.union([
+				zod
+					.object({
+						score_bands_config: zod
+							.object({
+								dimensions: zod
+									.union([zod.array(zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+									),
+								descriptive_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+									),
+								units: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+									),
+								axis_positions: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
+									.describe(
+										'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+									),
+								axis_colours: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+									),
+								highlight_cluster: zod
+									.union([zod.number(), zod.null()])
+									.optional()
+									.describe(
+										'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+									),
+								clustering_algorithm: zod
+									.union([
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneNameDefault
+													)
+													.describe('Gaussian Mixture Model clustering algorithm.'),
+												scoring_method: zod
+													.enum(['BIC', 'silhouette'])
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault
+													)
+													.describe(
+														'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+													)
+											})
+											.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmTwoNameDefault
+													)
+													.describe('DBSCAN clustering algorithm.')
+											})
+											.describe('Options for DBSCAN clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNameDefault
+													)
+													.describe('KMeans clustering algorithm.'),
+												n_clusters: zod
+													.number()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmThreeNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.')
+											})
+											.describe('Options for KMeans clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNameDefault
+													)
+													.describe('Clustering by one of the dimensions.'),
+												dimension_name: zod.string().describe('Dimension to use for clustering.'),
+												n_clusters: zod
+													.number()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.'),
+												kind: zod
+													.enum(['EqualWidth', 'EqualFrequency'])
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFourKindDefault
+													)
+													.describe(
+														'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+													)
+											})
+											.describe(
+												'Options for clustering by one of the objectives\/decision variables.'
+											),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmFiveNameDefault
+													)
+													.describe('Custom user-provided clusters.'),
+												clusters: zod
+													.array(zod.number())
+													.describe(
+														'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+													)
+											})
+											.describe('Options for custom clustering provided by the user.')
+									])
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigClusteringAlgorithmDefault
+									)
+									.describe(
+										'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+									),
+								distance_formula: zod
+									.union([zod.literal(1), zod.literal(2)])
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceFormulaDefault
+									)
+									.describe(
+										'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+									),
+								distance_parameter: zod
+									.number()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigDistanceParameterDefault
+									)
+									.describe(
+										'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+									),
+								use_absolute_correlations: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigUseAbsoluteCorrelationsDefault
+									)
+									.describe(
+										'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+									),
+								include_solutions: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeSolutionsDefault
+									)
+									.describe(
+										'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+									),
+								include_medians: zod
+									.boolean()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIncludeMediansDefault
+									)
+									.describe(
+										'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+									),
+								interval_size: zod
+									.number()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneScoreBandsConfigIntervalSizeDefault
+									)
+									.describe(
+										'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+									),
+								scales: zod
+									.union([
+										zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+										zod.null()
+									])
+									.optional()
+									.describe(
+										'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+									)
+							})
+							.optional()
+							.describe('Configuration options for SCORE bands visualization.'),
+						minimum_votes: zod
+							.number()
+							.gt(
+								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesExclusiveMin
+							)
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostBodyScoreBandsConfigOneMinimumVotesDefault
+							),
+						from_iteration: zod.union([zod.number(), zod.null()])
+					})
+					.describe('Configuration for the SCORE bands based GDM.'),
+				zod.null()
+			])
+			.optional()
+			.describe('Optional SCORE Bands configuration. Defaults are used when omitted.')
+	})
+	.describe('Request for initializing SCORE Bands.');
+
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneMethodDefault = `gdm-score-bands`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault = `consensus`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' };
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsDistanceFormulaDefault = 1;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsDistanceParameterDefault = 0.05;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsIncludeSolutionsDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsIncludeMediansDefault = false;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneResultOptionsIntervalSizeDefault = 0.95;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoMethodDefault = `gdm-score-bands-final`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoPhaseDefault = `decision`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultMethodDefault = `gdm-score-bands-final`;
+export const getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultPhaseDefault = `decision`;
+
+export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
+	.object({
+		history: zod.array(
+			zod.union([
+				zod
+					.object({
+						method: zod
+							.string()
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOneMethodDefault
+							),
+						phase: zod
+							.enum(['learning', 'consensus'])
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemOnePhaseDefault
+							),
+						group_session_id: zod.number().describe('The group session in question.'),
+						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
+						latest_iteration: zod
+							.number()
+							.describe('The latest GDM iteration number. Different from Group Iteration id.'),
+						result: zod
+							.object({
+								options: zod
 									.object({
 										name: zod
 											.string()
@@ -11057,6 +11992,213 @@ export const CalculateScoreBandsMethodScoreBandsMethodSolvePostResponse = zod
 					.describe('Configuration options used to generate the SCORE bands.'),
 				ordered_dimensions: zod
 					.array(zod.string())
+						phase: zod
+							.literal('decision')
+							.default(
+								getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoPhaseDefault
+							),
+						group_session_id: zod.number().describe('The group session in question.'),
+						group_iter_id: zod.number().describe('ID of the latest group iteration.'),
+						result: zod
+							.object({
+								method: zod
+									.string()
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultMethodDefault
+									),
+								phase: zod
+									.literal('decision')
+									.default(
+										getOrInitializeGdmScoreBandsGetOrInitializePostResponseHistoryItemTwoResultPhaseDefault
+									),
+								user_votes: zod.record(zod.string(), zod.number()).describe('Dictionary of votes.'),
+								user_confirms: zod
+									.array(zod.number())
+									.describe('List of users who want to move on.'),
+								solution_variables: zod.record(
+									zod.string(),
+									zod.array(zod.union([zod.number(), zod.number(), zod.boolean()]))
+								),
+								solution_objectives: zod.record(zod.string(), zod.array(zod.number())),
+								winner_solution_variables: zod
+									.union([
+										zod.record(
+											zod.string(),
+											zod.union([zod.number(), zod.number(), zod.boolean()])
+										),
+										zod.null()
+									])
+									.optional(),
+								winner_solution_objectives: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
+							})
+							.describe('The container for the solutions and the winner solution.')
+					})
+					.describe(
+						'Response class for gdm score bands that includes the last 10 or less solutions.'
+					)
+			])
+		)
+	})
+	.describe('Response class for all history. Allows for going to a previous iteration.');
+
+/**
+ * Returns the current status of votes and confirmations in current iteration.
+
+Args:
+    request (GroupSessionInfoRequest): The group we'd like the info on.
+    user (Annotated[User, Depends): The user that requests the data.
+    session (Annotated[Session, Depends): The database session.
+
+Raises:
+    HTTPException: If group doesn't exists etc errors.
+
+Returns:
+    JSONResponse: A response containing the votes and confirmations.
+ * @summary Get Votes And Confirms
+ */
+export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const GetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse = zod.unknown();
+
+/**
+ * Mark the current user as done with the private learning phase.
+ * @summary Complete Learning Phase
+ */
+export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostBody = zod
+	.object({
+		group_session_id: zod.number()
+	})
+	.describe('Class for requesting group information.');
+
+export const CompleteLearningPhaseGdmScoreBandsLearningCompletePostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
+
+/**
+ * Broadcast a learning-phase warning to connected users.
+ * @summary Warn Learning Phase
+ */
+export const WarnLearningPhaseGdmScoreBandsLearningWarnPostBody = zod
+	.object({
+		group_session_id: zod.number().describe('Group Session ID.'),
+		message: zod.union([zod.string(), zod.null()]).optional().describe('Optional warning message.')
+	})
+	.describe('Request for sending a learning-phase warning to connected users.');
+
+export const WarnLearningPhaseGdmScoreBandsLearningWarnPostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
+
+/**
+ * Move the group from private learning to the consensus phase.
+ * @summary Advance Learning Phase
+ */
+export const AdvanceLearningPhaseGdmScoreBandsLearningAdvancePostBody = zod
+	.object({
+		group_session_id: zod.number().describe('Group Session ID.')
+	})
+	.describe('Request for moving the group from learning to consensus.');
+
+export const AdvanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse = zod
+	.object({
+		phase: zod.enum(['learning', 'consensus', 'decision']),
+		learning_completed_user_ids: zod.array(zod.number()).optional(),
+		learning_started_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_duration_seconds: zod.union([zod.number(), zod.null()]).optional(),
+		learning_last_warning_at: zod.union([zod.string(), zod.null()]).optional(),
+		learning_last_warning_message: zod.union([zod.string(), zod.null()]).optional()
+	})
+	.describe('Response model for the persisted learning phase metadata.');
+
+/**
+ * Revert to a previous iteration. Usable only by the analyst.
+
+This implies that we're gonna need to see ALL previous iterations I'd say.
+
+Args:
+    request (GDMSCOREBandsRevertRequest): The request containing group id and iteration number.
+    user (Annotated[User, Depends): The current user.
+    session (Annotated[Session, Depends): The database session.
+
+Returns:
+    JSONResponse: Acknowledgement of the revert.
+ * @summary Revert
+ */
+export const RevertGdmScoreBandsRevertPostBody = zod
+	.object({
+		group_session_id: zod.number().describe('Group Session ID.'),
+		group_iteration_id: zod
+			.number()
+			.describe('The number of the iteration that we want to revert to.')
+	})
+	.describe('Request for reverting to a previous setup.');
+
+export const RevertGdmScoreBandsRevertPostResponse = zod.unknown();
+
+/**
+ * Configure the SCORE Bands settings.
+
+Args:
+    config (SCOREBandsGDMConfig): The configuration object
+    group_session_id (int): The ID of the group session
+    user (Annotated[User, Depends): The user doing the request
+    session (Annotated[Session, Depends): The database session.
+
+Returns:
+    JSONResponse: Acknowledgement that yeah ok reconfigured.
+ * @summary Configure Gdm
+ */
+export const ConfigureGdmGdmScoreBandsConfigurePostQueryParams = zod.object({
+	group_session_id: zod.number()
+});
+
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmOneNameDefault = `GMM`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmThreeNClustersDefault = 5;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmFourNClustersDefault = 5;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmFiveNameDefault = `Custom`;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' };
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigDistanceFormulaDefault = 1;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigDistanceParameterDefault = 0.05;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigUseAbsoluteCorrelationsDefault = false;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigIncludeSolutionsDefault = false;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigIncludeMediansDefault = false;
+export const configureGdmGdmScoreBandsConfigurePostBodyScoreBandsConfigIntervalSizeDefault = 0.95;
+export const configureGdmGdmScoreBandsConfigurePostBodyMinimumVotesDefault = 1;
+export const configureGdmGdmScoreBandsConfigurePostBodyMinimumVotesExclusiveMin = 0;
+
+export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
+	.object({
+		score_bands_config: zod
+			.object({
+				dimensions: zod
+					.union([zod.array(zod.string()), zod.null()])
+					.optional()
 					.describe(
 						'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
 					),
@@ -11097,6 +12239,117 @@ export const CalculateScoreBandsMethodScoreBandsMethodSolvePostResponse = zod
 					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.')
 			})
 			.describe('Pydantic\/JSON model for representing SCORE Bands.')
+			.optional()
+			.describe('Configuration options for SCORE bands visualization.'),
+		minimum_votes: zod
+			.number()
+			.gt(configureGdmGdmScoreBandsConfigurePostBodyMinimumVotesExclusiveMin)
+			.default(configureGdmGdmScoreBandsConfigurePostBodyMinimumVotesDefault),
+		from_iteration: zod.union([zod.number(), zod.null()])
+	})
+	.describe('Configuration for the SCORE bands based GDM.');
+
+export const ConfigureGdmGdmScoreBandsConfigurePostResponse = zod.unknown();
+
+/**
+ * Restart a SCORE Bands process from scratch.
+
+Only the group owner may restart the process. The GroupSession,
+group, participants, problem, and method are preserved.
+ * @summary Restart Score Bands
+ */
+export const RestartScoreBandsGdmScoreBandsRestartPostBody = zod
+	.object({
+		group_session_id: zod.number().describe('Group Session ID.')
+	})
+	.describe('Request for restarting the entire GDM SCORE Bands process.');
+
+export const RestartScoreBandsGdmScoreBandsRestartPostResponse = zod.unknown();
+
+/**
+ * Initialize NAUTILUS Navigator.
+ * @summary Initialize Navigator
+ */
+export const InitializeNavigatorNautilusInitializePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const InitializeNavigatorNautilusInitializePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional()
+	})
+	.describe('Request to initialize a NAUTILUS Navigator session.');
+
+export const InitializeNavigatorNautilusInitializePostResponse = zod
+	.object({
+		state_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The id of the state created by this initialization.'),
+		navigation_point: zod.record(zod.string(), zod.number()).describe('Initial navigation point.'),
+		lower_bounds: zod
+			.record(zod.string(), zod.number())
+			.describe('Lower bounds of reachable region.'),
+		upper_bounds: zod
+			.record(zod.string(), zod.number())
+			.describe('Upper bounds of reachable region.'),
+		step_number: zod.number().describe('Step number (always 0 at initialization).'),
+		distance_to_front: zod.number().describe('Distance to Pareto front.')
+	})
+	.describe('Response from NAUTILUS Navigator initialization.');
+
+/**
+ * Perform NAUTILUS navigation steps.
+ * @summary Navigate Navigator
+ */
+export const NavigateNavigatorNautilusNavigatePostQueryParams = zod.object({
+	problem_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const NavigateNavigatorNautilusNavigatePostBody = zod
+	.object({
+		problem_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
+		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+		reference_point: zod
+			.record(zod.string(), zod.number())
+			.describe('Reference point provided by the decision maker.'),
+		bounds: zod
+			.union([zod.record(zod.string(), zod.number()), zod.null()])
+			.optional()
+			.describe('The bounds preference of the DM for each objective.'),
+		steps_remaining: zod
+			.number()
+			.describe('The number of steps remaining in the navigation process.')
+	})
+	.describe('Request to perform NAUTILUS Navigator navigation steps.');
+
+export const NavigateNavigatorNautilusNavigatePostResponse = zod
+	.object({
+		state_id: zod
+			.union([zod.number(), zod.null()])
+			.describe('The id of the state created by this navigation step.'),
+		steps: zod
+			.array(
+				zod
+					.object({
+						step_number: zod.number(),
+						navigation_point: zod.record(zod.string(), zod.number()),
+						lower_bounds: zod.record(zod.string(), zod.number()),
+						upper_bounds: zod.record(zod.string(), zod.number()),
+						reachable_solution: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional(),
+						reference_point: zod
+							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.optional(),
+						bounds: zod.union([zod.record(zod.string(), zod.number()), zod.null()]).optional(),
+						distance_to_front: zod.number()
+					})
+					.describe('A single NAUTILUS Navigator step result.')
+			)
+			.describe('The computed navigation steps.')
 	})
 	.describe('Persisted SCORE Bands result.');
 

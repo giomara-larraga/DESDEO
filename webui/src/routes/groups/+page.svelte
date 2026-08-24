@@ -31,44 +31,75 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { buttonVariants } from '$lib/components/ui/button';
-	import type { ProblemInfo } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../stores/methodSelection';
 	import { auth } from '../../stores/auth';
 	import { goto } from '$app/navigation';
 	import Play from '@lucide/svelte/icons/play';
 
-
-	type GroupInfo = {
-		id: number;
-		name: string;
-		owner_id: number;
-		user_ids: number[];
-		problem_id: number;
-	};
+	import type {
+		GroupPublic,
+		GroupSessionPublic,
+		ProblemInfo
+	} from '$lib/gen/endpoints/DESDEOFastAPI';
 
 	import type { PageProps } from './$types';
 	import MathExpressionRenderer from '$lib/components/ui/MathExpressionRenderer/MathExpressionRenderer.svelte';
 
 	let { data }: PageProps = $props();
-	let problemList = $derived(data.problemList);
-	let groupList = $derived(data.groupList);
-	let selectedGroup = $state<GroupInfo | undefined>(undefined);
-	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
 
-	function findProblemForGroup(group: GroupInfo): ProblemInfo | undefined {
-		return problemList.find((p) => p.id === group.problem_id);
+	let groupList = $derived(data.groupList);
+	let sessionRows = $derived(data.sessionRows);
+
+	let selectedGroup = $state<GroupPublic | undefined>(undefined);
+	let selectedGroupSession = $state<GroupSessionPublic | undefined>(undefined);
+	let selectedProblem = $state<ProblemInfo | undefined>(undefined);
+	
+	function getUserRole(group: GroupPublic, userId: number | undefined): string {
+		if (userId === undefined) return '';
+
+		if (userId === group.owner_id) {
+			return 'Owner';
+		}
+
+		if ((group.users ?? []).some((member) => member.id === userId)) {
+			return 'DM';
+		}
+
+		return '';
 	}
 
-	function getUserRole(group: GroupInfo, userId: number | undefined): string {
-		if (!userId) return '';
+	function getParticipantCount(group: GroupPublic): number {
+		const participantIds = new Set((group.users ?? []).map((member) => member.id));
+		participantIds.add(group.owner_id);
 
-		const isOwner = userId === group.owner_id;
-		const isDM = group.user_ids.includes(userId);
+		return participantIds.size;
+	}
 
-		if (isOwner && isDM) return 'Owner & DM';
-		if (isOwner) return 'Owner';
-		if (isDM) return 'DM';
-		return '';
+	async function openGroupSession(
+		groupSession: GroupSessionPublic,
+		problem: ProblemInfo
+	): Promise<void> {
+		methodSelection.setProblem(problem.id);
+
+		switch (groupSession.method) {
+			case 'gnimbus':
+				await goto(
+						`/interactive_methods/GNIMBUS` +
+						`?group_session=${groupSession.id}`
+					);
+				break;
+
+			case 'gdm-score-bands':
+				await goto(
+					`/interactive_methods/GDM-SCORE-bands?group_session=${groupSession.id}`
+				);
+				break;
+
+			default:
+				throw new Error(
+					`Unsupported group method: ${groupSession.method}`
+				);
+		}
 	}
 </script>
 
@@ -82,12 +113,16 @@
 		User Groups
 	</h1>
 	<p class="text-md text-justify text-gray-700">
-		Here you can view and manage your DESDEO groups. Each group is associated with a specific
-		optimization problem. You can participate in multiple groups and collaborate with other users on
-		solving optimization problems together.
+		Here you can view your DESDEO groups and their decision-making sessions.
+		A group can have multiple sessions, and each session is associated with
+		an optimization problem and a decision-making method.
 	</p>
 	{#if groupList.length === 0}
 		<p class="text-gray-600">You are not a member of any groups yet.</p>
+	{:else if sessionRows.length === 0}
+		<p class="mt-4 text-gray-600">
+			Your groups do not have any decision-making sessions yet.
+		</p>
 	{:else}
 		<div class="mt-4 grid grid-cols-2 gap-8 sm:grid-cols-1 lg:grid-cols-2">
 			<div class="w-full">
@@ -95,60 +130,81 @@
 					<Table.Caption>List of your DESDEO groups</Table.Caption>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head class="font-semibold">Group Name</Table.Head>
+							<Table.Head class="font-semibold">Group</Table.Head>
 							<Table.Head class="font-semibold">Problem</Table.Head>
-							<Table.Head class="font-semibold">Role of User</Table.Head>
-							<Table.Head class="font-semibold">Members</Table.Head>
-							<Table.Head class="font-semibold">Solve</Table.Head>
+							<Table.Head class="font-semibold">Method</Table.Head>
+							<Table.Head class="font-semibold">Your Role</Table.Head>
+							<Table.Head class="font-semibold">Participants</Table.Head>
+							<Table.Head class="font-semibold">Open</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each groupList as group}
-							{@const problem = findProblemForGroup(group)}
-							<Table.Row
-								class={selectedGroup?.id === group.id ? 'bg-gray-100' : ''}
-								onclick={() => {
-									selectedGroup = group;
-									selectedProblem = problem;
-									console.log('Selected group:', group.id, 'with problem:', problem?.id);
-								}}
-								role="button"
-								tabindex={0}
-							>
-								<Table.Cell class="text-justify">{group.name}</Table.Cell>
-								<Table.Cell class="text-justify">{problem?.name ?? '—'}</Table.Cell>
-								<Table.Cell class="text-justify">{getUserRole(group, $auth?.user?.id)}</Table.Cell>
-								<Table.Cell class="text-justify">{group.user_ids.length} members</Table.Cell>
-								<Table.Cell>
-									<Tooltip.Provider>
-										<Tooltip.Root>
-											<Tooltip.Trigger
-												class={buttonVariants({
-													variant: 'outline',
-													size: 'icon',
-													class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
-												})}
-												onclick={async (e) => {
-													e.stopPropagation(); // Prevent row click
-													selectedGroup = group;
-													selectedProblem = problem;
-													if (problem) {
-														methodSelection.setProblem(problem.id ?? null);
-													}
-													await goto(`/methods/initialize?group=${group.id}`);
-												}}
-											>
-												<Play />
-											</Tooltip.Trigger>
-											<Tooltip.Content>
-												<p>Choose method for group</p>
-											</Tooltip.Content>
-										</Tooltip.Root>
-									</Tooltip.Provider>
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
+	{#each sessionRows as row}
+		<Table.Row
+			class={selectedGroupSession?.id === row.groupSession.id
+				? 'bg-gray-100'
+				: ''}
+			onclick={() => {
+				selectedGroup = row.group;
+				selectedGroupSession = row.groupSession;
+				selectedProblem = row.problem;
+			}}
+			role="button"
+			tabindex={0}
+		>
+			<Table.Cell class="text-justify">
+				{row.group.name}
+			</Table.Cell>
+
+			<Table.Cell class="text-justify">
+				{row.problem.name}
+			</Table.Cell>
+
+			<Table.Cell class="text-justify">
+				{row.groupSession.method}
+			</Table.Cell>
+
+			<Table.Cell class="text-justify">
+				{getUserRole(row.group, $auth?.user?.id)}
+			</Table.Cell>
+
+			<Table.Cell class="text-justify">
+				{getParticipantCount(row.group)} participants
+			</Table.Cell>
+
+			<Table.Cell>
+				<Tooltip.Provider>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							class={buttonVariants({
+								variant: 'outline',
+								size: 'icon',
+								class: 'text-secondary-foreground flex h-8 w-8 cursor-pointer p-0'
+							})}
+							onclick={async (event) => {
+								event.stopPropagation();
+
+								selectedGroup = row.group;
+								selectedGroupSession = row.groupSession;
+								selectedProblem = row.problem;
+
+								methodSelection.setProblem(row.problem.id);
+
+								await openGroupSession(row.groupSession, row.problem);
+							}}
+						>
+							<Play />
+						</Tooltip.Trigger>
+
+						<Tooltip.Content>
+							<p>Open group session</p>
+						</Tooltip.Content>
+					</Tooltip.Root>
+				</Tooltip.Provider>
+			</Table.Cell>
+		</Table.Row>
+	{/each}
+</Table.Body>
 				</Table.Root>
 			</div>
 			<div class="w-full">

@@ -82,14 +82,14 @@
 	<div class="border-b px-4 py-3">
 		<h3 class="text-sm font-semibold">Current bands</h3>
 		<p class="mt-1 text-xs text-muted-foreground">
-			Each row is a band/cluster. Objective cells show the band median.
+			Each row is a band. Objective cells show the band median.
 		</p>
 	</div>
 
 	<Table.Root>
 		<Table.Header>
 			<Table.Row>
-				<Table.Head class="w-[220px]">Band / Cluster</Table.Head>
+				<Table.Head class="w-[220px]">Band</Table.Head>
 				<Table.Head class="text-right"># Solutions</Table.Head>
 				<Table.Head class="text-right">% of total</Table.Head>
 				{#each axisNames as axisName}
@@ -97,8 +97,6 @@
 						{axisName}
 					</Table.Head>
 				{/each}
-
-				
 			</Table.Row>
 		</Table.Header>
 

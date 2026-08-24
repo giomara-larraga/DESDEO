@@ -20,15 +20,18 @@
 import { writable, type Writable } from 'svelte/store';
 import { isLoading } from '../../../stores/uiState';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
-const wsBase = BASE_URL.replace(/^http/, 'ws');
+const wsBase = import.meta.env.VITE_WS_API_URL;
+
+if (!wsBase) {
+	throw new Error('VITE_WS_API_URL is not configured');
+}
 export class WebSocketService {
 	socket: WebSocket | null = null;
 	private reconnectAttempts = 0;
 	private maxReconnectAttempts = 5;
 	private reconnectInterval = 5000; // Start with 5 seconds
 	private isReconnecting = false;
-	private groupId: number;
+	private groupSessionId: number;
 	private method: string;
 	private token: string;
 
@@ -46,13 +49,13 @@ export class WebSocketService {
 	/**
 	 * Creates a new WebSocket connection for GNIMBUS group communication
 	 *
-	 * @param groupId ID of the group session
+	 * @param groupSessionId ID of the group session
 	 * @param method Method name (default: "gnimbus")
 	 * @param token Authentication token
 	 * @param onReconnect Callback function to run when reconnected
 	 */
-	constructor(groupId: number, method = 'gnimbus', token: string, onReconnect?: () => void) {
-		this.groupId = groupId;
+	constructor(groupSessionId: number, method = 'gnimbus', token: string, onReconnect?: () => void) {
+		this.groupSessionId = groupSessionId;
 		this.method = method;
 		this.token = token;
 		this.onReconnectCallback = onReconnect;
@@ -64,8 +67,15 @@ export class WebSocketService {
 	}
 
 	private connect() {
-		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
-		this.socket = new WebSocket(url);
+
+	const params = new URLSearchParams({
+		group_session_id: String(this.groupSessionId),
+		method: this.method,
+		token: this.token
+	});
+
+	const url = `${wsBase.replace(/\/+$/, '')}/gdm/ws?${params.toString()}`;
+	this.socket = new WebSocket(url);
 		if (this.reconnectAttempts > 0) {
 			this.messageStore.update((store) => ({
 				...store,

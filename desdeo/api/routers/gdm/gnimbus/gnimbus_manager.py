@@ -1,11 +1,14 @@
 """GNIMBUS group manager implementation. Handles varying paths of the GNIMBUS method."""
 
+"""Modified on June 25 by glarraga: group manager now consider a group session id instead of a group id. This is to allow multiple sessions for the same group."""
+
 import copy
 import json
 import logging
 import sys
 from typing import Any
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import numpy as np
 from pydantic import ValidationError
 from sqlmodel import Session, select
@@ -25,6 +28,7 @@ from desdeo.api.models import (
     VotingPreference,
 )
 from desdeo.api.routers.gdm.gdm_base import GroupManager
+from desdeo.api.routers.gdm.utils import get_decision_maker_ids, get_group_or_404, get_group_session_or_404
 from desdeo.mcdm.gnimbus import solve_group_sub_problems, voting_procedure
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
@@ -213,6 +217,7 @@ class GNIMBUSManager(GroupManager):
         self,
         session: Session,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
         optim_state: GNIMBUSOptimizationState | GNIMBUSVotingState | GNIMBUSEndState,
         current_iteration: GroupIteration,
         user_ids: list[int],
@@ -226,8 +231,16 @@ class GNIMBUSManager(GroupManager):
             ).first()
         """
 
+        parent_state_id = current_iteration.parent.state_id if current_iteration.parent else None
+
+
         new_state = StateDB.create(
-            database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=optim_state
+            database_session=session,
+            problem_id=problem_db.id,
+            session_id=None,
+            group_session_id=group_session.id,
+            parent_id=parent_state_id,
+            state=optim_state,
         )
 
         session.add(new_state)
@@ -242,8 +255,10 @@ class GNIMBUSManager(GroupManager):
         session.commit()
 
         # notify connected users that the optimization is done
-        g = user_ids
-        g.append(owner_id)
+        #g = user_ids
+        #g.append(owner_id)
+
+        g = list(set([*user_ids, owner_id]))
         notified = await self.notify(
             user_ids=g, message=f"UPDATE: Please fetch {current_iteration.info_container.method} results."
         )
@@ -262,6 +277,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> VotingPreference | EndProcessPreference | None:
         """A function to handle the optimization path.
 
@@ -278,6 +295,8 @@ class GNIMBUSManager(GroupManager):
             group (Group): The group.
             current_iteration (GroupIteration): The current group iteration, for accessing preferences and the like.
             problem_db (ProblemDB): The problem that we optimize.
+            group_session (GroupSessionDB): The group session.
+            user_ids (list[int]): The IDs of the users in the group.
 
         Returns:
             VotingPreference | EndProcessPreference | None: Return values; If success, return preference items
@@ -317,7 +336,7 @@ class GNIMBUSManager(GroupManager):
         # There has to be a more elegant way of doing this
         preferences: OptimizationPreference = current_iteration.info_container
         if not await self.check_preferences(
-            group.user_ids,
+            user_ids,
             preferences,
         ):
             return None
@@ -343,7 +362,7 @@ class GNIMBUSManager(GroupManager):
 
         logger.info(f"starting values: {prev_sol}")
 
-        user_len = len(group.user_ids)
+        user_len = len(user_ids)
 
         # Begin optimization
         try:
@@ -360,7 +379,7 @@ class GNIMBUSManager(GroupManager):
                 results = results[:user_len] + common_results
                 logger.info(f"Amount on common solutions after filtering: {len(results[user_len:])}")
 
-            logger.info(f"Optimization for group {self.group_id} done.")
+            logger.info(f"Optimization for group {self.group_session_id} done.")
 
         except ScalarizationError as e:
             await self.broadcast(f"ERROR: Error while scalarizing: {e}")
@@ -375,7 +394,17 @@ class GNIMBUSManager(GroupManager):
         # All good, attach results to state and attach that to iteration.
         optim_state = GNIMBUSOptimizationState(reference_points=formatted_prefs, solver_results=results)
 
-        await self.set_state(session, problem_db, optim_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, optim_state, current_iteration, user_ids, group.owner_id)
+
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=optim_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
 
         # DIVERGE THE PATH: if we're in the decision/compromise phase, we'll want to see if everyone
         # is happy with the current solution, so we'll return end process preference.
@@ -395,6 +424,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> OptimizationPreference | None:
         """Handles the voting path of GNIMBUS.
 
@@ -437,7 +468,7 @@ class GNIMBUSManager(GroupManager):
 
         # Check if all preferences are in
         preferences: VotingPreference = current_iteration.info_container
-        if not await self.check_preferences(group.user_ids, preferences):
+        if not await self.check_preferences(user_ids, preferences):
             return None
 
         # format the votes
@@ -456,7 +487,7 @@ class GNIMBUSManager(GroupManager):
 
         results = actual_state.solver_results
 
-        user_len = len(group.user_ids)
+        user_len = len(user_ids)
 
         # Get the winning results
         winner_result: SolverResults = voting_procedure(
@@ -468,7 +499,17 @@ class GNIMBUSManager(GroupManager):
         # Add winning result to database
         vote_state = GNIMBUSVotingState(votes=preferences.set_preferences, solver_results=[winner_result])
 
-        await self.set_state(session, problem_db, vote_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, vote_state, current_iteration, user_ids, group.owner_id)
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=vote_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
+
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
@@ -486,6 +527,8 @@ class GNIMBUSManager(GroupManager):
         group: Group,
         current_iteration: GroupIteration,
         problem_db: ProblemDB,
+        group_session: GroupSessionDB,
+        user_ids: list[int],
     ) -> OptimizationPreference | None:
         """Function to handle the "ending" path.
 
@@ -498,7 +541,7 @@ class GNIMBUSManager(GroupManager):
             group (Group): group
             current_iteration (GroupIteration): the current iteration from which we pull the necessary data.
             problem_db (ProblemDB): the problem.
-
+            group_session (GroupSessionDB): The group session.
         Returns:
             OptimizationPreference | None: If success, we return an optimization preference.
         """
@@ -522,14 +565,14 @@ class GNIMBUSManager(GroupManager):
         # Check if all preferences are in
         preferences: EndProcessPreference = current_iteration.info_container
         if not await self.check_preferences(
-            group.user_ids,
+            user_ids,
             preferences,
         ):
             return None
 
         # All preferences in, let's see what they think.
         all_vote_yes: bool = True
-        for uid in group.user_ids:
+        for uid in user_ids:
             if not preferences.set_preferences[uid]:
                 all_vote_yes = False
                 break
@@ -555,7 +598,16 @@ class GNIMBUSManager(GroupManager):
             votes=current_iteration.info_container.set_preferences, solver_results=results, success=all_vote_yes
         )
 
-        await self.set_state(session, problem_db, ending_state, current_iteration, group.user_ids, group.owner_id)
+        #await self.set_state(session, problem_db, ending_state, current_iteration, user_ids, group.owner_id)
+        await self.set_state(
+            session=session,
+            problem_db=problem_db,
+            group_session=group_session,
+            optim_state=ending_state,
+            current_iteration=current_iteration,
+            user_ids=user_ids,
+            owner_id=group.owner_id,
+        )
 
         # Return a OptimizationPreferenceResult so
         # that we can fill it with reference points
@@ -600,29 +652,38 @@ class GNIMBUSManager(GroupManager):
         """
         async with self.lock:
             # Fetch the current iteration
-            group = db_session.exec(select(Group).where(Group.id == self.group_id)).first()
+            group_session = db_session.exec(select(GroupSessionDB).where(GroupSessionDB.id == self.group_session_id)).first()   
+            if group_session is None:
+                await self.broadcast(
+                    f"ERROR: Group session with ID {self.group_session_id} does not exist."
+                )
+                return
+            
+            group = db_session.exec(select(Group).where(Group.id == group_session.group_id)).first()
             if group is None:
-                await self.broadcast(f"ERROR: The group with ID {self.group_id} doesn't exist anymore.")
-                db_session.close()
+                await self.broadcast(f"ERROR: The group with ID {group_session.group_id} doesn't exist anymore.")
+                #db_session.close()
                 return
 
             current_iteration = db_session.exec(
-                select(GroupIteration).where(GroupIteration.id == group.head_iteration_id)
+                select(GroupIteration).where(GroupIteration.id == group_session.head_iteration_id)
             ).first()
             if current_iteration is None:
                 await self.broadcast("ERROR: Problem not initialized! Initialize the problem!")
-                db_session.close()
+                #db_session.close()
                 return
 
             # logger.info(f"Current iteration ID: {current_iteration.id}")
 
-            problem_db: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+            problem_db: ProblemDB = db_session.exec(select(ProblemDB).where(ProblemDB.id == group_session.problem_id)).first()
             # This shouldn't be a problem at this point anymore, but
             if problem_db is None:
-                await self.broadcast(f"ERROR: There's no problem with ID {group.problem_id}!")
+                await self.broadcast(f"ERROR: There's no problem with ID {group_session.problem_id}!")
                 return
 
             new_preferences = None
+            user_ids = get_decision_maker_ids(group)
+
 
             # Diverge into different paths using PreferenceResult method type of the current iteration.
             match current_iteration.info_container.method:
@@ -634,6 +695,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                    user_ids=user_ids,
                     )
 
                 case "voting":
@@ -645,6 +708,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                        user_ids=user_ids,
                     )
 
                 case "end":
@@ -656,6 +721,8 @@ class GNIMBUSManager(GroupManager):
                         group=group,
                         current_iteration=current_iteration,
                         problem_db=problem_db,
+                        group_session=group_session,
+                        user_ids=user_ids,
                     )
 
                 case _:
@@ -664,15 +731,15 @@ class GNIMBUSManager(GroupManager):
                     return
 
             if new_preferences is None:
-                db_session.close()
+                #db_session.close()
                 return
 
             # If everything has gone according to keikaku (keikaku means plan), create the next iteration.
             next_iteration = GroupIteration(
-                group_id=self.group_id,
-                problem_id=current_iteration.problem_id,
+                session_id=group_session.id,
                 info_container=new_preferences,
                 notified={},
+                state_id=None,
                 parent_id=current_iteration.id,  # Probably redundant to have
                 parent=current_iteration,  # two connections to parents?
             )
@@ -682,17 +749,18 @@ class GNIMBUSManager(GroupManager):
             db_session.refresh(next_iteration)
 
             # Update new parent iteration
-            children = current_iteration.children.copy()
-            children.append(next_iteration)
-            current_iteration.children = children
-            current_iteration.group_id = self.group_id
-            db_session.add(current_iteration)
-            db_session.commit()
+            #children = current_iteration.children.copy()
+            #children.append(next_iteration)
+            #current_iteration.children = children
+            #current_iteration.group_id = self.group_id
+            #db_session.add(current_iteration)
+            #db_session.commit()
 
             # Update head of the group
-            group.head_iteration_id = next_iteration.id
-            db_session.add(group)
+            group_session.head_iteration_id = next_iteration.id
+            db_session.add(group_session)
             db_session.commit()
+            db_session.refresh(group_session)
 
             # Close the session
-            db_session.close()
+            #db_session.close()

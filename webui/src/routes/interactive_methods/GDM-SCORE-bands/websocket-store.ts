@@ -29,7 +29,7 @@ export class WebSocketService {
 	private reconnectInterval = 5000; // Start with 5 seconds
 	private isReconnecting = false;
 	private intentionalDisconnect = false; // Flag to prevent reconnection on intentional disconnect
-	private groupId: number;
+	private groupSessionId: number;
 	private method: string;
 	private token: string;
 
@@ -53,12 +53,12 @@ export class WebSocketService {
 	 * @param onReconnect Callback function to run when reconnected (e.g., refresh voting state)
 	 */
 	constructor(
-		groupId: number,
+		groupSessionId: number,
 		method = 'gdm-score-bands',
 		token: string,
 		onReconnect?: () => void
 	) {
-		this.groupId = groupId;
+		this.groupSessionId = groupSessionId;
 		this.method = method;
 		this.token = token;
 		this.onReconnectCallback = onReconnect;
@@ -76,7 +76,13 @@ export class WebSocketService {
 	 * @private
 	 */
 	private connect() {
-		const url = `${wsBase}/gdm/ws?group_id=${this.groupId}&method=${this.method}&token=${this.token}`;
+		const params = new URLSearchParams({
+			group_session_id: String(this.groupSessionId),
+			method: this.method,
+			token: this.token
+		});
+
+		const url = `${wsBase}/gdm/ws?${params.toString()}`;
 		this.socket = new WebSocket(url);
 		if (this.reconnectAttempts > 0) {
 			this.messageStore.update((store) => ({

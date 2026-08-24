@@ -8,6 +8,7 @@ from pydantic import ConfigDict, computed_field
 from sqlalchemy.orm import object_session
 from sqlmodel import (
     JSON,
+    CheckConstraint,
     Column,
     Field,
     Relationship,
@@ -42,6 +43,9 @@ from .state import (
     NIMBUSSaveState,
     RPMState,
     SCOREBandsMethodState,
+    GDMSCOREBandsLearningState,
+    GDMSCOREBandsConsensusState,
+    GDMSCOREBandsDecisionState,
 )
 from .user import User
 
@@ -86,6 +90,9 @@ class StateKind(str, Enum):
     CUMULUS_MODIFY = "cumulus.modify"
     CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
     SCORE_BANDS_METHOD_INITIALIZE = "score_bands_method.initialize"
+    GDM_SCORE_BANDS_LEARNING = "gdm-score-bands.learning"
+    GDM_SCORE_BANDS_CONSENSUS = "gdm-score-bands.consensus"
+    GDM_SCORE_BANDS_DECISION = "gdm-score-bands.decision"
 
 
 class State(SQLModel, table=True):
@@ -107,6 +114,18 @@ class StateDB(SQLModel, table=True):
     """State holder with a single relationship to the base State."""
 
     __tablename__ = "statedb"
+
+    __table_args__ = (
+        CheckConstraint(
+            """
+            NOT (
+                session_id IS NOT NULL
+                AND group_session_id IS NOT NULL
+            )
+            """,
+            name="state_has_only_one_session_type",
+        ),
+    )
 
     id: int | None = Field(primary_key=True, default=None)
 
@@ -139,6 +158,10 @@ class StateDB(SQLModel, table=True):
 
     session: "InteractiveSessionDB" = Relationship(back_populates="states")
     problem: "ProblemDB" = Relationship(back_populates="states")
+    group_session_id: int | None = Field(
+        default=None,
+        foreign_key="group_session.id",
+    )
 
     @classmethod
     def create(
@@ -147,6 +170,7 @@ class StateDB(SQLModel, table=True):
         *,
         problem_id: int | None = None,
         session_id: int | None = None,
+        group_session_id: int | None = None,
         parent_id: int | None = None,
         state: SQLModel | None = None,
         kind: StateKind | None = None,
@@ -167,6 +191,7 @@ class StateDB(SQLModel, table=True):
         row = cls(
             problem_id=problem_id,
             session_id=session_id,
+            group_session_id=group_session_id,
             parent_id=parent_id,
             base_state=base,
         )
@@ -229,6 +254,9 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
     StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
     StateKind.SCORE_BANDS_METHOD_INITIALIZE: SCOREBandsMethodState,
+    StateKind.GDM_SCORE_BANDS_LEARNING: GDMSCOREBandsLearningState,
+    StateKind.GDM_SCORE_BANDS_CONSENSUS: GDMSCOREBandsConsensusState,
+    StateKind.GDM_SCORE_BANDS_DECISION: GDMSCOREBandsDecisionState,
 }
 
 SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
@@ -256,6 +284,9 @@ SUBSTATE_TO_KIND: dict[SQLModel, StateKind] = {
     CumulusModificationState: StateKind.CUMULUS_MODIFY,
     CumulusObjectiveConstraintState: StateKind.CUMULUS_OBJ_CONSTRAINT,
     SCOREBandsMethodState: StateKind.SCORE_BANDS_METHOD_INITIALIZE,
+    GDMSCOREBandsLearningState: StateKind.GDM_SCORE_BANDS_LEARNING,
+    GDMSCOREBandsConsensusState: StateKind.GDM_SCORE_BANDS_CONSENSUS,
+    GDMSCOREBandsDecisionState: StateKind.GDM_SCORE_BANDS_DECISION,
 }
 
 

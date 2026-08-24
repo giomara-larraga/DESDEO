@@ -1,41 +1,72 @@
 import type { PageLoad } from './$types';
+
 import {
-	getCurrentUserInfoUserInfoGet,
-	getGroupInfoGdmGetGroupInfoPost,
+	getUserGroupsGdmGroupsGet,
+	getGroupSessionsGdmGroupsGroupIdSessionsGet,
 	getProblemProblemProblemIdGet
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
+import type {
+	GroupPublic,
+	GroupSessionPublic,
+	ProblemInfo
+} from '$lib/gen/endpoints/DESDEOFastAPI';
+
+type GroupSessionRow = {
+	group: GroupPublic;
+	groupSession: GroupSessionPublic;
+	problem: ProblemInfo;
+};
+
 export const load: PageLoad = async () => {
-	const user = await getCurrentUserInfoUserInfoGet();
-	if (user.status !== 200) {
-		throw new Error('Failed to fetch user info');
+	const groupsResponse = await getUserGroupsGdmGroupsGet();
+
+	if (groupsResponse.status !== 200) {
+		throw new Error('Failed to fetch groups');
 	}
 
-	const groupIds = user.data.group_ids;
-	if (!groupIds || groupIds.length === 0) {
-		return { problemList: [], groupList: [] };
-	}
+	const groupList: GroupPublic[] = groupsResponse.data;
 
-	let groupList = [];
-	for (const id of groupIds) {
-		const info = await getGroupInfoGdmGetGroupInfoPost({ group_id: id });
-		if (info.status !== 200) {
-			throw new Error(`Failed to fetch group info for group ID ${id}`);
-		}
-		groupList.push(info.data);
-	}
+	const rows = await Promise.all(
+		groupList.map(async (group) => {
+			const sessionsResponse =
+				await getGroupSessionsGdmGroupsGroupIdSessionsGet(group.id);
 
-	let problemList = [];
-	for (const group of groupList) {
-		const problem = await getProblemProblemProblemIdGet(group.problem_id);
-		if (problem.status !== 200) {
-			throw new Error(`Failed to fetch problem info for problem ID ${group.problem_id}`);
-		}
-		problemList.push(problem.data);
-	}
+			if (sessionsResponse.status !== 200) {
+				throw new Error(
+					`Failed to fetch sessions for group ID ${group.id}`
+				);
+			}
+
+			return Promise.all(
+				sessionsResponse.data.map(
+					async (
+						groupSession: GroupSessionPublic
+					): Promise<GroupSessionRow> => {
+						const problemResponse =
+							await getProblemProblemProblemIdGet(
+								groupSession.problem_id
+							);
+
+						if (problemResponse.status !== 200) {
+							throw new Error(
+								`Failed to fetch problem ${groupSession.problem_id}`
+							);
+						}
+
+						return {
+							group,
+							groupSession,
+							problem: problemResponse.data
+						};
+					}
+				)
+			);
+		})
+	);
 
 	return {
-		problemList,
-		groupList
+		groupList,
+		sessionRows: rows.flat()
 	};
 };

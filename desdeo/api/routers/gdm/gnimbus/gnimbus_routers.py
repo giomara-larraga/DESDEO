@@ -10,6 +10,7 @@ import logging
 import sys
 from typing import Annotated
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
@@ -24,9 +25,9 @@ from desdeo.api.models import (
     GNIMBUSSwitchPhaseResponse,
     GNIMBUSVotingState,
     Group,
-    GroupInfoRequest,
+    GroupSessionInfoRequest,
     GroupIteration,
-    GroupRevertRequest,
+    GroupSessionRevertRequest,
     OptimizationPreference,
     ProblemDB,
     SolutionReference,
@@ -36,6 +37,7 @@ from desdeo.api.models import (
     VotingPreference,
 )
 from desdeo.api.routers.gdm.gdm_aggregate import manager
+from desdeo.api.routers.gdm.utils import check_group_access, get_decision_maker_ids, get_group_or_404, get_group_session_or_404
 from desdeo.api.routers.problem import check_solver
 from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point
@@ -50,29 +52,29 @@ not_init_error = HTTPException(detail="Problem has not been initialized!", statu
 router = APIRouter(prefix="/gnimbus", tags=["GNIMBUS"])
 
 
+    
 @router.post("/initialize")
 def gnimbus_initialize(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ):
     """Initialize the problem for GNIMBUS."""
     #Check that all pre-conditions are all right
-    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found!", status_code=status.HTTP_404_NOT_FOUND)
-    if not (user.id in group.user_ids or user.id is group.owner_id):
-        raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
 
     head_iteration = session.exec(select(GroupIteration)
-                                  .where(GroupIteration.id == group.head_iteration_id)).first()
-    if head_iteration is not None:
-        raise HTTPException(detail="Group problem already initialized!", status_code=status.HTTP_400_BAD_REQUEST)
+                                  .where(GroupIteration.id == group_session.head_iteration_id)).first()
 
-    problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group.problem_id)).first()
+    if head_iteration is not None:
+        raise HTTPException(detail="Group session already initialized!", status_code=status.HTTP_400_BAD_REQUEST)
+
+    problem_db = session.exec(select(ProblemDB).where(ProblemDB.id == group_session.problem_id)).first()
     if problem_db is None:
         raise HTTPException(
-            detail=f"No problem with id {group.problem_id} found!", status_code=status.HTTP_404_NOT_FOUND
+            detail=f"No problem with id {group_session.problem_id} found!", status_code=status.HTTP_404_NOT_FOUND
         )
 
     solver = check_solver(problem_db=problem_db)
@@ -87,7 +89,12 @@ def gnimbus_initialize(
 
     # Create init state
     state = StateDB.create(
-        database_session=session, problem_id=problem_db.id, session_id=None, parent_id=None, state=gnimbus_state
+        database_session=session,
+        problem_id=problem_db.id,
+        session_id=None,
+        group_session_id=group_session.id,
+        parent_id=None,
+        state=gnimbus_state,
     )
 
     session.add(state)
@@ -96,29 +103,26 @@ def gnimbus_initialize(
 
     # The starting iteration
     start_iteration = GroupIteration(
-        problem_id=group.problem_id,
-        group_id=group.id,
-        info_container=VotingPreference(
-            set_preferences={},
-        ),
+        session_id=group_session.id,
+        info_container=VotingPreference(set_preferences={}),
         notified={},
         state_id=state.id,
         parent_id=None,
         parent=None,
     )
-
+    
     session.add(start_iteration)
     session.commit()
     session.refresh(start_iteration)
 
     # New iteration for continuing; to this we add new preferences and begin building a linked list
     new_iteration = GroupIteration(
-        problem_id=start_iteration.problem_id,
-        group_id=start_iteration.group_id,
+        session_id=group_session.id,
         info_container=OptimizationPreference(
             set_preferences={},
         ),
         notified={},
+        state_id=None,
         parent_id=start_iteration.id,
         parent=start_iteration,
     )
@@ -127,20 +131,21 @@ def gnimbus_initialize(
     session.commit()
     session.refresh(new_iteration)
 
-    children = start_iteration.children.copy()
-    children.append(new_iteration)
-    start_iteration.children = children
-    session.add(start_iteration)
-    group.head_iteration_id = new_iteration.id
-    session.add(group)
+    #children = start_iteration.children.copy()
+    #children.append(new_iteration)
+    #start_iteration.children = children
+    #session.add(start_iteration)
+    group_session.head_iteration_id = new_iteration.id
+    session.add(group_session)
     session.commit()
+    session.refresh(group_session)
 
-    return JSONResponse(content={"message": f"Group {group.id} initialized."}, status_code=status.HTTP_200_OK)
+    return JSONResponse(content={"message": f"Group {group_session.id} initialized."}, status_code=status.HTTP_200_OK)
 
 
 @router.post("/get_latest_results")
 def get_latest_results(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSResultResponse:
@@ -149,7 +154,7 @@ def get_latest_results(
     (OBSOLETE AND OUT OF DATE!)
 
     Args:
-        request (GroupInfoRequest): essentially just the ID of the group
+        request (GroupSessionInfoRequest): essentially just the ID of the group session
         user (Annotated[User, Depends(get_current_user)]): Current user
         session (Annotated[Session, Depends(get_session)]): Database session.
 
@@ -159,17 +164,14 @@ def get_latest_results(
     Raises:
         HTTPException: Validation errors or no results
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
-
-    if not (user.id in group.user_ids or user.id is group.owner_id):
-        raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
 
     nores_exp = HTTPException(detail="No results found!", status_code=status.HTTP_404_NOT_FOUND)
 
     head_iteration = session.exec(select(GroupIteration)
-                                  .where(GroupIteration.id == group.head_iteration_id)).first()
+                                  .where(GroupIteration.id == group_session.head_iteration_id)).first()
 
     try:
         iteration = head_iteration.parent
@@ -221,7 +223,7 @@ def get_latest_results(
 
 @router.post("/all_iterations")
 def full_iteration(  # noqa: C901, PLR0912
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> GNIMBUSAllIterationsResponse:
@@ -240,15 +242,12 @@ def full_iteration(  # noqa: C901, PLR0912
     Raises:
         HTTPException: Validation errors or no results or no states and such.
     """
-    group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id}!", status_code=status.HTTP_404_NOT_FOUND)
-
-    if user.id not in group.user_ids and user.id is not group.owner_id:
-        raise HTTPException(detail="Unauthorized user", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
 
     head_iteration = session.exec(select(GroupIteration)
-                                  .where(GroupIteration.id == group.head_iteration_id)).first()
+                                  .where(GroupIteration.id == group_session.head_iteration_id)).first()
 
     try:
         groupiter = head_iteration.parent
@@ -260,7 +259,7 @@ def full_iteration(  # noqa: C901, PLR0912
 
     full_iterations: list[FullIteration] = []
 
-    user_len = len(group.user_ids)
+    user_len = len(get_decision_maker_ids(group))
 
     if groupiter.info_container.method == "optimization":
         # There are no full results because the latest iteration is optimization,
@@ -373,13 +372,13 @@ async def switch_phase(
             detail=f"Undefined phase: {request.new_phase}! Can only be {['learning', 'crp', 'decision', 'compromise']}",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
-    if user.id is not group.owner_id:
-        raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
+
     iteration = session.exec(select(GroupIteration)
-                             .where(GroupIteration.id == group.head_iteration_id)).first()
+                             .where(GroupIteration.id == group_session.head_iteration_id)).first()
     if iteration is None:
         raise HTTPException(
             detail="There's no iterations! Did you forget to initialize the problem?",
@@ -406,7 +405,7 @@ async def switch_phase(
     session.refresh(iteration)
 
     # get the group manager and notify the connected users that the phase has changed
-    gman = await manager.get_group_manager(group_id=group.id, method="gnimbus")
+    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus", db_session=session)
 
     await gman.broadcast(f"The phase was changed from {old_phase} to {new_phase}.")
 
@@ -415,23 +414,17 @@ async def switch_phase(
 
 @router.post("/get_phase")
 def get_phase(
-    request: GroupInfoRequest,
+    request: GroupSessionInfoRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
     """Get the current phase of the group."""
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if group is None:
-        raise HTTPException(detail=f"No group with ID {request.group_id} found", status_code=status.HTTP_404_NOT_FOUND)
-
-    g = group.user_ids
-    g.append(group.owner_id)
-
-    if user.id not in g:
-        raise HTTPException(detail="Unauthorized user.", status_code=status.HTTP_401_UNAUTHORIZED)
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
 
     current_iteration= session.exec(select(GroupIteration)
-                                    .where(GroupIteration.id == group.head_iteration_id)).first()
+                                    .where(GroupIteration.id == group_session.head_iteration_id)).first()
     if current_iteration is None:
         raise not_init_error
 
@@ -467,7 +460,7 @@ def get_preference_item(iteration):
 
 @router.post("/revert_iteration")
 async def revert_iteration(
-    request: GroupRevertRequest,
+    request: GroupSessionRevertRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
@@ -484,20 +477,12 @@ async def revert_iteration(
     Returns:
         JSONResponse: Response that acknowledges the changes.
     """
-    group: Group = session.exec(select(Group).where(Group.id == request.group_id)).first()
-    if not group:
-        raise HTTPException(
-            detail=f"No group with ID {request.group_id}!",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    if group.owner_id is not user.id:
-        raise HTTPException(
-            detail="Unauthorized user!",
-            status_code=status.HTTP_401_UNAUTHORIZED
-        )
+    group_session = get_group_session_or_404(request.group_session_id, session)
+    group = get_group_or_404(group_session, session)
+    check_group_access(user, group)
 
     current_iteration = session.exec(select(GroupIteration)
-                                     .where(GroupIteration.id == group.head_iteration_id)).first()
+                                     .where(GroupIteration.id == group_session.head_iteration_id)).first()
 
     if not current_iteration:
         raise HTTPException(
@@ -529,8 +514,7 @@ async def revert_iteration(
     # without any hiccups or changes to the "all_iterations" endpoint. Essentially we copy two latest
     # iterations to the head of the history.
     new_parent_1 = GroupIteration(
-        problem_id=group.problem_id,
-        group_id=group.id,
+        session_id=group_session.id,
         info_container=target_iteration.parent.info_container.model_copy(),
         notified=target_iteration.parent.notified.copy(),
         state_id=target_iteration.parent.state_id,
@@ -543,8 +527,7 @@ async def revert_iteration(
     session.refresh(new_parent_1)
 
     new_parent_2 = GroupIteration(
-        problem_id=group.problem_id,
-        group_id=group.id,
+        session_id=group_session.id,
         info_container=target_iteration.info_container.model_copy(),
         notified=target_iteration.notified.copy(),
         state_id=target_iteration.state_id,
@@ -558,8 +541,7 @@ async def revert_iteration(
 
     # New head iteration
     new_head = GroupIteration(
-        problem_id=group.problem_id,
-        group_id=group.id,
+        session_id=group_session.id,
         info_container=OptimizationPreference(
             phase=target_iteration.parent.info_container.phase \
                 if target_iteration.parent.info_container.phase is not None else "learning",
@@ -573,14 +555,14 @@ async def revert_iteration(
     session.add(new_head)
     session.commit()
 
-    group.head_iteration_id = new_head.id
+    group_session.head_iteration_id = new_head.id
 
-    session.add(group)
+    session.add(group_session)
     session.delete(current_iteration)
     session.commit()
-    session.refresh(group)
+    session.refresh(group_session)
 
-    gman = await manager.get_group_manager(group_id=group.id, method="gnimbus")
+    gman = await manager.get_group_manager(group_session_id=group_session.id, method="gnimbus", db_session=session)
     await gman.broadcast("UPDATE: Latest iteration reversed by the group owner!")
 
     return JSONResponse(

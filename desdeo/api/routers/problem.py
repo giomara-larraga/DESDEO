@@ -3,6 +3,8 @@
 import json
 from typing import Annotated
 
+from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
+from desdeo.api.models.gdm.group_user_link import GroupUserLink
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
@@ -75,6 +77,9 @@ def get_problems(
     db_session: Annotated[Session, Depends(get_session)],
 ) -> list[ProblemInfoSmall]:
     """Get information on problems. Analysts and admins see all users' problems.
+    Other users see:
+        - problems they own, and
+        - problems shared with them through group sessions.
 
     Args:
         user (Annotated[User, Depends): the current user.
@@ -88,16 +93,36 @@ def get_problems(
 
     problems_by_id: dict[int, ProblemDB] = {problem.id: problem for problem in user.problems}
 
-    groups = db_session.exec(select(Group)).all()
-    visible_group_problem_ids = {
-        group.problem_id
-        for group in groups
-        if user.id == group.owner_id or user.id in (group.user_ids or [])
-    }
+    visible_group_problem_ids = set(
+        db_session.exec(
+            select(GroupSessionDB.problem_id)
+            .join(Group, Group.id == GroupSessionDB.group_id)
+            .join(GroupUserLink, GroupUserLink.group_id == Group.id)
+            .where(GroupUserLink.user_id == user.id)
+        ).all()
+    )
+
+    # Optional, only needed if owner is not always in GroupUserLink
+    owned_group_problem_ids = set(
+        db_session.exec(
+            select(GroupSessionDB.problem_id)
+            .join(Group, Group.id == GroupSessionDB.group_id)
+            .where(Group.owner_id == user.id)
+        ).all()
+    )
+
+    visible_group_problem_ids |= owned_group_problem_ids
+
     if visible_group_problem_ids:
-        group_problems = db_session.exec(select(ProblemDB).where(ProblemDB.id.in_(visible_group_problem_ids))).all()
+        group_problems = db_session.exec(
+            select(ProblemDB).where(
+                ProblemDB.id.in_(visible_group_problem_ids)
+            )
+        ).all()
+
         for problem in group_problems:
             problems_by_id[problem.id] = problem
+
 
     return list(problems_by_id.values())
 
@@ -121,14 +146,33 @@ def get_problems_info(
 
     problems_by_id: dict[int, ProblemDB] = {problem.id: problem for problem in user.problems}
 
-    groups = db_session.exec(select(Group)).all()
-    visible_group_problem_ids = {
-        group.problem_id
-        for group in groups
-        if user.id == group.owner_id or user.id in (group.user_ids or [])
-    }
+    visible_group_problem_ids = set(
+        db_session.exec(
+            select(GroupSessionDB.problem_id)
+            .join(Group, Group.id == GroupSessionDB.group_id)
+            .join(GroupUserLink, GroupUserLink.group_id == Group.id)
+            .where(GroupUserLink.user_id == user.id)
+        ).all()
+    )
+
+    # Optional, only needed if owner is not always in GroupUserLink
+    owned_group_problem_ids = set(
+        db_session.exec(
+            select(GroupSessionDB.problem_id)
+            .join(Group, Group.id == GroupSessionDB.group_id)
+            .where(Group.owner_id == user.id)
+        ).all()
+    )
+
+    visible_group_problem_ids |= owned_group_problem_ids
+
     if visible_group_problem_ids:
-        group_problems = db_session.exec(select(ProblemDB).where(ProblemDB.id.in_(visible_group_problem_ids))).all()
+        group_problems = db_session.exec(
+            select(ProblemDB).where(
+                ProblemDB.id.in_(visible_group_problem_ids)
+            )
+        ).all()
+
         for problem in group_problems:
             problems_by_id[problem.id] = problem
 

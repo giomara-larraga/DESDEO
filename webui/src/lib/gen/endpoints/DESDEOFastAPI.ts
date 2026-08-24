@@ -611,6 +611,9 @@ export interface CumulusScenarioSetupResponse {
 	scenario_model_id: number;
 	/** Symbols of the objectives available for aggregation. */
 	objective_symbols: string[];
+export interface CreateGroupSessionRequest {
+	problem_id: number;
+	method: string;
 }
 
 /**
@@ -1078,6 +1081,7 @@ export interface StateDB {
 	session_id?: number | null;
 	parent_id?: number | null;
 	state_id?: number | null;
+	group_session_id?: number | null;
 }
 
 /**
@@ -1130,29 +1134,32 @@ export interface FullIteration {
 /**
  * Dictionary of votes.
  */
-export type GDMSCOREBandFinalSelectionUserVotes = { [key: string]: number };
+export type GDMSCOREBandsFinalSelectionUserVotes = { [key: string]: number };
 
-export type GDMSCOREBandFinalSelectionSolutionVariables = { [key: string]: (number | boolean)[] };
+export type GDMSCOREBandsFinalSelectionSolutionVariables = { [key: string]: (number | boolean)[] };
 
-export type GDMSCOREBandFinalSelectionSolutionObjectives = { [key: string]: number[] };
+export type GDMSCOREBandsFinalSelectionSolutionObjectives = { [key: string]: number[] };
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionVariables = { [key: string]: number | boolean };
+export type GDMSCOREBandsFinalSelectionWinnerSolutionVariables = {
+	[key: string]: number | boolean;
+} | null;
 
-export type GDMSCOREBandFinalSelectionWinnerSolutionObjectives = { [key: string]: number };
+export type GDMSCOREBandsFinalSelectionWinnerSolutionObjectives = { [key: string]: number } | null;
 
 /**
  * Class for containing the final 10 or less solutions, the final solution and the votes that led to it.
  */
-export interface GDMSCOREBandFinalSelection {
+export interface GDMSCOREBandsFinalSelection {
 	method?: string;
+	phase?: 'decision';
 	/** Dictionary of votes. */
-	user_votes: GDMSCOREBandFinalSelectionUserVotes;
+	user_votes: GDMSCOREBandsFinalSelectionUserVotes;
 	/** List of users who want to move on. */
 	user_confirms: number[];
-	solution_variables: GDMSCOREBandFinalSelectionSolutionVariables;
-	solution_objectives: GDMSCOREBandFinalSelectionSolutionObjectives;
-	winner_solution_variables: GDMSCOREBandFinalSelectionWinnerSolutionVariables;
-	winner_solution_objectives: GDMSCOREBandFinalSelectionWinnerSolutionObjectives;
+	solution_variables: GDMSCOREBandsFinalSelectionSolutionVariables;
+	solution_objectives: GDMSCOREBandsFinalSelectionSolutionObjectives;
+	winner_solution_variables?: GDMSCOREBandsFinalSelectionWinnerSolutionVariables;
+	winner_solution_objectives?: GDMSCOREBandsFinalSelectionWinnerSolutionObjectives;
 }
 
 /**
@@ -1160,13 +1167,22 @@ export interface GDMSCOREBandFinalSelection {
  */
 export interface GDMSCOREBandsDecisionResponse {
 	method?: string;
-	/** The group in question. */
-	group_id: number;
+	phase?: 'decision';
+	/** The group session in question. */
+	group_session_id: number;
 	/** ID of the latest group iteration. */
 	group_iter_id: number;
 	/** The container for the solutions and the winner solution. */
-	result: GDMSCOREBandFinalSelection;
+	result: GDMSCOREBandsFinalSelection;
 }
+
+export type GDMSCOREBandsResponsePhase =
+	(typeof GDMSCOREBandsResponsePhase)[keyof typeof GDMSCOREBandsResponsePhase];
+
+export const GDMSCOREBandsResponsePhase = {
+	learning: 'learning',
+	consensus: 'consensus'
+} as const;
 
 /**
  * Scoring method to use for GMM. Either "BIC" or "silhouette". Defaults to "silhouette".
@@ -1406,8 +1422,9 @@ export interface SCOREBandsResult {
  */
 export interface GDMSCOREBandsResponse {
 	method?: string;
-	/** The group in question. */
-	group_id: number;
+	phase?: GDMSCOREBandsResponsePhase;
+	/** The group session in question. */
+	group_session_id: number;
 	/** ID of the latest group iteration. */
 	group_iter_id: number;
 	/** The latest GDM iteration number. Different from Group Iteration id. */
@@ -1424,13 +1441,60 @@ export interface GDMSCOREBandsHistoryResponse {
 }
 
 /**
+ * Request for moving the group from learning to consensus.
+ */
+export interface GDMSCOREBandsLearningAdvanceRequest {
+	/** Group Session ID. */
+	group_session_id: number;
+}
+
+export type GDMSCOREBandsLearningStatusResponsePhase =
+	(typeof GDMSCOREBandsLearningStatusResponsePhase)[keyof typeof GDMSCOREBandsLearningStatusResponsePhase];
+
+export const GDMSCOREBandsLearningStatusResponsePhase = {
+	learning: 'learning',
+	consensus: 'consensus',
+	decision: 'decision'
+} as const;
+
+/**
+ * Response model for the persisted learning phase metadata.
+ */
+export interface GDMSCOREBandsLearningStatusResponse {
+	phase: GDMSCOREBandsLearningStatusResponsePhase;
+	learning_completed_user_ids?: number[];
+	learning_started_at?: string | null;
+	learning_duration_seconds?: number | null;
+	learning_last_warning_at?: string | null;
+	learning_last_warning_message?: string | null;
+}
+
+/**
+ * Request for sending a learning-phase warning to connected users.
+ */
+export interface GDMSCOREBandsLearningWarningRequest {
+	/** Group Session ID. */
+	group_session_id: number;
+	/** Optional warning message. */
+	message?: string | null;
+}
+
+/**
+ * Request for restarting the entire GDM SCORE Bands process.
+ */
+export interface GDMSCOREBandsRestartRequest {
+	/** Group Session ID. */
+	group_session_id: number;
+}
+
+/**
  * Request for reverting to a previous setup.
  */
 export interface GDMSCOREBandsRevertRequest {
-	/** Group ID. */
-	group_id: number;
+	/** Group Session ID. */
+	group_session_id: number;
 	/** The number of the iteration that we want to revert to. */
-	iteration_number: number;
+	group_iteration_id: number;
 }
 
 /**
@@ -1444,21 +1508,21 @@ export interface SCOREBandsGDMConfig {
 }
 
 /**
- * Request class for initialization of score bands.
+ * Request for initializing SCORE Bands.
  */
 export interface GDMScoreBandsInitializationRequest {
-	/** The group to be initialized. */
-	group_id: number;
-	/** The configuration for the initial score banding. */
-	score_bands_config: SCOREBandsGDMConfig;
+	/** ID of the group session. */
+	group_session_id: number;
+	/** Optional SCORE Bands configuration. Defaults are used when omitted. */
+	score_bands_config?: SCOREBandsGDMConfig | null;
 }
 
 /**
  * Request for voting for a band.
  */
 export interface GDMScoreBandsVoteRequest {
-	/** ID of the group in question */
-	group_id: number;
+	/** ID of the group session in question */
+	group_session_id: number;
 	/** The vote. Vaalisalaisuus. */
 	vote: number;
 }
@@ -1528,7 +1592,7 @@ export interface GNIMBUSResultResponse {
  * A request for a certain phase. Comes from the group owner/analyst.
  */
 export interface GNIMBUSSwitchPhaseRequest {
-	group_id: number;
+	group_session_id: number;
 	new_phase: string;
 }
 
@@ -1559,7 +1623,7 @@ export interface GenericIntermediateSolutionResponse {
  */
 export interface GroupCreateRequest {
 	group_name: string;
-	problem_id: number;
+	user_ids: number[];
 }
 
 /**
@@ -1577,6 +1641,11 @@ export interface GroupModifyRequest {
 	user_id: number;
 }
 
+export interface GroupUserPublic {
+	id: number;
+	username: string;
+}
+
 /**
  * Response model for Group.
  */
@@ -1584,16 +1653,30 @@ export interface GroupPublic {
 	id: number;
 	name: string;
 	owner_id: number;
-	user_ids: number[];
+	users?: GroupUserPublic[];
+}
+
+/**
+ * Class for requesting group information.
+ */
+export interface GroupSessionInfoRequest {
+	group_session_id: number;
+}
+
+export interface GroupSessionPublic {
+	id: number;
+	group_id: number;
 	problem_id: number;
+	method: string;
+	head_iteration_id?: number | null;
 }
 
 /**
  * Class for requesting reverting to certain iteration.
  */
-export interface GroupRevertRequest {
-	/** The ID of the group we wish to revert. */
-	group_id: number;
+export interface GroupSessionRevertRequest {
+	/** The ID of the group session we wish to revert. */
+	group_session_id: number;
 	/** The state's ID to which we want to revert to. Corresponds to state_id in GroupIteration. */
 	state_id: number;
 }
@@ -2668,7 +2751,7 @@ export type GetSessionTreeMethodEnautilusSessionTreeSessionIdGetParams = {
 };
 
 export type ConfigureGdmGdmScoreBandsConfigurePostParams = {
-	group_id: number;
+	group_session_id: number;
 };
 
 export type InitializeNavigatorNautilusInitializePostParams = {
@@ -3095,6 +3178,20 @@ export const addNewAnalystAddNewAnalystPost = async (
 	);
 };
 
+/**
+ * Get information on problems. Analysts and admins see all users' problems.
+Other users see:
+    - problems they own, and
+    - problems shared with them through group sessions.
+
+Args:
+    user (Annotated[User, Depends): the current user.
+    db_session (Annotated[Session, Depends]): the database session.
+
+Returns:
+    list[ProblemInfoSmall]: a list of information on the problems.
+ * @summary Get Problems
+ */
 export type getProblemsProblemAllGetResponse200 = {
 	data: ProblemInfoSmall[];
 	status: 200;
@@ -6142,6 +6239,112 @@ export const createGroupGdmCreateGroupPost = async (
 	});
 };
 
+/**
+ * Create a decision-making session for a group.
+ * @summary Create Group Session
+ */
+export type createGroupSessionGdmGroupsGroupIdSessionsPostResponse200 = {
+	data: GroupSessionPublic;
+	status: 200;
+};
+
+export type createGroupSessionGdmGroupsGroupIdSessionsPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type createGroupSessionGdmGroupsGroupIdSessionsPostResponseSuccess =
+	createGroupSessionGdmGroupsGroupIdSessionsPostResponse200 & {
+		headers: Headers;
+	};
+export type createGroupSessionGdmGroupsGroupIdSessionsPostResponseError =
+	createGroupSessionGdmGroupsGroupIdSessionsPostResponse422 & {
+		headers: Headers;
+	};
+
+export type createGroupSessionGdmGroupsGroupIdSessionsPostResponse =
+	| createGroupSessionGdmGroupsGroupIdSessionsPostResponseSuccess
+	| createGroupSessionGdmGroupsGroupIdSessionsPostResponseError;
+
+export const getCreateGroupSessionGdmGroupsGroupIdSessionsPostUrl = (groupId: number) => {
+	return `http://localhost:8000/gdm/groups/${groupId}/sessions`;
+};
+
+export const createGroupSessionGdmGroupsGroupIdSessionsPost = async (
+	groupId: number,
+	createGroupSessionRequest: CreateGroupSessionRequest,
+	options?: RequestInit
+): Promise<createGroupSessionGdmGroupsGroupIdSessionsPostResponse> => {
+	return customFetch<createGroupSessionGdmGroupsGroupIdSessionsPostResponse>(
+		getCreateGroupSessionGdmGroupsGroupIdSessionsPostUrl(groupId),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(createGroupSessionRequest)
+		}
+	);
+};
+
+/**
+ * Return all decision-making sessions belonging to a group.
+ * @summary Get Group Sessions
+ */
+export type getGroupSessionsGdmGroupsGroupIdSessionsGetResponse200 = {
+	data: GroupSessionPublic[];
+	status: 200;
+};
+
+export type getGroupSessionsGdmGroupsGroupIdSessionsGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getGroupSessionsGdmGroupsGroupIdSessionsGetResponseSuccess =
+	getGroupSessionsGdmGroupsGroupIdSessionsGetResponse200 & {
+		headers: Headers;
+	};
+export type getGroupSessionsGdmGroupsGroupIdSessionsGetResponseError =
+	getGroupSessionsGdmGroupsGroupIdSessionsGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getGroupSessionsGdmGroupsGroupIdSessionsGetResponse =
+	| getGroupSessionsGdmGroupsGroupIdSessionsGetResponseSuccess
+	| getGroupSessionsGdmGroupsGroupIdSessionsGetResponseError;
+
+export const getGetGroupSessionsGdmGroupsGroupIdSessionsGetUrl = (groupId: number) => {
+	return `http://localhost:8000/gdm/groups/${groupId}/sessions`;
+};
+
+export const getGroupSessionsGdmGroupsGroupIdSessionsGet = async (
+	groupId: number,
+	options?: RequestInit
+): Promise<getGroupSessionsGdmGroupsGroupIdSessionsGetResponse> => {
+	return customFetch<getGroupSessionsGdmGroupsGroupIdSessionsGetResponse>(
+		getGetGroupSessionsGdmGroupsGroupIdSessionsGetUrl(groupId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Delete the group with given ID.
+
+Args:
+    request (GroupSessionInfoRequest): Contains the ID of the group to be deleted
+    user (Annotated[User, Depends(get_current_user)]): The user (in this case must be owner for anything to happen)
+    session (Annotated[Session, Depends(get_session)]): The database session
+
+Returns:
+    JSONResponse: Acknowledgement of the deletion
+
+Raises:
+    HTTPException: Insufficient authorization etc.
+ * @summary Delete Group
+ */
 export type deleteGroupGdmDeleteGroupPostResponse200 = {
 	data: unknown;
 	status: 200;
@@ -6185,14 +6388,14 @@ export const getDeleteGroupGdmDeleteGroupPostUrl = () => {
  * @summary Delete Group
  */
 export const deleteGroupGdmDeleteGroupPost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<deleteGroupGdmDeleteGroupPostResponse> => {
 	return customFetch<deleteGroupGdmDeleteGroupPostResponse>(getDeleteGroupGdmDeleteGroupPostUrl(), {
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(groupInfoRequest)
+		body: JSON.stringify(groupSessionInfoRequest)
 	});
 };
 
@@ -6305,6 +6508,78 @@ export const removeFromGroupGdmRemoveFromGroupPost = async (
 	);
 };
 
+/**
+ * Get information about the sessions of a group.
+
+Args:
+    request (GroupSessionInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
+    session (Annotated[Session, Depends(get_session)]): the database session
+
+Returns:
+    list[GroupSessionPublic]: public info of the sessions of the group
+
+Raises:
+    HTTPException: If there's no group with the requests group id
+ * @summary Get Group Sessions Info
+ */
+export type getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse200 = {
+	data: GroupSessionPublic[];
+	status: 200;
+};
+
+export type getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseSuccess =
+	getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse200 & {
+		headers: Headers;
+	};
+export type getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseError =
+	getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse422 & {
+		headers: Headers;
+	};
+
+export type getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse =
+	| getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseSuccess
+	| getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponseError;
+
+export const getGetGroupSessionsInfoGdmGetGroupSessionsInfoPostUrl = () => {
+	return `http://localhost:8000/gdm/get_group_sessions_info`;
+};
+
+export const getGroupSessionsInfoGdmGetGroupSessionsInfoPost = async (
+	groupSessionInfoRequest: GroupSessionInfoRequest,
+	options?: RequestInit
+): Promise<getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse> => {
+	return customFetch<getGroupSessionsInfoGdmGetGroupSessionsInfoPostResponse>(
+		getGetGroupSessionsInfoGdmGetGroupSessionsInfoPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(groupSessionInfoRequest)
+		}
+	);
+};
+
+/**
+ * Get information about the group.
+
+Args:
+    request (GroupInfoRequest): the id of the group for which we desire info on
+    user (Annotated[User, Depends(get_current_user)]): the current user
+    session (Annotated[Session, Depends(get_session)]): the database session
+
+Returns:
+    GroupPublic: public info of the group
+
+Raises:
+    HTTPException: If there's no group with the requests group id
+ * @summary Get Group Info
+ */
 export type getGroupInfoGdmGetGroupInfoPostResponse200 = {
 	data: GroupPublic;
 	status: 200;
@@ -6361,6 +6636,81 @@ export const getGroupInfoGdmGetGroupInfoPost = async (
 	);
 };
 
+/**
+ * Return groups where the current user is an owner or member.
+ * @summary Get User Groups
+ */
+export type getUserGroupsGdmGroupsGetResponse200 = {
+	data: GroupPublic[];
+	status: 200;
+};
+
+export type getUserGroupsGdmGroupsGetResponseSuccess = getUserGroupsGdmGroupsGetResponse200 & {
+	headers: Headers;
+};
+export type getUserGroupsGdmGroupsGetResponse = getUserGroupsGdmGroupsGetResponseSuccess;
+
+export const getGetUserGroupsGdmGroupsGetUrl = () => {
+	return `http://localhost:8000/gdm/groups`;
+};
+
+export const getUserGroupsGdmGroupsGet = async (
+	options?: RequestInit
+): Promise<getUserGroupsGdmGroupsGetResponse> => {
+	return customFetch<getUserGroupsGdmGroupsGetResponse>(getGetUserGroupsGdmGroupsGetUrl(), {
+		...options,
+		method: 'GET'
+	});
+};
+
+/**
+ * Return one group decision-making session.
+ * @summary Get Group Session
+ */
+export type getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse200 = {
+	data: GroupSessionPublic;
+	status: 200;
+};
+
+export type getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type getGroupSessionGdmGroupSessionsGroupSessionIdGetResponseSuccess =
+	getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse200 & {
+		headers: Headers;
+	};
+export type getGroupSessionGdmGroupSessionsGroupSessionIdGetResponseError =
+	getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse422 & {
+		headers: Headers;
+	};
+
+export type getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse =
+	| getGroupSessionGdmGroupSessionsGroupSessionIdGetResponseSuccess
+	| getGroupSessionGdmGroupSessionsGroupSessionIdGetResponseError;
+
+export const getGetGroupSessionGdmGroupSessionsGroupSessionIdGetUrl = (groupSessionId: number) => {
+	return `http://localhost:8000/gdm/group-sessions/${groupSessionId}`;
+};
+
+export const getGroupSessionGdmGroupSessionsGroupSessionIdGet = async (
+	groupSessionId: number,
+	options?: RequestInit
+): Promise<getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse> => {
+	return customFetch<getGroupSessionGdmGroupSessionsGroupSessionIdGetResponse>(
+		getGetGroupSessionGdmGroupSessionsGroupSessionIdGetUrl(groupSessionId),
+		{
+			...options,
+			method: 'GET'
+		}
+	);
+};
+
+/**
+ * Initialize the problem for GNIMBUS.
+ * @summary Gnimbus Initialize
+ */
 export type gnimbusInitializeGnimbusInitializePostResponse200 = {
 	data: unknown;
 	status: 200;
@@ -6393,7 +6743,7 @@ export const getGnimbusInitializeGnimbusInitializePostUrl = () => {
  * @summary Gnimbus Initialize
  */
 export const gnimbusInitializeGnimbusInitializePost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<gnimbusInitializeGnimbusInitializePostResponse> => {
 	return customFetch<gnimbusInitializeGnimbusInitializePostResponse>(
@@ -6402,11 +6752,28 @@ export const gnimbusInitializeGnimbusInitializePost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupInfoRequest)
+			body: JSON.stringify(groupSessionInfoRequest)
 		}
 	);
 };
 
+/**
+ * Get the latest results from group iteration.
+
+(OBSOLETE AND OUT OF DATE!)
+
+Args:
+    request (GroupSessionInfoRequest): essentially just the ID of the group session
+    user (Annotated[User, Depends(get_current_user)]): Current user
+    session (Annotated[Session, Depends(get_session)]): Database session.
+
+Returns:
+    GNIMBUSResultResponse: A GNIMBUSResultResponse response containing the latest gnimbus results
+
+Raises:
+    HTTPException: Validation errors or no results
+ * @summary Get Latest Results
+ */
 export type getLatestResultsGnimbusGetLatestResultsPostResponse200 = {
 	data: GNIMBUSResultResponse;
 	status: 200;
@@ -6452,7 +6819,7 @@ export const getGetLatestResultsGnimbusGetLatestResultsPostUrl = () => {
  * @summary Get Latest Results
  */
 export const getLatestResultsGnimbusGetLatestResultsPost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<getLatestResultsGnimbusGetLatestResultsPostResponse> => {
 	return customFetch<getLatestResultsGnimbusGetLatestResultsPostResponse>(
@@ -6461,7 +6828,7 @@ export const getLatestResultsGnimbusGetLatestResultsPost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupInfoRequest)
+			body: JSON.stringify(groupSessionInfoRequest)
 		}
 	);
 };
@@ -6511,7 +6878,7 @@ export const getFullIterationGnimbusAllIterationsPostUrl = () => {
  * @summary Full Iteration
  */
 export const fullIterationGnimbusAllIterationsPost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<fullIterationGnimbusAllIterationsPostResponse> => {
 	return customFetch<fullIterationGnimbusAllIterationsPostResponse>(
@@ -6520,7 +6887,7 @@ export const fullIterationGnimbusAllIterationsPost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupInfoRequest)
+			body: JSON.stringify(groupSessionInfoRequest)
 		}
 	);
 };
@@ -6601,14 +6968,14 @@ export const getGetPhaseGnimbusGetPhasePostUrl = () => {
  * @summary Get Phase
  */
 export const getPhaseGnimbusGetPhasePost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<getPhaseGnimbusGetPhasePostResponse> => {
 	return customFetch<getPhaseGnimbusGetPhasePostResponse>(getGetPhaseGnimbusGetPhasePostUrl(), {
 		...options,
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...options?.headers },
-		body: JSON.stringify(groupInfoRequest)
+		body: JSON.stringify(groupSessionInfoRequest)
 	});
 };
 
@@ -6655,7 +7022,7 @@ export const getRevertIterationGnimbusRevertIterationPostUrl = () => {
  * @summary Revert Iteration
  */
 export const revertIterationGnimbusRevertIterationPost = async (
-	groupRevertRequest: GroupRevertRequest,
+	groupSessionRevertRequest: GroupSessionRevertRequest,
 	options?: RequestInit
 ): Promise<revertIterationGnimbusRevertIterationPostResponse> => {
 	return customFetch<revertIterationGnimbusRevertIterationPostResponse>(
@@ -6664,7 +7031,7 @@ export const revertIterationGnimbusRevertIterationPost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupRevertRequest)
+			body: JSON.stringify(groupSessionRevertRequest)
 		}
 	);
 };
@@ -7184,6 +7551,21 @@ export const voteForABandGdmScoreBandsVotePost = async (
 	);
 };
 
+/**
+ * Confim the vote. If all confirm, the clustering and new iteration begins.
+
+Args:
+    request (GroupSessionInfoRequest): Simple request to get the group ID.
+    user (Annotated[User, Depends): The current user.
+    session (Annotated[Session, Depends): Database session.
+
+Raises:
+    HTTPException: If something goes awry. It should let you know what went wrong, though.
+
+Returns:
+    JSONResponse: A simple confirmation that everything went ok and that vote went in.
+ * @summary Confirm Vote
+ */
 export type confirmVoteGdmScoreBandsConfirmPostResponse200 = {
 	data: unknown;
 	status: 200;
@@ -7227,7 +7609,7 @@ export const getConfirmVoteGdmScoreBandsConfirmPostUrl = () => {
  * @summary Confirm Vote
  */
 export const confirmVoteGdmScoreBandsConfirmPost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<confirmVoteGdmScoreBandsConfirmPostResponse> => {
 	return customFetch<confirmVoteGdmScoreBandsConfirmPostResponse>(
@@ -7236,7 +7618,7 @@ export const confirmVoteGdmScoreBandsConfirmPost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupInfoRequest)
+			body: JSON.stringify(groupSessionInfoRequest)
 		}
 	);
 };
@@ -7301,6 +7683,21 @@ export const getOrInitializeGdmScoreBandsGetOrInitializePost = async (
 	);
 };
 
+/**
+ * Returns the current status of votes and confirmations in current iteration.
+
+Args:
+    request (GroupSessionInfoRequest): The group we'd like the info on.
+    user (Annotated[User, Depends): The user that requests the data.
+    session (Annotated[Session, Depends): The database session.
+
+Raises:
+    HTTPException: If group doesn't exists etc errors.
+
+Returns:
+    JSONResponse: A response containing the votes and confirmations.
+ * @summary Get Votes And Confirms
+ */
 export type getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse200 = {
 	data: unknown;
 	status: 200;
@@ -7344,7 +7741,7 @@ export const getGetVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostUrl = () 
  * @summary Get Votes And Confirms
  */
 export const getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPost = async (
-	groupInfoRequest: GroupInfoRequest,
+	groupSessionInfoRequest: GroupSessionInfoRequest,
 	options?: RequestInit
 ): Promise<getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse> => {
 	return customFetch<getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPostResponse>(
@@ -7353,7 +7750,145 @@ export const getVotesAndConfirmsGdmScoreBandsGetVotesAndConfirmsPost = async (
 			...options,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(groupInfoRequest)
+			body: JSON.stringify(groupSessionInfoRequest)
+		}
+	);
+};
+
+/**
+ * Mark the current user as done with the private learning phase.
+ * @summary Complete Learning Phase
+ */
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponseSuccess =
+	completeLearningPhaseGdmScoreBandsLearningCompletePostResponse200 & {
+		headers: Headers;
+	};
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponseError =
+	completeLearningPhaseGdmScoreBandsLearningCompletePostResponse422 & {
+		headers: Headers;
+	};
+
+export type completeLearningPhaseGdmScoreBandsLearningCompletePostResponse =
+	| completeLearningPhaseGdmScoreBandsLearningCompletePostResponseSuccess
+	| completeLearningPhaseGdmScoreBandsLearningCompletePostResponseError;
+
+export const getCompleteLearningPhaseGdmScoreBandsLearningCompletePostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/complete`;
+};
+
+export const completeLearningPhaseGdmScoreBandsLearningCompletePost = async (
+	groupSessionInfoRequest: GroupSessionInfoRequest,
+	options?: RequestInit
+): Promise<completeLearningPhaseGdmScoreBandsLearningCompletePostResponse> => {
+	return customFetch<completeLearningPhaseGdmScoreBandsLearningCompletePostResponse>(
+		getCompleteLearningPhaseGdmScoreBandsLearningCompletePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(groupSessionInfoRequest)
+		}
+	);
+};
+
+/**
+ * Broadcast a learning-phase warning to connected users.
+ * @summary Warn Learning Phase
+ */
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponseSuccess =
+	warnLearningPhaseGdmScoreBandsLearningWarnPostResponse200 & {
+		headers: Headers;
+	};
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponseError =
+	warnLearningPhaseGdmScoreBandsLearningWarnPostResponse422 & {
+		headers: Headers;
+	};
+
+export type warnLearningPhaseGdmScoreBandsLearningWarnPostResponse =
+	| warnLearningPhaseGdmScoreBandsLearningWarnPostResponseSuccess
+	| warnLearningPhaseGdmScoreBandsLearningWarnPostResponseError;
+
+export const getWarnLearningPhaseGdmScoreBandsLearningWarnPostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/warn`;
+};
+
+export const warnLearningPhaseGdmScoreBandsLearningWarnPost = async (
+	gDMSCOREBandsLearningWarningRequest: GDMSCOREBandsLearningWarningRequest,
+	options?: RequestInit
+): Promise<warnLearningPhaseGdmScoreBandsLearningWarnPostResponse> => {
+	return customFetch<warnLearningPhaseGdmScoreBandsLearningWarnPostResponse>(
+		getWarnLearningPhaseGdmScoreBandsLearningWarnPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsLearningWarningRequest)
+		}
+	);
+};
+
+/**
+ * Move the group from private learning to the consensus phase.
+ * @summary Advance Learning Phase
+ */
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse200 = {
+	data: GDMSCOREBandsLearningStatusResponse;
+	status: 200;
+};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseSuccess =
+	advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse200 & {
+		headers: Headers;
+	};
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseError =
+	advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse422 & {
+		headers: Headers;
+	};
+
+export type advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse =
+	| advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseSuccess
+	| advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponseError;
+
+export const getAdvanceLearningPhaseGdmScoreBandsLearningAdvancePostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/learning/advance`;
+};
+
+export const advanceLearningPhaseGdmScoreBandsLearningAdvancePost = async (
+	gDMSCOREBandsLearningAdvanceRequest: GDMSCOREBandsLearningAdvanceRequest,
+	options?: RequestInit
+): Promise<advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse> => {
+	return customFetch<advanceLearningPhaseGdmScoreBandsLearningAdvancePostResponse>(
+		getAdvanceLearningPhaseGdmScoreBandsLearningAdvancePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsLearningAdvanceRequest)
 		}
 	);
 };
@@ -7411,6 +7946,19 @@ export const revertGdmScoreBandsRevertPost = async (
 	});
 };
 
+/**
+ * Configure the SCORE Bands settings.
+
+Args:
+    config (SCOREBandsGDMConfig): The configuration object
+    group_session_id (int): The ID of the group session
+    user (Annotated[User, Depends): The user doing the request
+    session (Annotated[Session, Depends): The database session.
+
+Returns:
+    JSONResponse: Acknowledgement that yeah ok reconfigured.
+ * @summary Configure Gdm
+ */
 export type configureGdmGdmScoreBandsConfigurePostResponse200 = {
 	data: unknown;
 	status: 200;
@@ -7481,6 +8029,59 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 	);
 };
 
+/**
+ * Restart a SCORE Bands process from scratch.
+
+Only the group owner may restart the process. The GroupSession,
+group, participants, problem, and method are preserved.
+ * @summary Restart Score Bands
+ */
+export type restartScoreBandsGdmScoreBandsRestartPostResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponseSuccess =
+	restartScoreBandsGdmScoreBandsRestartPostResponse200 & {
+		headers: Headers;
+	};
+export type restartScoreBandsGdmScoreBandsRestartPostResponseError =
+	restartScoreBandsGdmScoreBandsRestartPostResponse422 & {
+		headers: Headers;
+	};
+
+export type restartScoreBandsGdmScoreBandsRestartPostResponse =
+	| restartScoreBandsGdmScoreBandsRestartPostResponseSuccess
+	| restartScoreBandsGdmScoreBandsRestartPostResponseError;
+
+export const getRestartScoreBandsGdmScoreBandsRestartPostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/restart`;
+};
+
+export const restartScoreBandsGdmScoreBandsRestartPost = async (
+	gDMSCOREBandsRestartRequest: GDMSCOREBandsRestartRequest,
+	options?: RequestInit
+): Promise<restartScoreBandsGdmScoreBandsRestartPostResponse> => {
+	return customFetch<restartScoreBandsGdmScoreBandsRestartPostResponse>(
+		getRestartScoreBandsGdmScoreBandsRestartPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(gDMSCOREBandsRestartRequest)
+		}
+	);
+};
+
+/**
+ * Initialize NAUTILUS Navigator.
+ * @summary Initialize Navigator
+ */
 export type initializeNavigatorNautilusInitializePostResponse200 = {
 	data: NautilusNavigatorInitResponse;
 	status: 200;
