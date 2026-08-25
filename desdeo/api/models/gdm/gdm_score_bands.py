@@ -149,9 +149,14 @@ class GDMSCOREBandsRevertRequest(SQLModel):
 
 
 class GDMSCOREBandsRestartRequest(SQLModel):
-    """Request for restarting the entire GDM SCORE Bands process."""
+    """Request for restarting the GDM SCORE Bands to a specific phase."""
 
     group_session_id: int = Field(description="Group Session ID.")
+    target_phase: Literal[
+        "learning",
+        "consensus",
+        "decision",
+    ] = "learning"
 
 
 class GDMSCOREBandsResponse(SQLModel):

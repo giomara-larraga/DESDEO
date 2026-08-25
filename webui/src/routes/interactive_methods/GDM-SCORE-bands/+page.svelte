@@ -103,6 +103,17 @@
 		createdAt: string;
 	};
 
+	type RestartPhase =
+		| 'learning'
+		| 'consensus'
+		| 'decision';
+
+	let isRestarting = $state(false);
+
+	let restartNotice = $state<string | null>(
+		null
+	);
+
 	let learningState = $state({
 		selectedBand: null as number | null,
 		savedBands: [] as number[],
@@ -348,6 +359,23 @@ function getConsensusClasses(axisName: string): string {
 		return formatDuration(learningSecondsRemaining);
 	});
 
+	let availableRestartPhases =
+		$derived.by(() => {
+			const phases = new Set<RestartPhase>();
+
+			for (const item of history) {
+				if (
+					item.phase === 'learning' ||
+					item.phase === 'consensus' ||
+					item.phase === 'decision'
+				) {
+					phases.add(item.phase);
+				}
+			}
+
+			return phases;
+		});
+
 	
 	//let iteration_id = $state(0); // for header and fetch_score_bands
 
@@ -474,6 +502,19 @@ function getConsensusClasses(axisName: string): string {
 	let show_bands = $state(true);
 	let show_solutions = $state(false); // Disabled and hidden for now - no individual solutions
 	let show_medians = $state(false); // Hide medians by default
+
+
+	function canRestartToPhase(
+		targetPhase: RestartPhase
+	): boolean {
+		if (!isOwner) {
+			return false;
+		}
+
+		return availableRestartPhases.has(
+			targetPhase
+		);
+	}
 
 	function setClusterVisibility(
 		clusterId: number,
@@ -1604,22 +1645,137 @@ function getConsensusClasses(axisName: string): string {
 		}
 	}
 
-	async function restartScoreBands() {
-		try {
-			const restartResult = await callGSCOREBandsAPI('restart', {
-				group_session_id: data.groupSession.id
-			});
+	async function restartScoreBands(
+		targetPhase: RestartPhase
+	) {
+		/*
+		* Frontend authorization.
+		* The backend must still perform its own
+		* check_group_owner().
+		*/
+		if (!isOwner) {
+			errorMessage.set(
+				'Only the group owner can reset the SCORE Bands process.'
+			);
+			return;
+		}
 
-			if (restartResult.success) {
-				await fetch_score_bands();
-				await fetch_votes_and_confirms(true);
-				clusters_to_visible();
-			} else {
-				throw new Error(`Restart failed: ${restartResult.error || 'Unknown error'}`);
+		/*
+		* Do not allow resetting to a phase that
+		* has never existed in this group process.
+		*/
+		if (!canRestartToPhase(targetPhase)) {
+			errorMessage.set(
+				`Cannot reset to ${targetPhase}: ` +
+					'the process has not reached that phase.'
+			);
+			return;
+		}
+
+		if (isRestarting) {
+			return;
+		}
+
+		const phaseLabel =
+			targetPhase === 'learning'
+				? 'Learning Phase'
+				: targetPhase === 'consensus'
+					? 'Consensus Phase'
+					: 'Decision Phase';
+
+		const confirmed = window.confirm(
+			`Are you sure you want to reset the SCORE Bands process to the ${phaseLabel}?\n\n` +
+				'All progress after that point will be removed.'
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		isRestarting = true;
+		restartNotice = null;
+
+		try {
+			const restartResult =
+				await callGSCOREBandsAPI<{
+					message: string;
+					group_session_id: number;
+					head_iteration_id:
+						number | null;
+					phase: RestartPhase;
+				}>(
+					'restart',
+					{
+						group_session_id:
+							data.groupSession.id,
+
+						target_phase:
+							targetPhase
+					}
+				);
+
+			if (!restartResult.success) {
+				throw new Error(
+					restartResult.error ??
+						'Failed to reset SCORE Bands.'
+				);
 			}
+
+			/*
+			* Personal learning exploration only
+			* becomes invalid when restarting all
+			* the way back to learning.
+			*/
+			if (targetPhase === 'learning') {
+				personalExplorationStack = [];
+
+				learningState.selectedBand =
+					null;
+
+				learningState.savedBands = [];
+
+				learningState.comparedBands = [];
+
+				learningNotice = null;
+			}
+
+			selected_band = null;
+			selected_solution = null;
+
+			decisionNotice = null;
+			vote_confirmed = false;
+
+			cluster_visibility_map = {};
+
+			await fetch_score_bands();
+
+			await fetch_votes_and_confirms(
+				true
+			);
+
+			clusters_to_visible();
+
+			restartNotice =
+				`The SCORE Bands process was reset ` +
+				`to the ${phaseLabel}.`;
+
+			console.log(
+				'SCORE Bands reset successfully:',
+				restartResult.data
+			);
 		} catch (error) {
-			console.error('Error in restartScoreBands:', error);
-			errorMessage.set(`${error}`);
+			console.error(
+				'Error in restartScoreBands:',
+				error
+			);
+
+			errorMessage.set(
+				error instanceof Error
+					? error.message
+					: String(error)
+			);
+		} finally {
+			isRestarting = false;
 		}
 	}
 </script>
@@ -2143,12 +2299,17 @@ function getConsensusClasses(axisName: string): string {
 						</div>
 					{/if}
 
+					
+
 					<!-- History Browser Component -->
 					<HistoryBrowser
 						{history}
 						currentIterationId={groupIterationId}
 						onRevertToIteration={revert_to}
 						{isOwner}
+						onRestartToPhase={restartScoreBands}
+						canRestartToPhase={canRestartToPhase}
+						isRestartingPhase={isRestarting}
 					/>
 				</div>
 				<!-- Visualization Area -->

@@ -884,18 +884,18 @@ async def restart_score_bands(
         Depends(get_session),
     ],
 ) -> JSONResponse:
-    """Restart a SCORE Bands process from scratch.
+    """Reset GDM SCORE Bands to the beginning of a selected phase."""
 
-    Only the group owner may restart the process. The GroupSession,
-    group, participants, problem, and method are preserved.
-    """
     group_session, group = get_score_bands_context(
         request.group_session_id,
         user,
         session,
     )
 
-    check_group_owner(user, group)
+    check_group_owner(
+        user,
+        group,
+    )
 
     group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
         group_session_id=group_session.id,
@@ -908,13 +908,16 @@ async def restart_score_bands(
             user=user,
             group_session=group_session,
             session=session,
+            target_phase=request.target_phase,
         )
+
     except ManagerError as error:
         session.rollback()
 
         logger.warning(
-            "Could not restart SCORE Bands session %s: %s",
+            "Could not reset SCORE Bands session %s " "to %s: %s",
             group_session.id,
+            request.target_phase,
             error,
         )
 
@@ -922,24 +925,28 @@ async def restart_score_bands(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         ) from error
+
     except Exception as error:
         session.rollback()
 
         logger.exception(
-            "Unexpected error while restarting SCORE Bands session %s.",
+            "Unexpected error while resetting " "SCORE Bands session %s.",
             group_session.id,
         )
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to restart the SCORE Bands process.",
+            detail=("Failed to reset the " "SCORE Bands process."),
         ) from error
+
+    session.refresh(group_session)
 
     return JSONResponse(
         content={
-            "message": "SCORE Bands process restarted.",
+            "message": ("SCORE Bands process reset to " f"{request.target_phase}."),
             "group_session_id": group_session.id,
-            "head_iteration_id": None,
+            "head_iteration_id": group_session.head_iteration_id,
+            "phase": request.target_phase,
         }
     )
 

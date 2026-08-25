@@ -35,12 +35,20 @@
 	import { Button } from '$lib/components/ui/button';
 	import type { GDMSCOREBandsResponse, GDMSCOREBandsDecisionResponse } from '$lib/gen/endpoints/DESDEOFastAPI';
 
+	type RestartPhase =
+	| 'learning'
+	| 'consensus'
+	| 'decision';
+
 	// Component props
 	const {
 		history,
 		currentIterationId,
 		onRevertToIteration,
-		isOwner = false
+		isOwner = false,
+		onRestartToPhase,
+		canRestartToPhase,
+		isRestartingPhase = false
 	} = $props<{
 		history: (
 			| GDMSCOREBandsResponse
@@ -49,6 +57,16 @@
 		currentIterationId: number | null;
 		onRevertToIteration: (iteration: number) => void;
 		isOwner?: boolean;
+		onRestartToPhase:
+			(
+				phase: RestartPhase
+			) => void | Promise<void>;
+
+		canRestartToPhase:
+			(phase: RestartPhase) => boolean;
+
+		isRestartingPhase?: boolean;
+
 	}>();
 
 	// Local state for this component
@@ -68,68 +86,61 @@
 		}
 		expandedIterations = new Set(expandedIterations); // Trigger reactivity
 	}
-
-	async function handleRestartProcess() {
-		if (isRestarting) {
-			return;
-		}
-
-		const confirmed = window.confirm(
-			'Restart the process from scratch? ' +
-				'All SCORE Bands iterations and workflow ' +
-				'progress for this session will be deleted. ' +
-				'The group and participants will be preserved.'
-		);
-
-		if (!confirmed) {
-			return;
-		}
-
-		isRestarting = true;
-		errorMessage = null;
-
-		try {
-			await onRestartProcess();
-		} catch (error) {
-			console.error(
-				'Failed to restart process:',
-				error
-			);
-
-			errorMessage =
-				error instanceof Error
-					? error.message
-					: 'Failed to restart the process.';
-		} finally {
-			isRestarting = false;
-		}
-	}
-
-	function onRestartProcess() {
-		// Placeholder for restart process logic
-		console.log('Restarting process from scratch...');
-
-	}
 </script>
 
 {#if isOwner}
 	<div class="card bg-base-100 shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title">History</h2>
-			<div class="space-y-2 p-2">
+			<div class="space-y-2">
+				<p
+					class="
+						text-sm font-medium
+					"
+				>
+					Reset process
+				</p>
+
 				<Button
-					type="button"
-					onclick={handleRestartProcess}
-					class="btn btn-error"
+					class="w-full"
+					variant="outline"
+					onclick={() =>
+						onRestartToPhase('learning')}
 					disabled={
-						isRestarting ||
-						isRevertingTo !== null
+						isRestartingPhase ||
+						!canRestartToPhase('learning')
 					}
 				>
-					{isRestarting
-						? 'Restarting...'
-						: 'Restart process from scratch'}
+					Reset to Learning Phase
 				</Button>
+
+				<Button
+					class="w-full"
+					variant="outline"
+					onclick={() =>
+						onRestartToPhase('consensus')}
+					disabled={
+						isRestartingPhase ||
+						!canRestartToPhase('consensus')
+					}
+				>
+					Reset to Consensus Phase
+				</Button>
+
+				<Button
+					class="w-full"
+					variant="outline"
+					onclick={() =>
+						onRestartToPhase('decision')}
+					disabled={
+						isRestartingPhase ||
+						!canRestartToPhase('decision')
+					}
+				>
+					Reset to Decision Phase
+				</Button>
+			</div>
+			<div class="space-y-2 p-2">
 				<Button onclick={() => (showHistory = !showHistory)} class="btn btn-secondary">
 					{showHistory ? 'Hide History' : 'Show History'}
 				</Button>

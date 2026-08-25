@@ -10636,17 +10636,19 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 export const ConfigureGdmGdmScoreBandsConfigurePostResponse = zod.unknown();
 
 /**
- * Restart a SCORE Bands process from scratch.
-
-Only the group owner may restart the process. The GroupSession,
-group, participants, problem, and method are preserved.
+ * Reset GDM SCORE Bands to the beginning of a selected phase.
  * @summary Restart Score Bands
  */
+export const restartScoreBandsGdmScoreBandsRestartPostBodyTargetPhaseDefault = `learning`;
+
 export const RestartScoreBandsGdmScoreBandsRestartPostBody = zod
 	.object({
-		group_session_id: zod.number().describe('Group Session ID.')
+		group_session_id: zod.number().describe('Group Session ID.'),
+		target_phase: zod
+			.enum(['learning', 'consensus', 'decision'])
+			.default(restartScoreBandsGdmScoreBandsRestartPostBodyTargetPhaseDefault)
 	})
-	.describe('Request for restarting the entire GDM SCORE Bands process.');
+	.describe('Request for restarting the GDM SCORE Bands to a specific phase.');
 
 export const RestartScoreBandsGdmScoreBandsRestartPostResponse = zod.unknown();
 

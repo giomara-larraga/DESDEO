@@ -1452,12 +1452,22 @@ export interface GDMSCOREBandsLearningWarningRequest {
 	message?: string | null;
 }
 
+export type GDMSCOREBandsRestartRequestTargetPhase =
+	(typeof GDMSCOREBandsRestartRequestTargetPhase)[keyof typeof GDMSCOREBandsRestartRequestTargetPhase];
+
+export const GDMSCOREBandsRestartRequestTargetPhase = {
+	learning: 'learning',
+	consensus: 'consensus',
+	decision: 'decision'
+} as const;
+
 /**
- * Request for restarting the entire GDM SCORE Bands process.
+ * Request for restarting the GDM SCORE Bands to a specific phase.
  */
 export interface GDMSCOREBandsRestartRequest {
 	/** Group Session ID. */
 	group_session_id: number;
+	target_phase?: GDMSCOREBandsRestartRequestTargetPhase;
 }
 
 /**
@@ -7917,10 +7927,7 @@ export const configureGdmGdmScoreBandsConfigurePost = async (
 };
 
 /**
- * Restart a SCORE Bands process from scratch.
-
-Only the group owner may restart the process. The GroupSession,
-group, participants, problem, and method are preserved.
+ * Reset GDM SCORE Bands to the beginning of a selected phase.
  * @summary Restart Score Bands
  */
 export type restartScoreBandsGdmScoreBandsRestartPostResponse200 = {

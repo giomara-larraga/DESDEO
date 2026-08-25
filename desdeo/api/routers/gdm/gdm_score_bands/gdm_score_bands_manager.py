@@ -11,6 +11,8 @@ from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from sqlmodel import Session, select
 
+from desdeo.api.models.session import InteractiveSessionDB
+
 from desdeo.api.models.gdm.gdm_score_bands import (
     GDMSCOREBandsConsensusPreference,
     GDMSCOREBandsDecisionPreference,
@@ -18,7 +20,6 @@ from desdeo.api.models.gdm.gdm_score_bands import (
 )
 
 from desdeo.api.models import (
-    GDMSCOREBandsFinalSelection,
     DiscreteRepresentationDB,
     Group,
     GroupIteration,
@@ -275,6 +276,206 @@ class GDMScoreBandsManager(GroupManager):
                 history.append(SCOREBandsGDMResult.model_validate(state.result))
 
         return history
+
+    def _get_score_bands_iterations(
+        self,
+        *,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> list[GroupIteration]:
+        """Return every shared SCORE Bands iteration in creation order."""
+
+        return list(
+            session.exec(
+                select(GroupIteration)
+                .where(GroupIteration.session_id == group_session.id)
+                .order_by(GroupIteration.id)
+            ).all()
+        )
+
+    def _find_first_phase_iteration(
+        self,
+        *,
+        group_session: GroupSessionDB,
+        target_phase: str,
+        session: Session,
+    ) -> GroupIteration:
+        """Find the first persisted iteration belonging to a phase."""
+
+        iterations = self._get_score_bands_iterations(
+            group_session=group_session,
+            session=session,
+        )
+
+        for iteration in iterations:
+            info = iteration.info_container
+
+            if target_phase == "learning" and isinstance(
+                info,
+                GDMSCOREBandsLearningPreference,
+            ):
+                return iteration
+
+            if target_phase == "consensus" and isinstance(
+                info,
+                GDMSCOREBandsConsensusPreference,
+            ):
+                return iteration
+
+            if target_phase == "decision" and isinstance(
+                info,
+                GDMSCOREBandsDecisionPreference,
+            ):
+                return iteration
+
+        raise ManagerError(
+            f"The SCORE Bands process has never reached " f"the {target_phase} phase."
+        )
+
+    def _get_descendant_iteration_ids(
+        self,
+        *,
+        target_iteration: GroupIteration,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> set[int]:
+        """Return every descendant of the selected iteration."""
+
+        iterations = self._get_score_bands_iterations(
+            group_session=group_session,
+            session=session,
+        )
+
+        children_by_parent: dict[int, list[int]] = {}
+
+        for iteration in iterations:
+            if iteration.id is None or iteration.parent_id is None:
+                continue
+
+            children_by_parent.setdefault(
+                iteration.parent_id,
+                [],
+            ).append(iteration.id)
+
+        descendant_ids: set[int] = set()
+        pending = list(
+            children_by_parent.get(
+                target_iteration.id,
+                [],
+            )
+        )
+
+        while pending:
+            iteration_id = pending.pop()
+
+            if iteration_id in descendant_ids:
+                continue
+
+            descendant_ids.add(iteration_id)
+
+            pending.extend(
+                children_by_parent.get(
+                    iteration_id,
+                    [],
+                )
+            )
+
+        return descendant_ids
+
+    def _delete_iterations_after(
+        self,
+        *,
+        target_iteration: GroupIteration,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> None:
+        """Delete all shared iterations and states after target_iteration."""
+
+        descendant_ids = self._get_descendant_iteration_ids(
+            target_iteration=target_iteration,
+            group_session=group_session,
+            session=session,
+        )
+
+        if not descendant_ids:
+            return
+
+        descendants = list(
+            session.exec(
+                select(GroupIteration).where(GroupIteration.id.in_(descendant_ids))
+            ).all()
+        )
+
+        descendant_state_ids = {
+            iteration.state_id
+            for iteration in descendants
+            if iteration.state_id is not None
+        }
+
+        #
+        # Delete only direct children of the target.
+        # GroupIteration.children has delete-orphan cascade,
+        # therefore their descendants are removed too.
+        #
+        direct_children = [
+            iteration
+            for iteration in descendants
+            if iteration.parent_id == target_iteration.id
+        ]
+
+        for iteration in direct_children:
+            session.delete(iteration)
+
+        session.flush()
+
+        #
+        # Remove their corresponding group StateDB rows.
+        #
+        if descendant_state_ids:
+            states = list(
+                session.exec(
+                    select(StateDB).where(StateDB.id.in_(descendant_state_ids))
+                ).all()
+            )
+
+            #
+            # Delete roots among the removed state subtree.
+            #
+            state_id_set = {state.id for state in states if state.id is not None}
+
+            state_roots = [
+                state
+                for state in states
+                if (state.parent_id is None or state.parent_id not in state_id_set)
+            ]
+
+            for state in state_roots:
+                session.delete(state)
+
+            session.flush()
+
+    def _delete_private_learning_sessions(
+        self,
+        *,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> None:
+        """Delete every DM's private learning exploration for this GDM session."""
+
+        prefix = f"gdm-score-bands-learning:" f"{group_session.id}:"
+
+        private_sessions = list(
+            session.exec(
+                select(InteractiveSessionDB).where(
+                    InteractiveSessionDB.info.startswith(prefix)
+                )
+            ).all()
+        )
+
+        for private_session in private_sessions:
+            session.delete(private_session)
+
+        session.flush()
 
     async def run_method(
         self,
@@ -908,54 +1109,162 @@ class GDMScoreBandsManager(GroupManager):
         user: User,
         group_session: GroupSessionDB,
         session: Session,
+        target_phase: str = "learning",
     ) -> None:
-        """Restart this SCORE Bands process from scratch.
+        """Reset SCORE Bands to the beginning of the selected phase."""
 
-        Removes SCORE Bands iterations and states while preserving the
-        group session, group, owner, members, problem, and method.
-        """
         async with self.lock:
             group = self._get_group(
+                group_session,
+                session,
+            )
+
+            if user.id != group.owner_id:
+                raise ManagerError(
+                    "Only the group owner may restart " "the SCORE Bands process."
+                )
+
+            if target_phase not in {
+                "learning",
+                "consensus",
+                "decision",
+            }:
+                raise ManagerError(f"Invalid restart phase: " f"{target_phase}.")
+
+            target_iteration = self._find_first_phase_iteration(
+                group_session=group_session,
+                target_phase=target_phase,
+                session=session,
+            )
+
+            target_state_db, target_state = self._get_iteration_state(
+                iteration=target_iteration,
+                session=session,
+            )
+
+            #
+            # Delete everything that happened after
+            # the phase we are restoring.
+            #
+            self._delete_iterations_after(
+                target_iteration=target_iteration,
                 group_session=group_session,
                 session=session,
             )
-            self._check_owner(user, group)
 
-            if group_session.id is None:
-                raise ManagerError("The group session has no database ID.")
+            #
+            # ---------------------------------------------------------
+            # LEARNING
+            # ---------------------------------------------------------
+            #
+            if target_phase == "learning":
+                if not isinstance(
+                    target_iteration.info_container,
+                    GDMSCOREBandsLearningPreference,
+                ):
+                    raise ManagerError("Invalid learning iteration.")
 
-            iterations = list(
-                session.exec(
-                    select(GroupIteration)
-                    .where(GroupIteration.session_id == group_session.id)
-                    .order_by(GroupIteration.id.desc())
-                ).all()
-            )
+                if not isinstance(
+                    target_state,
+                    GDMSCOREBandsLearningState,
+                ):
+                    raise ManagerError("Invalid learning state.")
 
-            states = list(
-                session.exec(
-                    select(StateDB)
-                    .where(StateDB.group_session_id == group_session.id)
-                    .order_by(StateDB.id.desc())
-                ).all()
-            )
+                preferences = copy.deepcopy(target_iteration.info_container)
 
-            # Remove the foreign-key reference to the current iteration.
-            group_session.head_iteration_id = None
+                preferences.completed_user_ids = []
+                preferences.started_at = datetime.now(timezone.utc).isoformat()
+                preferences.last_warning_at = None
+                preferences.last_warning_message = None
+
+                target_iteration.info_container = preferences
+
+                #
+                # A fresh learning phase must also remove
+                # every DM's private exploration tree.
+                #
+                self._delete_private_learning_sessions(
+                    group_session=group_session,
+                    session=session,
+                )
+
+            #
+            # ---------------------------------------------------------
+            # CONSENSUS
+            # ---------------------------------------------------------
+            #
+            elif target_phase == "consensus":
+                if not isinstance(
+                    target_iteration.info_container,
+                    GDMSCOREBandsConsensusPreference,
+                ):
+                    raise ManagerError("Invalid consensus iteration.")
+
+                if not isinstance(
+                    target_state,
+                    GDMSCOREBandsConsensusState,
+                ):
+                    raise ManagerError("Invalid consensus state.")
+
+                preferences = copy.deepcopy(target_iteration.info_container)
+
+                preferences.user_votes = {}
+                preferences.user_confirms = []
+
+                target_iteration.info_container = preferences
+
+                #
+                # The bands themselves remain exactly as they
+                # were when consensus originally started.
+                #
+                target_state.selected_band_indices = []
+
+            #
+            # ---------------------------------------------------------
+            # DECISION
+            # ---------------------------------------------------------
+            #
+            elif target_phase == "decision":
+                if not isinstance(
+                    target_iteration.info_container,
+                    GDMSCOREBandsDecisionPreference,
+                ):
+                    raise ManagerError("Invalid decision iteration.")
+
+                if not isinstance(
+                    target_state,
+                    GDMSCOREBandsDecisionState,
+                ):
+                    raise ManagerError("Invalid decision state.")
+
+                preferences = copy.deepcopy(target_iteration.info_container)
+
+                preferences.user_votes = {}
+                preferences.user_confirms = []
+
+                target_iteration.info_container = preferences
+
+                #
+                # Keep the candidate solutions,
+                # but remove the previous final result.
+                #
+                target_state.winner_index = None
+                target_state.winner_solution_variables = None
+                target_state.winner_solution_objectives = None
+
+            #
+            # Make this phase the current head.
+            #
+            group_session.head_iteration_id = target_iteration.id
+
+            session.add(target_iteration)
+            session.add(target_state)
             session.add(group_session)
-            session.flush()
-
-            # Delete child iterations before parent iterations.
-            for iteration in iterations:
-                session.delete(iteration)
-
-            session.flush()
-
-            # Delete child states before parent states.
-            for state_db in states:
-                session.delete(state_db)
 
             session.commit()
+
+            session.refresh(target_iteration)
+            session.refresh(target_state_db)
             session.refresh(group_session)
 
-            await self.broadcast("UPDATE: The SCORE Bands process was restarted.")
+            await self.broadcast("UPDATE: SCORE Bands was reset to " f"{target_phase}.")
