@@ -70,18 +70,14 @@ class GDMScoreBandsManager(GroupManager):
             raise ManagerError(f"No problem with ID {group_session.problem_id} found!")
 
         if problem.discrete_representation is None:
-            raise ManagerError(
-                "The group's discrete representation does not exist!"
-            )
+            raise ManagerError("The group's discrete representation does not exist!")
 
         if problem.discrete_representation.id is None:
             raise ManagerError(
                 "The group's discrete representation has no database ID."
             )
 
-        self.discrete_representation_id = (
-            problem.discrete_representation.id
-        )
+        self.discrete_representation_id = problem.discrete_representation.id
 
     def _get_discrete_representation(
         self,
@@ -116,8 +112,8 @@ class GDMScoreBandsManager(GroupManager):
             state=state,
         )
 
-        #session.add(state_db)
-        #session.flush()
+        # session.add(state_db)
+        # session.flush()
         session.refresh(state_db)
 
         return state_db
@@ -397,7 +393,7 @@ class GDMScoreBandsManager(GroupManager):
 
             if confirmed_ids != member_ids:
                 await self.broadcast("UPDATE: A vote has been confirmed.")
-                return
+                return "waiting"
 
             current_state_db, current_state = self._get_iteration_state(
                 iteration=group_iteration,
@@ -414,14 +410,36 @@ class GDMScoreBandsManager(GroupManager):
                     raise ManagerError("Invalid decision state.")
 
                 winner = majority_rule(preferences.user_votes)
+
+                if winner is None:
+                    # Everybody confirmed, but there is no majority.
+                    # Reset confirmations so the DMs can reconsider
+                    # their votes.
+                    preferences.user_confirms = []
+
+                    group_iteration.info_container = preferences
+
+                    session.add(group_iteration)
+                    session.commit()
+                    session.refresh(group_iteration)
+
+                    await self.broadcast(
+                        "UPDATE: No majority was reached. "
+                        "Decision makers must vote again."
+                    )
+
+                    return "tie"
+
                 current_state.winner_index = winner
+
                 current_state.winner_solution_variables = {
                     key: values[winner]
-                    for key, values in (current_state.solution_variables.items())
+                    for key, values in current_state.solution_variables.items()
                 }
+
                 current_state.winner_solution_objectives = {
                     key: values[winner]
-                    for key, values in (current_state.solution_objectives.items())
+                    for key, values in current_state.solution_objectives.items()
                 }
 
                 session.add(current_state)
@@ -429,7 +447,8 @@ class GDMScoreBandsManager(GroupManager):
                 session.refresh(current_state)
 
                 await self.broadcast("UPDATE: The final solution has been selected.")
-                return
+
+                return "winner"
 
             if not isinstance(
                 current_state,
@@ -459,9 +478,7 @@ class GDMScoreBandsManager(GroupManager):
             ]
 
             solution_number_threshold = 10
-            discrete_repr = self._get_discrete_representation(
-                session
-            )
+            discrete_repr = self._get_discrete_representation(session)
 
             if len(selected_solution_ids) <= solution_number_threshold:
                 objective_keys = list(discrete_repr.objective_values)
@@ -832,13 +849,9 @@ class GDMScoreBandsManager(GroupManager):
 
             index_frame = pl.DataFrame({"index": relevant_indices})
 
-            discrete_repr = self._get_discrete_representation(
-                session
-            )
+            discrete_repr = self._get_discrete_representation(session)
 
-            discrete_objectives = (
-                discrete_repr.objective_values
-            )
+            discrete_objectives = discrete_repr.objective_values
             objective_keys = list(discrete_objectives)
 
             objs_df = pl.DataFrame(discrete_objectives).with_row_index(name="index")
@@ -909,17 +922,12 @@ class GDMScoreBandsManager(GroupManager):
             self._check_owner(user, group)
 
             if group_session.id is None:
-                raise ManagerError(
-                    "The group session has no database ID."
-                )
+                raise ManagerError("The group session has no database ID.")
 
             iterations = list(
                 session.exec(
                     select(GroupIteration)
-                    .where(
-                        GroupIteration.session_id
-                        == group_session.id
-                    )
+                    .where(GroupIteration.session_id == group_session.id)
                     .order_by(GroupIteration.id.desc())
                 ).all()
             )
@@ -927,10 +935,7 @@ class GDMScoreBandsManager(GroupManager):
             states = list(
                 session.exec(
                     select(StateDB)
-                    .where(
-                        StateDB.group_session_id
-                        == group_session.id
-                    )
+                    .where(StateDB.group_session_id == group_session.id)
                     .order_by(StateDB.id.desc())
                 ).all()
             )
@@ -953,6 +958,4 @@ class GDMScoreBandsManager(GroupManager):
             session.commit()
             session.refresh(group_session)
 
-            await self.broadcast(
-                "UPDATE: The SCORE Bands process was restarted."
-            )
+            await self.broadcast("UPDATE: The SCORE Bands process was restarted.")

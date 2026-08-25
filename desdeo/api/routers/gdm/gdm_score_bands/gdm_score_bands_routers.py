@@ -13,12 +13,17 @@ from desdeo.api.models.score_bands_method import SCOREBandsMethodInitializeRespo
 from desdeo.api.models.session import InteractiveSessionDB
 from desdeo.api.routers.gdm.gdm_base import ManagerError
 from desdeo.api.models.gdm.gdm_score_bands import (
+    GDMSCOREBandsFinalSelection,
     GDMSCOREBandsLearningExploreRequest,
     GDMSCOREBandsLearningPreference,
     GDMSCOREBandsRestartRequest,
 )
 from desdeo.api.models.generic_states import StateDB
-from desdeo.api.models.state import GDMSCOREBandsLearningState, SCOREBandsMethodState
+from desdeo.api.models.state import (
+    GDMSCOREBandsDecisionState,
+    GDMSCOREBandsLearningState,
+    SCOREBandsMethodState,
+)
 from desdeo.api.models.gdm.gdm_aggregate import GroupSessionDB
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -216,10 +221,16 @@ async def confirm_vote(
         db_session=session,
     )
     try:
-        await group_mgr.confirm(
+        result = await group_mgr.confirm(
             user=user,
             group_session=group_session,
             session=session,
+        )
+        return JSONResponse(
+            content={
+                "message": "Vote confirmed.",
+                "outcome": result,
+            }
         )
     except Exception as e:
         logger.exception("Found and error when trying to confirm a vote.")
@@ -309,14 +320,46 @@ async def get_or_initialize(
                     phase = "consensus"
 
             if phase == "decision":
+                if not isinstance(
+                    info,
+                    GDMSCOREBandsDecisionPreference,
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=(
+                            "Decision iteration has an invalid " "preference container."
+                        ),
+                    )
+
+                if not isinstance(
+                    state,
+                    GDMSCOREBandsDecisionState,
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=(
+                            "Decision iteration has an invalid " "persisted state."
+                        ),
+                    )
+
+                final_selection = GDMSCOREBandsFinalSelection(
+                    user_votes=info.user_votes,
+                    user_confirms=info.user_confirms,
+                    solution_variables=state.solution_variables,
+                    solution_objectives=state.solution_objectives,
+                    winner_solution_variables=(state.winner_solution_variables or {}),
+                    winner_solution_objectives=(state.winner_solution_objectives or {}),
+                )
+
                 responses.append(
                     GDMSCOREBandsDecisionResponse(
                         phase="decision",
                         group_session_id=group_session.id,
                         group_iter_id=giter.id,
-                        result=state,
+                        result=final_selection,
                     )
                 )
+
                 continue
 
             typed_result = SCOREBandsGDMResult.model_validate(state.result)

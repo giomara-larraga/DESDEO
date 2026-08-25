@@ -1,5 +1,5 @@
 import {
-	calculateScoreBandsMethodScoreBandsMethodSolvePost
+	initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import type {
@@ -37,7 +37,7 @@ export async function handle_initialize_scorebands(
 		};
 
 		const response =
-			await calculateScoreBandsMethodScoreBandsMethodSolvePost(
+			await initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost(
 				request
 			);
 

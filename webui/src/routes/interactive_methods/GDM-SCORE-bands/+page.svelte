@@ -126,6 +126,10 @@
 
 	let minimumVotes: number | undefined = $state(1);
 
+	let decisionNotice = $state<string | null>(
+		null
+	);
+
 	type PersonalExplorationFrame = {
 	stateId: number;
 	parentClusterId: number;
@@ -224,13 +228,13 @@ let activeLearningScoreBandsResult =
 		return totalVoters === Object.keys(votes_and_confirms.votes || {}).length;
 	});
 
-	$effect(() => {
+	/*$effect(() => {
 		if (userId) {
 			vote_confirmed = votes_and_confirms.confirms.includes(userId);
 		} else {
 			vote_confirmed = false;
 		}
-	});
+	});*/
 
 	let votes_per_cluster: Record<number, number> = $derived.by(() => {
 		const counts: Record<number, number> = {};
@@ -887,7 +891,9 @@ function getConsensusClasses(axisName: string): string {
 				}
 
 				isConsensusVoteSyncing = true;
-				fetch_votes_and_confirms().finally(() => {
+				fetch_votes_and_confirms(
+					false,
+				).finally(() => {
 					isConsensusVoteSyncing = false;
 				});
 			}, 2000);
@@ -903,7 +909,9 @@ function getConsensusClasses(axisName: string): string {
 	});
 
 	$effect(() => {
-		const shouldPollForNextIteration = isConsensusPhase;
+		const shouldPollForNextIteration =
+			isConsensusPhase ||
+			(isDecisionPhase && !isGroupDecisionReached);
 
 		if (!shouldPollForNextIteration) {
 			if (waitingRefreshTimer) {
@@ -963,6 +971,52 @@ function getConsensusClasses(axisName: string): string {
 						: JSON.stringify(store.message);
 				console.log('WebSocket message received:', msg);
 
+				if (
+					msg.includes(
+						'UPDATE: No majority was reached'
+					)
+				) {
+					void (async () => {
+						// Reset the local confirmation state.
+						//vote_confirmed = false;
+
+						// Keep selected_band / selected_solution if you want
+						// the DM to see their previous choice and reconsider it.
+
+						await fetch_votes_and_confirms(true);
+						await fetch_score_bands();
+
+						decisionNotice =
+							'No majority was reached. ' +
+							'Please review your vote and confirm again.';
+					})();
+
+					return;
+				}
+
+				if (
+					msg.includes(
+						'UPDATE: The final solution has been selected'
+					)
+				) {
+					void (async () => {
+						try {
+							await fetch_votes_and_confirms(true);
+
+							await fetch_score_bands();
+
+							decisionNotice =
+								'The group selected a final solution.';
+						} catch (error) {
+							console.error(
+								'Failed to refresh final decision:',
+								error
+							);
+						}
+					})();
+
+					return;
+				}
 				// Handle update messages (messages don't show to user, just trigger state updates)
 				if (msg.includes('UPDATE: A vote has been cast.')) {
 					fetch_votes_and_confirms();
@@ -1094,6 +1148,16 @@ function getConsensusClasses(axisName: string): string {
 
 				setPhase('decision');
 				scoreBandsResult = null;
+
+				if (
+					finalDecisionData.winner_solution_objectives &&
+					Object.keys(
+						finalDecisionData.winner_solution_objectives
+					).length > 0
+				) {
+					decisionNotice =
+						'The group selected a final solution.';
+				}
 
 				console.log(
 					'Decision phase data fetched successfully:',
@@ -1245,6 +1309,9 @@ function getConsensusClasses(axisName: string): string {
 			errorMessage.set('Please select a band or solution to vote for.');
 			return;
 		}
+		if (isDecisionPhase) {
+			decisionNotice = null;
+		}
 		console.log('Selection to vote for:', selection);
 		try {
 			const voteResult = await callGSCOREBandsAPI<{ message: string }>('vote', {
@@ -1274,20 +1341,52 @@ function getConsensusClasses(axisName: string): string {
 			return;
 		}
 		try {
-			const confirmResult = await callGSCOREBandsAPI<{ message: string }>('confirm_vote', {
-				group_session_id: data.groupSession.id
-			});
-
-			if (confirmResult.success) {
-				console.log('Confirmed vote successfully:', confirmResult.data?.message);
-			} else {
-				throw new Error(`Confirm failed: ${confirmResult.error || 'Unknown error'}`);
+			const confirmResult =
+				await callGSCOREBandsAPI<{
+					message: string;
+					outcome:
+						| 'waiting'
+						| 'tie'
+						| 'winner';
+				}>(
+					'confirm_vote',
+					{
+						group_session_id:
+							data.groupSession.id
+					}
+				);
+			if (!confirmResult.success) {
+				throw new Error(
+					`Confirm failed: ${
+						confirmResult.error ??
+						'Unknown error'
+					}`
+				);
 			}
 			// Refresh both vote status and iteration state locally so the UI updates
 			// immediately even if websocket update delivery is delayed.
-			await fetch_votes_and_confirms();
+			await fetch_votes_and_confirms(true);
 			await fetch_score_bands();
-			clusters_to_visible();
+
+			const outcome = confirmResult.data?.outcome;
+
+			if (outcome === 'tie') {
+				vote_confirmed = false;
+
+				decisionNotice =
+					'No majority was reached. ' +
+					'Please review your vote and confirm again.';
+			} else if (outcome === 'winner') {
+				decisionNotice =
+					'The group selected a final solution.';
+			} else {
+				decisionNotice = null;
+			}
+			
+
+			if (isConsensusPhase) {
+				clusters_to_visible();
+			}
 		} catch (error) {
 			console.error('Error in Confirm:', error);
 			errorMessage.set(`${error}`);
@@ -1308,7 +1407,27 @@ function getConsensusClasses(axisName: string): string {
 
 			if (result.success && result.data) {
 				votes_and_confirms = result.data;
+				if (userId != null) {
+					vote_confirmed =
+						votes_and_confirms.confirms
+							.map(Number)
+							.includes(Number(userId));
+				} else {
+					vote_confirmed = false;
+				}
 				syncLearningMetadata(result.data);
+
+				/*if (
+					detectDecisionTie &&
+					isDecisionPhase &&
+					have_all_voted &&
+					votes_and_confirms.confirms.length === 0 &&
+					!isGroupDecisionReached
+				) {
+					decisionNotice =
+						'No majority was reached. ' +
+						'Please review your vote and confirm again.';
+				}*/
 				// If user has voted already, select the band they voted for
 				// selectVotedBand parameter controls whether to update selected_band: updates happen in different situations, some should not change selected_band
 				if (userId != null && selectVotedBand) {
@@ -1320,7 +1439,14 @@ function getConsensusClasses(axisName: string): string {
 							userKey
 						)
 					) {
-						selected_band = votes_and_confirms.votes[userKey];
+						const vote =
+							votes_and_confirms.votes[userKey];
+
+						if (isDecisionPhase) {
+							selected_solution = vote;
+						} else if (isConsensusPhase) {
+							selected_band = vote;
+						}
 					}
 				}
 			} else {
@@ -1577,6 +1703,15 @@ function getConsensusClasses(axisName: string): string {
 									{isConsensusPhase ? usersVote : usersVote + 1}. You can still change your vote. To
 									confirm your vote, please wait for other users to vote.
 								</div>
+								{#if
+									isDecisionPhase &&
+									decisionNotice &&
+									!isGroupDecisionReached
+								}
+									<div class="mt-2 text-amber-700">
+										{decisionNotice}
+									</div>
+								{/if}
 							{/if}
 							{#if usersVote !== null && have_all_voted && !vote_confirmed}
 								<div>
@@ -1907,8 +2042,22 @@ function getConsensusClasses(axisName: string): string {
 						<div class="card bg-base-100 shadow-xl">
 							<div class="card-body">
 								<h2 class="card-title">
-									{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}
+									{isGroupDecisionReached
+										? 'Final Solution'
+										: 'Solution Voting'}
 								</h2>
+								{#if decisionNotice}
+									<div
+										class="
+											rounded-md border border-amber-200
+											bg-amber-50 p-3 text-sm
+											text-amber-900
+										"
+									>
+										{decisionNotice}
+									</div>
+								{/if}
+								
 								<div class="space-y-2 p-2">
 									{#if !isGroupDecisionReached}
 										<Button
@@ -1917,14 +2066,25 @@ function getConsensusClasses(axisName: string): string {
 										>
 											Vote for Selected Solution
 										</Button>
-										<Button onclick={confirm_vote} disabled={!have_all_voted || vote_confirmed}>
-											Confirm Final Decision
+										<Button
+											onclick={confirm_vote}
+											disabled={
+												!have_all_voted ||
+												vote_confirmed
+											}
+										>
+											{vote_confirmed
+												? 'Vote Confirmed'
+												: 'Confirm Vote'}
 										</Button>
 										{#if vote_confirmed}
-											<div class="alert alert-info">
-												<span>Decision Confirmed!</span>
-											</div>
-										{/if}
+	<div class="alert alert-info">
+		<span>
+			Your vote has been confirmed.
+			Waiting for the other decision makers.
+		</span>
+	</div>
+{/if}
 									{:else}
 										<div class="alert alert-success">
 											<span>Group decision reached!</span>
@@ -1939,20 +2099,40 @@ function getConsensusClasses(axisName: string): string {
 							</div>
 						</div>
 					{:else if isOwner}
-						<!-- Voting status for owner -->
 						<div class="card bg-base-100 shadow-xl">
 							<div class="card-body">
 								<h2 class="card-title">
-									{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}
+									{isGroupDecisionReached
+										? 'Final Solution'
+										: 'Solution Voting'}
 								</h2>
+
+								{#if decisionNotice}
+									<div
+										class="
+											rounded-md border border-amber-200
+											bg-amber-50 p-3 text-sm
+											text-amber-900
+										"
+									>
+										{decisionNotice}
+									</div>
+								{/if}
+
 								<div class="space-y-2 p-2">
 									{#if !isGroupDecisionReached}
-										<div>Voting still ongoing or decision not found with these votes.</div>
+										<div>
+											Voting is still ongoing.
+										</div>
 									{:else}
 										<div class="alert alert-success">
-											<span>Group decision reached!</span>
+											<span>
+												Group decision reached!
+											</span>
 											<div class="mt-2 text-sm">
-												Final solution: Solution {winnerSolutionIndex !== null
+												Final solution:
+												Solution
+												{winnerSolutionIndex !== null
 													? winnerSolutionIndex + 1
 													: 'N/A'}
 											</div>
