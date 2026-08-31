@@ -101,7 +101,7 @@
 			</header>
 
 			<div class="space-y-4 p-4 text-sm">
-				<div
+<!-- 				<div
 					class="
 						rounded-md border border-blue-200
 						bg-blue-50 px-3 py-2 text-blue-900
@@ -114,38 +114,40 @@
 					<div class="mt-1 text-sm">
 						{learningTimeLabel}
 					</div>
-				</div>
+				</div> -->
 
 				{#if isDecisionMaker}
-					<div>
-						<div class="font-medium">
-							1. Explore bands
-						</div>
+<div>
+	<div class="font-medium">
+		1. Explore bands
+	</div>
 
-						<p class="text-muted-foreground">
-							Click a band to inspect it privately.
-						</p>
-					</div>
+	<p class="text-muted-foreground">
+		Click a band to inspect its solutions privately.
+	</p>
+</div>
 
-					<div>
-						<div class="font-medium">
-							2. Save preferences
-						</div>
+<div>
+	<div class="font-medium">
+		2. Compare solutions
+	</div>
 
-						<p class="text-muted-foreground">
-							Bookmark interesting bands for yourself.
-						</p>
-					</div>
+	<p class="text-muted-foreground">
+		Explore the solutions within interesting bands
+		and compare their objective values.
+	</p>
+</div>
 
-					<div>
-						<div class="font-medium">
-							3. Finish exploring
-						</div>
+<div>
+	<div class="font-medium">
+		3. Finish exploring
+	</div>
 
-						<p class="text-muted-foreground">
-							Mark yourself finished when ready.
-						</p>
-					</div>
+	<p class="text-muted-foreground">
+		Mark yourself finished when you are ready
+		to proceed.
+	</p>
+</div>
 				{:else if isOwner}
 					<p class="text-muted-foreground">
 						Monitor the learning phase while decision
@@ -221,7 +223,7 @@
 	<section class="rounded-lg border bg-card shadow-sm">
 		<header class="border-b px-4 py-3">
 			<h2 class="text-sm font-semibold">
-				Visible clusters
+				Visible bands
 			</h2>
 		</header>
 
@@ -242,7 +244,7 @@
 							}
 						></span>
 
-						Cluster {clusterId}
+						Band {clusterId}
 					</span>
 
 					<input

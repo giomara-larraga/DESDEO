@@ -1820,8 +1820,7 @@ async function restartScoreBands(
 	<meta name="description" content="Group decision making interface using Score-band method" />
 </svelte:head>
 
-<div class="container mx-auto p-6">
-	{#if $errorMessage}
+<div class="flex min-w-0 flex-1 flex-col">	{#if $errorMessage}
 		<Alert title="Error" message={$errorMessage} variant="destructive" />
 	{/if}
 

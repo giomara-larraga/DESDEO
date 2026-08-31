@@ -250,17 +250,17 @@
 			</header>
 
 			<div class="space-y-3 p-4 text-sm text-muted-foreground">
-				<p>Once the group is ready, the process moves to the consensus phase.</p>
+				<p>Once the group is ready, you can move to the consensus phase.</p>
 
 				{#if isOwner}
-					<div class="rounded-md border p-3 text-sm">
+<!-- 					<div class="rounded-md border p-3 text-sm">
 						<div class="font-medium text-foreground">Group readiness</div>
 						<div class="text-muted-foreground">
 							{learning.learningCompletedCount} / {learning.totalVoters} finished exploring
 						</div>
-					</div>
+					</div> -->
 
-					<input
+					<!-- <input
 						type="text"
 						value={learning.ownerWarningMessage}
 						placeholder="Optional warning message"
@@ -277,7 +277,7 @@
 						{learning.isWarningUsers
 							? 'Sending warning...'
 							: 'Warn users time is expiring'}
-					</Button>
+					</Button> -->
 
 					<Button
 						class="w-full"
