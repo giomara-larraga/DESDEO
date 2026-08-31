@@ -76,6 +76,8 @@
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
 	import { createObjectiveDimensions } from '$lib/helpers/visualization-data-transform';
 
+	import { openConfirmDialog } from '$lib/components/custom/dialogs/dialogs';
+
 	import { WebSocketService } from './websocket-store';
 	import Users from "@lucide/svelte/icons/users";
 
@@ -359,22 +361,48 @@ function getConsensusClasses(axisName: string): string {
 		return formatDuration(learningSecondsRemaining);
 	});
 
-	let availableRestartPhases =
-		$derived.by(() => {
-			const phases = new Set<RestartPhase>();
+let availableRestartPhases =
+	$derived.by(() => {
+		const phases = new Set<RestartPhase>();
 
-			for (const item of history) {
-				if (
-					item.phase === 'learning' ||
-					item.phase === 'consensus' ||
-					item.phase === 'decision'
-				) {
-					phases.add(item.phase);
-				}
+		for (const item of history) {
+			if (item.phase === 'learning') {
+				phases.add('learning');
 			}
 
-			return phases;
-		});
+			if (item.phase === 'consensus') {
+				phases.add('consensus');
+			}
+
+			if (item.phase === 'decision') {
+				phases.add('decision');
+			}
+		}
+
+		/*
+		 * If the SCORE Bands process has been initialized,
+		 * learning necessarily existed.
+		 */
+		if (history.length > 0) {
+			phases.add('learning');
+		}
+
+		/*
+		 * The currently active phase also necessarily exists,
+		 * even if older API history entries do not contain
+		 * the phase property.
+		 */
+		if (isConsensusPhase) {
+			phases.add('consensus');
+		}
+
+		if (isDecisionPhase) {
+			phases.add('consensus');
+			phases.add('decision');
+		}
+
+		return phases;
+	});
 
 	
 	//let iteration_id = $state(0); // for header and fetch_score_bands
@@ -1067,8 +1095,9 @@ function getConsensusClasses(axisName: string): string {
 					fetch_votes_and_confirms();
 					return;
 				} else if (msg.includes('UPDATE')) {
-					fetch_score_bands();
 					fetch_votes_and_confirms(true);
+
+					fetch_score_bands();
 					clusters_to_visible();
 					return;
 				}
@@ -1645,139 +1674,145 @@ function getConsensusClasses(axisName: string): string {
 		}
 	}
 
-	async function restartScoreBands(
-		targetPhase: RestartPhase
-	) {
-		/*
-		* Frontend authorization.
-		* The backend must still perform its own
-		* check_group_owner().
-		*/
-		if (!isOwner) {
-			errorMessage.set(
-				'Only the group owner can reset the SCORE Bands process.'
-			);
-			return;
-		}
+async function restartScoreBands(
+	targetPhase: RestartPhase
+) {
+	console.log(
+		'[restartScoreBands] called',
+		targetPhase
+	);
 
-		/*
-		* Do not allow resetting to a phase that
-		* has never existed in this group process.
-		*/
-		if (!canRestartToPhase(targetPhase)) {
-			errorMessage.set(
-				`Cannot reset to ${targetPhase}: ` +
-					'the process has not reached that phase.'
-			);
-			return;
-		}
-
-		if (isRestarting) {
-			return;
-		}
-
-		const phaseLabel =
-			targetPhase === 'learning'
-				? 'Learning Phase'
-				: targetPhase === 'consensus'
-					? 'Consensus Phase'
-					: 'Decision Phase';
-
-		const confirmed = window.confirm(
-			`Are you sure you want to reset the SCORE Bands process to the ${phaseLabel}?\n\n` +
-				'All progress after that point will be removed.'
+	if (!isOwner) {
+		errorMessage.set(
+			'Only the group owner can reset the SCORE Bands process.'
 		);
-
-		if (!confirmed) {
-			return;
-		}
-
-		isRestarting = true;
-		restartNotice = null;
-
-		try {
-			const restartResult =
-				await callGSCOREBandsAPI<{
-					message: string;
-					group_session_id: number;
-					head_iteration_id:
-						number | null;
-					phase: RestartPhase;
-				}>(
-					'restart',
-					{
-						group_session_id:
-							data.groupSession.id,
-
-						target_phase:
-							targetPhase
-					}
-				);
-
-			if (!restartResult.success) {
-				throw new Error(
-					restartResult.error ??
-						'Failed to reset SCORE Bands.'
-				);
-			}
-
-			/*
-			* Personal learning exploration only
-			* becomes invalid when restarting all
-			* the way back to learning.
-			*/
-			if (targetPhase === 'learning') {
-				personalExplorationStack = [];
-
-				learningState.selectedBand =
-					null;
-
-				learningState.savedBands = [];
-
-				learningState.comparedBands = [];
-
-				learningNotice = null;
-			}
-
-			selected_band = null;
-			selected_solution = null;
-
-			decisionNotice = null;
-			vote_confirmed = false;
-
-			cluster_visibility_map = {};
-
-			await fetch_score_bands();
-
-			await fetch_votes_and_confirms(
-				true
-			);
-
-			clusters_to_visible();
-
-			restartNotice =
-				`The SCORE Bands process was reset ` +
-				`to the ${phaseLabel}.`;
-
-			console.log(
-				'SCORE Bands reset successfully:',
-				restartResult.data
-			);
-		} catch (error) {
-			console.error(
-				'Error in restartScoreBands:',
-				error
-			);
-
-			errorMessage.set(
-				error instanceof Error
-					? error.message
-					: String(error)
-			);
-		} finally {
-			isRestarting = false;
-		}
+		return;
 	}
+
+	if (isRestarting) {
+		return;
+	}
+
+	const phaseLabel =
+		targetPhase === 'learning'
+			? 'Learning Phase'
+			: targetPhase === 'consensus'
+				? 'Consensus Phase'
+				: 'Decision Phase';
+
+	openConfirmDialog({
+		title: `Reset to ${phaseLabel}?`,
+
+		description:
+			`Are you sure you want to reset the SCORE Bands process to the ${phaseLabel}? ` +
+			'All progress after this point will be removed.',
+
+		confirmText: 'Reset',
+		cancelText: 'Cancel',
+
+		confirmVariant: 'destructive',
+
+		onConfirm: async () => {
+			if (isRestarting) {
+				return;
+			}
+
+			isRestarting = true;
+			restartNotice = null;
+
+			try {
+				const payload = {
+					group_session_id:
+						data.groupSession.id,
+					target_phase:
+						targetPhase
+				};
+
+				console.log(
+					'[restartScoreBands] sending:',
+					payload
+				);
+
+				const restartResult =
+					await callGSCOREBandsAPI<{
+						message: string;
+						group_session_id: number;
+						head_iteration_id:
+							number | null;
+						phase: RestartPhase;
+					}>(
+						'restart',
+						payload
+					);
+
+				console.log(
+					'[restartScoreBands] response:',
+					restartResult
+				);
+
+				if (!restartResult.success) {
+					throw new Error(
+						restartResult.error ??
+							'Failed to reset SCORE Bands.'
+					);
+				}
+
+				if (
+					targetPhase ===
+					'learning'
+				) {
+					personalExplorationStack =
+						[];
+
+					learningState.selectedBand =
+						null;
+
+					learningState.savedBands =
+						[];
+
+					learningState.comparedBands =
+						[];
+
+					learningNotice = null;
+				}
+
+				selected_band = null;
+				selected_solution = null;
+				decisionNotice = null;
+				vote_confirmed = false;
+				cluster_visibility_map = {};
+
+				await fetch_score_bands();
+
+				await fetch_votes_and_confirms(
+					true
+				);
+
+				clusters_to_visible();
+
+				restartNotice =
+					`The SCORE Bands process was reset to the ${phaseLabel}.`;
+
+				console.log(
+					'[restartScoreBands] completed successfully'
+				);
+			} catch (error) {
+				console.error(
+					'[restartScoreBands] failed:',
+					error
+				);
+
+				errorMessage.set(
+					error instanceof Error
+						? error.message
+						: String(error)
+				);
+			} finally {
+				isRestarting = false;
+			}
+		}
+	});
+}
 </script>
 
 <svelte:head>
@@ -1926,6 +1961,9 @@ function getConsensusClasses(axisName: string): string {
 			{history}
 			currentIterationId={groupIterationId}
 			onRevertToIteration={revert_to}
+			onRestartToPhase={restartScoreBands}
+			canRestartToPhase={canRestartToPhase}
+			{isRestarting}
 		/>
 
 		<main class="space-y-4">
@@ -1975,26 +2013,6 @@ function getConsensusClasses(axisName: string): string {
 			</p>
 		{/if}
 	</div>
-
-	{#if personalExplorationStack.length > 0}
-		<div class="flex gap-2">
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={backOneExplorationLevel}
-			>
-				← Back
-			</Button>
-
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={exitPersonalExploration}
-			>
-				All bands
-			</Button>
-		</div>
-	{/if}
 </div>
 				</div>
 
@@ -2113,6 +2131,10 @@ function getConsensusClasses(axisName: string): string {
 			{history}
 			currentIterationId={groupIterationId}
 			onRevertToIteration={revert_to}
+			onRestartToPhase={restartScoreBands}
+			canRestartToPhase={canRestartToPhase}
+			{isRestarting}
+
 		/>
 
 		<!-- CENTER: Visualization + band table -->

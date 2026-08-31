@@ -3,14 +3,6 @@
 
 	type Phase = 'learning' | 'consensus';
 
-	type LearningSubBand = {
-		id: string;
-		parentClusterId: number;
-		label: string;
-		solutionIndices: number[];
-		color: string;
-	};
-
 	type LearningSidebarContext = {
 		totalVoters: number;
 		learningCompletedCount: number;
@@ -115,22 +107,7 @@
 					</div>
 				</div>
 
-				{#if isDecisionMaker}
-					<Button
-						class="w-full"
-						variant={learning.hasCompletedLearning ? 'outline' : 'default'}
-						onclick={learning.onFinishExploring}
-						disabled={learning.hasCompletedLearning || learning.isMarkingLearningComplete}
-					>
-						{#if learning.isMarkingLearningComplete}
-							Finishing...
-						{:else if learning.hasCompletedLearning}
-							Exploration finished
-						{:else}
-							Finish exploring
-						{/if}
-					</Button>
-				{/if}
+
 
 			    {#if learning.explorationDepth > 0}
 	<div
@@ -148,34 +125,16 @@
 		</div>
 
 		<div class="text-muted-foreground">
-			Depth {learning.explorationDepth}
+			<span class="font-medium">Selected band: </span><span>{learning.selectedLearningBand}</span>
+			<br />
+			<span class="font-medium">Depth: </span><span>{learning.explorationDepth}</span>
 		</div>
 	</div>
 {/if}
 
 {#if learning.selectedLearningBand !== null}
-	<div
-		class="
-			rounded-md border p-3 text-sm
-		"
-	>
-		<div class="font-medium">
-			Band
-			{learning.selectedLearningBand}
-		</div>
-
-		<div class="text-muted-foreground">
-			{learning.solutionsPerCluster[
-				String(
-					learning.selectedLearningBand
-				)
-			] ?? 0}
-			solutions
-		</div>
-	</div>
-
 	{#if isDecisionMaker}
-		<Button
+<!-- 		<Button
 			class="w-full"
 			onclick={() =>
 				learning.onSaveBand(
@@ -188,11 +147,10 @@
 			)
 				? 'Remove saved band'
 				: 'Save band'}
-		</Button>
+		</Button> -->
 
 		<Button
 			class="w-full"
-			variant="outline"
 			onclick={() =>
 				learning.onExploreBand(
 					learning
@@ -241,6 +199,23 @@
 		>
 			All bands
 		</Button>
+		
+	</div>
+	<div>
+							<Button
+						class="w-full"
+						variant={learning.hasCompletedLearning ? 'outline' : 'default'}
+						onclick={learning.onFinishExploring}
+						disabled={learning.hasCompletedLearning || learning.isMarkingLearningComplete}
+					>
+						{#if learning.isMarkingLearningComplete}
+							Finishing...
+						{:else if learning.hasCompletedLearning}
+							Exploration finished
+						{:else}
+							Finish exploring
+						{/if}
+					</Button>
 	</div>
 {/if}
 			</div>

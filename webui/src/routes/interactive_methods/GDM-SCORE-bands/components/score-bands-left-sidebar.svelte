@@ -4,6 +4,11 @@
 
 	type Phase = 'learning' | 'consensus';
 
+	type RestartPhase =
+	| 'learning'
+	| 'consensus'
+	| 'decision';
+
 	type Props = {
 		phase: Phase;
 		isOwner: boolean;
@@ -35,7 +40,19 @@
 		history: any[];
 		currentIterationId: number | null;
 		onRevertToIteration: (iterationId: number) => void;
-	};
+
+		onRestartToPhase:
+			(
+				phase: RestartPhase
+			) => void | Promise<void>;
+
+		canRestartToPhase:
+			(
+				phase: RestartPhase
+			) => boolean;
+
+		isRestarting?: boolean;
+		};
 
 	let {
 		phase,
@@ -63,7 +80,10 @@
 
 		history,
 		currentIterationId,
-		onRevertToIteration
+		onRevertToIteration,
+		onRestartToPhase,
+		canRestartToPhase,
+		isRestarting = false
 	}: Props = $props();
 
 	function checkboxValue(event: Event): boolean {
@@ -256,11 +276,17 @@
 			isVisible={true}
 		/>
 
+	{/if}
+
+	{#if isOwner}
 		<HistoryBrowser
 			{history}
 			{currentIterationId}
 			onRevertToIteration={onRevertToIteration}
 			{isOwner}
+			{onRestartToPhase}
+			{canRestartToPhase}
+			isRestartingPhase={isRestarting}
 		/>
 	{/if}
 

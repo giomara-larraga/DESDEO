@@ -102,43 +102,34 @@
 				</p>
 
 				<Button
-					class="w-full"
-					variant="outline"
-					onclick={() =>
-						onRestartToPhase('learning')}
-					disabled={
-						isRestartingPhase ||
-						!canRestartToPhase('learning')
-					}
-				>
-					Reset to Learning Phase
-				</Button>
+	class="w-full"
+	variant="outline"
+	onclick={() =>
+		onRestartToPhase('learning')}
+	disabled={isRestartingPhase}
+>
+	Reset to Learning Phase
+</Button>
 
-				<Button
-					class="w-full"
-					variant="outline"
-					onclick={() =>
-						onRestartToPhase('consensus')}
-					disabled={
-						isRestartingPhase ||
-						!canRestartToPhase('consensus')
-					}
-				>
-					Reset to Consensus Phase
-				</Button>
+<Button
+	class="w-full"
+	variant="outline"
+	onclick={() =>
+		onRestartToPhase('consensus')}
+	disabled={isRestartingPhase}
+>
+	Reset to Consensus Phase
+</Button>
 
-				<Button
-					class="w-full"
-					variant="outline"
-					onclick={() =>
-						onRestartToPhase('decision')}
-					disabled={
-						isRestartingPhase ||
-						!canRestartToPhase('decision')
-					}
-				>
-					Reset to Decision Phase
-				</Button>
+<Button
+	class="w-full"
+	variant="outline"
+	onclick={() =>
+		onRestartToPhase('decision')}
+	disabled={isRestartingPhase}
+>
+	Reset to Decision Phase
+</Button>
 			</div>
 			<div class="space-y-2 p-2">
 				<Button onclick={() => (showHistory = !showHistory)} class="btn btn-secondary">
