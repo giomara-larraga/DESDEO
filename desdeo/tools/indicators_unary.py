@@ -89,32 +89,61 @@ def hv_batch(
 class DistanceIndicators(BaseModel):
     """A container for closely related distance based indicators."""
 
-    igd: float = Field(description="The inverted generational distance indicator value.")
-    "The inverted generational distance indicator value."
+    igd: float = Field(description="The inverted generational distance (IGD) indicator value.")
+    "The inverted generational distance (IGD) indicator value."
     igd_p: float = Field(
         description=(
-            "The inverted generational distance indicator, where instead of taking arithmetic "
-            "mean of the distances, we take the geometric mean."
+            "The IGD_p indicator, where instead of the arithmetic mean of the distances, the "
+            "generalized (power) mean of order p is taken. Equals `igd` when p == 1."
         )
     )
-    "The inverted generational distance indicator, where instead of taking arithmetic mean of the distances,"
-    " we take the geometric mean."
-    gd: float = Field(description="The generational distance indicator value.")
-    "The generational distance indicator value."
+    "The IGD_p indicator, where instead of the arithmetic mean of the distances, the generalized (power) mean"
+    " of order p is taken. Equals `igd` when p == 1."
+    gd: float = Field(description="The generational distance (GD) indicator value.")
+    "The generational distance (GD) indicator value."
     gd_p: float = Field(
         description=(
-            "The generational distance indicator, where instead of taking arithmetic mean of the "
-            "distances, we take the geometric mean."
+            "The GD_p indicator, where instead of the arithmetic mean of the distances, the "
+            "generalized (power) mean of order p is taken. Equals `gd` when p == 1."
         )
     )
-    "The generational distance indicator, where instead of taking arithmetic mean of the distances,"
-    " we take the geometric mean."
-    ahd: float = Field(description="The average Hausdorff distance indicator value.")
-    "The average Hausdorff distance indicator value."
+    "The GD_p indicator, where instead of the arithmetic mean of the distances, the generalized (power) mean"
+    " of order p is taken. Equals `gd` when p == 1."
+    ahd: float = Field(description="The averaged Hausdorff distance (Delta_p) indicator value, max(igd_p, gd_p).")
+    "The averaged Hausdorff distance (Delta_p) indicator value, max(igd_p, gd_p)."
 
 
-def distance_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0) -> DistanceIndicators:
+def _power_mean(distances: np.ndarray, p: float) -> float:
+    """Computes the generalized (power) mean of order p of a 1D array of non-negative distances.
+
+    Args:
+        distances (np.ndarray): A 1D array of non-negative distances.
+        p (float): The order of the mean. Must be positive. np.inf (or math.inf) yields the maximum.
+
+    Returns:
+        float: The generalized mean of order p.
+    """
+    if np.isinf(p):
+        return float(distances.max())
+    return float(np.mean(distances**p) ** (1 / p))
+
+
+def distance_indicators(
+    solution_set: np.ndarray, reference_set: np.ndarray, p: float = 2.0, distance_p: float = 2.0
+) -> DistanceIndicators:
     """Calculates various distance based indicators between a solution set and a reference set.
+
+    Given the point-to-set distances `d_i`, the indicators are
+
+        IGD   = mean over the reference set of the distance to the closest solution,
+        GD    = mean over the solution set of the distance to the closest reference point,
+        IGD_p = (mean(d_i**p))**(1/p) over the reference set,
+        GD_p  = (mean(d_i**p))**(1/p) over the solution set,
+        AHD   = max(IGD_p, GD_p), the averaged Hausdorff distance Delta_p.
+
+    Note that `p` only controls the averaging; the point-to-point distance is controlled separately by
+    `distance_p` and defaults to the Euclidean distance, matching the definitions used by `moocore` and by
+    Schuetze et al. Consequently, IGD_p and GD_p coincide with IGD and GD when `p == 1`.
 
     Args:
         solution_set (np.ndarray): A 2D numpy array where each row is a solution and each column is an objective value.
@@ -124,28 +153,41 @@ def distance_indicators(solution_set: np.ndarray, reference_set: np.ndarray, p: 
             The solutions are assumed to be normalized within the unit hypercube. The ideal and nadir of the reference
             set should probably be (0, 0, ..., 0) and (1, 1, ..., 1) respectively. The reference set is assumed to be
             non-dominated.
-        p (float, optional): The power of the Minkowski metric. Set to 1 for Manhattan distance and 2 for Euclidean
-            distance, and np.inf (or math.inf) for Chebyshev distance. Defaults to 2.0.
+        p (float, optional): The order of the generalized mean used to aggregate the distances into IGD_p, GD_p, and
+            AHD. Must be positive; np.inf (or math.inf) aggregates by taking the maximum distance, giving the
+            (non-averaged) Hausdorff distance. Defaults to 2.0.
+        distance_p (float, optional): The power of the Minkowski metric used for the point-to-point distances. Set to 1
+            for Manhattan distance, 2 for Euclidean distance, and np.inf (or math.inf) for Chebyshev distance. Defaults
+            to 2.0, i.e., the Euclidean distance used by the standard definitions of these indicators.
 
     Returns:
-        DistanceIndicators: A Pydantic class containing the IGD, IGD+, GD, GD+, and AHD indicators values.
-    """
-    distance_matrix = cdist(solution_set, reference_set, metric="minkowski", p=p)
-    _igd = np.min(distance_matrix, axis=0).mean()
-    _gd = np.min(distance_matrix, axis=1).mean()
-    ref_size = reference_set.shape[0]
-    set_size = solution_set.shape[0]
+        DistanceIndicators: A Pydantic class containing the IGD, IGD_p, GD, GD_p, and AHD indicator values.
 
-    _igd_p = (_igd * ref_size) / (ref_size ** (1 / p))
-    _gd_p = (_gd * set_size) / (set_size ** (1 / p))
+    Raises:
+        ValueError: If `p` or `distance_p` is not positive.
+    """
+    if p <= 0:
+        raise ValueError(f"'p' must be positive, got {p}.")
+    if distance_p <= 0:
+        raise ValueError(f"'distance_p' must be positive, got {distance_p}.")
+
+    distance_matrix = cdist(solution_set, reference_set, metric="minkowski", p=distance_p)
+    # For each reference point, the distance to the closest solution, and vice versa.
+    igd_distances = np.min(distance_matrix, axis=0)
+    gd_distances = np.min(distance_matrix, axis=1)
+
+    _igd = float(igd_distances.mean())
+    _gd = float(gd_distances.mean())
+    _igd_p = _power_mean(igd_distances, p)
+    _gd_p = _power_mean(gd_distances, p)
     _ahd = max(_igd_p, _gd_p)
     return DistanceIndicators(igd=_igd, igd_p=_igd_p, gd=_gd, gd_p=_gd_p, ahd=_ahd)
 
 
 def distance_indicators_batch(
-    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0
+    solution_sets: dict[str, np.ndarray], reference_set: np.ndarray, p: float = 2.0, distance_p: float = 2.0
 ) -> dict[str, DistanceIndicators]:
-    """Calculate the IGD, GD, GD_P, IGD_P, and AHD for a sets of solutions.
+    """Calculate the IGD, GD, GD_p, IGD_p, and AHD for a sets of solutions.
 
     Args:
         solution_sets (dict[str, np.ndarray]): A dict of strings mapped to 2D numpy arrays where each array contains a
@@ -160,17 +202,20 @@ def distance_indicators_batch(
             The solutions are assumed to be normalized within the unit hypercube. The ideal and nadir of the reference
             set should probably be (0, 0, ..., 0) and (1, 1, ..., 1) respectively. The reference set is assumed to be
             non-dominated.
-        p (float, optional): The power of the Minkowski metric. Set to 1 for Manhattan distance and 2 for Euclidean
-            distance, and np.inf (or math.inf) for Chebyshev distance. Defaults to 2.0.
+        p (float, optional): The order of the generalized mean used to aggregate the distances into IGD_p, GD_p, and
+            AHD. Must be positive; np.inf (or math.inf) aggregates by taking the maximum distance. Defaults to 2.0.
+        distance_p (float, optional): The power of the Minkowski metric used for the point-to-point distances. Set to 1
+            for Manhattan distance, 2 for Euclidean distance, and np.inf (or math.inf) for Chebyshev distance. Defaults
+            to 2.0, i.e., the Euclidean distance used by the standard definitions of these indicators.
 
     Returns:
         dict[str, DistanceIndicators]: A dict of strings mapped to DistanceIndicators objects. The keys of the dict are
-            the names of the sets. The DistanceIndicators objects contain the IGD, IGD+, GD, GD+, and AHD indicators
+            the names of the sets. The DistanceIndicators objects contain the IGD, IGD_p, GD, GD_p, and AHD indicator
             values. This data structure can be easily converted to a DataFrame or saved to disk as a JSON file.
     """
     inds = {}
     for set_name, sols in solution_sets.items():
-        inds[set_name] = distance_indicators(sols, reference_set, p=p)
+        inds[set_name] = distance_indicators(sols, reference_set, p=p, distance_p=distance_p)
     return inds
 
 
@@ -185,6 +230,10 @@ def igd_plus_indicator(solution_set: np.ndarray, reference_set: np.ndarray, p: f
 
     Notes:
         The minimization of the objective function values is assumed.
+
+        IGD+ is defined by Ishibuchi et al. (2015) in terms of the Euclidean distance, i.e., p == 2, which is the
+        default here. Other values of `p` give a non-standard generalization that will not match the IGD+ values
+        reported by, e.g., `moocore` or `pymoo`.
 
     Args:
         solution_set (np.ndarray): The solution set being evaluated.
@@ -237,10 +286,19 @@ class R2Indicator(BaseModel):
     """Container for the R2 indicator value of a solution set."""
 
     r2_value: float
+    """The R2 indicator value. **Higher is better, and the value is always negative.**
+
+    This is the utility form of R2, and it is the opposite orientation to every other indicator in
+    this module. See `r2_indicator` for why, and do not put it on a chart beside IGD+ or GD without
+    flipping its sign first."""
 
 
 def tchebycheff_utility(fx: np.ndarray, lambd: np.ndarray, z_star: np.ndarray, rho: float = 0.05) -> float:
-    """Calculates the augmented Tchebycheff utility of a solution."""
+    """Calculates the augmented Tchebycheff utility of a solution.
+
+    A *utility*, so it is the negated achievement scalarising value and **higher is better**. It is
+    always negative, reaching zero only for a solution sitting on the ideal point.
+    """
     diff = np.abs(z_star - fx)
     max_term = np.max(lambd * diff)
     sum_term = np.sum(diff)
@@ -252,6 +310,16 @@ def r2_indicator(
 ) -> R2Indicator:
     """Computes the unary R2 indicator for a given solution set.
 
+    **Higher is better, and the value is always negative** -- the opposite of every other indicator
+    in this module, and the single most likely thing to be got wrong about it.
+
+    Two conventions for unary R2 are in use and they differ by a sign. This is the *utility* form of
+    Brockhoff, Wagner and Trautmann: the mean over weight vectors of the best utility any solution
+    achieves, where the utility is a negated Tchebycheff distance. PlatEMO and jMetal report the
+    *distance* form instead -- the mean over weight vectors of the smallest Tchebycheff distance --
+    which is non-negative and minimised. The two are exact negations of each other, so
+    `-r2_value` converts this to the value those frameworks print.
+
     Args:
         solution_set (np.ndarray): The Pareto front approximation.
         lambda_set (np.ndarray): The set of normalized weight vectors (λ).
@@ -259,7 +327,15 @@ def r2_indicator(
         rho (float, optional): Small positive number for augmented Tchebycheff. Default is 0.05.
 
     Returns:
-        R2IndicatorResult: Pydantic class with R2 value.
+        R2IndicatorResult: Pydantic class with R2 value. Higher is better; see above.
+
+    References:
+        Brockhoff, D., Wagner, T., & Trautmann, H. (2012). On the properties of the R2 indicator.
+            In Proceedings of the 14th Annual Conference on Genetic and Evolutionary Computation
+            (pp. 465-472). https://doi.org/10.1145/2330163.2330230
+
+        Hansen, M. P., & Jaszkiewicz, A. (1998). Evaluating the quality of approximations to the
+            non-dominated set. IMM Technical Report IMM-REP-1998-7, Technical University of Denmark.
     """
     total_score = 0.0
     for lambd in lambda_set:
