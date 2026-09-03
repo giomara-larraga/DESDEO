@@ -50,6 +50,7 @@ from .selection import (
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    PBEASelectorOptions,
     SelectorOptions,
     selection_constructor,
 )
@@ -115,4 +116,5 @@ __all__ = [  # noqa: RUF022
     "RepairOptions",
     "repair_constructor",
     "SeededHybridGeneratorOptions",
+    "PBEASelectorOptions",
 ]

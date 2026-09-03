@@ -8,7 +8,7 @@ import polars as pl
 from desdeo.adm.adm_afsar import ADMAfsar
 from desdeo.emo.options import algorithms
 from desdeo.tools.indicators_unary import phi
-from desdeo.emo.options.algorithms import rvea_options, nsga3_options
+from desdeo.emo.options.algorithms import rvea_options, pbea_options, nsga3_options
 from desdeo.emo.options.generator import ArchiveGeneratorOptions
 from desdeo.emo.options.templates import ReferencePointOptions
 from desdeo.tools.message import Message, MessageTopics, SelectorMessageTopics
@@ -208,7 +208,7 @@ class MethodFrontResult:
 
 ALGORITHM_OPTION_BUILDERS = {
     "iRVEA": rvea_options,
-    "iNSGA-III": nsga3_options,
+    "PBEA": pbea_options,
 }
 
 
@@ -681,7 +681,7 @@ def main():
     problems = [dtlz2(n_objectives=5, n_variables=12)]
     data = run_experiment_suite(
         problems=problems,
-        methods=["iRVEA", "iNSGA-III"],
+        methods=["iRVEA", "PBEA"],
         learning_iters=4,
         decision_iters=3,
         gens_per_iter=100,

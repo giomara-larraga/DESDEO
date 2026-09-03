@@ -28,6 +28,7 @@ from .options.algorithms import (
     sms_emoa_mixed_integer_options,
     sms_emoa_options,
     xlemoo_options,
+    pbea_options,
 )
 from .options.crossover import (
     BlendAlphaCrossoverOptions,
@@ -71,6 +72,7 @@ from .options.selection import (
     NSGA3SelectorOptions,
     ReferenceVectorOptions,
     RVEASelectorOptions,
+    PBEASelectorOptions,
 )
 from .options.templates import (
     DesirableRangesOptions,
@@ -102,6 +104,7 @@ algorithms = SimpleNamespace(
     sms_emoa_mixed_integer_options=sms_emoa_mixed_integer_options,
     xlemoo_options=xlemoo_options,
     emo_constructor=emo_constructor,
+    pbea_options=pbea_options,
 )
 
 termination = SimpleNamespace(
@@ -116,6 +119,7 @@ selection = SimpleNamespace(
     IBEASelectorOptions=IBEASelectorOptions,
     NSGA3SelectorOptions=NSGA3SelectorOptions,
     NSGA2SelectorOptions=NSGA2SelectorOptions,
+    PBEASelectorOptions=PBEASelectorOptions,
     RVEASelectorOptions=RVEASelectorOptions,
 )
 

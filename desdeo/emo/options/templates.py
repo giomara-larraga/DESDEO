@@ -185,7 +185,7 @@ class ReferencePointOptions(BaseModel):
         description="The reference point as a dictionary with objective function symbols as the keys."
     )
     """The reference point as a dictionary with objective function symbols as the keys."""
-    method: Literal["Hakanen", "IOPIS"] = Field(
+    method: Literal["Hakanen", "IOPIS", "PBEA"] = Field(
         default="Hakanen", description="The method for handling the reference point."
     )
     """The method for handling the reference point."""
@@ -329,6 +329,13 @@ def preference_handler(
             desirability_func="MaoMao",
         )
         return df_problem, selection
+    if preference.method == "PBEA":
+        if selection.name != "PBEASelector":
+            raise InvalidTemplateError("Preference handling with PBEA method requires PBEASelector.")
+        if not isinstance(preference, ReferencePointOptions):
+            raise InvalidTemplateError("PBEA preference handling accepts only ReferencePointOptions.")
+        selection.reference_point = preference.preference
+        return problem, selection
     raise InvalidTemplateError(f"Unknown preference handling method: {preference.method}")
 
 

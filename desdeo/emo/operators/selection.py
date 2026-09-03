@@ -2153,3 +2153,137 @@ class SMSEMOASelector(BaseSelector):
             ),
             message,
         ]
+
+
+class PBEASelector(IBEASelector):
+    """Preference-Based Evolutionary Algorithm (PBEA) selection.
+
+    This is the PBEA of Thiele, Miettinen, Korhonen, and Molina (2009), built on
+    adaptive IBEA. The additive epsilon indicator is divided column-wise by the
+    normalized augmented achievement scalarizing function
+
+        I_p(y, x) = I_eps(y, x) / s(g, f(x), delta).
+
+    If ``reference_point`` is ``None``, this selector reduces to ordinary IBEA
+    with the additive epsilon indicator. This is useful for Step 0 of the
+    interactive PBEA procedure in the paper.
+
+    Notes:
+        - PBEA is defined for objective vectors, not already scalarized targets.
+          Therefore problems with ``scalarization_funcs`` are rejected.
+        - Internally DESDEO selection uses minimization-form objective columns
+          (``<objective>_min``), so aspiration levels of maximizing objectives are
+          sign-corrected automatically.
+        - When ``weights`` is omitted, ``w_i = 1 / range_i`` is used as suggested
+          in the paper. DESDEO ideal/nadir ranges are preferred when available;
+          otherwise the current population range is used. Constant objectives get
+          weight 1.0 to avoid division by zero.
+    """
+
+    def __init__(
+        self,
+        problem: Problem,
+        verbosity: int,
+        publisher: Publisher,
+        population_size: int,
+        kappa: float = 0.05,
+        reference_point: dict[str, float] | None = None,
+        specificity: float = 0.05,
+        rho: float = 1e-6,
+        weights: dict[str, float] | None = None,
+        seed: int = 0,
+    ):
+        if problem.scalarization_funcs is not None:
+            raise ValueError("PBEASelector requires the original objective targets, not scalarization functions.")
+        if specificity <= 0:
+            raise ValueError("specificity (delta) must be > 0.")
+        if rho <= 0:
+            raise ValueError("rho must be > 0 for the augmented achievement function.")
+
+        super().__init__(
+            problem=problem,
+            verbosity=verbosity,
+            publisher=publisher,
+            population_size=population_size,
+            kappa=kappa,
+            binary_indicator=self_epsilon,
+            seed=seed,
+        )
+
+        self.specificity = float(specificity)
+        self.rho = float(rho)
+        self.reference_point = self._prepare_reference_point(reference_point)
+        self.weights = self._prepare_weights(weights)
+
+    def _prepare_reference_point(self, reference_point: dict[str, float] | None) -> np.ndarray | None:
+        """Validate and convert a user reference point to DESDEO minimization coordinates."""
+        if reference_point is None:
+            return None
+        expected = set(self.objective_symbols)
+        given = set(reference_point)
+        if given != expected:
+            missing = sorted(expected - given)
+            extra = sorted(given - expected)
+            raise ValueError(f"reference_point keys must match objective symbols; missing={missing}, extra={extra}.")
+        return np.asarray(
+            [reference_point[s] * self.maximization_mult[s] for s in self.objective_symbols], dtype=float
+        )
+
+    def _prepare_weights(self, weights: dict[str, float] | None) -> np.ndarray | None:
+        """Validate user-supplied positive ASF scaling factors in objective order."""
+        if weights is None:
+            return None
+        expected = set(self.objective_symbols)
+        given = set(weights)
+        if given != expected:
+            missing = sorted(expected - given)
+            extra = sorted(given - expected)
+            raise ValueError(f"weights keys must match objective symbols; missing={missing}, extra={extra}.")
+        values = np.asarray([weights[s] for s in self.objective_symbols], dtype=float)
+        if np.any(values <= 0):
+            raise ValueError("All PBEA achievement-scalarizing weights must be > 0.")
+        return values
+
+    def _achievement_values(self, targets: np.ndarray) -> np.ndarray:
+        """Return augmented achievement scalarizing values s_g(f(x)) (paper Eq. 3)."""
+        if self.reference_point is None:
+            raise RuntimeError("Achievement values require a reference point.")
+
+        deviations = targets - self.reference_point
+        if self.weights is None:
+            if self.ideal is not None and self.nadir is not None:
+                span = np.asarray(self.nadir - self.ideal, dtype=float)
+            else:
+                span = np.ptp(targets, axis=0)
+            w = np.ones_like(span, dtype=float)
+            nonzero = span > 0
+            w[nonzero] = 1.0 / span[nonzero]
+        else:
+            w = self.weights
+
+        # Eq. (3) in Thiele et al. (2009): weights only multiply the max term;
+        # the augmentation term is rho * sum_i(f_i(x) - g_i).
+        return np.max(w * deviations, axis=1) + self.rho * np.sum(deviations, axis=1)
+
+    def achievement_values(self, targets: np.ndarray) -> np.ndarray:
+        """Public helper for ranking a population by the PBEA achievement function."""
+        targets = np.asarray(targets, dtype=float)
+        if targets.ndim != 2 or targets.shape[1] != len(self.objective_symbols):
+            raise ValueError(
+                f"targets must have shape (n, {len(self.objective_symbols)}) in minimization objective order."
+            )
+        return self._achievement_values(targets)
+
+    def _indicator_components(self, targets: np.ndarray) -> np.ndarray:
+        """Return adaptive PBEA pairwise components (paper Eqs. 6-7)."""
+        epsilon_components = super()._indicator_components(targets)
+        if self.reference_point is None:
+            return epsilon_components
+
+        achievement = self._achievement_values(targets)
+        normalized = achievement + self.specificity - np.min(achievement)
+        # normalized >= specificity > 0. Column x gets s(g, f(x), delta),
+        # because rows/columns of the binary matrix are I(y, x).
+        return epsilon_components / normalized[np.newaxis, :]
+
+

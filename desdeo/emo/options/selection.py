@@ -15,6 +15,7 @@ from desdeo.emo.operators.selection import (
     ReferenceVectorOptions,
     RVEASelector,
     SMSEMOASelector,
+    PBEASelector,
 )
 from desdeo.tools.indicators_binary import self_epsilon, self_hv
 
@@ -100,8 +101,36 @@ class SMSEMOASelectorOptions(BaseModel):
     this component."""
 
 
+class PBEASelectorOptions(BaseModel):
+    """Options for preference-based IBEA (PBEA) selection."""
+
+    name: Literal["PBEASelector"] = Field(
+        default="PBEASelector", frozen=True, description="The name of the selection operator."
+    )
+    population_size: int = Field(gt=0, description="The population size.")
+    kappa: float = Field(default=0.05, gt=0.0, description="The kappa parameter for adaptive IBEA.")
+    reference_point: dict[str, float] | None = Field(
+        default=None,
+        description=(
+            "Reference point (aspiration levels) keyed by objective symbol. Usually injected from "
+            "ReferencePointOptions(method='PBEA'). None reduces PBEA to ordinary epsilon-IBEA."
+        ),
+    )
+    specificity: float = Field(
+        default=0.05, gt=0.0, description="The PBEA specificity delta; smaller values focus more tightly."
+    )
+    rho: float = Field(default=1e-6, gt=0.0, description="Augmentation coefficient in the achievement function.")
+    weights: dict[str, float] | None = Field(
+        default=None,
+        description=(
+            "Positive achievement-function scaling weights keyed by objective symbol. "
+            "If omitted, inverse ideal/nadir ranges are used when available, otherwise current-population ranges."
+        ),
+    )
+
+    
 SelectorOptions = (
-    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions
+    RVEASelectorOptions | NSGA2SelectorOptions | NSGA3SelectorOptions | IBEASelectorOptions | SMSEMOASelectorOptions | PBEASelectorOptions
 )
 
 
@@ -129,6 +158,7 @@ def selection_constructor(
         "NSGA3Selector": NSGA3Selector,
         "IBEASelector": IBEASelector,
         "SMSEMOASelector": SMSEMOASelector,
+        "PBEASelector": PBEASelector,
     }
     options: dict = options.model_dump()
     name = options.pop("name")
