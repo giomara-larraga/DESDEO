@@ -249,15 +249,73 @@ let activeLearningScoreBandsResult =
 		}
 	});*/
 
-	let votes_per_cluster: Record<number, number> = $derived.by(() => {
-		const counts: Record<number, number> = {};
-		Object.values(votes_and_confirms.votes).forEach((bandId) => {
-			if (!(bandId in counts)) {
-				counts[bandId] = 0;
+	let votes_per_cluster:
+	Record<number, number> =
+	$derived.by(() => {
+		const counts:
+			Record<number, number> = {};
+
+		Object.values(
+			votes_and_confirms.votes
+		).forEach((voteIndex) => {
+			const clusterId =
+				voteIndexToClusterId(
+					voteIndex
+				);
+
+			if (clusterId === null) {
+				return;
 			}
-			counts[bandId] += 1;
+
+			if (
+				!(
+					clusterId in
+					counts
+				)
+			) {
+				counts[
+					clusterId
+				] = 0;
+			}
+
+			counts[
+				clusterId
+			] += 1;
 		});
+
 		return counts;
+	});
+
+let consensusVotesForUI =
+	$derived.by(() => {
+		const mappedVotes:
+			Record<string, number> = {};
+
+		for (
+			const [
+				userKey,
+				voteIndex
+			] of Object.entries(
+				votes_and_confirms.votes
+			)
+		) {
+			const clusterId =
+				voteIndexToClusterId(
+					voteIndex
+				);
+
+			if (clusterId !== null) {
+				mappedVotes[
+					userKey
+				] = clusterId;
+			}
+		}
+
+		return {
+			...votes_and_confirms,
+			votes:
+				mappedVotes
+		};
 	});
 
 function setOwnerWarningMessage(value: string) {
@@ -303,12 +361,31 @@ function getConsensusClasses(axisName: string): string {
 
 		// Calculate when everyone has voted
 		if (votesCount === totalVoters) {
+			console.log(
+	'[axis agreement input]',
+	{
+		rawVotes:
+			votes_and_confirms.votes,
+
+		mappedVotes:
+			consensusVotesForUI.votes,
+
+		clusterIds:
+			SCOREBands.clusterIds,
+
+		medians:
+			SCOREBands.medians,
+
+		scales:
+			SCOREBands.scales
+	}
+);
 			return calculateAxisAgreement(
-				votes_and_confirms,
+				consensusVotesForUI,
 				SCOREBands.medians,
 				SCOREBands.scales,
 				0.1, // agreement threshold
-				0.9 // disagreement threshold
+				0.3 // disagreement threshold
 			);
 		}
 
@@ -581,6 +658,43 @@ let availableRestartPhases =
 			solutions: show_solutions,
 			medians: show_medians
 		};
+	});
+
+	function clusterIdToVoteIndex(
+		clusterId: number
+	): number | null {
+		const index =
+			SCOREBands.clusterIds.indexOf(
+				clusterId
+			);
+
+		return index === -1
+			? null
+			: index;
+	}
+
+	function voteIndexToClusterId(
+		voteIndex: number
+	): number | null {
+		return (
+			SCOREBands.clusterIds[
+				voteIndex
+			] ?? null
+		);
+	}
+
+	let usersConsensusBandId =
+	$derived.by(() => {
+		if (
+			!isConsensusPhase ||
+			usersVote === null
+		) {
+			return null;
+		}
+
+		return voteIndexToClusterId(
+			usersVote
+		);
 	});
 
 	// Cluster visibility controls
@@ -1374,32 +1488,95 @@ let availableRestartPhases =
 	/**
 	 * Submits user vote for selected band or solution
 	 */
-	async function vote(selection: number | null) {
+	async function vote(
+		selection: number | null
+	) {
 		if (selection === null) {
-			errorMessage.set('Please select a band or solution to vote for.');
+			errorMessage.set(
+				'Please select a band or solution to vote for.'
+			);
 			return;
 		}
+
+		let voteValue = selection;
+
+		/*
+		* Consensus visualization uses actual
+		* cluster IDs, but the backend expects
+		* a zero-based band index.
+		*/
+		if (isConsensusPhase) {
+			const voteIndex =
+				clusterIdToVoteIndex(selection);
+
+			if (voteIndex === null) {
+				errorMessage.set(
+					`Band ${selection} does not exist in the current SCORE Bands iteration.`
+				);
+				return;
+			}
+
+			voteValue = voteIndex;
+
+			console.log(
+				'[consensus vote]',
+				{
+					clusterId: selection,
+					voteIndex
+				}
+			);
+		}
+
 		if (isDecisionPhase) {
 			decisionNotice = null;
 		}
-		console.log('Selection to vote for:', selection);
+
+		console.log(
+			'Selection to vote for:',
+			selection,
+			'Backend vote value:',
+			voteValue
+		);
+
 		try {
-			const voteResult = await callGSCOREBandsAPI<{ message: string }>('vote', {
-				group_session_id: data.groupSession.id,
-				vote: selection
-			});
+			const voteResult =
+				await callGSCOREBandsAPI<{
+					message: string;
+				}>(
+					'vote',
+					{
+						group_session_id:
+							data.groupSession.id,
+
+						vote:
+							voteValue
+					}
+				);
 
 			if (voteResult.success) {
-				console.log('Voted successfully:', voteResult.data?.message);
-				// Refresh local voting state immediately so vote counters update without
-				// waiting for a websocket update event.
+				console.log(
+					'Voted successfully:',
+					voteResult.data?.message
+				);
+
 				await fetch_votes_and_confirms();
 			} else {
-				throw new Error(`Vote failed: ${voteResult.error || 'Unknown error'}`);
+				throw new Error(
+					`Vote failed: ${
+						voteResult.error ||
+						'Unknown error'
+					}`
+				);
 			}
 		} catch (error) {
-			console.error('Error in vote:', error);
-			errorMessage.set(`${error}`);
+			console.error(
+				'Error in vote:',
+				error
+			);
+
+			errorMessage.set(
+				`${error}`
+			);
 		}
 	}
 
@@ -1515,7 +1692,26 @@ let availableRestartPhases =
 						if (isDecisionPhase) {
 							selected_solution = vote;
 						} else if (isConsensusPhase) {
-							selected_band = vote;
+							const clusterId =
+		voteIndexToClusterId(
+			vote
+		);
+
+	if (clusterId !== null) {
+		selected_band =
+			clusterId;
+	} else {
+		console.warn(
+			'Could not map persisted vote index to cluster ID:',
+			{
+				voteIndex: vote,
+				clusterIds:
+					SCOREBands.clusterIds
+			}
+		);
+
+		selected_band = null;
+	}
 						}
 					}
 				}
@@ -1906,7 +2102,9 @@ async function restartScoreBands(
 							{#if usersVote !== null && have_all_voted && !vote_confirmed}
 								<div>
 									You have voted for {isConsensusPhase ? 'band' : 'solution'}
-									{isConsensusPhase ? usersVote : usersVote + 1}. You can still change your vote, or
+									{isConsensusPhase
+										? usersConsensusBandId
+										: usersVote + 1}. You can still change your vote, or
 									confirm your vote to proceed.
 								</div>
 							{/if}

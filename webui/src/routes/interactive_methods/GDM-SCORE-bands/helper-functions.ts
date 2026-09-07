@@ -62,33 +62,92 @@ export function calculateAxisAgreement(
 	}
 
 	// For each axis, calculate agreement
-	Object.keys(scales).forEach((axisName) => {
-		// Get medians for voted bands on this axis
-		const votedMedians = votedBandIds
-			.map((bandId) => medians[bandId.toString()]?.[axisName])
-			.filter((median) => median !== undefined);
+	Object.keys(scales).forEach(
+	(axisName) => {
+		const votedMedians =
+			votedBandIds
+				.map(
+					(bandId) =>
+						medians[
+							bandId.toString()
+						]?.[axisName]
+				)
+				.filter(
+					(
+						median
+					): median is number =>
+						median !==
+						undefined
+				);
 
-		// Calculate spread: max - min
-		const maxMedian = Math.max(...votedMedians);
-		const minMedian = Math.min(...votedMedians);
-		const spread = maxMedian - minMedian;
-
-		// Get nadir-ideal range for this axis
-		const [nadir, ideal] = scales[axisName];
-		const totalRange = Math.abs(nadir - ideal);
-
-		// Calculate normalized disagreement score
-		const disagreementScore = totalRange > 0 ? spread / totalRange : 0;
-
-		// Classify agreement level
-		if (disagreementScore <= agreementThreshold) {
-			agreement[axisName] = 'agreement';
-		} else if (disagreementScore >= disagreementThreshold) {
-			agreement[axisName] = 'disagreement';
-		} else {
-			agreement[axisName] = 'neutral';
+		if (votedMedians.length < 2) {
+			agreement[axisName] =
+				'neutral';
+			return;
 		}
-	});
+
+		const maxMedian =
+			Math.max(
+				...votedMedians
+			);
+
+		const minMedian =
+			Math.min(
+				...votedMedians
+			);
+
+		const spread =
+			maxMedian -
+			minMedian;
+
+		const [nadir, ideal] =
+			scales[axisName];
+
+		const totalRange =
+			Math.abs(
+				nadir - ideal
+			);
+
+		const disagreementScore =
+			totalRange > 0
+				? spread /
+					totalRange
+				: 0;
+
+		if (
+			disagreementScore <=
+			agreementThreshold
+		) {
+			agreement[axisName] =
+				'agreement';
+		} else if (
+			disagreementScore >=
+			disagreementThreshold
+		) {
+			agreement[axisName] =
+				'disagreement';
+		} else {
+			agreement[axisName] =
+				'neutral';
+		}
+
+		console.log(
+			'[axis agreement]',
+			{
+				axisName,
+				votedBandIds,
+				votedMedians,
+				spread,
+				totalRange,
+				disagreementScore,
+				classification:
+					agreement[
+						axisName
+					]
+			}
+		);
+	}
+);
 
 	return agreement;
 }

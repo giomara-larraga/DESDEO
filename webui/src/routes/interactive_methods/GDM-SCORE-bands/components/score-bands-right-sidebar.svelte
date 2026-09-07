@@ -230,7 +230,7 @@
 				<div class="space-y-2 p-4">
 					{#each learning.savedBands as clusterId}
 						<div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-							<span>Cluster {clusterId}</span>
+							<span>Band {clusterId}</span>
 							<button
 								type="button"
 								class="text-muted-foreground hover:text-foreground"
@@ -321,7 +321,7 @@
 								class="h-3 w-3 rounded-full"
 								style:background-color={consensus.clusterColors[clusterId] ?? '#64748b'}
 							></span>
-							Cluster {clusterId}
+							Band {clusterId}
 						</span>
 
 						<span class="text-muted-foreground">
