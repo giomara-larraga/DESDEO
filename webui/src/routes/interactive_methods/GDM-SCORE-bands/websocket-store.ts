@@ -20,8 +20,11 @@
 
 import { writable, type Writable } from 'svelte/store';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
-const wsBase = BASE_URL.replace(/^http/, 'ws');
+const wsBase = import.meta.env.VITE_WS_API_URL;
+
+if (!wsBase) {
+	throw new Error('VITE_WS_API_URL is not configured');
+}
 export class WebSocketService {
 	socket: WebSocket | null = null;
 	private reconnectAttempts = 0;
@@ -82,7 +85,7 @@ export class WebSocketService {
 			token: this.token
 		});
 
-		const url = `${wsBase}/gdm/ws?${params.toString()}`;
+		const url = `${wsBase.replace(/\/+$/, '')}/gdm/ws?${params.toString()}`;
 		this.socket = new WebSocket(url);
 		if (this.reconnectAttempts > 0) {
 			this.messageStore.update((store) => ({
