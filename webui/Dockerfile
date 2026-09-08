@@ -17,6 +17,7 @@
 #       Default here: http://desdeo-api:8080
 #       Override in the Deployment manifest if the service name differs.
 
+
 # ---------------------------------------------------------------------------
 # Stage 1 – build
 # ---------------------------------------------------------------------------
@@ -31,12 +32,16 @@ RUN npm install
 # Copy the rest of the source.
 COPY . .
 
-# VITE_API_URL is baked into the bundle at build time.
-ARG VITE_API_URL=https://gialmisi-desdeo-api.rahtiapp.fi
+# Vite variables are baked into the client bundle at build time.
+ARG VITE_API_URL=/api
+ARG VITE_WS_API_URL
+
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_API_URL=$VITE_WS_API_URL
 
 # NPM_RUN=start:production makes svelte.config.js select adapter-node.
 RUN NPM_RUN=start:production npm run build
+
 
 # Prune devDependencies so we can copy node_modules into the runtime stage.
 RUN npm prune --omit=dev
