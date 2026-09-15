@@ -36,6 +36,7 @@ from desdeo.api.models import (
     StateDB,
     User,
     UserSavedSolutionDB,
+    problem,
 )
 from desdeo.api.models.generic import SolutionInfo
 from desdeo.api.models.generic_states import StateKind
@@ -47,9 +48,18 @@ from desdeo.api.routers.user_authentication import get_current_user
 from desdeo.mcdm.nimbus import generate_starting_point, solve_sub_problems
 from desdeo.problem import Problem
 from desdeo.tools import SolverResults
+from desdeo.tools.utils import (
+    flip_maximized_objective_values,
+    get_corrected_ideal,
+    get_corrected_nadir,
+)
+
 
 router = APIRouter(prefix="/method/xnimbus")
 
+# Based on the implementation of NIMBUS in desdeo.mcdm.nimbus
+SCALARIZATION_ORDER = ("NIMBUS", "STOM", "ASF", "GUESS")
+MULTIPLIER_TOL = 1e-5
 
 # helper for collecting solutions
 def filter_duplicates(
@@ -823,8 +833,23 @@ def get_multipliers_info(
 
     actual_state = state.state
 
+
+    problem_db = session.exec(
+        select(ProblemDB).where(
+            ProblemDB.user_id == user.id,
+            ProblemDB.id == state.problem_id,
+        )
+    ).first()
+
+    if problem_db is None:
+        return empty_response
+
+    problem = Problem.from_problemdb(problem_db)
     # Check if the request has the objective symbols, if not, we will try to extract them from the solver results if possible. If not, we will use the default f_{index} format for filtering the multipliers.
     objective_symbols = request.objective_symbols
+    corrected_ideal = get_corrected_ideal(problem)
+    corrected_nadir = get_corrected_nadir(problem)
+    corrected_reference_point = flip_maximized_objective_values(problem, actual_state.preferences.aspiration_levels) 
 
     if (
         not hasattr(actual_state, "solver_results")
@@ -833,30 +858,61 @@ def get_multipliers_info(
         return empty_response
 
     lagrange_multipliers = []
+    effective_multipliers = []
     constraint_values = []
+    tradeoffs_list = []
 
     # Handle states with multiple results (list of SolverResults)
     if isinstance(actual_state.solver_results, list):
-        for result in actual_state.solver_results:
+        for result_index, result in enumerate(actual_state.solver_results):
+            scalarization = SCALARIZATION_ORDER[result_index]
+            
             if (
                 hasattr(result, "lagrange_multipliers")
                 and result.lagrange_multipliers is not None
             ):
-                lagrange_multipliers.append(
-                    filter_lagrange_multipliers(
-                        result.lagrange_multipliers, objective_symbols
-                    )
+                selected = filter_lagrange_multipliers(
+                    result.lagrange_multipliers,
+                    objective_symbols,
                 )
-                constraint_values.append(
-                    filter_constraint_values(
-                        result.constraint_values, objective_symbols
+
+                effective = compute_effective_multipliers(
+                    selected_multipliers=selected,
+                    scalarization=scalarization,
+                    ideal=corrected_ideal,
+                    nadir=corrected_nadir,
+                    reference_point=corrected_reference_point,
+                )
+
+                
+                lagrange_multipliers.append(
+                    selected
+                )
+                effective_multipliers.append(
+                    effective
+                )
+                if (
+                    hasattr(result, "constraint_values")
+                    and result.constraint_values is not None
+                ):
+                    constraint_values.append(
+                        filter_constraint_values(
+                            result.constraint_values,
+                            objective_symbols,
+                        )
                     )
+                else:
+                    constraint_values.append(None)
+                tradeoffs_list.append(
+                    compute_tradeoffs(effective)
                 )
 
                 print("Added multipliers:", result.lagrange_multipliers)
             else:
                 lagrange_multipliers.append(None)
+                effective_multipliers.append(None)
                 constraint_values.append(None)
+                tradeoffs_list.append(None)
 
     # Handle states with single result (single SolverResults object)
     else:
@@ -876,18 +932,37 @@ def get_multipliers_info(
                     result.lagrange_multipliers, objective_symbols
                 )
             )
-            constraint_values.append(
-                filter_constraint_values(result.constraint_values, objective_symbols)
+            effective_multipliers.append(
+                compute_effective_multipliers(
+                    selected_multipliers=filter_lagrange_multipliers(
+                        result.lagrange_multipliers, objective_symbols
+                    ),
+                    scalarization=SCALARIZATION_ORDER[0],
+                    ideal=corrected_ideal,
+                    nadir=corrected_nadir,
+                    reference_point=corrected_reference_point,
+                )
+            )
+            if (
+                hasattr(result, "constraint_values")
+                and result.constraint_values is not None
+            ):
+                constraint_values.append(
+                    filter_constraint_values(
+                        result.constraint_values,
+                        objective_symbols,
+                    )
+                )
+            else:
+                constraint_values.append(None)
+            tradeoffs_list.append(
+                compute_tradeoffs(effective_multipliers[-1])
             )
         else:
             lagrange_multipliers.append(None)
+            effective_multipliers.append(None)
             constraint_values.append(None)
-
-    # Compute tradeoffs matrix for each solution
-    tradeoffs_list = []
-    for filtered_mults in lagrange_multipliers:
-        tradeoff = compute_tradeoffs(filtered_mults)
-        tradeoffs_list.append(tradeoff)
+            tradeoffs_list.append(None)
 
     if (
         isinstance(actual_state, NIMBUSClassificationState)
@@ -895,7 +970,7 @@ def get_multipliers_info(
         and state.base_state.kind == StateKind.XNIMBUS_SOLVE
     ):
         # Save filtered multipliers and tradeoffs
-        actual_state.filtered_lagrange_multipliers = lagrange_multipliers
+        actual_state.filtered_lagrange_multipliers = effective_multipliers
         actual_state.tradeoffs_matrix = tradeoffs_list
         session.add(actual_state)
         session.commit()
@@ -905,40 +980,27 @@ def get_multipliers_info(
     print("Constraint values:", constraint_values)
 
     # Determine the active objectives based on the constraint values (if available). Active objectives are those for which the corresponding constraint is active (constraint value is close to zero).
+    # Determine participating objectives from the selected raw KKT multipliers.
     active_objectives = []
-    if constraint_values and objective_symbols:
-        for constraint_dict in constraint_values:
-            active_objs_for_result = []
-            for obj, value in constraint_dict.items():
-                if (
-                    obj in objective_symbols and value >= 0
-                ):  # If its lower than zero, the constraint is not active, if its close to zero, it is active (we can use a tolerance here if needed). Not sure if works for minimization problems, need to check.
-                    active_objs_for_result.append(obj)
-            active_objectives.append(active_objs_for_result)
-    elif objective_symbols:
-        # If constraint values are not available, we can determine if they are active based on the magnitude of the multiplier using a threshold (e.g., if the multiplier is close to zero, we can consider the objective as inactive). This is a very rough approximation and should be used with caution.
-        threshold = 1e-5  # This threshold can be adjusted based on the problem characteristics and solver precision.
-        for multiplier_dict in lagrange_multipliers:
-            active_objs_for_result = []
-            for obj in objective_symbols:
-                multiplier_value = multiplier_dict.get(obj, 0.0)
-                if abs(multiplier_value) > threshold:
-                    active_objs_for_result.append(obj)
-            active_objectives.append(active_objs_for_result)
-    else:
-        # If no objective symbols and no constraint values are available, we will assume that all objectives with non-zero multipliers are active and we will use the default f_{index} format for the objective names.
-        threshold = 1e-5
-        for multiplier_dict in lagrange_multipliers:
-            active_objs_for_result = []
-            for obj, multiplier_value in multiplier_dict.items():
-                if abs(multiplier_value) > threshold:
-                    active_objs_for_result.append(obj)
-            active_objectives.append(active_objs_for_result)
+
+    for multiplier_dict in lagrange_multipliers:
+        if multiplier_dict is None:
+            active_objectives.append([])
+            continue
+
+        active_objs_for_result = []
+
+        for obj, (_, multiplier_value) in multiplier_dict.items():
+            if abs(multiplier_value) > MULTIPLIER_TOL:
+                active_objs_for_result.append(obj)
+
+        active_objectives.append(active_objs_for_result)
 
     print("Active objectives:", active_objectives)
 
+
     return {
-        "lagrange_multipliers": lagrange_multipliers,
+        "lagrange_multipliers": effective_multipliers,
         "tradeoffs_matrix": tradeoffs_list,
         "active_objectives": active_objectives,
     }
@@ -985,9 +1047,14 @@ def compute_tradeoffs(
 
 def filter_lagrange_multipliers(
     lagrange_multipliers, objective_symbols=None
-) -> dict[str, float]:
+) -> dict[str, tuple[str | None, float]]:
     # return [x.lagrange_multipliers for x in self.solver_results]
     result = []
+
+    """
+    Select one multiplier per objective and retain the corresponding
+    constraint key so that the scalarization scaling can be accounted for.
+    """
 
     # filter multipliers to keep only one per objective. If the symbols are available, use them to select the multiplier. If not, use f_{index} format.
     grouped = defaultdict(list)
@@ -1008,6 +1075,7 @@ def filter_lagrange_multipliers(
 
     # Select preferred multiplier for each objective.
     filtered_multipliers = {}
+
     for obj_num, entries in grouped.items():
         # Prefer non-"eq" constraints
         preferred = next(
@@ -1021,14 +1089,14 @@ def filter_lagrange_multipliers(
             key = preferred[0]
             if objective_symbols is not None and obj_num in objective_symbols:
                 key = obj_num
-            filtered_multipliers[key] = preferred[1]
+            filtered_multipliers[key] = (preferred[0], preferred[1])
 
     # result.append(filtered_multipliers)
     # Check if there are multiplier for each objective, if not, assignt that value to 0 (this can happen if the solver does not return multipliers for inactive constraints)
     if objective_symbols is not None:
         for symbol in objective_symbols:
             if symbol not in filtered_multipliers:
-                filtered_multipliers[symbol] = 0.0
+                filtered_multipliers[symbol] = (None,0.0)
     else:
         # If symbols are not available, we will assume that the objectives are numbered from 0 to n-1 and use f_{index} format for keys
         max_index = -1
@@ -1041,7 +1109,7 @@ def filter_lagrange_multipliers(
         for i in range(max_index + 1):
             key = f"f_{i}"
             if key not in filtered_multipliers:
-                filtered_multipliers[key] = 0.0
+                filtered_multipliers[key] = (None,0.0)
 
     return filtered_multipliers
 
@@ -1081,3 +1149,77 @@ def filter_constraint_values(
             filtered_values[key] = preferred[1]
 
     return filtered_values
+
+
+
+
+def compute_effective_multipliers(
+    selected_multipliers: dict[str, tuple[str | None, float]],
+    scalarization: str,
+    ideal: dict[str, float],
+    nadir: dict[str, float],
+    reference_point: dict[str, float],
+    delta: float = 1e-6,
+) -> dict[str, float]:
+    """
+    Compute the scaling-adjusted multiplier associated with the
+    selected objective-related constraint for each objective.
+
+    The 1e-5 tolerance is applied to the selected raw KKT multiplier
+    before the scalarization scaling is applied.
+    """
+
+    effective = {}
+
+    for symbol, (constraint_key, raw_lambda) in selected_multipliers.items():
+
+        if constraint_key is None or abs(raw_lambda) <= MULTIPLIER_TOL:
+            effective[symbol] = 0.0
+            continue
+
+        if scalarization == "NIMBUS":
+            if (
+                constraint_key.endswith("_lt")
+                or constraint_key.endswith("_lte")
+            ):
+                coefficient = 1.0 / (
+                    nadir[symbol]
+                    - (ideal[symbol] - delta)
+                )
+            elif (
+                constraint_key.endswith("_eq")
+                or constraint_key.endswith("_gte")
+            ):
+                coefficient = 1.0
+            else:
+                raise ValueError(
+                    f"Unknown NIMBUS constraint: {constraint_key}"
+                )
+
+        elif scalarization == "STOM":
+            coefficient = 1.0 / (
+                reference_point[symbol]
+                - ideal[symbol]
+                + delta
+            )
+
+        elif scalarization == "ASF":
+            coefficient = 1.0 / (
+                nadir[symbol]
+                - (ideal[symbol] - delta)
+            )
+
+        elif scalarization == "GUESS":
+            coefficient = 1.0 / (
+                nadir[symbol]
+                - reference_point[symbol]
+            )
+
+        else:
+            raise ValueError(
+                f"Unknown scalarization: {scalarization}"
+            )
+
+        effective[symbol] = raw_lambda * coefficient
+
+    return effective
