@@ -42,11 +42,32 @@ from desdeo.api.models.gdm.gdm_aggregate import (
 
 problems = [dmitry_forest_problem_disc()]
 
-num_analysts = 1
-num_dms = 2
+predefined_experiment = True
+predefined_names = ["jpajamas", "kmiettinen", "bsaini", "glarraga"]
 
-usernames_analyst = [f"analyst{i + 1}" for i in range(num_analysts)]
-usernames_dm = [f"dm{i + 1}" for i in range(num_dms)]
+
+if not predefined_experiment:
+    num_analysts = 1
+    num_dms = 3
+    usernames_analyst = [f"analyst{i + 1}" for i in range(num_analysts)]
+    usernames_dm = [f"dm{i + 1}" for i in range(num_dms)]
+else:
+    num_analysts = 1
+    num_dms = len(predefined_names) - num_analysts
+    usernames_analyst = predefined_names[:num_analysts]
+    usernames_dm = predefined_names[num_analysts : num_analysts + num_dms]
+
+
+def reset_database() -> None:
+
+    print(
+        "[db-init] WARNING: reset_database=true — "
+        "dropping all existing database tables..."
+    )
+
+    SQLModel.metadata.drop_all(engine)
+
+    print("[db-init] Existing database tables removed.")
 
 
 def create_tables() -> None:
@@ -59,16 +80,18 @@ def create_tables() -> None:
 
 def seed_admin_user() -> None:
     # in this context, the admin will be the moderator
-    username = os.environ.get("DESDEO_ADMIN_USERNAME")
-    password = os.environ.get("DESDEO_ADMIN_PASSWORD")
+    # username = os.environ.get("DESDEO_ADMIN_USERNAME")
+    # password = os.environ.get("DESDEO_ADMIN_PASSWORD")
+    username = usernames_analyst[0]
+    password = "gdmdesdeo"  # default password for analysts
     group = os.environ.get("DESDEO_ADMIN_GROUP", "admin")
     password_dm = "gdmdesdeo"  # default password for DMs
 
-    if not username or not password:
-        print(
-            "[db-init] WARNING: DESDEO_ADMIN_USERNAME or DESDEO_ADMIN_PASSWORD not set — skipping user seed."
-        )
-        return
+    # if not username or not password:
+    #    print(
+    #        "[db-init] WARNING: DESDEO_ADMIN_USERNAME or DESDEO_ADMIN_PASSWORD not set — skipping user seed."
+    #    )
+    #    return
 
     with Session(engine) as session:
         users: list[User] = []
@@ -142,6 +165,7 @@ def seed_admin_user() -> None:
 
 
 def main() -> None:
+    _reset_database = True
     database_url = "postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     if not database_url:
         print("[db-init] ERROR: DATABASE_URL is not set.", file=sys.stderr)
@@ -150,6 +174,9 @@ def main() -> None:
     print(
         f"[db-init] Using database: {database_url.split('@')[-1]}"
     )  # hide credentials
+
+    if _reset_database:
+        reset_database()
     create_tables()
     seed_admin_user()
     print("[db-init] Done.")

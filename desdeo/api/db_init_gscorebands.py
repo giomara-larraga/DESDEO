@@ -24,15 +24,24 @@ problems = [
     )
 ]
 
-num_analysts = 1
-num_dms = 2
+predefined_experiment = True
+predefined_names = ["jpajamas", "kmiettinen", "bsaini", "glarraga"]
 
-usernames_analyst = [
-    f"analyst{i + 1}" for i in range(num_analysts)
-]
-usernames_dm = [
-    f"dm{i + 1}" for i in range(num_dms)
-]
+
+if predefined_experiment:
+    num_analysts = 1
+    num_dms = 3
+    usernames_analyst = [
+        f"analyst{i + 1}" for i in range(num_analysts)
+    ]
+    usernames_dm = [
+        f"dm{i + 1}" for i in range(num_dms)
+    ]
+else:
+    num_analysts = 1
+    num_dms = len(predefined_names) - num_analysts
+    usernames_analyst = predefined_names[:num_analysts]
+    usernames_dm = predefined_names[num_analysts : num_analysts + num_dms]
 
 
 if __name__ == "__main__":
@@ -58,7 +67,7 @@ if __name__ == "__main__":
             for username in usernames_analyst:
                 analyst = User(
                     username=username,
-                    password_hash=get_password_hash("12345"),
+                    password_hash=get_password_hash("desdeo123"),
                     role=UserRole.analyst,
                     group="test",
                 )
@@ -68,7 +77,7 @@ if __name__ == "__main__":
             for username in usernames_dm:
                 dm = User(
                     username=username,
-                    password_hash=get_password_hash("12345"),
+                    password_hash=get_password_hash("desdeo123"),
                     role=UserRole.dm,
                     group="test",
                 )
@@ -80,9 +89,10 @@ if __name__ == "__main__":
             for user in users:
                 session.refresh(user)
 
+            #so far the group can have only one owner, so we will use the first user as the owner and the rest as dms
             owner = users[0]
-            dm1 = users[1]
-            dm2 = users[2]
+            dms = users[1:]
+
 
             problem_db = ProblemDB.from_problem(
                 problems[0],
@@ -93,9 +103,9 @@ if __name__ == "__main__":
             session.refresh(problem_db)
 
             group = Group(
-                name="tingalinga",
+                name="powerpuff girls",
                 owner_id=owner.id,
-                users=[dm1, dm2],
+                users=dms,
             )
 
             session.add(group)
@@ -117,6 +127,14 @@ if __name__ == "__main__":
                 f"Created SCORE Bands group session "
                 f"{group_session.id} for group {group.id}"
             )
+
+            # Create a csv with usernames and passwords for the users
+            with open("users.csv", "w") as f:
+                f.write("username,password\n")
+                for user in users:
+                    f.write(f"{user.username},desdeo123\n")
+
+            print("Created users.csv with usernames and passwords.")
 
     else:
         pass
