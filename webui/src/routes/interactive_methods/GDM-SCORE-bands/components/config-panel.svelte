@@ -104,7 +104,7 @@
 	let use_absolute_correlations = $state(false);
 	let include_solutions = $state(false);
 	let include_medians = $state(true);
-	let interval_size = $state(0.25);
+	let interval_size = $state(0.95);
 	let minimum_votes = $state(1);
 	let latest_iteration = $state<number | null>(null);
 
@@ -118,7 +118,7 @@
 			use_absolute_correlations = currentConfig.use_absolute_correlations ?? false;
 			include_solutions = currentConfig.include_solutions ?? false;
 			include_medians = currentConfig.include_medians ?? true;
-			interval_size = currentConfig.interval_size ?? 0.25;
+			interval_size = currentConfig.interval_size ?? 0.95;
 		}
 	});
 	$effect(() => { latest_iteration = latestIteration; });

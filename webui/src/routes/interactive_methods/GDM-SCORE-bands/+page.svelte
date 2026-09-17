@@ -502,7 +502,7 @@ let availableRestartPhases =
 		use_absolute_correlations: false,
 		include_solutions: false,
 		include_medians: true,
-		interval_size: 0.25
+		interval_size: 0.95
 	});
 	// Current iteration data for decision phase, when solutions exist and not bands
 	let decisionResult: GDMSCOREBandsFinalSelection | null = $state(null);

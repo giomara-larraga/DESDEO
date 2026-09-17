@@ -7,15 +7,15 @@ const BASE_URL = 'http://localhost:5173';
 const users = [
   {
     name: 'analyst1',
-    password: '12345',
+    password: 'desdeo123',
   },
   {
     name: 'dm1',
-    password: '12345',
+    password: 'desdeo123',
   },
   {
     name: 'dm2',
-    password: '12345',
+    password: 'desdeo123',
   },
 ];
 

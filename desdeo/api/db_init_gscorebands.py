@@ -15,28 +15,19 @@ from desdeo.api.models.gdm.gdm_aggregate import (
 )
 from desdeo.api.models.gdm.gnimbus import OptimizationPreference
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import river_pollution_problem_discrete
+from desdeo.problem.testproblems import dmitry_forest_problem_disc
 
+problems = [dmitry_forest_problem_disc()]
 
-problems = [
-    river_pollution_problem_discrete(
-        five_objective_variant=False,
-    )
-]
-
-predefined_experiment = True
+predefined_experiment = False
 predefined_names = ["jpajamas", "kmiettinen", "bsaini", "glarraga"]
 
 
-if predefined_experiment:
+if not predefined_experiment:
     num_analysts = 1
-    num_dms = 3
-    usernames_analyst = [
-        f"analyst{i + 1}" for i in range(num_analysts)
-    ]
-    usernames_dm = [
-        f"dm{i + 1}" for i in range(num_dms)
-    ]
+    num_dms = 2
+    usernames_analyst = [f"analyst{i + 1}" for i in range(num_analysts)]
+    usernames_dm = [f"dm{i + 1}" for i in range(num_dms)]
 else:
     num_analysts = 1
     num_dms = len(predefined_names) - num_analysts
@@ -89,10 +80,9 @@ if __name__ == "__main__":
             for user in users:
                 session.refresh(user)
 
-            #so far the group can have only one owner, so we will use the first user as the owner and the rest as dms
+            # so far the group can have only one owner, so we will use the first user as the owner and the rest as dms
             owner = users[0]
             dms = users[1:]
-
 
             problem_db = ProblemDB.from_problem(
                 problems[0],

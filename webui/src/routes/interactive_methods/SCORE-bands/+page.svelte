@@ -122,7 +122,7 @@
 	let show_bands = $state(true);
 	let show_solutions = $state(false); // Disabled for now - no individual solutions
 	let show_medians = $state(false); // Hide medians by default
-	let quantile_value = $state(0.25);
+	let quantile_value = $state(0.95);
 
 	// Score bands calculation parameters
 	let dist_parameter = $state(0.05);
