@@ -524,18 +524,25 @@ class GDMScoreBandsManager(GroupManager):
             if isinstance(state, GDMSCOREBandsConsensusState):
                 typed_result = SCOREBandsGDMResult.model_validate(state.result)
 
-                number_of_choices = len(set(typed_result.score_bands_result.clusters))
+                valid_cluster_ids = set(typed_result.score_bands_result.clusters)
+                if voted_index not in valid_cluster_ids:
+                    raise ManagerError(
+                        f"Cluster ID {voted_index} is not a valid SCORE band. "
+                        f"Valid cluster IDs are "
+                        f"{sorted(valid_cluster_ids)}."
+                    )
             elif isinstance(state, GDMSCOREBandsDecisionState):
                 number_of_choices = len(
                     next(iter(state.solution_objectives.values()), [])
                 )
+                if voted_index < 0 or voted_index >= number_of_choices:
+                    raise ManagerError(
+                        f"Solution index {voted_index} is outside "
+                        f"the valid range 0..{number_of_choices - 1}."
+                    )
             else:
                 raise ManagerError("Voting is unavailable during the learning phase.")
 
-            if voted_index < 0 or voted_index >= number_of_choices:
-                raise ManagerError(
-                    f"Vote index {voted_index} is outside the valid range."
-                )
             preferences.user_votes[str(user.id)] = voted_index
 
             # A changed vote invalidates an earlier confirmation.

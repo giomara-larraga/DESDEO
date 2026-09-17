@@ -257,65 +257,17 @@ let activeLearningScoreBandsResult =
 
 		Object.values(
 			votes_and_confirms.votes
-		).forEach((voteIndex) => {
-			const clusterId =
-				voteIndexToClusterId(
-					voteIndex
-				);
+		).forEach((clusterId) => {
+			if (!SCOREBands.clusterIds.includes(clusterId)) {
+			console.warn('Ignoring vote for unknown cluster:', clusterId);
+			return;
+		}
 
-			if (clusterId === null) {
-				return;
-			}
+		counts[clusterId] = (counts[clusterId] ?? 0) + 1;
 
-			if (
-				!(
-					clusterId in
-					counts
-				)
-			) {
-				counts[
-					clusterId
-				] = 0;
-			}
-
-			counts[
-				clusterId
-			] += 1;
 		});
 
 		return counts;
-	});
-
-let consensusVotesForUI =
-	$derived.by(() => {
-		const mappedVotes:
-			Record<string, number> = {};
-
-		for (
-			const [
-				userKey,
-				voteIndex
-			] of Object.entries(
-				votes_and_confirms.votes
-			)
-		) {
-			const clusterId =
-				voteIndexToClusterId(
-					voteIndex
-				);
-
-			if (clusterId !== null) {
-				mappedVotes[
-					userKey
-				] = clusterId;
-			}
-		}
-
-		return {
-			...votes_and_confirms,
-			votes:
-				mappedVotes
-		};
 	});
 
 function setOwnerWarningMessage(value: string) {
@@ -368,7 +320,7 @@ function getConsensusClasses(axisName: string): string {
 			votes_and_confirms.votes,
 
 		mappedVotes:
-			consensusVotesForUI.votes,
+			votes_and_confirms.votes,
 
 		clusterIds:
 			SCOREBands.clusterIds,
@@ -381,7 +333,7 @@ function getConsensusClasses(axisName: string): string {
 	}
 );
 			return calculateAxisAgreement(
-				consensusVotesForUI,
+				votes_and_confirms,
 				SCOREBands.medians,
 				SCOREBands.scales,
 				0.1, // agreement threshold
@@ -600,6 +552,10 @@ let availableRestartPhases =
 			scales: remappedScales,
 			solutions_per_cluster: result.cardinalities
 		};
+
+		console.log('bands:', result.bands);
+		console.log('band keys:', Object.keys(result.bands));
+		console.log('clusters:', result.clusters);
 		return derivedData;
 	});
 
@@ -660,29 +616,6 @@ let availableRestartPhases =
 		};
 	});
 
-	function clusterIdToVoteIndex(
-		clusterId: number
-	): number | null {
-		const index =
-			SCOREBands.clusterIds.indexOf(
-				clusterId
-			);
-
-		return index === -1
-			? null
-			: index;
-	}
-
-	function voteIndexToClusterId(
-		voteIndex: number
-	): number | null {
-		return (
-			SCOREBands.clusterIds[
-				voteIndex
-			] ?? null
-		);
-	}
-
 	let usersConsensusBandId =
 	$derived.by(() => {
 		if (
@@ -691,10 +624,7 @@ let availableRestartPhases =
 		) {
 			return null;
 		}
-
-		return voteIndexToClusterId(
-			usersVote
-		);
+		return usersVote;
 	});
 
 	// Cluster visibility controls
@@ -1500,32 +1430,22 @@ let availableRestartPhases =
 
 		let voteValue = selection;
 
-		/*
-		* Consensus visualization uses actual
-		* cluster IDs, but the backend expects
-		* a zero-based band index.
-		*/
-		if (isConsensusPhase) {
-			const voteIndex =
-				clusterIdToVoteIndex(selection);
-
-			if (voteIndex === null) {
-				errorMessage.set(
-					`Band ${selection} does not exist in the current SCORE Bands iteration.`
-				);
-				return;
-			}
-
-			voteValue = voteIndex;
-
-			console.log(
-				'[consensus vote]',
-				{
-					clusterId: selection,
-					voteIndex
-				}
+	if (isConsensusPhase) {
+		if (!SCOREBands.clusterIds.includes(selection)) {
+			errorMessage.set(
+				`Band ${selection} does not exist in the current SCORE Bands iteration.`
 			);
+			return;
 		}
+
+		// Consensus votes are actual SCORE Bands cluster IDs.
+		voteValue = selection;
+
+		console.log('[consensus vote]', {
+			clusterId: selection,
+			backendVoteValue: voteValue
+		});
+	}
 
 		if (isDecisionPhase) {
 			decisionNotice = null;
@@ -1692,26 +1612,19 @@ let availableRestartPhases =
 						if (isDecisionPhase) {
 							selected_solution = vote;
 						} else if (isConsensusPhase) {
-							const clusterId =
-		voteIndexToClusterId(
-			vote
-		);
+							if (SCOREBands.clusterIds.includes(vote)) {
+									selected_band = vote;
+								} else {
+									console.warn(
+										'Persisted vote refers to an unknown cluster ID:',
+										{
+											clusterId: vote,
+											clusterIds: SCOREBands.clusterIds
+										}
+									);
 
-	if (clusterId !== null) {
-		selected_band =
-			clusterId;
-	} else {
-		console.warn(
-			'Could not map persisted vote index to cluster ID:',
-			{
-				voteIndex: vote,
-				clusterIds:
-					SCOREBands.clusterIds
-			}
-		);
-
-		selected_band = null;
-	}
+									selected_band = null;
+								}
 						}
 					}
 				}
