@@ -46,6 +46,7 @@
 	export let axisPositions: number[] = [];
 	export let axisSigns: number[] = [];
 	export let axisDirections: ('min' | 'max')[] = [];
+	export let axisUnits: string[] = [];
 	export let groups: number[] = [];
 	export let options: {
 		bands: boolean;
@@ -89,6 +90,7 @@
 	$: sortedAxisPositions = effectiveAxisOrder.map((i) => axisPositions[i]);
 	$: sortedAxisSigns = effectiveAxisOrder.map((i) => axisSigns[i]);
 	$: sortedAxisDirections = effectiveAxisOrder.map((i) => axisDirections[i]);
+	$: sortedUnits = effectiveAxisOrder.map((i) => axisUnits[i]);
 	$: sortedData = normalizedData.map((row) => effectiveAxisOrder.map((i) => row[i]));
 
 	let container: HTMLDivElement;
@@ -307,7 +309,7 @@
 				.attr('font-size', '12px')
 				.attr('font-weight', isSelected ? 'bold' : 'bold')
 				.attr('fill', isSelected ? '#e15759' : axisStyle.color)
-				.text(sortedAxisNames[sortedIndex] + " ("+ (sortedAxisDirections[sortedIndex] + ")"))
+				.text(sortedAxisNames[sortedIndex] + " ("+ (sortedAxisDirections[sortedIndex] + (sortedUnits[sortedIndex] ? ", " + sortedUnits[sortedIndex] : "")) + ")")
 				.style('cursor', 'pointer');
 
 			// Add click handler for axis label selection

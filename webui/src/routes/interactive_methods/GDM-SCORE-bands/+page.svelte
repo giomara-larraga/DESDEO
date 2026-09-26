@@ -270,6 +270,37 @@ let activeLearningScoreBandsResult =
 		return counts;
 	});
 
+// Per-decision-maker voting status, used by the owner to monitor progress.
+type VoterStatus = {
+	id: number;
+	username: string;
+	votedClusterId: number | null;
+	hasVoted: boolean;
+	hasConfirmed: boolean;
+};
+
+let voterStatuses: VoterStatus[] = $derived.by(() => {
+	const confirmedIds = new Set(
+		(votes_and_confirms.confirms ?? []).map(Number)
+	);
+
+	return (data.group.users ?? []).map((member) => {
+		const userKey = String(member.id);
+		const hasVoted = Object.prototype.hasOwnProperty.call(
+			votes_and_confirms.votes,
+			userKey
+		);
+
+		return {
+			id: member.id,
+			username: member.username,
+			votedClusterId: hasVoted ? votes_and_confirms.votes[userKey] : null,
+			hasVoted,
+			hasConfirmed: confirmedIds.has(Number(member.id))
+		};
+	});
+});
+
 function setOwnerWarningMessage(value: string) {
 	ownerWarningMessage = value;
 }
@@ -495,6 +526,7 @@ let availableRestartPhases =
 			axisPositions: [] as number[],
 			axisSigns: [] as number[],
 			axisDirections: [] as ('min' | 'max')[],
+			axisUnits: [] as string[],
 			data: [] as number[][],
 			bands: {},
 			medians: {},
@@ -556,8 +588,16 @@ let availableRestartPhases =
 				}
 				return 'min'; // Default to 'min' if not found
 			}),
+			axisUnits: rawAxisNames.map((axisName) => {
+				const objective = data.problem.objectives?.find(
+					(obj) => obj.name === axisName || obj.symbol === axisName
+				);
+				if (objective) {
+					return objective.unit || '';
+				}
+				return ''; // Default to empty string if not found
+			}),
 
-			
 			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copy-paste from old function, not tested.
 			bands: remapAxisKeyedObject(result.bands),
 			medians: remapAxisKeyedObject(result.medians),
@@ -2145,6 +2185,7 @@ async function restartScoreBands(
 						axisPositions={SCOREBands.axisPositions}
 						axisSigns={SCOREBands.axisSigns}
 						axisDirections={SCOREBands.axisDirections}
+						axisUnits={SCOREBands.axisUnits}
 						groups={SCOREBands.clusterIds}
 						{options}
 						bands={SCOREBands.bands}
@@ -2164,6 +2205,8 @@ async function restartScoreBands(
 
 			<ClusterBandTable
 				axisNames={SCOREBands.axisNames}
+				axisDirections={SCOREBands.axisDirections}
+				axisUnits={SCOREBands.axisUnits}
 				bands={clusterBandRows}
 				selectedBand={learningState.selectedBand}
 				onBandSelect={selectLearningBand}
@@ -2279,6 +2322,7 @@ async function restartScoreBands(
 						axisPositions={SCOREBands.axisPositions}
 						axisSigns={SCOREBands.axisSigns}
 						axisDirections={SCOREBands.axisDirections}
+						axisUnits={SCOREBands.axisUnits}
 						groups={SCOREBands.clusterIds}
 						{options}
 						bands={SCOREBands.bands}
@@ -2304,6 +2348,8 @@ async function restartScoreBands(
 			<ClusterBandTable
 				axisNames={SCOREBands.axisNames}
 				bands={clusterBandRows}
+				axisDirections={SCOREBands.axisDirections}
+				axisUnits={SCOREBands.axisUnits}
 				selectedBand={selected_band}
 				onBandSelect={handle_band_select}
 			/>
@@ -2324,6 +2370,7 @@ async function restartScoreBands(
 				isConsensusVoteSyncing,
 				axisNames: SCOREBands.axisNames,
 				axisAgreement: axis_agreement,
+				voters: voterStatuses,
 				getClusterVoteCount,
 				getClusterVotePercent,
 				getConsensusLabel,

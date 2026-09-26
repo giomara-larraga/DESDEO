@@ -51,6 +51,14 @@
 		haveAllVoted: boolean;
 		isConsensusVoteSyncing: boolean;
 
+		voters: Array<{
+			id: number;
+			username: string;
+			votedClusterId: number | null;
+			hasVoted: boolean;
+			hasConfirmed: boolean;
+		}>;
+
 		getClusterVoteCount: (clusterId: number) => number;
 		getClusterVotePercent: (clusterId: number) => number;
 
@@ -349,16 +357,51 @@
 						>
 							Confirm vote
 						</Button>
+						<!-- If the user confirmed their vote, show a confirmation message and to wait until the others confirm theirs -->
+						 <p class="pt-2 text-sm text-muted-foreground">
+							{#if consensus.voteConfirmed}
+								You have confirmed your vote. Please wait for the other decision makers to confirm theirs.
+							{:else if consensus.haveAllVoted}
+								All decision makers have voted. You can now confirm your vote. You can also change your vote before confirming.
+							{:else}
+								Waiting for all decision makers to vote.
+							{/if}
+						</p>
 					</div>
 				{:else if isOwner}
 					<p class="pt-3 text-sm text-muted-foreground">
 						You can monitor the voting progress.
 					</p>
+					<!-- Show the status of each decision maker: which band (if any) they voted for and whether they confirmed it -->
+					<div class="space-y-2">
+						{#each consensus.voters as voter (voter.id)}
+							<div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+								<span class="font-medium">{voter.username}</span>
+								<span class="flex items-center gap-2 text-muted-foreground">
+									{#if voter.hasVoted}
+										<span
+											class="h-2.5 w-2.5 rounded-full"
+											style:background-color={consensus.clusterColors[voter.votedClusterId ?? -1] ?? '#64748b'}
+										></span>
+										Band {voter.votedClusterId}
+										{#if voter.hasConfirmed}
+											<span class="text-green-600">(Confirmed)</span>
+										{:else}
+											<span>(Not confirmed)</span>
+										{/if}
+									{:else}
+										Not voted
+									{/if}
+								</span>
+							</div>
+						{/each}
+					</div>
 				{/if}
 			</div>
 		</section>
+		
 
-		<section class="rounded-lg border bg-card shadow-sm">
+<!-- 		<section class="rounded-lg border bg-card shadow-sm">
 			<header class="flex items-center justify-between border-b px-4 py-3">
 				<h2 class="text-sm font-semibold">Consensus status</h2>
 				<span class="text-xs text-muted-foreground">Updates after all votes</span>
@@ -390,7 +433,7 @@
 					</div>
 				{/each}
 			</div>
-		</section>
+		</section> -->
 	{:else}
 		<div class="rounded-lg border bg-card p-4 text-sm text-muted-foreground shadow-sm">
 			Sidebar information is unavailable.

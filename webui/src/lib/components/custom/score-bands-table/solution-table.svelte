@@ -20,11 +20,15 @@
 
 	let {
 		axisNames = [],
+		axisDirections = [],
+		axisUnits = [],
 		bands = [],
 		selectedBand = null,
 		onBandSelect = () => {}
 	}: {
 		axisNames: string[];
+		axisDirections: ('min' | 'max')[];
+		axisUnits: string[];
 		bands: ClusterBandRow[];
 		selectedBand: number | null;
 		onBandSelect?: (clusterId: number) => void;
@@ -39,6 +43,17 @@
 		const normalized = (value - scaleMin) / (scaleMax - scaleMin);
 		return Math.max(0, Math.min(1, normalized));
 	}
+	// create dictionary for axis directions for easy lookup
+	const axisDirectionsDict = axisNames.reduce((acc, name, index) => {
+		acc[name] = axisDirections[index];
+		return acc;
+	}, {} as Record<string, 'min' | 'max'>);
+
+	// create dictionary for axis units for easy lookup
+	const axisUnitsDict = axisNames.reduce((acc, name, index) => {
+		acc[name] = axisUnits[index];
+		return acc;
+	}, {} as Record<string, string>);
 </script>
 
 {#snippet RangeCell({ range, color }: { range?: ObjectiveRange; color: string })}
@@ -94,7 +109,7 @@
 				<Table.Head class="text-right">% of total</Table.Head>
 				{#each axisNames as axisName}
 					<Table.Head class="min-w-[100px] text-right">
-						{axisName}
+						{axisName + (axisDirectionsDict[axisName] ? ` (${axisDirectionsDict[axisName]}` : '') + (axisUnitsDict[axisName] ? `, ${axisUnitsDict[axisName]})` : axisDirectionsDict[axisName] ? ')' : '')}
 					</Table.Head>
 				{/each}
 			</Table.Row>

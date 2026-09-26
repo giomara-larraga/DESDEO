@@ -157,15 +157,23 @@
 			</div>
 		</section>
 	{:else}
+		{#if phase === 'consensus' && isDecisionMaker}
+		<section class="rounded-lg border bg-card shadow-sm">
+			<div class="p-4 text-sm text-muted-foreground">
+				Select a visible band in the chart or table,
+				then cast your vote from the voting panel.
+			</div>
+		</section>
+	{/if}
 		<section class="rounded-lg border bg-card shadow-sm">
 			<header class="border-b px-4 py-3">
 				<h2 class="text-sm font-semibold">
-					Data & Settings
+					Visualization options
 				</h2>
 			</header>
 
 			<div class="space-y-4 p-4">
-				<div>
+<!-- 				<div>
 					<div class="text-xs text-muted-foreground">
 						Input data
 					</div>
@@ -173,13 +181,9 @@
 					<div class="mt-1 text-sm font-medium">
 						{problemName}
 					</div>
-				</div>
+				</div> -->
 
 				<div class="space-y-2">
-					<div class="text-sm font-medium">
-						Visualization options
-					</div>
-
 					<label class="flex items-center gap-2 text-sm">
 						<input
 							type="checkbox"
@@ -221,6 +225,7 @@
 	{/if}
 
 	<section class="rounded-lg border bg-card shadow-sm">
+	
 		<header class="border-b px-4 py-3">
 			<h2 class="text-sm font-semibold">
 				Visible bands
@@ -292,12 +297,5 @@
 		/>
 	{/if}
 
-	{#if phase === 'consensus' && isDecisionMaker}
-		<section class="rounded-lg border bg-card shadow-sm">
-			<div class="p-4 text-sm text-muted-foreground">
-				Select a visible band in the chart or table,
-				then cast your vote from the voting panel.
-			</div>
-		</section>
-	{/if}
+
 </aside>
