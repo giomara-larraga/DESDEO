@@ -45,6 +45,7 @@
 	export let axisNames: string[] = [];
 	export let axisPositions: number[] = [];
 	export let axisSigns: number[] = [];
+	export let axisDirections: ('min' | 'max')[] = [];
 	export let groups: number[] = [];
 	export let options: {
 		bands: boolean;
@@ -87,6 +88,7 @@
 	$: sortedAxisNames = effectiveAxisOrder.map((i) => axisNames[i]);
 	$: sortedAxisPositions = effectiveAxisOrder.map((i) => axisPositions[i]);
 	$: sortedAxisSigns = effectiveAxisOrder.map((i) => axisSigns[i]);
+	$: sortedAxisDirections = effectiveAxisOrder.map((i) => axisDirections[i]);
 	$: sortedData = normalizedData.map((row) => effectiveAxisOrder.map((i) => row[i]));
 
 	let container: HTMLDivElement;
@@ -296,7 +298,7 @@
 				});
 			}
 
-			// Axis label
+			// Axis label. Name of the objective and direction (min/max) is displayed above the axis line. Bold and colored if selected.
 			const axisLabel = svg
 				.append('text')
 				.attr('x', x)
@@ -305,7 +307,7 @@
 				.attr('font-size', '12px')
 				.attr('font-weight', isSelected ? 'bold' : 'bold')
 				.attr('fill', isSelected ? '#e15759' : axisStyle.color)
-				.text(sortedAxisNames[sortedIndex])
+				.text(sortedAxisNames[sortedIndex] + " ("+ (sortedAxisDirections[sortedIndex] + ")"))
 				.style('cursor', 'pointer');
 
 			// Add click handler for axis label selection

@@ -494,6 +494,7 @@ let availableRestartPhases =
 			clusterIds: [] as number[],
 			axisPositions: [] as number[],
 			axisSigns: [] as number[],
+			axisDirections: [] as ('min' | 'max')[],
 			data: [] as number[][],
 			bands: {},
 			medians: {},
@@ -546,6 +547,17 @@ let availableRestartPhases =
 
 			// TODO: Visualization used axisSigns, but is the info from backend or user in UI? "Flip axes" -checkbox?
 			axisSigns: new Array(rawAxisNames.length).fill(1),
+			axisDirections: rawAxisNames.map((axisName) => {
+				const objective = data.problem.objectives?.find(
+					(obj) => obj.name === axisName || obj.symbol === axisName
+				);
+				if (objective) {
+					return objective.maximize ? 'max' : 'min';
+				}
+				return 'min'; // Default to 'min' if not found
+			}),
+
+			
 			data: [], // TODO: This could be filled with solution data, if it will be a thing later. Visualization might not work: copy-paste from old function, not tested.
 			bands: remapAxisKeyedObject(result.bands),
 			medians: remapAxisKeyedObject(result.medians),
@@ -2132,6 +2144,7 @@ async function restartScoreBands(
 						axisNames={SCOREBands.axisNames}
 						axisPositions={SCOREBands.axisPositions}
 						axisSigns={SCOREBands.axisSigns}
+						axisDirections={SCOREBands.axisDirections}
 						groups={SCOREBands.clusterIds}
 						{options}
 						bands={SCOREBands.bands}
@@ -2265,6 +2278,7 @@ async function restartScoreBands(
 						axisNames={SCOREBands.axisNames}
 						axisPositions={SCOREBands.axisPositions}
 						axisSigns={SCOREBands.axisSigns}
+						axisDirections={SCOREBands.axisDirections}
 						groups={SCOREBands.clusterIds}
 						{options}
 						bands={SCOREBands.bands}
