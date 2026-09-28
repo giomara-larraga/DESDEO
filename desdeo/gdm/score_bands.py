@@ -73,7 +73,9 @@ def score_bands_gdm(
     if not state:
         raise ValueError("State must be provided if votes are provided.")
     if config.from_iteration is None:
-        raise ValueError("from_iteration must be set in the config for subsequent iterations.")
+        raise ValueError(
+            "from_iteration must be set in the config for subsequent iterations."
+        )
 
     winning_clusters = consensus_rule(votes, config.minimum_votes)
 
@@ -84,22 +86,55 @@ def score_bands_gdm(
     if cluster_column_name in data.columns:
         cluster_column_name = "cluster_"
 
-    current_iteration = state[-1].iteration + 1
+    latest_iteration = max(result.iteration for result in state)
 
-    clusters = state[config.from_iteration - 1].score_bands_result.clusters
+    current_iteration = latest_iteration + 1
+
+    source_result = next(
+        (result for result in state if result.iteration == config.from_iteration),
+        None,
+    )
+
+    if source_result is None:
+        raise ValueError(
+            f"Could not find SCORE Bands iteration "
+            f"{config.from_iteration} in the state history."
+        )
+
+    clusters = source_result.score_bands_result.clusters
+
+    if len(clusters) != len(source_result.relevant_ids):
+        raise ValueError(
+            "The number of cluster assignments does not match "
+            "the number of relevant solutions in the source iteration."
+        )
+
     relevant_data = (
-        data.with_row_index(name=index_column_name)  # Add index column
-        .filter(
-            pl.col(index_column_name).is_in(state[config.from_iteration - 1].relevant_ids)
-        )  # Get the solutions from previous iteration
-        .with_columns(pl.Series(cluster_column_name, clusters))  # Add clustering information from last iteration
-        .filter(pl.col(cluster_column_name).is_in(winning_clusters))  # Keep only winning clusters
-        .drop(cluster_column_name)  # Drop cluster column
+        data.with_row_index(name=index_column_name)
+        .filter(pl.col(index_column_name).is_in(source_result.relevant_ids))
+        .with_columns(
+            pl.Series(
+                cluster_column_name,
+                clusters,
+            )
+        )
+        .filter(pl.col(cluster_column_name).is_in(winning_clusters))
+        .drop(cluster_column_name)
     )
 
     relevant_ids = relevant_data[index_column_name].to_list()
     relevant_data = relevant_data.drop(index_column_name)  # Drop index column
 
+    previous_count = len(source_result.relevant_ids)
+    new_count = len(relevant_data)
+
+    print(
+        "[SCORE Bands GDM] "
+        f"source iteration={config.from_iteration}, "
+        f"new iteration={current_iteration}, "
+        f"winning clusters={winning_clusters}, "
+        f"solutions={previous_count} -> {new_count}"
+    )
     return [
         *state,
         SCOREBandsGDMResult(

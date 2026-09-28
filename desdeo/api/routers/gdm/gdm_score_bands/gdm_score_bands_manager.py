@@ -747,9 +747,18 @@ class GDMScoreBandsManager(GroupManager):
                 if not next_results:
                     raise ManagerError("SCORE Bands did not produce a new result.")
 
+                next_result = next_results[-1]
+
+                if next_result.iteration <= current_result.iteration:
+                    raise ManagerError(
+                        "SCORE Bands failed to advance to a new iteration. "
+                        f"Current iteration: {current_result.iteration}, "
+                        f"returned iteration: {next_result.iteration}."
+                    )
+
                 next_state = GDMSCOREBandsConsensusState(
                     config=next_config.model_dump(mode="json"),
-                    result=next_results[-1].model_dump(mode="json"),
+                    result=next_result.model_dump(mode="json"),
                     selected_band_indices=list(winners),
                 )
                 next_preferences = GDMSCOREBandsConsensusPreference(
