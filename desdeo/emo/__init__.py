@@ -39,6 +39,7 @@ from .options.crossover import (
     SimulatedBinaryCrossoverOptions,
     SingleArithmeticCrossoverOptions,
     SinglePointBinaryCrossoverOptions,
+    UniformCrossoverOptions,
     UniformIntegerCrossoverOptions,
     UniformMixedIntegerCrossoverOptions,
 )
@@ -177,6 +178,7 @@ crossover = SimpleNamespace(
     SimulatedBinaryCrossoverOptions=SimulatedBinaryCrossoverOptions,
     SingleArithmeticCrossoverOptions=SingleArithmeticCrossoverOptions,
     SinglePointBinaryCrossoverOptions=SinglePointBinaryCrossoverOptions,
+    UniformCrossoverOptions=UniformCrossoverOptions,
     UniformIntegerCrossoverOptions=UniformIntegerCrossoverOptions,
     UniformMixedIntegerCrossoverOptions=UniformMixedIntegerCrossoverOptions,
 )
