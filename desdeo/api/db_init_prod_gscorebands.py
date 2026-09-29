@@ -34,7 +34,10 @@ from desdeo.api.db import engine
 from desdeo.api.models import User, UserRole
 from desdeo.api.models.problem import ProblemDB
 from desdeo.api.routers.user_authentication import get_password_hash
-from desdeo.problem.testproblems import dmitry_forest_problem_disc
+from desdeo.problem.testproblems import (
+    dmitry_forest_problem_disc,
+    river_pollution_problem_discrete,
+)
 from desdeo.api.models.gdm.gdm_aggregate import (
     Group,
     GroupSessionDB,
@@ -42,8 +45,26 @@ from desdeo.api.models.gdm.gdm_aggregate import (
 
 problems = [dmitry_forest_problem_disc()]
 
+extra_problems = [
+    dmitry_forest_problem_disc(),
+    river_pollution_problem_discrete(
+        five_objective_variant=False,
+    ),
+]
+
 predefined_experiment = True
-predefined_names = ["jpajamas", "kmiettinen", "bsaini", "glarraga"]
+predefined_names = [
+    "jpajamas",
+    "kmiettinen",
+    "bsaini",
+    "glarraga",
+]
+extra_usernames = [
+    "juuso",
+    "kaisa",
+    "bhupinder",
+    "juergen",
+]
 
 
 if not predefined_experiment:
@@ -76,6 +97,39 @@ def create_tables() -> None:
     )
     SQLModel.metadata.create_all(engine)
     print("[db-init] Tables ready.")
+
+
+def seed_extra_users() -> None:
+    with Session(engine) as session:
+        for username in extra_usernames:
+            existing = session.exec(
+                select(User).where(User.username == username)
+            ).first()
+            if existing:
+                print(f"[db-init] User '{username}' already exists — skipping.")
+                continue
+
+            user = User(
+                username=username,
+                password_hash=get_password_hash("desdeotest"),
+                role=UserRole.dm,
+                group="admin",
+            )
+            session.add(user)
+            session.commit()
+            print(f"[db-init] Created user '{username}' (role=dm, group=admin).")
+
+            # Refresh the user and add test problems
+            session.refresh(user)
+            for problem in extra_problems:
+                problem_db = ProblemDB.from_problem(
+                    problem,
+                    user,
+                )
+                session.add(problem_db)
+                session.commit()
+                session.refresh(problem_db)
+        session.commit()
 
 
 def seed_admin_user() -> None:
@@ -179,6 +233,7 @@ def main() -> None:
         reset_database()
     create_tables()
     seed_admin_user()
+    seed_extra_users()
     print("[db-init] Done.")
 
 
