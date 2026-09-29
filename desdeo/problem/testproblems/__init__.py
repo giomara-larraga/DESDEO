@@ -9,6 +9,7 @@ __all__ = [  # noqa: RUF022
     "dtlz2",
     "forest_problem",
     "forest_problem_discrete",
+    "forest_problem_income_carbon_habitat",
     "mcwb_equilateral_tbeam_problem",
     "mcwb_hollow_rectangular_problem",
     "mcwb_ragsdell1976_problem",
@@ -58,7 +59,11 @@ from .binh_and_korn_problem import binh_and_korn
 from .cake_problem import best_cake_problem
 from .dmitry_forest_problem_discrete import dmitry_forest_problem_disc
 from .dtlz2_problem import dtlz2
-from .forest_problem import forest_problem, forest_problem_discrete
+from .forest_problem import (
+    forest_problem,
+    forest_problem_discrete,
+    forest_problem_income_carbon_habitat,
+)
 from .knapsack_problem import simple_knapsack, simple_knapsack_vectors
 from .mcwb_problem import (
     mcwb_equilateral_tbeam_problem,
@@ -94,5 +99,11 @@ from .spanish_sustainability_problem import (
     spanish_sustainability_problem,
     spanish_sustainability_problem_discrete,
 )
-from .summer_cabin_electricity import generate_solar_profile, generate_summer_cabin_electricity_data, summer_cabin_battery_problem, summer_cabin_battery_problem_split, summer_cabin_battery_problem_split_scenario
+from .summer_cabin_electricity import (
+    generate_solar_profile,
+    generate_summer_cabin_electricity_data,
+    summer_cabin_battery_problem,
+    summer_cabin_battery_problem_split,
+    summer_cabin_battery_problem_split_scenario,
+)
 from .zdt_problem import zdt1, zdt2, zdt3

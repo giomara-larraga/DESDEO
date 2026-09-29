@@ -18,9 +18,16 @@ from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.api.utils.database import create_background_dataset
 from desdeo.mcdm.reference_point_method import rpm_solve_solutions
 from desdeo.problem import Problem, get_ideal_dict, get_nadir_dict
-from desdeo.problem.testproblems import dtlz2, river_pollution_problem, simple_knapsack
+from desdeo.problem.testproblems import (
+    dtlz2,
+    river_pollution_problem,
+    forest_problem_income_carbon_habitat,
+)
 
-problems = [river_pollution_problem(five_objective_variant=False)]
+problems = [
+    river_pollution_problem(five_objective_variant=False),
+    forest_problem_income_carbon_habitat(non_dominated_only=True),
+]
 
 BACKGROUND_DATA_METHOD = "reference_point_method"
 BACKGROUND_DATA_NUM_SAMPLES = 300

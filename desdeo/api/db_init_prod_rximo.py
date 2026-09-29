@@ -38,11 +38,17 @@ from desdeo.api.routers.user_authentication import get_password_hash
 from desdeo.api.utils.database import create_background_dataset
 from desdeo.mcdm.reference_point_method import rpm_solve_solutions
 from desdeo.problem import Problem, get_ideal_dict, get_nadir_dict
-from desdeo.problem.testproblems import river_pollution_problem
+from desdeo.problem.testproblems import (
+    river_pollution_problem,
+    forest_problem_income_carbon_habitat,
+)
 
 PREDEFINED_ADMINS = ["glarraga", "gmisitano", "kmiettinen", "kmatkovic"]
 
-problems = [river_pollution_problem(five_objective_variant=False)]
+problems = [
+    river_pollution_problem(five_objective_variant=False),
+    forest_problem_income_carbon_habitat(non_dominated_only=True),
+]
 
 BACKGROUND_DATA_METHOD = "reference_point_method"
 BACKGROUND_DATA_NUM_SAMPLES = 300
@@ -162,7 +168,9 @@ def _build_background_dataset_request(
 
 
 def create_tables() -> None:
-    print("[db-init] Creating database tables (create_all is a no-op for existing tables)...")
+    print(
+        "[db-init] Creating database tables (create_all is a no-op for existing tables)..."
+    )
     SQLModel.metadata.create_all(engine)
     print("[db-init] Tables ready.")
 
@@ -221,9 +229,9 @@ def seed_bootstrap_analyst(session: Session) -> User | None:
 
 
 def seed_predefined_admins(session: Session) -> None:
-    admin_password = os.environ.get("DESDEO_PREDEFINED_ADMIN_PASSWORD") or os.environ.get(
-        "DESDEO_ADMIN_PASSWORD"
-    )
+    admin_password = os.environ.get(
+        "DESDEO_PREDEFINED_ADMIN_PASSWORD"
+    ) or os.environ.get("DESDEO_ADMIN_PASSWORD")
     group = os.environ.get("DESDEO_ADMIN_GROUP", "admin")
 
     created_or_existing_admins: list[User] = []
@@ -245,7 +253,7 @@ def seed_predefined_admins(session: Session) -> None:
             session=session,
             username=username,
             password=admin_password,
-            role=UserRole.admin,
+            role=UserRole.dm,
             group=group,
         )
         created_or_existing_admins.append(user)
@@ -255,7 +263,9 @@ def seed_predefined_admins(session: Session) -> None:
 
 def seed_problems_and_background_data(session: Session, owners: list[User]) -> None:
     if not owners:
-        print("[db-init] WARNING: No users available - skipping problem and background-data seed.")
+        print(
+            "[db-init] WARNING: No users available - skipping problem and background-data seed."
+        )
         return
 
     for owner in owners:
@@ -271,13 +281,17 @@ def seed_problems_and_background_data(session: Session, owners: list[User]) -> N
 
             if existing_problem:
                 problem_db = existing_problem
-                print(f"[db-init] Problem '{problem_db.name}' already exists for user '{owner.username}' - skipping.")
+                print(
+                    f"[db-init] Problem '{problem_db.name}' already exists for user '{owner.username}' - skipping."
+                )
             else:
                 problem_db = ProblemDB.from_problem(problem, owner)
                 session.add(problem_db)
                 session.commit()
                 session.refresh(problem_db)
-                print(f"[db-init] Created problem '{problem_db.name}' for user '{owner.username}'.")
+                print(
+                    f"[db-init] Created problem '{problem_db.name}' for user '{owner.username}'."
+                )
 
             expected_dataset_name = f"Initial background data for {problem_db.name}"
             existing_dataset = session.exec(
@@ -310,7 +324,9 @@ def seed_problems_and_background_data(session: Session, owners: list[User]) -> N
 
 
 def main() -> None:
-    print(f"[db-init] Using database: {engine.url.render_as_string(hide_password=True)}")
+    print(
+        f"[db-init] Using database: {engine.url.render_as_string(hide_password=True)}"
+    )
     create_tables()
     with Session(engine) as session:
         users_for_problem_seed: list[User] = []
@@ -322,7 +338,9 @@ def main() -> None:
         users_for_problem_seed.extend(seed_predefined_admins(session))
 
         # Keep a stable order but avoid duplicate users if names overlap.
-        deduplicated_users = list({user.id: user for user in users_for_problem_seed}.values())
+        deduplicated_users = list(
+            {user.id: user for user in users_for_problem_seed}.values()
+        )
         seed_problems_and_background_data(session, deduplicated_users)
     print("[db-init] Done.")
 
