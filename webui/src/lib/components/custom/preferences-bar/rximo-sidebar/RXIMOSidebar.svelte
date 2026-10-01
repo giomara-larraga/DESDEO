@@ -6,12 +6,17 @@
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import type { ProblemInfo, Solution } from '$lib/types';
 	import { getDisplayAccuracy, formatNumber } from '$lib/helpers';
-	import {COLOR_PALETTE} from '$lib/components/visualizations/utils/colors';
+	import { COLOR_PALETTE } from '$lib/components/visualizations/utils/colors';
 	import WhyTab from './WhyTab.svelte';
 	import HowTab from './HowTab.svelte';
 	import CompareTab from './CompareTab.svelte';
 	import AccordionItem from '$lib/components/ui/accordion/accordion-item.svelte';
-	import { findShapRow, displayAspirationName, isOwnAspiration, normalizeObjectiveSymbol } from './helpers';
+	import {
+		findShapRow,
+		displayAspirationName,
+		isOwnAspiration,
+		normalizeObjectiveSymbol
+	} from './helpers';
 	interface RXIMOResultEntry {
 		rival_index: number;
 		rival_symbol: string;
@@ -68,7 +73,6 @@
 	let explanationTab = $state<ExplanationTab>('why');
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
 
-
 	const objectiveOptions = $derived(
 		problem.objectives.map((o) => ({ value: o.symbol, label: o.name ?? o.symbol }))
 	);
@@ -79,20 +83,15 @@
 		return Number.isFinite(value) ? value : 0;
 	});
 
-	const suggestedDesiredValueSymbol = $derived(
-    apiRXIMOResult?.rival_symbol ?? null
-);
+	const suggestedDesiredValueSymbol = $derived(apiRXIMOResult?.rival_symbol ?? null);
 
-const suggestedDesiredValueName = $derived.by(() => {
-    if (!suggestedDesiredValueSymbol) return null;
+	const suggestedDesiredValueName = $derived.by(() => {
+		if (!suggestedDesiredValueSymbol) return null;
 
-    const normalized = normalizeObjectiveSymbol(suggestedDesiredValueSymbol);
+		const normalized = normalizeObjectiveSymbol(suggestedDesiredValueSymbol);
 
-    return (
-        problem.objectives.find((o) => o.symbol === normalized)?.name ??
-        normalized
-    );
-});
+		return problem.objectives.find((o) => o.symbol === normalized)?.name ?? normalized;
+	});
 
 	let selectedObjectiveSymbol = $state('');
 
@@ -100,12 +99,13 @@ const suggestedDesiredValueName = $derived.by(() => {
 		const firstSymbol = problem.objectives[0]?.symbol ?? '';
 		const shapOutputs = SHAP_values ? Object.keys(SHAP_values).map(normalizeObjectiveSymbol) : [];
 
-		if (!selectedObjectiveSymbol || (SHAP_values && !shapOutputs.includes(selectedObjectiveSymbol))) {
+		if (
+			!selectedObjectiveSymbol ||
+			(SHAP_values && !shapOutputs.includes(selectedObjectiveSymbol))
+		) {
 			selectedObjectiveSymbol = firstSymbol;
 		}
 	});
-
-
 
 	const selectedRow = $derived(findShapRow(SHAP_values, selectedObjectiveSymbol));
 
@@ -189,9 +189,7 @@ const suggestedDesiredValueName = $derived.by(() => {
 		const negativeNonOwn = influenceRows.find((r) => r.helpScore < 0 && !r.isOwn);
 		if (negativeNonOwn) return negativeNonOwn;
 
-		return influenceRows
-			.filter((r) => !r.isOwn)
-			.sort((a, b) => a.helpScore - b.helpScore)[0];
+		return influenceRows.filter((r) => !r.isOwn).sort((a, b) => a.helpScore - b.helpScore)[0];
 	});
 
 	// Misitano et al. (2022) found DMs preferred suggestions over explanations,
@@ -322,44 +320,42 @@ const suggestedDesiredValueName = $derived.by(() => {
 	});
 
 	function objectiveColor(index: number): string {
-	return COLOR_PALETTE[index % COLOR_PALETTE.length];
-}
+		return COLOR_PALETTE[index % COLOR_PALETTE.length];
+	}
 
-function getObjectiveAchievedValue(symbol: string): number | null {
-	const raw = solutions[0]?.objective_values?.[symbol];
-	const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
-	return Number.isFinite(value) ? value : null;
-}
+	function getObjectiveAchievedValue(symbol: string): number | null {
+		const raw = solutions[0]?.objective_values?.[symbol];
+		const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
+		return Number.isFinite(value) ? value : null;
+	}
 
-function objectiveMeetsDesired(index: number): boolean | null {
-	const objective = problem.objectives[index];
-	const desired = Number(preferenceValues[index]);
-	const achieved = getObjectiveAchievedValue(objective.symbol);
+	function objectiveMeetsDesired(index: number): boolean | null {
+		const objective = problem.objectives[index];
+		const desired = Number(preferenceValues[index]);
+		const achieved = getObjectiveAchievedValue(objective.symbol);
 
-	if (!Number.isFinite(desired) || achieved == null) return null;
+		if (!Number.isFinite(desired) || achieved == null) return null;
 
-	const tolerance = 0.01;
+		const tolerance = 0.01;
 
-	return objective.maximize
-		? achieved >= desired - tolerance
-		: achieved <= desired + tolerance;
-}
+		return objective.maximize ? achieved >= desired - tolerance : achieved <= desired + tolerance;
+	}
 
-const objectiveStatuses = $derived.by(() =>
-	problem.objectives.map((objective, index) => ({
-		symbol: objective.symbol,
-		name: objective.name ?? objective.symbol,
-		color: objectiveColor(index),
-		met: objectiveMeetsDesired(index),
-		isSelected: objective.symbol === selectedObjectiveSymbol
-	}))
-);
+	const objectiveStatuses = $derived.by(() =>
+		problem.objectives.map((objective, index) => ({
+			symbol: objective.symbol,
+			name: objective.name ?? objective.symbol,
+			color: objectiveColor(index),
+			met: objectiveMeetsDesired(index),
+			isSelected: objective.symbol === selectedObjectiveSymbol
+		}))
+	);
 </script>
 
-<Sidebar.Root 
-	side="right" 
+<Sidebar.Root
+	side="right"
 	collapsible="none"
-	class="fixed top-12 right-0 h-[calc(100vh-3rem)] w-[25rem]" 
+	class="fixed top-12 right-0 h-[calc(100vh-3rem)] w-[25rem]"
 	bind:ref
 >
 	<Sidebar.Header>
@@ -370,14 +366,12 @@ const objectiveStatuses = $derived.by(() =>
 					<InfoIcon class="h-3.5 w-3.5" />
 				</Tooltip.Trigger>
 				<Tooltip.Content sideOffset={6} class="max-w-84">
-			
 					<strong>Explanation tabs</strong>
 					<ul>
 						<li><strong>Understand:</strong> Why was this value obtained?</li>
 						<li><strong>Explore:</strong> What trade-offs are possible?</li>
 						<li><strong>Details:</strong> What relationships and contributions explain it?</li>
 					</ul>
-				
 				</Tooltip.Content>
 			</Tooltip.Root>
 		</div>
@@ -392,75 +386,77 @@ const objectiveStatuses = $derived.by(() =>
 			{:else}
 				<div class="space-y-4">
 					<div class="flex items-center gap-3">
-					<div class="rounded-md border border-gray-200 bg-white p-3">
-	<div class="mb-2 flex items-center justify-between gap-2">
-		<div>
-			<div class="text-sm font-semibold text-gray-900">
-				Objectives
-			</div>
+						<div class="rounded-md border border-gray-200 bg-white p-3">
+							<div class="mb-2 flex items-center justify-between gap-2">
+								<div>
+									<div class="text-sm font-semibold text-gray-900">Objectives</div>
 
-			<div class="text-xs text-gray-500">
-				Click an objective to view its explanation.
-			</div>
-		</div>
-	</div>
+									<div class="text-xs text-gray-500">
+										Click an objective to view its explanation.
+									</div>
+								</div>
+							</div>
 
-	<div class="flex flex-wrap gap-1.5">
-		{#each objectiveStatuses as objective}
-			<Tooltip.Root>
-				<Tooltip.Trigger asChild>
-					<button
-						type="button"
-						class={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition
-							${objective.isSelected
-								? 'border-blue-300 bg-blue-50 font-semibold text-blue-900 ring-1 ring-blue-200'
-								: 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'}`}
-						onclick={() => (selectedObjectiveSymbol = objective.symbol)}
-						aria-label={`Explain ${objective.name}`}
-					>
-						<span
-							class="h-2.5 w-2.5 rounded-full"
-							style={`background-color: ${objective.color}`}
-						></span>
-						<span class="truncate">{objective.name}</span>
+							<div class="flex flex-wrap gap-1.5">
+								{#each objectiveStatuses as objective}
+									<Tooltip.Root>
+										<Tooltip.Trigger asChild>
+											<button
+												type="button"
+												class={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition
+							${
+								objective.isSelected
+									? 'border-blue-300 bg-blue-50 font-semibold text-blue-900 ring-1 ring-blue-200'
+									: 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+							}`}
+												onclick={() => (selectedObjectiveSymbol = objective.symbol)}
+												aria-label={`Explain ${objective.name}`}
+											>
+												<span
+													class="h-2.5 w-2.5 rounded-full"
+													style={`background-color: ${objective.color}`}
+												></span>
+												<span class="truncate">{objective.name}</span>
 
-						<span>
-							{objective.met === true ? '✓' : objective.met === false ? '⚠' : '?'}
-						</span>
-					</button>
-				</Tooltip.Trigger>
+												<span>
+													{objective.met === true ? '✓' : objective.met === false ? '⚠' : '?'}
+												</span>
+											</button>
+										</Tooltip.Trigger>
 
-				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-					<strong>{objective.name}</strong>
-					<br />
+										<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
+											<strong>{objective.name}</strong>
+											<br />
 
-					{#if objective.met === true}
-						Achieved value meets or exceeds the desired value.
-					{:else if objective.met === false}
-						Achieved value does not meet the desired value.
-					{:else}
-						Status unavailable.
-					{/if}
+											{#if objective.met === true}
+												Achieved value meets or exceeds the desired value.
+											{:else if objective.met === false}
+												Achieved value does not meet the desired value.
+											{:else}
+												Status unavailable.
+											{/if}
 
-					<br />
-					Click to explain this objective.
-				</Tooltip.Content>
-			</Tooltip.Root>
-		{/each}
-	</div>
-	<div class="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500 place-self-center">
-		<span class="flex items-center gap-1">
-			<span class="font-semibold text-green-600">✓</span>
-			Meets desired
-		</span>
+											<br />
+											Click to explain this objective.
+										</Tooltip.Content>
+									</Tooltip.Root>
+								{/each}
+							</div>
+							<div
+								class="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500 place-self-center"
+							>
+								<span class="flex items-center gap-1">
+									<span class="font-semibold text-green-600">✓</span>
+									Meets desired
+								</span>
 
-		<span class="flex items-center gap-1">
-			<span class="font-semibold text-amber-600">⚠</span>
-			Below desired
-		</span>
-	</div>
-</div>
-<!-- 						<div class="flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600">
+								<span class="flex items-center gap-1">
+									<span class="font-semibold text-amber-600">⚠</span>
+									Below desired
+								</span>
+							</div>
+						</div>
+						<!-- 						<div class="flex shrink-0 items-center gap-1 text-sm font-medium text-gray-600">
 							<span>Objective to explain</span>
 							<Tooltip.Root>
 								<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
@@ -482,15 +478,17 @@ const objectiveStatuses = $derived.by(() =>
 					</div>
 
 					<Accordion.Root type="single" value="why" class="w-full">
-					    <Accordion.Item value="why">
-						<Accordion.Trigger class="w-full text-left">
-							<div class="flex items-center justify-between gap-2">
-								<span class="text-sm font-semibold">Why does {selectedObjectiveName} have this achieved value?</span>
-								<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
-							</div>
-						</Accordion.Trigger>
-						
-						<Accordion.Content class="mt-3 w-full">
+						<Accordion.Item value="why">
+							<Accordion.Trigger class="w-full text-left">
+								<div class="flex items-center justify-between gap-2">
+									<span class="text-sm font-semibold"
+										>Why does {selectedObjectiveName} have this achieved value?</span
+									>
+									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
+								</div>
+							</Accordion.Trigger>
+
+							<Accordion.Content class="mt-3 w-full">
 								<WhyTab
 									{selectedObjectiveName}
 									iterationDesiredValues={scenarioReferenceValues}
@@ -498,15 +496,16 @@ const objectiveStatuses = $derived.by(() =>
 									{selectedObjectiveIndex}
 									{achievedValueNumber}
 									{selectedObjectiveDigits}
+									contributionRows={influenceRows}
 									strongestLimitingContribution={mainTradeoff}
 									strongestSupportiveContribution={mainSynergy}
-									selectedRow={selectedRow}
+									{selectedRow}
 									{selectedObjectiveSymbol}
 									{problem}
-									selectedSHAPBaseline={selectedSHAPBaseline}
-									selectedSolutionValue={selectedSolutionValue}
+									{selectedSHAPBaseline}
+									{selectedSolutionValue}
 									rximoSuggestion={explanationText}
-									suggestedDesiredValueName={suggestedDesiredValueName}
+									{suggestedDesiredValueName}
 									onHowClick={() => (explanationTab = 'how')}
 								/>
 							</Accordion.Content>
@@ -514,23 +513,25 @@ const objectiveStatuses = $derived.by(() =>
 						<AccordionItem value="how" class="mt-3 w-full">
 							<Accordion.Trigger class="w-full text-left">
 								<div class="flex items-center justify-between gap-2">
-									<span class="text-sm font-semibold">How can I improve {selectedObjectiveName}?</span>
+									<span class="text-sm font-semibold"
+										>How can I improve {selectedObjectiveName}?</span
+									>
 									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
 								</div>
 							</Accordion.Trigger>
-						<Accordion.Content class="mt-3 w-full">
+							<Accordion.Content class="mt-3 w-full">
 								<HowTab
 									{selectedObjectiveName}
-									selectedObjectiveSymbol={selectedObjectiveSymbol}
-									mainHurter={mainHurter}
-									ownInfluence={ownInfluence}
+									{selectedObjectiveSymbol}
+									{mainHurter}
+									{ownInfluence}
 									{hypotheticalScenarios}
 									{problem}
 									{maxAbsScenarioDelta}
 									{maxAbsScenarioPercent}
 									{onApplyScenarioPreferences}
 								/>
-						</Accordion.Content>
+							</Accordion.Content>
 						</AccordionItem>
 						<AccordionItem value="compare" class="mt-3 w-full">
 							<Accordion.Trigger class="w-full text-left">
@@ -540,26 +541,23 @@ const objectiveStatuses = $derived.by(() =>
 								</div>
 							</Accordion.Trigger>
 
-						<Accordion.Content class="mt-3 w-full">
+							<Accordion.Content class="mt-3 w-full">
 								<CompareTab
 									{selectedObjectiveName}
 									{selectedObjectiveSymbol}
 									{problem}
 									{preferenceValues}
-									baselineObjectiveValues={baselineObjectiveValues}
-									SHAP_values={SHAP_values}
-									explanationText={explanationText}
-									selectedSHAPBaseline={selectedSHAPBaseline}
-									selectedSolutionValue={selectedSolutionValue}
+									{baselineObjectiveValues}
+									{SHAP_values}
+									{explanationText}
+									{selectedSHAPBaseline}
+									{selectedSolutionValue}
 								/>
 							</Accordion.Content>
 						</AccordionItem>
-						
 					</Accordion.Root>
 				</div>
 			{/if}
 		</Tooltip.Provider>
 	</Sidebar.Content>
-
-
 </Sidebar.Root>
