@@ -3,8 +3,9 @@
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import { formatNumber } from '$lib/helpers';
 	import type { ProblemInfo, Solution } from '$lib/types';
+	import DesiredAchievedComparison from '$lib/components/visualizations/desired-achieved-comparison/DesiredAchievedComparison.svelte';
 
-	type InfluenceRow = {
+	type ContributionRow = {
 		symbol: string;
 		name: string;
 		rawValue: number;
@@ -15,37 +16,43 @@
 
 	interface Props {
 		selectedObjectiveName: string;
-		preferenceValues: number[];
+		iterationDesiredValues: number[];
 		selectedSolution: Solution;
 		selectedObjectiveIndex: number;
 		achievedValueNumber: number;
 		selectedObjectiveDigits: number;
-		mainTradeoff: InfluenceRow | undefined;
-		mainSynergy: InfluenceRow | undefined;
+
+		strongestLimitingContribution: ContributionRow | undefined;
+		strongestSupportiveContribution: ContributionRow | undefined;
+		
 		selectedRow: Record<string, number>;
 		selectedObjectiveSymbol: string;
 		problem: ProblemInfo;
 		selectedSHAPBaseline: number | undefined;
 		selectedSolutionValue: number | undefined;
-		explanationText: string | null;
-		onExploreClick: () => void;
+
+		rximoSuggestion: string | null;
+		suggestedDesiredValueName: string | null;
+		onHowClick: () => void;
 	}
 
 	let {
 		selectedObjectiveName,
-		preferenceValues,
+		iterationDesiredValues,
 		selectedSolution,
 		selectedObjectiveIndex,
 		achievedValueNumber,
 		selectedObjectiveDigits,
-		mainTradeoff,
-		mainSynergy,
+		strongestLimitingContribution,
+		strongestSupportiveContribution,
 		selectedRow,
 		selectedObjectiveSymbol,
 		problem,
 		selectedSHAPBaseline,
 		selectedSolutionValue,
-		onExploreClick
+		rximoSuggestion,
+		suggestedDesiredValueName,
+		onHowClick
 	}: Props = $props();
 
 	function formatValue(value: unknown): string {
@@ -74,6 +81,53 @@
 				? 'is better than the desired value'
 				: 'is worse than the desired value';
 	}
+
+	let desiredValue = $derived(
+	Number(iterationDesiredValues[selectedObjectiveIndex])
+);
+
+let selectedObjective = $derived(
+	problem.objectives[selectedObjectiveIndex]
+);
+
+// Positive = better than desired, negative = worse than desired,
+// regardless of whether the objective is minimized or maximized.
+let directionalDifference = $derived.by(() => {
+	const difference = achievedValueNumber - desiredValue;
+
+	return selectedObjective?.maximize
+		? difference
+		: -difference;
+});
+
+let objectiveRange = $derived.by(() => {
+	const ideal = Number(selectedObjective?.ideal);
+	const nadir = Number(selectedObjective?.nadir);
+
+	if (!Number.isFinite(ideal) || !Number.isFinite(nadir)) return null;
+
+	return Math.abs(ideal - nadir);
+});
+
+// Width of the graphical difference indicator.
+let differenceWidth = $derived.by(() => {
+	if (!objectiveRange || objectiveRange === 0) return 0;
+
+	return Math.min(
+		50,
+		(Math.abs(directionalDifference) / objectiveRange) * 50
+	);
+});
+
+let differenceStatus = $derived.by(() => {
+	if (Math.abs(directionalDifference) <= 0.01) {
+		return 'Meets desired value';
+	}
+
+	return directionalDifference > 0
+		? 'Better than desired'
+		: 'Worse than desired';
+});
 </script>
 
 <div class="space-y-3">
@@ -111,164 +165,55 @@
 	</div> -->
 
 	<!-- Objective status -->
-	<div class="rounded-md border border-gray-200 bg-white p-3">
-		<div class="mb-2 text-sm font-semibold text-gray-900">
-			{selectedObjectiveName}
-		</div>
-
-		<div class="grid grid-cols-2 gap-2 text-sm">
-			<div class="rounded bg-gray-50 p-2">
-				<div class="text-xs text-gray-500">Desired value</div>
-				<div class="font-semibold text-gray-800">
-					{formatValue(preferenceValues[selectedObjectiveIndex])}
-				</div>
-			</div>
-
-			<div class="rounded bg-gray-50 p-2">
-				<div class="text-xs text-gray-500">Achieved value</div>
-				<div class="font-semibold text-gray-800">
-					{formatNumber(achievedValueNumber, selectedObjectiveDigits)}
-				</div>
-			</div>
-		</div>
-		<div class="mt-2 text-sm text-gray-600">
-			The achieved value {computeDifferenceWithTolerance(
-				preferenceValues[selectedObjectiveIndex],
-				achievedValueNumber,
-				0.01
-			)}.
-		</div>
+<div class="rounded-md border border-gray-200 bg-white p-3">
+	<div class="mb-2 text-sm font-semibold text-gray-900">
+		Current status of {selectedObjectiveName}
 	</div>
 
-	<!-- Main visual relationship -->
-	<div class="rounded-md border border-blue-100 bg-blue-50 p-3">
-		{#if mainTradeoff}
-			<div class="mb-2 text-sm font-semibold text-gray-900">Main trade-off</div>
+	<DesiredAchievedComparison
+		objectiveName={selectedObjectiveName}
+		desiredValue={iterationDesiredValues[selectedObjectiveIndex]}
+		achievedValue={achievedValueNumber}
+		maximize={problem.objectives[selectedObjectiveIndex].maximize}
+		ideal={problem.objectives[selectedObjectiveIndex].ideal}
+		nadir={problem.objectives[selectedObjectiveIndex].nadir}
+		digits={selectedObjectiveDigits}
+	/>
+</div>
+<div class="rounded-md border border-amber-200 bg-amber-50 p-3">
+    <div class="mb-1 flex items-center gap-1 text-sm font-semibold">
+        <span>R-XIMO suggestion</span>
 
-			<div class="rounded-md bg-white p-3">
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-					<div class="text-center">
-						<div class="text-xs font-medium text-amber-600">Desired value of</div>
-						<div class="font-semibold">{mainTradeoff.name}</div>
-					</div>
+        <Tooltip.Root>
+            <Tooltip.Trigger class="text-gray-400 hover:text-gray-600">
+                <InfoIcon class="h-3.5 w-3.5" />
+            </Tooltip.Trigger>
 
-					<div class="text-sm font-medium text-[#DC3220]">limits →</div>
+            <Tooltip.Content sideOffset={6} class="max-w-72 text-sm">
+                This suggestion is derived from the contribution structure
+                of the current solution. It identifies a desired value to
+                consider adjusting, but does not predict the resulting
+                solution. Open How to inspect the corresponding what-if changes.
+            </Tooltip.Content>
+        </Tooltip.Root>
+    </div>
 
-					<div class="text-center">
-						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
-						<div class="font-semibold">{selectedObjectiveName}</div>
-					</div>
-				</div>
-			</div>
+    {#if suggestedDesiredValueName}
+        <p class="text-sm text-gray-700">
+            Consider relaxing the desired value for
+            <strong>{suggestedDesiredValueName}</strong>
+            when seeking improvement in
+            <strong>{selectedObjectiveName}</strong>.
+        </p>
+    {/if}
 
-			<p class="mt-2 text-sm text-gray-600">
-				Relaxing the desired value for <strong>{mainTradeoff.name}</strong>
-				could create room for improving <strong>{selectedObjectiveName}</strong>.
-			</p>
-		{:else if mainSynergy}
-			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
-				<span>Main synergy</span>
+    <button
+        type="button"
+        class="mt-2 text-sm font-medium text-blue-700 hover:underline"
+        onclick={onHowClick}
+    >
+        Inspect in How →
+    </button>
+</div>
 
-				<Tooltip.Root>
-					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
-						<InfoIcon class="h-3.5 w-3.5" />
-					</Tooltip.Trigger>
-
-					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-						A synergy means that the desired value for another objective appears to support the
-						achieved value of <strong>{selectedObjectiveName}</strong>.
-					</Tooltip.Content>
-				</Tooltip.Root>
-			</div>
-
-			<div class="rounded-md bg-white p-3">
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-					<div class="text-center">
-						<div class="text-xs font-medium text-amber-600">Desired value of</div>
-						<div class="font-semibold">{mainSynergy.name}</div>
-					</div>
-
-					<div class="text-sm font-medium text-[#0C7BDC]">supports →</div>
-
-					<div class="text-center">
-						<div class="text-xs font-medium text-blue-600">Achieved value of</div>
-						<div class="font-semibold">{selectedObjectiveName}</div>
-					</div>
-				</div>
-			</div>
-
-			<div
-				class="mt-2 flex items-center justify-between gap-2 rounded-md bg-white/70 px-2 py-1 text-sm text-gray-600"
-			>
-				<span>No major trade-offs detected.</span>
-
-				<Tooltip.Root>
-					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
-						<InfoIcon class="h-3.5 w-3.5" />
-					</Tooltip.Trigger>
-
-					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-						No desired value for another objective appears to limit
-						<strong>{selectedObjectiveName}</strong>. Further improvements may depend mainly on
-						adjusting the desired value for
-						<strong>{selectedObjectiveName}</strong> itself.
-					</Tooltip.Content>
-				</Tooltip.Root>
-			</div>
-
-			<!-- 			<Tooltip.Root>
-				<Tooltip.Trigger asChild>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						class="mt-3 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-						onclick={onExploreClick}
-					>
-						Explore possible changes
-						<span aria-hidden="true">→</span>
-					</Button>
-				</Tooltip.Trigger>
-
-				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-					Open the Explore tab to inspect what may happen if some desired values are adjusted.
-				</Tooltip.Content>
-			</Tooltip.Root> -->
-		{:else}
-			<div class="mb-2 flex items-center gap-1 text-sm font-semibold text-gray-900">
-				<span>No major interactions detected</span>
-
-				<Tooltip.Root>
-					<Tooltip.Trigger class="inline-flex items-center text-gray-400 hover:text-gray-600">
-						<InfoIcon class="h-3.5 w-3.5" />
-					</Tooltip.Trigger>
-
-					<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-						No desired value for another objective appears to strongly affect the achieved value of <strong
-							>{selectedObjectiveName}</strong
-						>.
-					</Tooltip.Content>
-				</Tooltip.Root>
-			</div>
-			<!-- 
-			<Tooltip.Root>
-				<Tooltip.Trigger asChild>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						class="mt-2 w-full justify-center gap-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-						onclick={onExploreClick}
-					>
-						Explore possible changes
-						<span aria-hidden="true">→</span>
-					</Button>
-				</Tooltip.Trigger>
-
-				<Tooltip.Content sideOffset={6} class="max-w-64 text-sm">
-					Open the Explore tab to inspect what may happen if some desired values are adjusted.
-				</Tooltip.Content>
-			</Tooltip.Root> -->
-		{/if}
-	</div>
 </div>

@@ -26,5 +26,5 @@ export const IMPAIRING_COLOR = '#DC3220';
 export const options_segmented_control = [
 	{ onlyIcon: true, icon: Iterate, value: 'iterate', label: 'Iterate' },
 	{ onlyIcon: true, icon: Intermediate, value: 'intermediate', label: 'Find intermediate' },
-	{ onlyIcon: true, icon: History, value: 'history', label: 'History' } 
+	/* { onlyIcon: true, icon: History, value: 'history', label: 'History' } */ 
 ];

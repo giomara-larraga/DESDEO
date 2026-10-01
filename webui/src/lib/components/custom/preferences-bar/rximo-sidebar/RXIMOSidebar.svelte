@@ -79,6 +79,21 @@
 		return Number.isFinite(value) ? value : 0;
 	});
 
+	const suggestedDesiredValueSymbol = $derived(
+    apiRXIMOResult?.rival_symbol ?? null
+);
+
+const suggestedDesiredValueName = $derived.by(() => {
+    if (!suggestedDesiredValueSymbol) return null;
+
+    const normalized = normalizeObjectiveSymbol(suggestedDesiredValueSymbol);
+
+    return (
+        problem.objectives.find((o) => o.symbol === normalized)?.name ??
+        normalized
+    );
+});
+
 	let selectedObjectiveSymbol = $state('');
 
 	$effect(() => {
@@ -470,7 +485,7 @@ const objectiveStatuses = $derived.by(() =>
 					    <Accordion.Item value="why">
 						<Accordion.Trigger class="w-full text-left">
 							<div class="flex items-center justify-between gap-2">
-								<span class="text-sm font-semibold">Why does {selectedObjectiveName} have this value?</span>
+								<span class="text-sm font-semibold">Why does {selectedObjectiveName} have this achieved value?</span>
 								<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
 							</div>
 						</Accordion.Trigger>
@@ -478,20 +493,21 @@ const objectiveStatuses = $derived.by(() =>
 						<Accordion.Content class="mt-3 w-full">
 								<WhyTab
 									{selectedObjectiveName}
-									{preferenceValues}
+									iterationDesiredValues={scenarioReferenceValues}
 									selectedSolution={solutions[0]}
 									{selectedObjectiveIndex}
 									{achievedValueNumber}
 									{selectedObjectiveDigits}
-									{mainTradeoff}
-									{mainSynergy}
+									strongestLimitingContribution={mainTradeoff}
+									strongestSupportiveContribution={mainSynergy}
 									selectedRow={selectedRow}
 									{selectedObjectiveSymbol}
 									{problem}
 									selectedSHAPBaseline={selectedSHAPBaseline}
 									selectedSolutionValue={selectedSolutionValue}
-									{explanationText}
-									onExploreClick={() => (explanationTab = 'how')}
+									rximoSuggestion={explanationText}
+									suggestedDesiredValueName={suggestedDesiredValueName}
+									onHowClick={() => (explanationTab = 'how')}
 								/>
 							</Accordion.Content>
 						</Accordion.Item>
