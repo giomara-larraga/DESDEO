@@ -1,0 +1,1 @@
+export {default as WhatIfDeltaChart} from './WhatIfDeltaChart.svelte';

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button/button.svelte';
 	import WhatIfCaseNetwork from '$lib/components/visualizations/what-if-case-network/WhatIfCaseNetwork.svelte';
+	import { WhatIfDeltaChart } from '$lib/components/visualizations/what-if-delta';
 	import type { ProblemInfo } from '$lib/types';
 
 	type InfluenceRow = {
@@ -58,11 +59,11 @@
 	let scenarioDiffDisplayMode = $state<ScenarioDiffDisplayMode>('value');
 	let selectedImpairedSymbol = $state<string | null>(null);
 
-	const filteredScenarios = $derived.by(() => {
-		if (!selectedImpairedSymbol || selectedImpairedSymbol === null) return hypotheticalScenarios;
+	const selectedObjectiveDelta = $derived.by(() => {
+		if (!selectedScenario) return null;
 
-		return hypotheticalScenarios.filter(
-			(scenario) => scenario.impairedSymbol === selectedImpairedSymbol
+		return (
+			selectedScenario.deltas.find((delta) => delta.symbol === selectedObjectiveSymbol) ?? null
 		);
 	});
 
@@ -80,33 +81,26 @@
 		if (value < 0) return `-${fixed}%`;
 		return '0.00%';
 	}
+
+	const selectedScenario = $derived.by(() => {
+		if (!selectedImpairedSymbol) return null;
+
+		return (
+			hypotheticalScenarios.find(
+				(scenario) => scenario.impairedSymbol === selectedImpairedSymbol
+			) ?? null
+		);
+	});
 </script>
 
 <div class="space-y-3">
 	<div class="space-y-3">
 		<p class="text-xs leading-relaxed text-gray-700">
-			To improve <strong>{selectedObjectiveName}</strong>, you may need to relax the desired value
-			of another objective. Select an objective in the graph to inspect what happens when it is
-			relaxed.
+			Improving <strong>{selectedObjectiveName}</strong> requires accepting a worse value in at
+			least one other objective. Select a desired value to relax and inspect what is gained in
+			<strong>{selectedObjectiveName}</strong>
+			and what is given up elsewhere.
 		</p>
-
-		<!-- 			<div class="flex items-center gap-1">
-				<button
-					type="button"
-					class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'value' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
-					onclick={() => (scenarioDiffDisplayMode = 'value')}
-				>
-					Value
-				</button>
-
-				<button
-					type="button"
-					class={`rounded px-2 py-0.5 text-sm ${scenarioDiffDisplayMode === 'percent' ? 'bg-gray-200 font-medium text-gray-800' : 'bg-gray-100 text-gray-600'}`}
-					onclick={() => (scenarioDiffDisplayMode = 'percent')}
-				>
-					Percent
-				</button>
-			</div> -->
 
 		{#if hypotheticalScenarios.length === 0}
 			<div class="rounded border bg-gray-50 p-3 text-sm text-gray-500">
@@ -115,16 +109,21 @@
 		{:else}
 			<div
 				class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500"
-				aria-label="Influence legend"
+				aria-label="What-if result legend"
 			>
 				<span class="inline-flex items-center gap-1.5">
 					<span class="h-0.5 w-4 rounded-full bg-[#0C7BDC]" aria-hidden="true"></span>
-					Supports
+					Improved
 				</span>
 
 				<span class="inline-flex items-center gap-1.5">
-					<span class="h-0.5 w-4 rounded-full bg-[#DC3220]" aria-hidden="true"></span>
-					Limits
+					<span class="w-4 border-t-2 border-dashed border-[#DC3220]" aria-hidden="true"></span>
+					Worsened
+				</span>
+
+				<span class="inline-flex items-center gap-1.5">
+					<span class="w-4 border-t border-dotted border-gray-400" aria-hidden="true"></span>
+					No change
 				</span>
 
 				<span class="inline-flex items-center gap-1.5">
@@ -132,7 +131,12 @@
 						<span class="h-px w-3 rounded-full bg-gray-400"></span>
 						<span class="h-1 w-3 rounded-full bg-gray-400"></span>
 					</span>
-					Thicker = stronger influence
+					Thicker = larger change
+				</span>
+
+				<span class="inline-flex items-center gap-1.5">
+					<span class="text-md font-semibold text-blue-700" aria-hidden="true"> ◆ </span>
+					Selected objective
 				</span>
 			</div>
 			<WhatIfCaseNetwork
@@ -143,6 +147,8 @@
 				}))}
 				cases={hypotheticalScenarios.map((caseItem) => ({
 					impairedSymbol: caseItem.impairedSymbol,
+					impairmentMagnitude: caseItem.impairmentMagnitude,
+					impairedTargetValue: caseItem.impairedTargetValue,
 					deltas: caseItem.deltas.map((delta) => ({
 						symbol: delta.symbol,
 						delta: delta.delta,
@@ -154,56 +160,50 @@
 				disabledNodeSymbol={selectedObjectiveSymbol}
 			/>
 
-			{#each filteredScenarios as scenario}
+			{#if !selectedScenario}
+				<div class="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+					Select a desired value above to inspect its what-if result.
+				</div>
+			{:else}
+				<!-- selected scenario -->
 				<div class="rounded-md border border-gray-200 bg-white p-3">
-					<div class="mb-2 text-sm text-gray-700">
-						What if <strong>{scenario.impairedName}</strong> is impaired by
-						<strong>{scenario.impairmentMagnitude.toFixed(3)}</strong>
-						(to target value
-						<strong>{scenario.impairedTargetValue.toFixed(3)}</strong>), the observed effects are:
+					<div class="text-sm font-semibold text-gray-900">
+						Relax {selectedScenario.impairedName}
 					</div>
 
-					<div class="mb-2">
+					<div class="mt-1 text-xs text-gray-600">
+						New desired value:
+						<strong>{selectedScenario.impairedTargetValue.toFixed(3)}</strong>
+						<span class="text-gray-400">
+							(relaxed by {selectedScenario.impairmentMagnitude.toFixed(3)})
+						</span>
+					</div>
+
+					<div class="mt-3">
+						<div class="mb-2 text-xs font-semibold text-gray-700">
+							Resulting achieved-value changes
+						</div>
+
+						<WhatIfDeltaChart
+							deltas={selectedScenario.deltas}
+							{selectedObjectiveSymbol}
+							mode={scenarioDiffDisplayMode}
+						/>
+					</div>
+
+					<div class="mt-3">
 						<Button
 							type="button"
 							variant="outline"
 							size="sm"
-							onclick={() => onApplyScenarioPreferences?.(scenario.scenarioPreferenceValues)}
+							onclick={() =>
+								onApplyScenarioPreferences?.(selectedScenario.scenarioPreferenceValues)}
 						>
-							Set preferences like this
+							Use these desired values
 						</Button>
 					</div>
-
-					<div class="space-y-1.5">
-						{#each scenario.deltas as delta}
-							<div class="grid grid-cols-[64px_1fr_62px] items-center gap-2 text-sm">
-								<div class="truncate font-medium text-gray-700" title={delta.symbol}>
-									{delta.name}
-								</div>
-
-								<div class="h-2 overflow-hidden rounded bg-gray-100">
-									<div
-										class={`h-full ${delta.isImprovement ? 'bg-[#0C7BDC]' : 'bg-[#DC3220]'}`}
-										style={`width: ${
-											scenarioDiffDisplayMode === 'percent'
-												? (Math.abs(delta.percentDelta ?? 0) / maxAbsScenarioPercent) * 100
-												: (Math.abs(delta.delta) / maxAbsScenarioDelta) * 100
-										}%`}
-									></div>
-								</div>
-
-								<div
-									class={`text-right font-mono ${delta.isImprovement ? 'text-[#0C7BDC]' : 'text-[#DC3220]'}`}
-								>
-									{scenarioDiffDisplayMode === 'percent'
-										? formatSignedPercent(delta.percentDelta)
-										: formatSigned(delta.delta)}
-								</div>
-							</div>
-						{/each}
-					</div>
 				</div>
-			{/each}
+			{/if}
 		{/if}
 	</div>
 </div>
