@@ -1,13 +1,13 @@
 <script lang="ts">
-	interface Effect {
+	interface ObjectiveInfo {
 		symbol: string;
 		name: string;
-		value: number;
-		maximize?: boolean;
+		maximize: boolean;
 	}
 
 	interface Props {
 		effects: Record<string, number>;
+		objectives: ObjectiveInfo[];
 		heightPerRow?: number;
 		showValues?: boolean;
 		valueFormatter?: (value: number) => string;
@@ -15,6 +15,7 @@
 
 	let {
 		effects,
+		objectives,
 		heightPerRow = 34,
 		showValues = true,
 		valueFormatter = defaultValueFormatter
@@ -31,15 +32,10 @@
 
 	const minimumChartWidth = 320;
 
-	const chartWidth = $derived(
-		Math.max(containerWidth || minimumChartWidth, minimumChartWidth)
-	);
+	const chartWidth = $derived(Math.max(containerWidth || minimumChartWidth, minimumChartWidth));
 
 	const chartHeight = $derived(
-		Math.max(
-			margin.top + margin.bottom + effects.length * heightPerRow,
-			80
-		)
+		Math.max(margin.top + margin.bottom + effects.length * heightPerRow, 80)
 	);
 
 	/*
@@ -51,29 +47,29 @@
 	 * For minimized objectives, decreasing the achieved value is supportive,
 	 * so the raw SHAP sign is reversed.
 	 */
-	const normalizedEffects = $derived(
-		effects
-			? Object.entries(effects).map(([symbol, value]) => ({
-                    symbol,
-                    name: symbol,
-                    value,
-                    semanticValue: value
-                }))
-            : []
-	);
+	const normalizedEffects = $derived.by(() => {
+		if (!effects) return [];
+
+		return objectives.map((objective) => {
+			const rawValue = Number(effects[objective.symbol] ?? 0);
+
+			const helpScore = objective.maximize ? rawValue : -rawValue;
+
+			return {
+				symbol: objective.symbol,
+				name: objective.name,
+				rawValue,
+				helpScore,
+				isHelpful: helpScore > 0
+			};
+		});
+	});
 
 	const maximumAbsoluteEffect = $derived(
-		Math.max(
-			...normalizedEffects.map((effect) =>
-				Math.abs(effect.semanticValue)
-			),
-			0
-		)
+		Math.max(...normalizedEffects.map((effect) => Math.abs(effect.helpScore)), 0)
 	);
 
-	const plotWidth = $derived(
-		Math.max(chartWidth - margin.left - margin.right, 80)
-	);
+	const plotWidth = $derived(Math.max(chartWidth - margin.left - margin.right, 80));
 
 	const halfPlotWidth = $derived(plotWidth / 2);
 
@@ -82,10 +78,7 @@
 	function effectWidth(value: number): number {
 		if (maximumAbsoluteEffect === 0) return 0;
 
-		return (
-			(Math.abs(value) / maximumAbsoluteEffect) *
-			halfPlotWidth
-		);
+		return (Math.abs(value) / maximumAbsoluteEffect) * halfPlotWidth;
 	}
 
 	function barX(value: number): number {
@@ -129,52 +122,41 @@
 		return centerX + width + 5;
 	}
 
-	function valueLabelAnchor(
-		value: number
-	): 'start' | 'end' {
+	function valueLabelAnchor(value: number): 'start' | 'end' {
 		return value < 0 ? 'end' : 'start';
 	}
 </script>
 
 <div class="w-full">
 	<div
-		class="mb-2 flex flex-wrap items-center justify-between gap-2"
+		class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500"
+		aria-label="Contribution legend"
 	>
-		<div
-			class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500"
-			aria-label="Effect direction legend"
-		>
-			<span class="inline-flex items-center gap-1.5">
-				<span
-					class="h-2.5 w-2.5 rounded-sm bg-[#0C7BDC]"
-					aria-hidden="true"
-				></span>
-				Supports
-			</span>
+		<span class="inline-flex items-center gap-1.5">
+			<span class="h-2.5 w-2.5 rounded-sm bg-[#0C7BDC]" aria-hidden="true"></span>
+			Supportive
+		</span>
 
-			<span class="inline-flex items-center gap-1.5">
-				<span
-					class="h-2.5 w-2.5 rounded-sm bg-[#DC3220]"
-					aria-hidden="true"
-				></span>
-				Limits
-			</span>
-		</div>
+		<span class="inline-flex items-center gap-1.5">
+			<span class="h-2.5 w-2.5 rounded-sm bg-[#DC3220]" aria-hidden="true"></span>
+			Limiting
+		</span>
 
-		<span class="text-xs text-gray-400">
-			Stronger effects have longer bars
+		<span class="inline-flex items-center gap-1.5">
+			<span class="inline-flex items-center gap-0.5" aria-hidden="true">
+				<span class="h-px w-3 bg-gray-400"></span>
+				<span class="h-1 w-3 bg-gray-400"></span>
+			</span>
+			Longer = larger contribution
 		</span>
 	</div>
 
-	<div
-		class="w-full overflow-hidden"
-		bind:clientWidth={containerWidth}
-	>
+	<div class="w-full overflow-hidden" bind:clientWidth={containerWidth}>
 		{#if normalizedEffects.length === 0}
 			<div
 				class="flex min-h-24 items-center justify-center rounded-md border border-dashed border-gray-200 px-4 py-6 text-center text-xs text-gray-500"
 			>
-				No effects are available for this desired value.
+				No contributions are available for this desired value.
 			</div>
 		{:else}
 			<svg
@@ -185,32 +167,20 @@
 				aria-labelledby="desired-effects-title desired-effects-description"
 				class="block overflow-visible"
 			>
-				<title id="desired-effects-title">
-					Effects on achieved objective values
-				</title>
+				<title id="desired-effects-title"> Contributions from the selected desired value </title>
 
 				<desc id="desired-effects-description">
-					A diverging bar chart. Supporting effects extend to the
-					right and limiting effects extend to the left.
+					A diverging bar chart. Supportive contributions extend to the right and limiting
+					contributions extend to the left.
 				</desc>
 
 				<!-- Direction labels -->
-				<text
-					x={centerX - 8}
-					y={9}
-					text-anchor="end"
-					class="fill-gray-400 text-[10px]"
-				>
-					Limits
+				<text x={centerX - 8} y={9} text-anchor="end" class="fill-gray-400 text-[10px]">
+					Limiting
 				</text>
 
-				<text
-					x={centerX + 8}
-					y={9}
-					text-anchor="start"
-					class="fill-gray-400 text-[10px]"
-				>
-					Supports
+				<text x={centerX + 8} y={9} text-anchor="start" class="fill-gray-400 text-[10px]">
+					Supportive
 				</text>
 
 				<!-- Central zero line -->
@@ -224,28 +194,18 @@
 				/>
 
 				{#each normalizedEffects as effect, index (effect.symbol)}
-					{@const rowCenter =
-						margin.top +
-						index * heightPerRow +
-						heightPerRow / 2}
+					{@const rowCenter = margin.top + index * heightPerRow + heightPerRow / 2}
 
-					{@const barHeight = Math.min(
-						18,
-						heightPerRow - 8
-					)}
+					{@const barHeight = Math.min(18, heightPerRow - 8)}
 
-					{@const width = effectWidth(
-						effect.semanticValue
-					)}
+					{@const width = effectWidth(effect.helpScore)}
 
 					<g>
 						<title>
-							{effect.name}: {effect.semanticValue > 0
-								? 'supports'
-								: 'limits'} the achieved objective
-							({valueFormatter(effect.semanticValue)}).
-							Raw SHAP value:
-							{valueFormatter(effect.value)}.
+							Desired value for the selected objective has a
+							{effect.helpScore > 0 ? 'supportive' : effect.helpScore < 0 ? 'limiting' : 'neutral'}
+							contribution to the achieved value of {effect.name}
+							({valueFormatter(effect.helpScore)}).
 						</title>
 
 						<!-- Objective label -->
@@ -271,38 +231,29 @@
 
 						<!-- Effect bar -->
 						<rect
-							x={barX(effect.semanticValue)}
+							x={barX(effect.helpScore)}
 							y={rowCenter - barHeight / 2}
-							width={width}
+							{width}
 							height={barHeight}
 							rx="3"
-							fill={effect.semanticValue >= 0
-								? '#0C7BDC'
-								: '#DC3220'}
+							fill={effect.helpScore >= 0 ? '#0C7BDC' : '#DC3220'}
 							opacity="0.9"
 						/>
 
 						<!-- Zero marker for effects equal to zero -->
 						{#if width === 0}
-							<circle
-								cx={centerX}
-								cy={rowCenter}
-								r="2"
-								fill="#9CA3AF"
-							/>
+							<circle cx={centerX} cy={rowCenter} r="2" fill="#9CA3AF" />
 						{/if}
 
 						{#if showValues}
 							<text
-								x={valueLabelX(effect.semanticValue)}
+								x={valueLabelX(effect.helpScore)}
 								y={rowCenter}
 								dominant-baseline="middle"
-								text-anchor={valueLabelAnchor(
-									effect.semanticValue
-								)}
+								text-anchor={valueLabelAnchor(effect.helpScore)}
 								class="fill-gray-500 text-[10px] tabular-nums"
 							>
-								{valueFormatter(effect.semanticValue)}
+								{valueFormatter(effect.helpScore)}
 							</text>
 						{/if}
 					</g>

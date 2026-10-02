@@ -546,7 +546,7 @@
 									{selectedObjectiveName}
 									{selectedObjectiveSymbol}
 									{problem}
-									{preferenceValues}
+									iterationDesiredValues={scenarioReferenceValues}
 									{baselineObjectiveValues}
 									{SHAP_values}
 									{explanationText}

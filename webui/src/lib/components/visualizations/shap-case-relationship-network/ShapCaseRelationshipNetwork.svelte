@@ -5,7 +5,7 @@
 	type ObjectiveItem = {
 		symbol: string;
 		name?: string;
-		maximize?: boolean;
+		maximize: boolean;
 	};
 
 	type ObjectiveValue = number | number[] | null | undefined;
@@ -16,140 +16,359 @@
 		name: string;
 	};
 
+	type NetworkNode = {
+		id: string;
+		symbol: string;
+		side: 'desired' | 'achieved';
+		name: string;
+		value: number | null;
+		x: number;
+		y: number;
+	};
+
+	type LinkType = 'supportive' | 'limiting';
+
+	type NetworkLink = {
+		source: string;
+		target: string;
+		value: number;
+		type: LinkType;
+	};
+
 	let {
 		objectives,
-		preferenceValues,
-		           achievedValues,
+		iterationDesiredValues,
+		achievedValues,
 		shapValues,
-		threshold = 0.0,
+		threshold = 0,
 		targetObjectiveSymbol = null,
+		suggestedDesiredValueSymbol = null,
+		showLegend = true,
 		onNodeSelect
 	}: {
 		objectives: ObjectiveItem[];
-		preferenceValues: number[];
+		iterationDesiredValues: number[];
 		achievedValues: Record<string, ObjectiveValue> | null;
 		shapValues: Record<string, Record<string, number>> | null;
 		threshold?: number;
 		targetObjectiveSymbol?: string | null;
+		suggestedDesiredValueSymbol?: string | null;
+		showLegend?: boolean;
 		onNodeSelect?: (node: SelectedNetworkNode | null) => void;
-
 	} = $props();
 
-	const minWidth = 400;
-	let height = $state(320);	
-	let chartWidth = $state(minWidth);
+	const MIN_WIDTH = 420;
 
-	const boxWidth = 80;
-	const boxHeight = 38;
+	const BOX_WIDTH = 96;
+	const BOX_HEIGHT = 44;
+
+	let chartWidth = $state(MIN_WIDTH);
+	let height = $state(320);
 
 	let containerEl: HTMLDivElement | null = null;
 	let svgEl: SVGSVGElement | undefined;
-	let activeNodeId = $state<string | null>(null);
-	//let chartWidth = $state<number>(minWidth);
+
 	let resizeObserver: ResizeObserver | null = null;
 
-	
+	let activeNodeId = $state<string | null>(null);
+
+	let previousTargetObjectiveSymbol = $state<string | null>(null);
 
 	function normalizeSymbol(symbol: string): string {
 		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
 	}
 
+	function symbolsEqual(a: string | null | undefined, b: string | null | undefined): boolean {
+		if (!a || !b) return false;
+
+		return normalizeSymbol(a) === normalizeSymbol(b);
+	}
+
 	function toFinite(value: ObjectiveValue): number | null {
 		const numeric = Array.isArray(value) ? Number(value[0]) : Number(value);
+
 		return Number.isFinite(numeric) ? numeric : null;
 	}
 
+	function formatValue(value: number | null): string {
+		if (value == null || !Number.isFinite(value)) {
+			return 'n/a';
+		}
+
+		return value.toFixed(3);
+	}
+
 	function formatSigned(value: number): string {
-		const abs = Math.abs(value);
-		if (value > 0) return `+${abs.toFixed(3)}`;
-		if (value < 0) return `-${abs.toFixed(3)}`;
+		const absolute = Math.abs(value);
+
+		if (value > 0) {
+			return `+${absolute.toFixed(3)}`;
+		}
+
+		if (value < 0) {
+			return `-${absolute.toFixed(3)}`;
+		}
+
 		return '0.000';
+	}
+
+	function truncateLabel(label: string, maximumLength = 14): string {
+		if (label.length <= maximumLength) {
+			return label;
+		}
+
+		return `${label.slice(0, maximumLength - 1)}…`;
 	}
 
 	function findShapRow(outputSymbol: string): Record<string, number> {
 		if (!shapValues) return {};
-		return (
-			shapValues[outputSymbol] ??
-			shapValues[`z_${outputSymbol}`] ??
-			Object.entries(shapValues).find(([key]) => normalizeSymbol(key) === outputSymbol)?.[1] ??
-			{}
+
+		const normalizedOutput = normalizeSymbol(outputSymbol);
+
+		const direct = shapValues[outputSymbol] ?? shapValues[`z_${outputSymbol}`];
+
+		if (direct) return direct;
+
+		const entry = Object.entries(shapValues).find(
+			([key]) => normalizeSymbol(key) === normalizedOutput
+		);
+
+		return entry?.[1] ?? {};
+	}
+
+	function findValueInRecord(
+		record: Record<string, ObjectiveValue>,
+		symbol: string
+	): ObjectiveValue {
+		if (symbol in record) {
+			return record[symbol];
+		}
+
+		if (`z_${symbol}` in record) {
+			return record[`z_${symbol}`];
+		}
+
+		const normalizedSymbol = normalizeSymbol(symbol);
+
+		const entry = Object.entries(record).find(([key]) => normalizeSymbol(key) === normalizedSymbol);
+
+		return entry?.[1];
+	}
+
+	function findShapValue(row: Record<string, number>, symbol: string): number {
+		const normalizedSymbol = normalizeSymbol(symbol);
+
+		const direct = row[symbol] ?? row[`z_${symbol}`];
+
+		if (direct != null && Number.isFinite(Number(direct))) {
+			return Number(direct);
+		}
+
+		const entry = Object.entries(row).find(([key]) => normalizeSymbol(key) === normalizedSymbol);
+
+		const value = Number(entry?.[1]);
+
+		return Number.isFinite(value) ? value : 0;
+	}
+
+	function contributionColor(type: LinkType): string {
+		return type === 'supportive' ? '#0C7BDC' : '#DC3220';
+	}
+
+	function isNodeConnected(nodeId: string, links: NetworkLink[]): boolean {
+		if (!activeNodeId) return true;
+
+		if (nodeId === activeNodeId) {
+			return true;
+		}
+
+		return links.some((link) =>
+			link.source === activeNodeId || link.target === activeNodeId
+				? link.source === nodeId || link.target === nodeId
+				: false
 		);
 	}
 
-	function isNodeConnected(nodeId: string, links: Array<{ source: string; target: string }>): boolean {
-		if (!activeNodeId) return true;
-		if (nodeId === activeNodeId) return true;
-		return links.some((link) => link.source === activeNodeId && link.target === nodeId) || links.some((link) => link.target === activeNodeId && link.source === nodeId);
+	function isTargetNode(node: NetworkNode): boolean {
+		return node.side === 'achieved' && symbolsEqual(node.symbol, targetObjectiveSymbol);
+	}
+
+	function isSuggestedNode(node: NetworkNode): boolean {
+		return node.side === 'desired' && symbolsEqual(node.symbol, suggestedDesiredValueSymbol);
+	}
+
+	function nodeFill(node: NetworkNode): string {
+		if (isTargetNode(node)) {
+			return '#EFF6FF';
+		}
+
+		if (isSuggestedNode(node)) {
+			return '#FFFBEB';
+		}
+
+		if (activeNodeId === node.id) {
+			return '#F9FAFB';
+		}
+
+		return '#FFFFFF';
+	}
+
+	function nodeStroke(node: NetworkNode): string {
+		if (isTargetNode(node)) {
+			return '#2563EB';
+		}
+
+		if (isSuggestedNode(node)) {
+			return '#F59E0B';
+		}
+
+		if (activeNodeId === node.id) {
+			return '#374151';
+		}
+
+		return '#D1D5DB';
+	}
+
+	function nodeStrokeWidth(node: NetworkNode): number {
+		if (isTargetNode(node) || isSuggestedNode(node)) {
+			return 2;
+		}
+
+		if (activeNodeId === node.id) {
+			return 2;
+		}
+
+		return 1.2;
+	}
+
+	function nodeMarker(node: NetworkNode): string {
+		if (isSuggestedNode(node)) {
+			return '★ ';
+		}
+
+		if (isTargetNode(node)) {
+			return '❤︎ ';
+		}
+
+		return '';
 	}
 
 	function renderGraph() {
 		if (!svgEl) return;
+
 		const width = chartWidth;
 		const svg = d3.select(svgEl);
+
 		svg.selectAll('*').remove();
 
-		if (!objectives.length || !achievedValues || !shapValues) return;
+		if (!objectives.length || !achievedValues || !shapValues) {
+			return;
+		}
 
-		const leftX = 10;
-		const rightX = width - boxWidth - 10;
-		const topY = 34;
-		const bottomY = height - 54;
+		const leftX = 12;
+		const rightX = width - BOX_WIDTH - 12;
+
+		const topY = 40;
+		const bottomY = height - 56;
+
 		const stepY = objectives.length > 1 ? (bottomY - topY) / (objectives.length - 1) : 0;
 
-		const leftNodes = objectives.map((objective, idx) => {
-			const pref = Number(preferenceValues[idx] ?? 0);
+		/* ---------------------------------
+		 * Nodes
+		 * --------------------------------- */
+
+		const desiredNodes: NetworkNode[] = objectives.map((objective, index) => {
+			const desired = Number(iterationDesiredValues[index]);
+
 			return {
 				id: `p_${objective.symbol}`,
 				symbol: objective.symbol,
-				side: 'left' as const,
-				label: `${objective.name ?? objective.symbol} = ${pref.toFixed(3)}`,
+				side: 'desired',
+				name: objective.name ?? objective.symbol,
+				value: Number.isFinite(desired) ? desired : null,
 				x: leftX,
-				y: topY + idx * stepY
+				y: topY + index * stepY
 			};
 		});
 
-		const rightNodes = objectives.map((objective, idx) => {
-			const achieved = toFinite(achievedValues[objective.symbol]);
+		const achievedNodes: NetworkNode[] = objectives.map((objective, index) => {
+			const raw = findValueInRecord(achievedValues, objective.symbol);
+
 			return {
 				id: `a_${objective.symbol}`,
 				symbol: objective.symbol,
-				side: 'right' as const,
-				label: `${objective.name ?? objective.symbol} = ${achieved == null ? 'n/a' : achieved.toFixed(3)}`,
+				side: 'achieved',
+				name: objective.name ?? objective.symbol,
+				value: toFinite(raw),
 				x: rightX,
-				y: topY + idx * stepY
+				y: topY + index * stepY
 			};
 		});
 
-		const nodes = [...leftNodes, ...rightNodes];
+		const nodes = [...desiredNodes, ...achievedNodes];
 
-		const links: Array<{
-			source: string;
-			target: string;
-			value: number;
-			type: 'synergy' | 'conflict';
-		}> = [];
+		/* ---------------------------------
+		 * Contribution links
+		 * --------------------------------- */
+
+		const links: NetworkLink[] = [];
 
 		for (const targetObjective of objectives) {
 			const shapRow = findShapRow(targetObjective.symbol);
-			const targetMaximize = Boolean(targetObjective.maximize);
 
 			for (const inputObjective of objectives) {
-				const rawShap = Number(
-					shapRow[inputObjective.symbol] ?? shapRow[`z_${inputObjective.symbol}`] ?? 0
-				);
-				if (!Number.isFinite(rawShap)) continue;
+				const rawShap = findShapValue(shapRow, inputObjective.symbol);
 
-				const helpScore = targetMaximize ? rawShap : -rawShap;
-				if (Math.abs(helpScore) <= threshold) continue;
+				if (!Number.isFinite(rawShap)) {
+					continue;
+				}
+
+				/*
+				 * Positive helpScore:
+				 * supportive contribution.
+				 *
+				 * Negative helpScore:
+				 * limiting contribution.
+				 *
+				 * For minimized output objectives,
+				 * reverse the SHAP sign.
+				 */
+				const helpScore = targetObjective.maximize ? rawShap : -rawShap;
+
+				if (Math.abs(helpScore) <= threshold) {
+					continue;
+				}
 
 				links.push({
 					source: `p_${inputObjective.symbol}`,
 					target: `a_${targetObjective.symbol}`,
 					value: helpScore,
-					type: helpScore >= 0 ? 'synergy' : 'conflict'
+					type: helpScore >= 0 ? 'supportive' : 'limiting'
 				});
 			}
 		}
+
+		/* ---------------------------------
+		 * Column headings
+		 * --------------------------------- */
+
+		svg
+			.append('text')
+			.attr('x', leftX)
+			.attr('y', 17)
+			.attr('font-size', 10)
+			.attr('font-weight', 600)
+			.attr('fill', '#6B7280')
+			.text('Desired values');
+
+		svg
+			.append('text')
+			.attr('x', rightX)
+			.attr('y', 17)
+			.attr('font-size', 10)
+			.attr('font-weight', 600)
+			.attr('fill', '#6B7280')
+			.text('Achieved values');
 
 		if (links.length === 0) {
 			svg
@@ -157,258 +376,254 @@
 				.attr('x', width / 2)
 				.attr('y', height / 2)
 				.attr('text-anchor', 'middle')
-				.attr('fill', '#6b7280')
-				.attr('font-size', 10)
-				.text('No SHAP effects above threshold.');
+				.attr('fill', '#6B7280')
+				.attr('font-size', 11)
+				.text('No contributions are available.');
+
 			return;
 		}
 
-		svg
-			.append('defs')
-			.selectAll('marker')
-			.data(['conflict', 'synergy'])
-			.join('marker')
-			.attr('id', (d) => `shap-arrow-${d}`)
-			.attr('viewBox', '0 -5 10 10')
-			.attr('markerUnits', 'userSpaceOnUse')
-			.attr('refX', 8)
-			.attr('refY', 0)
-			.attr('markerWidth', 7)
-			.attr('markerHeight', 7)
-			.attr('orient', 'auto')
-			.append('path')
-			.attr('d', 'M0,-5L10,0L0,5')
-			.attr('fill', (d) => (d === 'conflict' ? '#dc2626' : '#2563eb'));
+		const maxAbs = d3.max(links, (link) => Math.abs(link.value)) ?? 1;
 
-		const maxAbs = d3.max(links, (d) => Math.abs(d.value)) ?? 1;
-		const strokeWidth = d3.scaleLinear().domain([0, maxAbs]).range([1.2, 7]);
-		const line = d3
-			.line<[number, number]>()
-			.x((d) => d[0])
-			.y((d) => d[1])
-			.curve(d3.curveBasis);
+		const strokeWidth = d3.scaleLinear().domain([0, maxAbs]).range([1.2, 5.5]);
 
 		const byId = new Map(nodes.map((node) => [node.id, node]));
-		const anchorRight = (n: { x: number; y: number }) => ({ x: n.x + boxWidth, y: n.y + boxHeight / 2 });
-		const anchorLeft = (n: { x: number; y: number }) => ({ x: n.x, y: n.y + boxHeight / 2 });
 
-		svg
-			.append('text')
-			.attr('x', leftX)
-			.attr('y', 18)
-			.attr('font-size', 10)
-			.attr('font-style', 'italic')
-			.attr('fill', '#6b7280')
-			.text('Desired values');
+		function anchorRight(node: NetworkNode) {
+			return {
+				x: node.x + BOX_WIDTH,
+				y: node.y + BOX_HEIGHT / 2
+			};
+		}
 
-		svg
-			.append('text')
-			.attr('x', rightX)
-			.attr('y', 18)
-			.attr('font-size', 10)
-			.attr('font-style', 'italic')
-			.attr('fill', '#6b7280')
-			.text('Achieved values');
+		function anchorLeft(node: NetworkNode) {
+			return {
+				x: node.x,
+				y: node.y + BOX_HEIGHT / 2
+			};
+		}
+
+		function linkPath(link: NetworkLink): string {
+			const source = byId.get(link.source);
+			const target = byId.get(link.target);
+
+			if (!source || !target) {
+				return '';
+			}
+
+			const start = anchorRight(source);
+
+			const end = anchorLeft(target);
+
+			const middleX = (start.x + end.x) / 2;
+
+			return [
+				`M ${start.x} ${start.y}`,
+				`C ${middleX} ${start.y},`,
+				`${middleX} ${end.y},`,
+				`${end.x} ${end.y}`
+			].join(' ');
+		}
+
+		function isActiveLink(link: NetworkLink): boolean {
+			if (!activeNodeId) {
+				return false;
+			}
+
+			return link.source === activeNodeId || link.target === activeNodeId;
+		}
+
+		/* ---------------------------------
+		 * Links
+		 * --------------------------------- */
 
 		svg
 			.append('g')
+			.attr('aria-label', 'Contribution relationships')
 			.selectAll('path')
 			.data(links)
 			.join('path')
-			.attr('d', (d) => {
-				const sNode = byId.get(d.source);
-				const tNode = byId.get(d.target);
-				if (!sNode || !tNode) return '';
-				const s = anchorRight(sNode);
-				const t = anchorLeft(tNode);
-				const midX = (s.x + t.x) / 2;
-				return line([
-					[s.x, s.y],
-					[midX, s.y],
-					[midX, t.y],
-					[t.x, t.y]
-				]);
-			})
+			.attr('d', linkPath)
 			.attr('fill', 'none')
-			.attr('stroke', (d) => (d.type === 'conflict' ? '#dc2626' : '#2563eb'))
-			.attr('stroke-width', (d) => strokeWidth(Math.abs(d.value)))
-			.attr('marker-end', (d) => `url(#shap-arrow-${d.type})`)
-			.attr('opacity', (d) => {
-				if (!activeNodeId) return 0.92;
-				return d.source === activeNodeId || d.target === activeNodeId ? 1 : 0.12;
+			.attr('stroke', (link) => contributionColor(link.type))
+			.attr('stroke-width', (link) => strokeWidth(Math.abs(link.value)))
+			.attr('stroke-linecap', 'round')
+			.attr('opacity', (link) => {
+				if (!activeNodeId) {
+					return 0.18;
+				}
+
+				return isActiveLink(link) ? 0.95 : 0.06;
+			})
+			.each(function (link) {
+				d3.select(this)
+					.append('title')
+					.text(
+						`${link.type === 'supportive' ? 'Supportive' : 'Limiting'} contribution: ${formatSigned(link.value)}`
+					);
 			});
+
+		/* ---------------------------------
+		 * Link value labels
+		 *
+		 * Exact values only appear for the
+		 * currently selected node.
+		 * --------------------------------- */
 
 		svg
 			.append('g')
 			.selectAll('text')
 			.data(links)
 			.join('text')
-			.attr('x', (d) => {
-				const sNode = byId.get(d.source);
-				const tNode = byId.get(d.target);
-				if (!sNode || !tNode) return 0;
-				return (anchorRight(sNode).x + anchorLeft(tNode).x) / 2;
+			.attr('x', (link) => {
+				const source = byId.get(link.source);
+				const target = byId.get(link.target);
+
+				if (!source || !target) {
+					return 0;
+				}
+
+				return (anchorRight(source).x + anchorLeft(target).x) / 2;
 			})
-			.attr('y', (d) => {
-				const sNode = byId.get(d.source);
-				const tNode = byId.get(d.target);
-				if (!sNode || !tNode) return 0;
-				return (anchorRight(sNode).y + anchorLeft(tNode).y) / 2 - 8;
+			.attr('y', (link) => {
+				const source = byId.get(link.source);
+				const target = byId.get(link.target);
+
+				if (!source || !target) {
+					return 0;
+				}
+
+				return (anchorRight(source).y + anchorLeft(target).y) / 2 - 7;
 			})
 			.attr('text-anchor', 'middle')
-			.attr('font-size', 10)
-			.attr('fill', '#111827')
-			.attr('opacity', (d) => {
-				if (!activeNodeId) return 1;
-				return d.source === activeNodeId || d.target === activeNodeId ? 1 : 0.2;
-			})
-			.text((d) => formatSigned(d.value));
+			.attr('font-size', 9)
+			.attr('font-weight', 600)
+			.attr('fill', (link) => contributionColor(link.type))
+			.attr('stroke', '#FFFFFF')
+			.attr('stroke-width', 3)
+			.attr('paint-order', 'stroke')
+			.attr('pointer-events', 'none')
+			.attr('opacity', (link) => (isActiveLink(link) ? 1 : 0))
+			.text((link) => formatSigned(link.value));
+
+		/* ---------------------------------
+		 * Nodes
+		 * --------------------------------- */
 
 		const nodeGroup = svg
 			.append('g')
 			.selectAll('g')
 			.data(nodes)
 			.join('g')
-			.attr('transform', (d) => `translate(${d.x}, ${d.y})`)
+			.attr('transform', (node) => `translate(${node.x}, ${node.y})`)
+			.attr('opacity', (node) => (isNodeConnected(node.id, links) ? 1 : 0.32))
 			.style('cursor', 'pointer')
-			.on('click', (_, d) => {
-				const isClearing = activeNodeId === d.id;
-				activeNodeId = isClearing ? null : d.id;
+			.on('click', (_, node) => {
+				const isClearing = activeNodeId === node.id;
 
 				if (isClearing) {
+					activeNodeId = null;
 					onNodeSelect?.(null);
 					return;
 				}
 
+				activeNodeId = node.id;
+
 				onNodeSelect?.({
-					side: d.side === 'left' ? 'desired' : 'achieved',
-					symbol: d.symbol,
-					name:
-						objectives.find((objective) => objective.symbol === d.symbol)?.name ??
-						d.symbol
+					side: node.side,
+					symbol: node.symbol,
+					name: node.name
 				});
 			});
 
-		nodeGroup
-			.append('title')
-			.text((d) => {
-				if (d.side === 'left') {
-					return `Click to see how the desired value for ${d.label.split('=')[0].trim()} affects the achieved solution.`;
-				}
+		nodeGroup.append('title').text((node) => {
+			if (node.side === 'desired') {
+				return `Select to see how the desired value for ${node.name} contributed across the achieved values.`;
+			}
 
-				return `Click to see which desired values affected the achieved value of ${d.label.split('=')[0].trim()}.`;
-			});
+			return `Select to see which desired values contributed to the achieved value of ${node.name}.`;
+		});
 
 		nodeGroup
 			.append('rect')
-			.attr('width', boxWidth)
-			.attr('height', boxHeight)
-			.attr('rx', 8)
-			.attr('fill', (d) => {
-				const isTarget = d.symbol === targetObjectiveSymbol;
+			.attr('width', BOX_WIDTH)
+			.attr('height', BOX_HEIGHT)
+			.attr('rx', 7)
+			.attr('fill', nodeFill)
+			.attr('stroke', nodeStroke)
+			.attr('stroke-width', nodeStrokeWidth);
 
-				if (activeNodeId === d.id) return '#fef3c7';
-				if (isTarget && d.side === 'right') return '#dbeafe';
-
-				return d.side === 'left' ? '#eef2ff' : '#ecfdf5';
-			})
-			.attr('stroke', (d) => {
-				const isTarget = d.symbol === targetObjectiveSymbol;
-
-				if (activeNodeId === d.id) return '#f59e0b';
-				if (isTarget && d.side === 'right') return '#2563eb';
-
-				return d.side === 'left' ? '#c7d2fe' : '#a7f3d0';
-			})
-			.attr('stroke-width', (d) => {
-				const isTarget = d.symbol === targetObjectiveSymbol;
-				if (activeNodeId === d.id) return 2;
-				if (isTarget && d.side === 'right') return 2.5;
-				return 1.2;
-			})
-			.attr('opacity', (d) => (isNodeConnected(d.id, links) ? 1 : 0.35));
+		/* Objective name */
 
 		nodeGroup
 			.append('text')
-			.attr('x', boxWidth / 2)
-			.attr('y', boxHeight / 2 + 4)
+			.attr('x', BOX_WIDTH / 2)
+			.attr('y', 17)
 			.attr('text-anchor', 'middle')
 			.attr('font-size', 10)
 			.attr('font-weight', 600)
-			.attr('fill', '#1f2937')
+			.attr('fill', '#1F2937')
 			.attr('pointer-events', 'none')
-			.text((d) => {
-				const isTarget = d.symbol === targetObjectiveSymbol && d.side === 'right';
-				return isTarget ? `★ ${d.label}` : d.label;
-			});
+			.text((node) => `${nodeMarker(node)}${truncateLabel(node.name)}`);
 
-/* 		const legend = svg.append('g').attr('transform', `translate(${leftX}, ${height - 22})`);
+		/* Desired / achieved numeric value */
 
-		legend
-			.append('line')
-			.attr('x1', 0)
-			.attr('x2', 36)
-			.attr('y1', 0)
-			.attr('y2', 0)
-			.attr('stroke', '#dc2626')
-			.attr('stroke-width', 4);
-
-		legend
+		nodeGroup
 			.append('text')
-			.attr('x', 46)
-			.attr('y', 4)
-			.attr('font-size', 10)
-			.attr('fill', '#374151')
-			.text('conflict');
-
-		legend
-			.append('line')
-			.attr('x1', 124)
-			.attr('x2', 160)
-			.attr('y1', 0)
-			.attr('y2', 0)
-			.attr('stroke', '#2563eb')
-			.attr('stroke-width', 4);
-
-		legend
-			.append('text')
-			.attr('x', 170)
-			.attr('y', 4)
-			.attr('font-size', 10)
-			.attr('fill', '#374151')
-			.text('synergy');
-
-		svg
-			.append('text')
-			.attr('x', Math.max(leftX + 220, width - 250))
-			.attr('y', height - 14)
-			.attr('font-size', 10)
-			.attr('font-style', 'italic')
-			.attr('fill', '#6b7280')
-			.text('thicker line = stronger SHAP effect'); */
+			.attr('x', BOX_WIDTH / 2)
+			.attr('y', 32)
+			.attr('text-anchor', 'middle')
+			.attr('font-size', 9)
+			.attr('fill', '#6B7280')
+			.attr('pointer-events', 'none')
+			.text((node) => formatValue(node.value));
 	}
 
-	onMount(() => {
-		renderGraph();
+	/* ---------------------------------
+	 * Keep the selected achieved
+	 * objective focused when it changes.
+	 * --------------------------------- */
 
-		if (!svgEl) return;
+	$effect(() => {
+		if (targetObjectiveSymbol === previousTargetObjectiveSymbol) {
+			return;
+		}
+
+		previousTargetObjectiveSymbol = targetObjectiveSymbol;
+
+		activeNodeId = targetObjectiveSymbol ? `a_${targetObjectiveSymbol}` : null;
+	});
+
+	onMount(() => {
+		if (targetObjectiveSymbol) {
+			activeNodeId = `a_${targetObjectiveSymbol}`;
+		}
 
 		const updateSize = () => {
-        	if (!containerEl) return;
+			if (!containerEl) return;
 
 			const measuredWidth = Math.floor(containerEl.getBoundingClientRect().width);
 
-			if (measuredWidth > 0) {
-				chartWidth = Math.max(minWidth, measuredWidth);
-				height = Math.max(280, Math.min(440, chartWidth * 0.75));
+			if (measuredWidth <= 0) {
+				return;
 			}
+
+			chartWidth = Math.max(MIN_WIDTH, measuredWidth);
+
+			/*
+			 * Preserve enough vertical room
+			 * for every objective row.
+			 */
+			const rowBasedHeight = 120 + Math.max(0, objectives.length - 1) * 58;
+
+			const widthBasedHeight = Math.min(440, chartWidth * 0.72);
+
+			height = Math.max(300, rowBasedHeight, widthBasedHeight);
 		};
 
 		updateSize();
 
-		resizeObserver = new ResizeObserver(() => {
-			updateSize();
-		});
+		resizeObserver = new ResizeObserver(updateSize);
 
 		if (containerEl) {
 			resizeObserver.observe(containerEl);
@@ -422,41 +637,74 @@
 
 	$effect(() => {
 		chartWidth;
+		height;
+
 		objectives;
-		preferenceValues;
+		iterationDesiredValues;
 		achievedValues;
 		shapValues;
+
 		threshold;
 		activeNodeId;
+
+		targetObjectiveSymbol;
+		suggestedDesiredValueSymbol;
+
 		renderGraph();
 	});
 </script>
 
-<div >
-<!-- 	<div class="mb-2 rounded-md bg-blue-50 p-2 text-[12px] text-gray-600">
-
-		{#if activeNodeId}
-			<button
-				type="button"
-				class="mt-1 rounded bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-100"
-				onclick={() => {
-					activeNodeId = null;
-					onNodeSelect?.(null);
-				}}
-			>
-				Clear focus
-			</button>
-		{/if}
-	</div> -->
-	<div bind:this={containerEl} class="overflow-auto">
+<div class="w-full">
+	<div bind:this={containerEl} class="overflow-x-auto">
 		<svg
 			bind:this={svgEl}
 			width="100%"
-			height={height}
+			{height}
 			viewBox={`0 0 ${chartWidth} ${height}`}
 			preserveAspectRatio="xMidYMid meet"
 			role="img"
-			aria-label="SHAP relationship graph between preferences and achieved values"
+			aria-label="Contribution relationship graph between desired and achieved values"
+			class="block"
 		></svg>
 	</div>
+
+	{#if showLegend}
+		<div
+			class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-gray-500"
+			aria-label="Contribution relationship legend"
+		>
+			<span class="inline-flex items-center gap-1.5">
+				<span class="h-0.5 w-4 rounded-full bg-[#0C7BDC]" aria-hidden="true"></span>
+				Supportive
+			</span>
+
+			<span class="inline-flex items-center gap-1.5">
+				<span class="h-0.5 w-4 rounded-full bg-[#DC3220]" aria-hidden="true"></span>
+				Limiting
+			</span>
+
+			<span class="inline-flex items-center gap-1.5">
+				<span class="inline-flex items-center gap-0.5" aria-hidden="true">
+					<span class="h-px w-3 rounded-full bg-gray-400"></span>
+					<span class="h-1 w-3 rounded-full bg-gray-400"></span>
+				</span>
+
+				Thicker = larger contribution
+			</span>
+
+			{#if suggestedDesiredValueSymbol}
+				<span class="inline-flex items-center gap-1">
+					<span class="font-semibold text-amber-600" aria-hidden="true"> ★ </span>
+					R-XIMO suggestion
+				</span>
+			{/if}
+
+			{#if targetObjectiveSymbol}
+				<span class="inline-flex items-center gap-1">
+					<span class="font-semibold text-blue-700" aria-hidden="true"> ❤︎ </span>
+					Selected achieved value
+				</span>
+			{/if}
+		</div>
+	{/if}
 </div>
