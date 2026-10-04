@@ -12,6 +12,8 @@
 	import { ShapHeatmap } from '$lib/components/visualizations/shap-heatmap';
 	import ContributionChart from '$lib/components/visualizations/barchart/ContributionChart.svelte';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
+	import InfoIcon from '@lucide/svelte/icons/info';
 
 	import DesiredValueEffects from '$lib/components/visualizations/desired-value-effects/DesiredValueEffects.svelte';
 	import { onMount } from 'svelte';
@@ -140,9 +142,11 @@
 
 <div class="space-y-2">
 	<!-- Compact explanation-generation pipeline -->
-	<p class="text-xs leading-relaxed text-gray-700">
-		Explore the contribution structure behind the current solution. Select a desired or achieved
-		value to examine its relationships in more detail.
+	<p class="text-xs leading-relaxed text-gray-600">
+		Explore the contribution structure behind the current solution.
+		<strong>Relationship view</strong> supports interactive inspection of individual desired or
+		achieved values, while
+		<strong>Contribution matrix</strong> provides an overview of all pairwise contributions.
 	</p>
 
 	<!-- Evidence views -->
@@ -270,9 +274,24 @@
 				<div class="mb-3">
 					<h4 class="text-sm font-semibold text-gray-900">Contribution matrix</h4>
 
-					<p class="mt-1 text-xs leading-relaxed text-gray-500">
-						Compare the contributions between all desired and achieved values.
-					</p>
+					<div class="mt-1 flex items-center gap-2">
+						<p class="mt-1 text-xs leading-relaxed text-gray-500">
+							Compare the contributions between all desired and achieved values.
+						</p>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								class="mt-0.5 inline-flex items-center text-gray-400 hover:text-gray-600"
+							>
+								<InfoIcon class="h-3.5 w-3.5" />
+							</Tooltip.Trigger>
+
+							<Tooltip.Content sideOffset={6} class="max-w-72">
+								Each cell describes how one desired value contributed to one achieved value in the
+								current solution. Contributions do not predict what will happen if a desired value
+								is changed.
+							</Tooltip.Content>
+						</Tooltip.Root>
+					</div>
 				</div>
 
 				<div class="overflow-x-auto">
@@ -283,7 +302,7 @@
 	</Tabs.Root>
 
 	<!-- Optional generated explanation -->
-	{#if explanationText}
+	<!-- 	{#if explanationText}
 		<div class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
 			<div class="mb-1 flex items-center gap-1.5">
 				<svg
@@ -308,5 +327,5 @@
 				{explanationText}
 			</p>
 		</div>
-	{/if}
+	{/if} -->
 </div>

@@ -2,11 +2,11 @@
 	interface ObjectiveInfo {
 		symbol: string;
 		name: string;
-		maximize: boolean;
+		maximize: boolean | undefined;
 	}
 
 	interface Props {
-		effects: Record<string, number>;
+		effects: Record<string, number> | null;
 		objectives: ObjectiveInfo[];
 		heightPerRow?: number;
 		showValues?: boolean;
@@ -23,20 +23,17 @@
 
 	let containerWidth = $state(0);
 
+	const LABEL_WIDTH = 110;
+	const VALUE_GUTTER = 42;
+
 	const margin = {
-		top: 12,
-		right: 52,
+		top: 16,
+		right: 58,
 		bottom: 12,
-		left: 118
+		left: LABEL_WIDTH + VALUE_GUTTER
 	};
 
 	const minimumChartWidth = 320;
-
-	const chartWidth = $derived(Math.max(containerWidth || minimumChartWidth, minimumChartWidth));
-
-	const chartHeight = $derived(
-		Math.max(margin.top + margin.bottom + effects.length * heightPerRow, 80)
-	);
 
 	/*
 	 * Convert the raw SHAP effect into a semantic effect:
@@ -64,6 +61,12 @@
 			};
 		});
 	});
+
+	const chartWidth = $derived(Math.max(containerWidth || minimumChartWidth, minimumChartWidth));
+
+	const chartHeight = $derived(
+		Math.max(margin.top + margin.bottom + normalizedEffects.length * heightPerRow, 80)
+	);
 
 	const maximumAbsoluteEffect = $derived(
 		Math.max(...normalizedEffects.map((effect) => Math.abs(effect.helpScore)), 0)
@@ -210,12 +213,13 @@
 
 						<!-- Objective label -->
 						<text
-							x={margin.left - 8}
+							x={LABEL_WIDTH - 8}
 							y={rowCenter}
 							dominant-baseline="middle"
 							text-anchor="end"
 							class="fill-gray-600 text-[11px]"
 						>
+							<title>{effect.name}</title>
 							{truncateLabel(effect.name)}
 						</text>
 

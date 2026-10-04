@@ -9,8 +9,6 @@
 	 * Color   = blue for improving effects, red for impairing effects
 	 * Text    = SHAP value formatted to 2 decimal places
 	 */
-	import InfoIcon from '@lucide/svelte/icons/info';
-	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 	import type { ProblemInfo } from '$lib/types';
 
 	interface Props {
@@ -23,9 +21,7 @@
 
 	// ── Derived matrix dimensions ────────────────────────────────────────────
 	const rowSymbols = $derived(Object.keys(shapValues));
-	const colSymbols = $derived(
-		rowSymbols.length > 0 ? Object.keys(shapValues[rowSymbols[0]]) : []
-	);
+	const colSymbols = $derived(rowSymbols.length > 0 ? Object.keys(shapValues[rowSymbols[0]]) : []);
 
 	// symbol → display name
 	const objNameMap = $derived(
@@ -42,10 +38,8 @@
 	);
 
 	// ── Color intensity scale ────────────────────────────────────────────────
-	const allValues = $derived(
-		rowSymbols.flatMap((r) => colSymbols.map((c) => shapValues[r][c]))
-	);
-	const absMax = $derived(Math.max(1e-9, ...allValues.map(Math.abs)));
+	const allValues = $derived(rowSymbols.flatMap((r) => colSymbols.map((c) => shapValues[r][c])));
+	//const absMax = $derived(Math.max(1e-9, ...allValues.map(Math.abs)));
 
 	// ── SVG layout constants ─────────────────────────────────────────────────
 	const CELL = 52;
@@ -116,12 +110,83 @@
 		return maximize ? v < 0 : v > 0;
 	}
 
+	function contributionScore(row: string, col: string): number {
+		const rawValue = Number(shapValues[row]?.[col] ?? 0);
+
+		if (!Number.isFinite(rawValue)) {
+			return 0;
+		}
+
+		const maximize = objMaximizeMap[normalizeSymbol(row)] ?? false;
+
+		return maximize ? rawValue : -rawValue;
+	}
+
+	function normalizeSymbol(symbol: string): string {
+		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
+	}
+
+	function contributionType(row: string, col: string): 'supportive' | 'limiting' | 'neutral' {
+		const value = contributionScore(row, col);
+
+		if (Math.abs(value) <= 1e-10) {
+			return 'neutral';
+		}
+
+		return value > 0 ? 'supportive' : 'limiting';
+	}
+
+	const allContributionScores = $derived(
+		rowSymbols.flatMap((row) => colSymbols.map((col) => contributionScore(row, col)))
+	);
+
+	const absMax = $derived(Math.max(1e-9, ...allContributionScores.map(Math.abs)));
+
+	function cellColor(row: string, col: string): string {
+		const type = contributionType(row, col);
+
+		if (type === 'supportive') {
+			return '#0C7BDC';
+		}
+
+		if (type === 'limiting') {
+			return '#DC3220';
+		}
+
+		return '#9CA3AF';
+	}
+
+	function cellOpacity(row: string, col: string): number {
+		const value = contributionScore(row, col);
+
+		if (Math.abs(value) <= 1e-10) {
+			return 0.16;
+		}
+
+		const normalized = Math.abs(value) / absMax;
+
+		return 0.15 + normalized * 0.85;
+	}
 	// SVG coordinates computed here so they can be used in templates without {@const}
 	const axisX = 7;
 	const axisY = $derived(TOP_MARGIN + (rowSymbols.length * CELL) / 2);
 </script>
 
 <div class="w-full">
+	<div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-500">
+		<span class="inline-flex items-center gap-1.5">
+			<span class="h-2.5 w-2.5 rounded-sm bg-[#0C7BDC]"></span>
+			Supportive
+		</span>
+
+		<span class="inline-flex items-center gap-1.5">
+			<span class="h-2.5 w-2.5 rounded-sm bg-[#DC3220]"></span>
+			Limiting
+		</span>
+
+		<span>Darker = larger contribution</span>
+	</div>
+
 	<svg
 		viewBox={`0 0 ${svgWidth} ${svgHeight}`}
 		preserveAspectRatio="xMidYMin meet"
@@ -174,7 +239,11 @@
 				fill={'#374151'}
 				font-weight={'normal'}
 			>
-				<title>{rowLabels[ri]}{impairs ? ' ⚠ this aspiration is making the outcome harder to improve' : ''}</title>
+				<title
+					>{rowLabels[ri]}{impairs
+						? ' ⚠ this aspiration is making the outcome harder to improve'
+						: ''}</title
+				>
 				{truncate(rowLabels[ri], 11)}
 			</text>
 
@@ -190,13 +259,14 @@
 					y={ry}
 					width={CELL}
 					height={CELL}
-					fill={cellFill(row, col)}
-					stroke={isDiag ? (impairs ? '#f59e0b' : '#111827') : 'white'}
-					stroke-width={isDiag ? 2.5 : 2}
+					fill={cellColor(row, col)}
+					fill-opacity={cellOpacity(row, col)}
+					stroke="white"
+					stroke-width="2"
 					rx="3"
-				>
-					<title>{rowLabels[ri]} ← {colLabels[ci]}: {fmt(shapValues[row][col])} ({cellIsImproving(row, col) ? 'improving' : 'impairing'} effect){isDiag ? ' (own aspiration)' : ''}{isBest ? ' ★ relax this aspiration first' : ''}</title>
-				</rect>
+				/>
+
+				{@const value = contributionScore(row, col)}
 
 				<text
 					x={rx + CELL / 2}
@@ -207,11 +277,11 @@
 					fill={textFill(row, col)}
 					pointer-events="none"
 				>
-					{fmt(shapValues[row][col])}
+					{value > 0 ? '+' : ''}{value.toFixed(2)}
 				</text>
 
 				<!-- Best-lever star -->
-<!-- 				{#if isBest && !isDiag}
+				<!-- 				{#if isBest && !isDiag}
 					<text
 						x={rx + CELL - 5}
 						y={ry + 10}
@@ -248,15 +318,4 @@
 			Achieved values
 		</text>
 	</svg>
-	<div class="mt-2 flex items-start gap-1 text-[11px] text-gray-500">
-		<span>Blue cells improve the outcome, red cells impair it. Color intensity shows relative impact, not how many units to change an aspiration.</span>
-		<Tooltip.Root>
-			<Tooltip.Trigger class="mt-0.5 inline-flex items-center text-gray-400 hover:text-gray-600">
-				<InfoIcon class="h-3.5 w-3.5" />
-			</Tooltip.Trigger>
-			<Tooltip.Content sideOffset={6} class="max-w-72">
-				Each cell value is an explanation score that compares how strongly an aspiration affects an outcome. Blue means the aspiration currently supports that outcome; red means it currently works against it. The number is not a recommended unit change for the next reference point.
-			</Tooltip.Content>
-		</Tooltip.Root>
-	</div>
 </div>

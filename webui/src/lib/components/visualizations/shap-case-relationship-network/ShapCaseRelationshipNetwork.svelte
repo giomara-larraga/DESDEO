@@ -5,7 +5,7 @@
 	type ObjectiveItem = {
 		symbol: string;
 		name?: string;
-		maximize: boolean;
+		maximize: boolean | undefined;
 	};
 
 	type ObjectiveValue = number | number[] | null | undefined;
