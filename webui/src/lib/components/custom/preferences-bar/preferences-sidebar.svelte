@@ -22,14 +22,13 @@
 	import Circle from '@lucide/svelte/icons/circle';
 	import Triangle from '@lucide/svelte/icons/triangle';
 
-
 	interface Props {
 		preferenceTypes: PreferenceValue[];
 		problem: ProblemInfo;
 		numSolutions: number;
 		typePreferences: PreferenceValue;
 		preferenceValues: number[];
-		objectiveValues: number[];
+		objectiveValues: number[] | undefined[];
 		onPreferenceChange?: (data: {
 			numSolutions: number;
 			typePreferences: PreferenceValue;
@@ -57,6 +56,7 @@
 		maxNumSolutions?: number;
 		lastIteratedPreference?: number[];
 		isFinishButton?: boolean;
+		fitParent?: boolean;
 	}
 
 	let {
@@ -76,13 +76,16 @@
 		minNumSolutions = 1,
 		maxNumSolutions = 4,
 		lastIteratedPreference = [],
-		isFinishButton = true
+		isFinishButton = true,
+		fitParent = false
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
-	const valid_preference_types = $derived(preferenceTypes.filter((type) =>
-		Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
-	));
+	const valid_preference_types = $derived(
+		preferenceTypes.filter((type) =>
+			Object.values(PREFERENCE_TYPES).includes(type as PreferenceValue)
+		)
+	);
 
 	$effect(() => {
 		if (valid_preference_types.length !== preferenceTypes.length) {
@@ -99,10 +102,10 @@
 	let internal_num_solutions = $state(0);
 	let internal_type_preferences = $state('');
 	let internal_preference_values = $state<number[]>([]);
-	let internal_objective_values = $state<number[]>([]);
+	let internal_objective_values = $state<number[] | undefined[]>([]);
 
 	let displayAccuracy = $derived((idx: number) => {
-		const list = getDisplayAccuracy(problem)
+		const list = getDisplayAccuracy(problem);
 		return list[idx];
 	});
 
@@ -189,8 +192,10 @@
 		return internal_preference_values[idx] ?? 0;
 	}
 
-	function get_objective_value(idx: number): number {
-		return internal_objective_values[idx] ?? 0;
+	function get_objective_value(idx: number): number | undefined {
+		const value = internal_objective_values[idx];
+
+		return Number.isFinite(value) ? value : undefined;
 	}
 
 	// Helper function to get objective title for display
@@ -200,13 +205,14 @@
 		const tooltip = objective.description || objective.name;
 		return objective.unit ? `${tooltip} (${objective.unit})` : tooltip;
 	}
-
 </script>
 
 <Sidebar.Root
 	{ref}
 	collapsible="none"
-	class="top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]"
+	class={fitParent
+		? 'flex h-full min-h-0 w-full'
+		: 'top-12 flex h-[calc(100vh-6rem)] min-h-[calc(100vh-3rem)] w-[25rem]'}
 >
 	<Sidebar.Header>
 		{#if valid_preference_types.length > 1}
@@ -250,7 +256,7 @@
 		{/if}
 
 		{#if internal_type_preferences === PREFERENCE_TYPES.Classification}
-		 <span class="mb-1 cursor-pointer text-sm text-gray-700"
+			<span class="mb-1 cursor-pointer text-sm text-gray-700"
 				>Drag the sliders to define how each objective function should change. Colored areas
 				indicate the current value.</span
 			>
@@ -303,10 +309,7 @@
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
 					<div class="mb-4 flex flex-col gap-2">
-						<div
-							class="text-sm font-semibold text-gray-700"
-							title={getObjectiveTitle(objective)}
-						>
+						<div class="text-sm font-semibold text-gray-700" title={getObjectiveTitle(objective)}>
 							{objective.name} ({objective.maximize ? 'max' : 'min'})
 						</div>
 						<div class="flex flex-row items-start">
@@ -331,7 +334,7 @@
 										Math.min(objective.ideal, objective.nadir),
 										Math.max(objective.ideal, objective.nadir)
 									]}
-									solutionValue={get_objective_value(idx) || objective.ideal}
+									solutionValue={get_objective_value(idx)}
 									selectedValue={get_preference_value(idx)}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}
@@ -355,8 +358,8 @@
 			{/each}
 		{:else if internal_type_preferences === PREFERENCE_TYPES.ReferencePoint}
 			<span class="mb-1 cursor-pointer text-sm text-gray-700"
-				>Drag the sliders to define the desired values for each objective. Colored areas
-				indicate the current value.</span
+				>Drag the sliders to define the desired values for each objective. Colored areas indicate
+				the current value.</span
 			>
 			<Popover.Root>
 				<Popover.Trigger
@@ -430,7 +433,7 @@
 										Math.min(objective.ideal, objective.nadir),
 										Math.max(objective.ideal, objective.nadir)
 									]}
-									solutionValue={get_objective_value(idx) || objective.ideal}
+									solutionValue={get_objective_value(idx)}
 									selectedValue={get_preference_value(idx)}
 									barColor={COLOR_PALETTE[idx % COLOR_PALETTE.length]}
 									direction={objective.maximize ? 'max' : 'min'}

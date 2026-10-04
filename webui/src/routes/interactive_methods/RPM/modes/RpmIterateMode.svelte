@@ -10,12 +10,14 @@
 	import VisualizationsPanel from '$lib/components/custom/visualizations-panel/visualizations-panel.svelte';
 	import UtopiaMap from '$lib/components/custom/nimbus/utopia-map.svelte';
 	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar/RXIMOSidebar.svelte';
-	import { PREFERENCE_TYPES, options_segmented_control
-	 } from '$lib/constants';
+	import { PREFERENCE_TYPES, options_segmented_control } from '$lib/constants';
 
-	import { mapSolutionsToObjectiveValues, processPreviousObjectiveValues } from '../helper-functions';
+	import {
+		mapSolutionsToObjectiveValues,
+		processPreviousObjectiveValues
+	} from '../helper-functions';
 	import type { MethodMode, ProblemInfo, Solution, SolutionType } from '$lib/types';
-	import type { MapState, Response } from '../types';
+	import type { MapState, Response, ReferencePoint } from '../types';
 
 	let {
 		mode = $bindable('iterate' as MethodMode),
@@ -31,7 +33,6 @@
 		current_num_iteration_solutions,
 		type_preferences,
 		current_preference,
-		selected_iteration_objectives,
 		last_iterated_preference,
 		chosen_solutions,
 		current_perturbed_solutions,
@@ -44,6 +45,9 @@
 		current_SHAP_baseline,
 		current_rximo_results,
 		is_fetching_explanation,
+		iterate_explanation_solutions,
+		iterate_explanation_reference_values,
+		iterate_explanation_perturbed_reference_points,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,
@@ -67,7 +71,6 @@
 		current_num_iteration_solutions: number;
 		type_preferences: string;
 		current_preference: number[];
-		selected_iteration_objectives: Record<string, number>;
 		last_iterated_preference: number[];
 		chosen_solutions: Solution[];
 		current_perturbed_solutions: Solution[];
@@ -76,17 +79,23 @@
 		mapState: MapState;
 		perturbed_reference_point_values_for_plot: number[][];
 		perturbed_reference_point_labels_for_plot: string[];
+		iterate_explanation_solutions: Solution[];
+		iterate_explanation_reference_values: number[];
+		iterate_explanation_perturbed_reference_points: ReferencePoint[];
 		current_SHAP_values: Record<string, Record<string, number>>;
 		current_SHAP_baseline: Record<string, number>;
-		current_rximo_results: Record<string, {
-			rival_index: number;
-			rival_symbol: string;
-			explanation: string;
-			suggestion: string;
-			explanation_index: number;
-			best_effect: number;
-			worst_effect: number;
-		}> | null;
+		current_rximo_results: Record<
+			string,
+			{
+				rival_index: number;
+				rival_symbol: string;
+				explanation: string;
+				suggestion: string;
+				explanation_index: number;
+				best_effect: number;
+				worst_effect: number;
+			}
+		> | null;
 		is_fetching_explanation: boolean;
 		handle_type_solutions_change: (event: { value: string }) => void;
 		handle_preference_change: (data: {
@@ -121,32 +130,94 @@
 	let table_solver_results = $derived.by(() =>
 		use_expandable_rows ? primary_table_solution : chosen_solutions
 	);
-	let table_expanded_rows = $derived.by(() =>
-		use_expandable_rows ? collapsed_solutions : []
-	);
+	let table_expanded_rows = $derived.by(() => (use_expandable_rows ? collapsed_solutions : []));
 	let table_expanded_row_indexes = $derived.by(() =>
 		use_expandable_rows ? collapsed_solution_indexes : []
 	);
+
+	let visualization_solutions = $derived.by(() => {
+		if (selected_type_solutions === 'current') {
+			return primary_table_solution;
+		}
+
+		return chosen_solutions;
+	});
+
+	type ObjectiveValue = number | number[] | null | undefined;
+
+	function normalizeSymbol(symbol: string): string {
+		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
+	}
+
+	function getSolutionObjectiveValue(
+		solution: Solution | null,
+		symbol: string
+	): number | undefined {
+		if (!solution?.objective_values) {
+			return undefined;
+		}
+
+		const normalizedSymbol = normalizeSymbol(symbol);
+
+		const entry = Object.entries(solution.objective_values).find(
+			([key]) => normalizeSymbol(key) === normalizedSymbol
+		);
+
+		if (!entry) return undefined;
+
+		const raw = entry[1] as ObjectiveValue;
+
+		const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
+
+		return Number.isFinite(value) ? value : undefined;
+	}
+
+	let selected_solution_for_left_sidebar = $derived.by(() => {
+		if (chosen_solutions.length === 0) {
+			return null;
+		}
+
+		const selectedIndex = selectedIndexes[0] ?? 0;
+
+		return chosen_solutions[selectedIndex] ?? chosen_solutions[0] ?? null;
+	});
+
+	let selected_objective_values = $derived.by(() => {
+		if (!problem) return [];
+
+		return problem.objectives.map((objective) =>
+			getSolutionObjectiveValue(selected_solution_for_left_sidebar, objective.symbol)
+		);
+	});
+
+	let iterate_explanation_presented_solution = $derived(iterate_explanation_solutions[0] ?? null);
+
+	let iterate_explanation_objective_values = $derived.by(() => {
+		if (!problem || !iterate_explanation_presented_solution) {
+			return [];
+		}
+
+		const values = problem.objectives.map((objective) =>
+			getSolutionObjectiveValue(iterate_explanation_presented_solution, objective.symbol)
+		);
+
+		if (values.some((value) => value === undefined)) {
+			return [];
+		}
+
+		return values as number[];
+	});
 </script>
 
 <BaseLayout
-	showLeftSidebar={canShowLeftSidebar && !isLeftSidebarCollapsed}
-	showRightSidebar={hasRightSidebarContent && !isRightSidebarCollapsed}
+	showLeftSidebar={canShowLeftSidebar}
+	showRightSidebar={hasRightSidebarContent}
+	bind:isLeftSidebarCollapsed
+	bind:isRightSidebarCollapsed
 	bottomPanelTitle={selected_type_solutions_label}
 >
 	{#snippet leftSidebar()}
 		<div class="relative h-full">
-			<Button
-				onclick={() => (isLeftSidebarCollapsed = true)}
-				variant="outline"
-				size="icon"
-				class="absolute -right-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-				aria-label="Hide left panel"
-				title="Hide left panel"
-			>
-				&lt;
-			</Button>
-
 			{#if problem}
 				<AppSidebar
 					{problem}
@@ -155,8 +226,9 @@
 					numSolutions={current_num_iteration_solutions}
 					typePreferences={type_preferences}
 					preferenceValues={current_preference}
-					objectiveValues={Object.values(selected_iteration_objectives)}
+					objectiveValues={selected_objective_values}
 					lastIteratedPreference={last_iterated_preference}
+					fitParent={true}
 					onPreferenceChange={handle_preference_change}
 					onIterate={handle_iterate}
 					isFinishButton={false}
@@ -167,11 +239,7 @@
 
 	{#snippet explorerControls()}
 		<div class="relative h-full flex-row flex items-center">
-			<SegmentedControl
-				bind:value={mode}
-				options={options_segmented_control}
-				class="mr-2"
-			/>
+			<!-- <SegmentedControl bind:value={mode} options={options_segmented_control} class="mr-2" /> -->
 			<span>View: </span>
 			<Combobox
 				options={frameworks}
@@ -200,34 +268,6 @@
 	{#snippet visualizationArea(height)}
 		{#if problem && current_state}
 			<div class="relative h-full">
-				{#if canShowLeftSidebar}
-					<Button
-						onclick={() => (isLeftSidebarCollapsed = false)}
-						variant="outline"
-						size="icon"
-						class="fixed left-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-						aria-label={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-						title={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-						hidden={!isLeftSidebarCollapsed}
-					>
-						&gt;
-					</Button>
-				{/if}
-
-				{#if hasRightSidebarContent}
-					<Button
-						onclick={() => (isRightSidebarCollapsed = false)}
-						variant="outline"
-						size="icon"
-						class="fixed right-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-						aria-label={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-						title={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-						hidden={!isRightSidebarCollapsed}
-					>
-						&lt;
-					</Button>
-				{/if}
-
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={65} minSize={40} maxSize={80} class="h-full">
 						<VisualizationsPanel
@@ -241,7 +281,10 @@
 							referenceDataLabels={{
 								perturbedRefLabels: perturbed_reference_point_labels_for_plot
 							}}
-							solutionsObjectiveValues={mapSolutionsToObjectiveValues(primary_table_solution, problem)}
+							solutionsObjectiveValues={mapSolutionsToObjectiveValues(
+								visualization_solutions,
+								problem
+							)}
 							previousObjectiveValues={selected_type_solutions === 'current'
 								? processPreviousObjectiveValues(current_state, problem)
 								: []}
@@ -302,25 +345,14 @@
 	{/snippet}
 
 	{#snippet rightSidebar()}
-		{#if hasRightSidebarContent && problem}
+		{#if problem}
 			<div class="relative h-full">
-				<Button
-					onclick={() => (isRightSidebarCollapsed = true)}
-					variant="outline"
-					size="icon"
-					class="absolute -left-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-					aria-label="Hide right panel"
-					title="Hide right panel"
-				>
-					&gt;
-				</Button>
-
 				<RximoSidebar
 					{problem}
-					preferenceValues={current_preference}
-					scenarioReferenceValues={last_iterated_preference}
-					solutions={chosen_solutions}
-					perturbedReferencePoints={current_state.perturbed_reference_points ?? []}
+					preferenceValues={iterate_explanation_reference_values}
+					scenarioReferenceValues={iterate_explanation_reference_values}
+					solutions={iterate_explanation_solutions}
+					perturbedReferencePoints={iterate_explanation_perturbed_reference_points}
 					SHAP_values={current_SHAP_values}
 					SHAP_baseline={current_SHAP_baseline}
 					rximo_results={current_rximo_results}
@@ -329,9 +361,10 @@
 							numSolutions: current_num_iteration_solutions,
 							typePreferences: type_preferences,
 							preferenceValues: values,
-							objectiveValues: Object.values(selected_iteration_objectives)
+							objectiveValues: iterate_explanation_objective_values
 						})}
 					isLoading={is_fetching_explanation}
+					fitParent={true}
 				/>
 			</div>
 		{/if}

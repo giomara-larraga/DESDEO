@@ -97,7 +97,7 @@
 	} from './helper-functions';
 
 	import type { ProblemInfo, Solution, SolutionType, MethodMode, PeriodKey } from '$lib/types';
-	import type { Response, MapState } from './types';
+	import type { Response, MapState, ReferencePoint } from './types';
 
 	// State for NIMBUS iteration management
 	let current_state: Response = $state({} as Response);
@@ -165,15 +165,27 @@
 	let current_SHAP_baseline: Record<string, number> = $state({}); // SHAP baseline values for the selected solution (only for iteration mode)
 	// R-XIMO Algorithm 1 results returned alongside the SHAP matrix from the
 	// /method/rximo/explain endpoint, keyed by output objective symbol.
-	let current_rximo_results: Record<string, {
-		rival_index: number;
-		rival_symbol: string;
-		explanation: string;
-		suggestion: string;
-		explanation_index: number;
-		best_effect: number;
-		worst_effect: number;
-	}> | null = $state(null);
+	let current_rximo_results: Record<
+		string,
+		{
+			rival_index: number;
+			rival_symbol: string;
+			explanation: string;
+			suggestion: string;
+			explanation_index: number;
+			best_effect: number;
+			worst_effect: number;
+		}
+	> | null = $state(null);
+
+	// Frozen data used by the explanation sidebar.
+	// These are updated only after a successful Iterate request.
+	let iterate_explanation_solutions: Solution[] = $state([]);
+
+	let iterate_explanation_reference_values: number[] = $state([]);
+
+	let iterate_explanation_perturbed_reference_points: ReferencePoint[] = $state([]);
+
 	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -184,7 +196,6 @@
 			return selected_iteration_index;
 		}
 	});
-
 
 	type PerturbedPointDisplayMode = 'all' | 'selected' | 'none';
 	let perturbed_points_mode: PerturbedPointDisplayMode = $state('selected'); // Default to showing only the selected perturbed point
@@ -264,7 +275,10 @@
 	let canShowLeftSidebar = $derived(!!problem);
 	let canShowRightSidebar = $derived(enable_explanation && background_dataset_id !== null);
 	let hasRightSidebarContent = $derived(
-		canShowRightSidebar && (mode === 'iterate' ) && !!problem && chosen_solutions.length > 0
+		canShowRightSidebar &&
+			mode === 'iterate' &&
+			!!problem &&
+			iterate_explanation_solutions.length > 0
 	);
 
 	// Variables for showing the map for UTOPIA - stores maps for all solutions
@@ -288,10 +302,21 @@
 
 	// Helper function to change solution type and update selections
 	function change_solution_type_updating_selections(newType: SolutionType) {
-		// Update the internal state
+		if (selected_type_solutions === newType) {
+			return;
+		}
+
 		selected_type_solutions = newType;
 
-		// Then update UI and data
+		// A solution index belongs to a particular solution list.
+		// Do not carry it into another list.
+		selected_iteration_index = [0];
+		selected_intermediate_indexes = [];
+		selected_solutions_for_intermediate = [];
+
+		// Maps are also indexed according to the displayed solution list.
+		mapStates = [];
+
 		update_iteration_selection(current_state);
 		update_intermediate_selection(current_state);
 	}
@@ -340,7 +365,13 @@
 			console.error('No previous preference values found for finishing.');
 			return;
 		}
-		const response = await handleFinishRequest(problem, final_solution, current_state.previous_preference, selectedSessionId, current_state.state_id);
+		const response = await handleFinishRequest(
+			problem,
+			final_solution,
+			current_state.previous_preference,
+			selectedSessionId,
+			current_state.state_id
+		);
 		if (response) {
 			// Update the selected iteration index to match our final solution
 			// This will ensure that in final mode we show the correct solution
@@ -529,9 +560,11 @@
 			return;
 		}
 
+		const iteratedReferenceValues = [...current_preference];
+
 		const result = await handleIterateRequest(
 			problem,
-			current_preference,
+			iteratedReferenceValues,
 			selectedSessionId,
 			current_state.state_id
 		);
@@ -541,18 +574,34 @@
 			current_state = result;
 			addToStateHistory(result);
 
+			const presentedSolution = result.current_solutions?.[0] ?? null;
+
 			// Update names from saved solutions (only for all_solutions, current_solutions are new)
 			current_state.all_solutions = updateSolutionNames(
 				current_state.saved_solutions,
 				current_state.all_solutions
 			);
 
+			/*
+			 * Freeze the data explained by the right sidebar.
+			 *
+			 * current_solutions[0] = presented solution
+			 * remaining solutions = what-if solutions
+			 */
+			iterate_explanation_solutions = [...(result.current_solutions ?? [])];
+
+			iterate_explanation_reference_values = [...iteratedReferenceValues];
+
+			iterate_explanation_perturbed_reference_points = [
+				...(result.perturbed_reference_points ?? [])
+			];
+
 			selected_iteration_index = [0];
 			// Switch to current solutions view after iteration
 			change_solution_type_updating_selections('current');
 			update_preferences_from_state(current_state);
 			current_num_iteration_solutions = current_state.current_solutions.length;
-			fetch_SHAP_values(current_preference);
+			fetch_SHAP_values(iteratedReferenceValues, presentedSolution);
 		}
 	}
 
@@ -623,23 +672,34 @@
 
 	// Helper function to update current iteration objectives from the current state
 	function update_iteration_selection(state: Response | null) {
-		if (!problem) return;
-		if (!state) return;
-
-		// Use chosen_solutions instead of hardcoding current_solutions
-		if (chosen_solutions.length === 0) return;
-
-		// Make sure the selected index is within bounds of the chosen solutions
-		if (selected_iteration_index[0] >= chosen_solutions.length) {
-			selected_iteration_index = [0]; // Reset to first solution if out of bounds
+		if (!problem || !state) {
+			selected_iteration_index = [];
+			selected_iteration_objectives = {};
+			return;
 		}
 
-		const selectedSolution = chosen_solutions[selected_iteration_index[0]];
-		selected_iteration_objectives = selectedSolution.objective_values || {};
+		if (chosen_solutions.length === 0) {
+			selected_iteration_index = [];
+			selected_iteration_objectives = {};
+			return;
+		}
 
-		// Update current map state from pre-fetched maps if available
-		if (hasUtopiaMetadata && selected_iteration_index[0] >= 0 && mapStates[selected_iteration_index[0]]) {
-			mapState = { ...mapStates[selected_iteration_index[0]] };
+		let selectedIndex = selected_iteration_index[0] ?? 0;
+
+		if (selectedIndex < 0 || selectedIndex >= chosen_solutions.length) {
+			selectedIndex = 0;
+		}
+
+		selected_iteration_index = [selectedIndex];
+
+		const selectedSolution = chosen_solutions[selectedIndex];
+
+		selected_iteration_objectives = selectedSolution?.objective_values ?? {};
+
+		if (hasUtopiaMetadata && mapStates[selectedIndex]) {
+			mapState = {
+				...mapStates[selectedIndex]
+			};
 		}
 	}
 
@@ -655,19 +715,25 @@
 
 	// Helper function to update current intermediate objectives from the current state
 	function update_intermediate_selection(state: Response | null) {
-		if (!problem) return;
-		if (!state) return;
-		if (chosen_solutions.length === 0) return;
-
-		// Filter selected indexes that are within bounds
-		const validIndexes = selected_intermediate_indexes.filter((i) => i < chosen_solutions.length);
-		if (validIndexes.length !== selected_intermediate_indexes.length) {
-			selected_intermediate_indexes = validIndexes; // Update if any were out of bounds
+		if (!problem || !state) {
+			selected_intermediate_indexes = [];
+			selected_solutions_for_intermediate = [];
+			return;
 		}
 
-		selected_solutions_for_intermediate = selected_intermediate_indexes.map(
-			(i) => chosen_solutions[i]
+		if (chosen_solutions.length === 0) {
+			selected_intermediate_indexes = [];
+			selected_solutions_for_intermediate = [];
+			return;
+		}
+
+		const validIndexes = selected_intermediate_indexes.filter(
+			(index) => index >= 0 && index < chosen_solutions.length
 		);
+
+		selected_intermediate_indexes = validIndexes;
+
+		selected_solutions_for_intermediate = validIndexes.map((index) => chosen_solutions[index]);
 	}
 
 	// helper function to check if a solution is saved (exists in savedSolutions)
@@ -678,7 +744,7 @@
 		);
 	}
 
-	async function fetch_SHAP_values(referencePoint: number[]) {
+	async function fetch_SHAP_values(referencePoint: number[], presentedSolution: Solution | null) {
 		// This function can be implemented to fetch SHAP values for the given reference point, if needed for the explanation sidebar. It would likely call an API endpoint similar to explainWithRXIMO, but specifically for SHAP values.
 		if (!problem) {
 			console.error('No problem selected');
@@ -688,26 +754,28 @@
 			console.error('No reference point set');
 			return;
 		}
-		if(background_dataset_id === null) {
+		if (background_dataset_id === null) {
 			console.error('No background dataset available for fetching SHAP values');
 			return;
 		}
 
-		const dictReferencePoint = problem.objectives.map((obj, index) => ({
-			[obj.symbol]: referencePoint[index]
-		})).reduce((acc, curr) => ({ ...acc, ...curr }), {});
+		const dictReferencePoint = problem.objectives
+			.map((obj, index) => ({
+				[obj.symbol]: referencePoint[index]
+			}))
+			.reduce((acc, curr) => ({ ...acc, ...curr }), {});
 
 		// Send the DM's exact current solution so find_rival's case selection
 		// uses it instead of the KD-tree estimate. We use the first chosen
 		// solution, that's what the explanations sidebar displays.
-		const currentSolutionRaw = chosen_solutions[0]?.objective_values ?? null;
+		const currentSolutionRaw = presentedSolution?.objective_values ?? null;
 		const dictCurrentSolution = currentSolutionRaw
 			? problem.objectives.reduce<Record<string, number>>((acc, obj) => {
-				const raw = currentSolutionRaw[obj.symbol];
-				const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
-				if (Number.isFinite(value)) acc[obj.symbol] = value;
-				return acc;
-			}, {})
+					const raw = currentSolutionRaw[obj.symbol];
+					const value = Array.isArray(raw) ? Number(raw[0]) : Number(raw);
+					if (Number.isFinite(value)) acc[obj.symbol] = value;
+					return acc;
+				}, {})
 			: null;
 		const currentSolutionPayload =
 			dictCurrentSolution && Object.keys(dictCurrentSolution).length === problem.objectives.length
@@ -726,9 +794,9 @@
 			current_SHAP_values = result.shap_values;
 			current_SHAP_baseline = result.base_values;
 			// rximo_results may not be present on older backends; guard accordingly.
-			current_rximo_results = (result as { rximo_results?: typeof current_rximo_results }).rximo_results ?? null;
-		}
-		else {
+			current_rximo_results =
+				(result as { rximo_results?: typeof current_rximo_results }).rximo_results ?? null;
+		} else {
 			console.error('Failed to fetch SHAP values for explanation');
 			current_SHAP_values = {};
 			current_SHAP_baseline = {};
@@ -772,7 +840,8 @@
 							// Ask user if they want to continue
 							openConfirmDialog({
 								title: 'Continue Previous Session?',
-								description: 'An unfinished session was found. Would you like to continue where you left off?',
+								description:
+									'An unfinished session was found. Would you like to continue where you left off?',
 								confirmText: 'Continue',
 								cancelText: 'Start Fresh',
 								onConfirm: () => {
@@ -936,21 +1005,20 @@
 
 				// Check there is a background dataset for the problem, if not, show an error message
 				const backgroundDatasets = await fetchBackgroundDatasets(problem);
-				if ( backgroundDatasets !== null && backgroundDatasets.length === 0) {
-					$errorMessage = "No background dataset found for this problem.";
+				if (backgroundDatasets !== null && backgroundDatasets.length === 0) {
+					$errorMessage = 'No background dataset found for this problem.';
 				} else {
 					if (backgroundDatasets !== null) {
 						background_dataset_id = backgroundDatasets[0].id;
-						console.log(`Background dataset ID for problem ${problem.id}: ${background_dataset_id}`);
+						console.log(
+							`Background dataset ID for problem ${problem.id}: ${background_dataset_id}`
+						);
+					} else {
+						$errorMessage = 'Failed to fetch background datasets for this problem.';
 					}
-					else {
-						$errorMessage = "Failed to fetch background datasets for this problem.";
-					}
-
 				}
 				// Initialize NIMBUS state from the API
 				//await initialize_nimbus_state(problem.id);
-
 			}
 		}
 	});
@@ -1063,7 +1131,6 @@
 		current_num_iteration_solutions,
 		type_preferences,
 		current_preference,
-		selected_iteration_objectives,
 		last_iterated_preference,
 		chosen_solutions,
 		current_perturbed_solutions,
@@ -1076,6 +1143,9 @@
 		current_SHAP_baseline,
 		current_rximo_results,
 		is_fetching_explanation,
+		iterate_explanation_solutions,
+		iterate_explanation_reference_values,
+		iterate_explanation_perturbed_reference_points,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,
@@ -1090,7 +1160,10 @@
 
 <svelte:head>
 	<title>RPM | DESDEO</title>
-	<meta name="description" content="This page implements the RPM interactive multiobjective optimization method in DESDEO" />
+	<meta
+		name="description"
+		content="This page implements the RPM interactive multiobjective optimization method in DESDEO"
+	/>
 </svelte:head>
 
 {#if $isLoading}
@@ -1098,11 +1171,7 @@
 {/if}
 
 {#if $errorMessage}
-	<Alert
-		title="Error"
-		message={$errorMessage}
-		variant='destructive'
-	/>
+	<Alert title="Error" message={$errorMessage} variant="destructive" />
 {/if}
 
 {#if mode === 'final'}
@@ -1110,24 +1179,24 @@
 {:else if mode === 'history'}
 	<RpmHistoryMode
 		{...historyModeProps}
-		bind:mode={mode}
-		bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
-		bind:isRightSidebarCollapsed={isRightSidebarCollapsed}
+		bind:mode
+		bind:isLeftSidebarCollapsed
+		bind:isRightSidebarCollapsed
 	/>
 {:else}
 	{#if mode === 'intermediate'}
 		<RpmIntermediateMode
 			{...intermediateModeProps}
-			bind:mode={mode}
-			bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
-			bind:current_num_intermediate_solutions={current_num_intermediate_solutions}
+			bind:mode
+			bind:isLeftSidebarCollapsed
+			bind:current_num_intermediate_solutions
 		/>
 	{:else}
 		<RpmIterateMode
 			{...iterateModeProps}
-			bind:mode={mode}
-			bind:isLeftSidebarCollapsed={isLeftSidebarCollapsed}
-			bind:isRightSidebarCollapsed={isRightSidebarCollapsed}
+			bind:mode
+			bind:isLeftSidebarCollapsed
+			bind:isRightSidebarCollapsed
 		/>
 	{/if}
 {/if}

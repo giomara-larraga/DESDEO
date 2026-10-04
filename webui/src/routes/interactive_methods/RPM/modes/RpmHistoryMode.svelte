@@ -2,13 +2,11 @@
 	import { RXIMOLayout as BaseLayout } from '$lib/components/custom/method_layout/index.js';
 	import { SegmentedControl } from '$lib/components/custom/segmented-control';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
-	import Button from '$lib/components/ui/button/button.svelte';
 	import AppSidebar from '$lib/components/custom/preferences-bar/preferences-sidebar.svelte';
 	import HistorySidebar from '$lib/components/custom/preferences-bar/history-sidebar.svelte';
 	import VisualizationsPanelHistory from '$lib/components/custom/visualizations-panel/visualizations-panel-history.svelte';
 	import SolutionTable from '$lib/components/custom/expandible-solution-table/solution-table.svelte';
-	import { PREFERENCE_TYPES, options_segmented_control
-	 } from '$lib/constants';
+	import { PREFERENCE_TYPES, options_segmented_control } from '$lib/constants';
 	import type { MethodMode, ProblemInfo, Solution } from '$lib/types';
 	import type { Response } from '../types';
 	import { updatePreferencesFromState } from '../helper-functions';
@@ -262,23 +260,17 @@
 			? iterationNames[index]
 			: `Iteration ${index + 1}`;
 	}
-
 </script>
 
-<BaseLayout showLeftSidebar={true} showRightSidebar={true} bottomPanelTitle="History">
+<BaseLayout
+	showLeftSidebar={!!problem}
+	showRightSidebar={hasRightSidebarContent}
+	bind:isLeftSidebarCollapsed
+	bind:isRightSidebarCollapsed
+	bottomPanelTitle="History"
+>
 	{#snippet leftSidebar()}
 		<div class="relative h-full">
-			<Button
-				onclick={() => (isLeftSidebarCollapsed = true)}
-				variant="outline"
-				size="icon"
-				class="absolute -right-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-				aria-label="Hide left panel"
-				title="Hide left panel"
-			>
-				&lt;
-			</Button>
-
 			{#if problem}
 				<div class="h-full pointer-events-none">
 					<AppSidebar
@@ -293,6 +285,7 @@
 						onPreferenceChange={handlePreviewPreferenceChange}
 						onIterate={handlePreviewIterate}
 						isFinishButton={false}
+						fitParent={true}
 					/>
 				</div>
 			{:else}
@@ -305,41 +298,13 @@
 
 	{#snippet explorerControls()}
 		<div class="relative h-full flex-row flex items-center px-4">
-			<SegmentedControl
-				bind:value={mode}
-				options={options_segmented_control}
-				class="mr-10"
-			/>
+			<SegmentedControl bind:value={mode} options={options_segmented_control} class="mr-10" />
 		</div>
 	{/snippet}
 
 	{#snippet visualizationArea(height)}
 		{#if problem}
 			<div class="relative h-full">
-				<Button
-					onclick={() => (isLeftSidebarCollapsed = false)}
-					variant="outline"
-					size="icon"
-					class="fixed left-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-					aria-label={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-					title={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-					hidden={!isLeftSidebarCollapsed}
-				>
-					&gt;
-				</Button>
-
-				<Button
-					onclick={() => (isRightSidebarCollapsed = false)}
-					variant="outline"
-					size="icon"
-					class="fixed right-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-					aria-label={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-					title={isRightSidebarCollapsed ? 'Show right panel' : 'Hide right panel'}
-					hidden={!isRightSidebarCollapsed}
-				>
-					&lt;
-				</Button>
-
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={100} minSize={40} class="h-full">
 						<VisualizationsPanelHistory
@@ -386,30 +351,20 @@
 		<div>
 			{#if hasRightSidebarContent}
 				<div class="relative h-full">
-					<Button
-						onclick={() => (isRightSidebarCollapsed = true)}
-						variant="outline"
-						size="icon"
-						class="absolute -left-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-						aria-label="Hide right panel"
-						title="Hide right panel"
-					>
-						&gt;
-					</Button>
-
 					<HistorySidebar
 						{stateHistory}
 						{currentStateIndex}
 						{iterationNames}
 						{selectedPreviewIndex}
-						selectedIterationIndexes={selectedIterationIndexes}
-						iterationDisplayModes={iterationDisplayModes}
+						{selectedIterationIndexes}
+						{iterationDisplayModes}
 						onSelectIteration={handleSelectIteration}
 						onToggleIterationSelection={handleToggleIterationSelection}
 						onSetIterationDisplayMode={handleSetIterationDisplayMode}
 						onSetAllReferenceOnly={handleSetAllReferenceOnly}
 						{onApplyIteration}
 						{onRenameIteration}
+						fitParent={true}
 					/>
 				</div>
 			{:else}

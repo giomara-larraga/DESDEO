@@ -174,15 +174,17 @@
 			Current status of {selectedObjectiveName}
 		</div>
 
-		<DesiredAchievedComparison
-			objectiveName={selectedObjectiveName}
-			desiredValue={iterationDesiredValues[selectedObjectiveIndex]}
-			achievedValue={achievedValueNumber}
-			maximize={problem.objectives[selectedObjectiveIndex].maximize}
-			ideal={problem.objectives[selectedObjectiveIndex].ideal}
-			nadir={problem.objectives[selectedObjectiveIndex].nadir}
-			digits={selectedObjectiveDigits}
-		/>
+		{#if selectedObjective && selectedObjectiveIndex >= 0}
+			<DesiredAchievedComparison
+				objectiveName={selectedObjectiveName}
+				desiredValue={iterationDesiredValues[selectedObjectiveIndex]}
+				achievedValue={achievedValueNumber}
+				maximize={Boolean(selectedObjective.maximize)}
+				ideal={selectedObjective.ideal ?? null}
+				nadir={selectedObjective.nadir ?? null}
+				digits={selectedObjectiveDigits}
+			/>
+		{/if}
 
 		<div class="mt-3 border-t border-gray-200 pt-3">
 			<div class="mb-2 flex items-center gap-1 text-sm font-semibold">
@@ -212,7 +214,7 @@
 	</div>
 	<div class="rounded-md border border-amber-200 bg-amber-50 p-3">
 		<div class="mb-1 flex items-center gap-1 text-sm font-semibold">
-			<span>R-XIMO suggestion</span>
+			<span>Suggestion</span>
 
 			<Tooltip.Root>
 				<Tooltip.Trigger class="text-gray-400 hover:text-gray-600">
@@ -222,7 +224,7 @@
 				<Tooltip.Content sideOffset={6} class="max-w-72 text-sm">
 					This suggestion is derived from the contribution structure of the current solution. It
 					identifies a desired value to consider adjusting, but does not predict the resulting
-					solution. Open How to inspect the corresponding what-if changes.
+					solution.
 				</Tooltip.Content>
 			</Tooltip.Root>
 		</div>
@@ -235,13 +237,5 @@
 				<strong>{selectedObjectiveName}</strong>.
 			</p>
 		{/if}
-
-		<button
-			type="button"
-			class="mt-2 text-sm font-medium text-blue-700 hover:underline"
-			onclick={onHowClick}
-		>
-			Inspect in How →
-		</button>
 	</div>
 </div>

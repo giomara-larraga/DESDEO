@@ -13,7 +13,7 @@
 	import type { MethodMode, ProblemInfo, Solution, SolutionType } from '$lib/types';
 	import type { Response } from '../types';
 
-	import { options_segmented_control} from '$lib/constants';
+	import { options_segmented_control } from '$lib/constants';
 
 	let {
 		mode = $bindable('intermediate' as MethodMode),
@@ -71,23 +71,13 @@
 </script>
 
 <BaseLayout
-	showLeftSidebar={canShowLeftSidebar && !isLeftSidebarCollapsed}
+	showLeftSidebar={canShowLeftSidebar}
 	showRightSidebar={false}
+	bind:isLeftSidebarCollapsed
 	bottomPanelTitle={selected_type_solutions_label}
 >
 	{#snippet leftSidebar()}
 		<div class="relative h-full">
-			<Button
-				onclick={() => (isLeftSidebarCollapsed = true)}
-				variant="outline"
-				size="icon"
-				class="absolute -right-4 top-1/2 z-20 h-8 w-8 -translate-y-1/2 bg-white"
-				aria-label="Hide left panel"
-				title="Hide left panel"
-			>
-				&lt;
-			</Button>
-
 			{#if problem}
 				<div class="flex flex-col">
 					<IntermediateSidebar
@@ -95,6 +85,7 @@
 						bind:numSolutions={current_num_intermediate_solutions}
 						minNumSolutions={1}
 						maxNumSolutions={4}
+						fitParent={true}
 						onClick={handle_intermediate}
 					/>
 				</div>
@@ -104,11 +95,7 @@
 
 	{#snippet explorerControls()}
 		<div class="relative h-full flex-row flex items-center px-4">
-			<SegmentedControl
-				bind:value={mode}
-				options={options_segmented_control}
-				class="mr-10"
-			/>
+			<SegmentedControl bind:value={mode} options={options_segmented_control} class="mr-10" />
 			<span>View: </span>
 			<Combobox
 				options={frameworks}
@@ -137,20 +124,6 @@
 	{#snippet visualizationArea(height)}
 		{#if problem && current_state}
 			<div class="relative h-full">
-				{#if canShowLeftSidebar}
-					<Button
-						onclick={() => (isLeftSidebarCollapsed = false)}
-						variant="outline"
-						size="icon"
-						class="fixed left-1 top-1/2 z-30 h-8 w-8 -translate-y-1/2 bg-white"
-						aria-label={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-						title={isLeftSidebarCollapsed ? 'Show left panel' : 'Hide left panel'}
-						hidden={!isLeftSidebarCollapsed}
-					>
-						&gt;
-					</Button>
-				{/if}
-
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={65} minSize={40} maxSize={80} class="h-full">
 						<VisualizationsPanel

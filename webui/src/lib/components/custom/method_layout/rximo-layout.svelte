@@ -5,20 +5,26 @@
 	import ResizableHandle from '$lib/components/ui/resizable/resizable-handle.svelte';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 
+	import Button from '$lib/components/ui/button/button.svelte';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+
 	// Define the interface for your named snippets
 	interface Props {
 		showLeftSidebar?: boolean;
 		showRightSidebar?: boolean;
+
+		isLeftSidebarCollapsed?: boolean;
+		isRightSidebarCollapsed?: boolean;
+
 		leftSidebarWidth?: string;
-		leftSidebarMinWidth?: string;
 		rightSidebarWidth?: string;
-		rightSidebarMinWidth?: string;
-		bottomPanelTitle?: string; // New prop for the bottom panel title
-		// Named snippets
+
+		bottomPanelTitle?: string;
+
 		leftSidebar?: Snippet;
 		explorerTitle?: Snippet;
 		explorerControls?: Snippet;
-		debugPanel?: Snippet;
 		visualizationArea?: Snippet<[number]>;
 		tabsList?: Snippet;
 		numericalValues?: Snippet;
@@ -29,15 +35,18 @@
 	let {
 		showLeftSidebar = true,
 		showRightSidebar = true,
-		leftSidebarWidth = '24em',
-		leftSidebarMinWidth = '24rem',
-		rightSidebarWidth = '24em',
-		rightSidebarMinWidth = '24rem',
-		bottomPanelTitle = 'Numerical values', // Default title for the bottom panel
+
+		isLeftSidebarCollapsed = $bindable(false),
+		isRightSidebarCollapsed = $bindable(false),
+
+		leftSidebarWidth = 'clamp(16rem, 22vw, 23rem)',
+		rightSidebarWidth = 'clamp(19rem, 30vw, 30rem)',
+
+		bottomPanelTitle = 'Numerical values',
+
 		leftSidebar,
 		explorerTitle,
 		explorerControls,
-		debugPanel,
 		visualizationArea,
 		tabsList,
 		numericalValues,
@@ -47,37 +56,82 @@
 
 	let visualizationHeight = $state(0);
 
-	const hasLeft = $derived(showLeftSidebar && !!leftSidebar);
-	const hasRight = $derived(showRightSidebar && !!rightSidebar);
-	const gridTemplateColumns = $derived(
-		hasLeft && hasRight
-			? `${leftSidebarWidth} 1fr ${rightSidebarWidth}`
-			: hasLeft
-				? `${leftSidebarWidth} 1fr`
-				: hasRight
-					? `1fr ${rightSidebarWidth}`
-					: '1fr'
-	);
+	const leftAvailable = $derived(showLeftSidebar && !!leftSidebar);
+
+	const rightAvailable = $derived(showRightSidebar && !!rightSidebar);
+
+	const leftOpen = $derived(leftAvailable && !isLeftSidebarCollapsed);
+
+	const rightOpen = $derived(rightAvailable && !isRightSidebarCollapsed);
 </script>
 
-<Sidebar.Provider
-	class="min-h-[calc(100vh-3rem)] w-full"
-	style="--sidebar-width: 20rem; --sidebar-width-mobile: 20rem;"
->
+<Sidebar.Provider class="h-[calc(100dvh-3rem)] min-h-0 w-full overflow-hidden">
 	<div
-		class="grid min-h-[calc(100vh-3rem)] w-full gap-2"
-		style={`grid-template-columns: ${gridTemplateColumns};`}
+		class="method-layout-grid h-full min-h-0 w-full"
+		data-left-open={leftOpen ? 'true' : 'false'}
+		data-right-open={rightOpen ? 'true' : 'false'}
+		style={`
+			--method-left-sidebar-width: ${leftSidebarWidth};
+			--method-right-sidebar-width: ${rightSidebarWidth};
+		`}
 	>
-		<!-- Left Sidebar: Preferences and Controls -->
-		{#if hasLeft}
-			<div class="left-sidebar h-full" style={`min-width: ${leftSidebarMinWidth};`}>
-				{@render leftSidebar?.()}
-			</div>
+		{#if leftAvailable && !leftOpen}
+			<Button
+				type="button"
+				variant="outline"
+				size="icon"
+				class="absolute left-2 top-1/2 z-[100] h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-md"
+				onclick={() => (isLeftSidebarCollapsed = false)}
+				aria-label="Show preference panel"
+				title="Show preference panel"
+			>
+				<ChevronRight class="h-4 w-4" />
+			</Button>
 		{/if}
 
-		<Sidebar.Inset class="min-w-0">
-			<div class="flex min-w-0 flex-1 flex-col">
-				<Resizable.PaneGroup direction="vertical" class="flex-1">
+		{#if rightAvailable && !rightOpen}
+			<Button
+				type="button"
+				variant="outline"
+				size="icon"
+				class="absolute right-2 top-1/2 z-[100] h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-md"
+				onclick={() => (isRightSidebarCollapsed = false)}
+				aria-label="Show explanation panel"
+				title="Show explanation panel"
+			>
+				<ChevronLeft class="h-4 w-4" />
+			</Button>
+		{/if}
+		<!-- Left Sidebar: Preferences and Controls -->
+		{#if leftAvailable}
+			<aside
+				class="left-sidebar relative h-full min-h-0"
+				class:pointer-events-none={!leftOpen}
+				class:invisible={!leftOpen}
+			>
+				{@render leftSidebar?.()}
+
+				{#if leftOpen}
+					<Button
+						type="button"
+						variant="outline"
+						size="icon"
+						class="absolute -right-3 top-1/2 z-50 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-sm"
+						onclick={() => (isLeftSidebarCollapsed = true)}
+						aria-label="Hide preference panel"
+						title="Hide preference panel"
+					>
+						<ChevronLeft class="h-4 w-4" />
+					</Button>
+				{/if}
+			</aside>
+		{/if}
+
+		<Sidebar.Inset
+			class="center-area relative h-full min-h-0 min-w-0 overflow-hidden bg-background"
+		>
+			<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+				<Resizable.PaneGroup direction="vertical" class="h-full min-h-0 w-full flex-1">
 					<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
 						<!-- Top Panel: Explorer Title and Controls -->
 						<div class="flex-shrink-0 p-2">
@@ -152,43 +206,72 @@
 		</Sidebar.Inset>
 
 		<!-- Right Sidebar -->
-		{#if hasRight}
-			<div class="right-sidebar h-full" style={`min-width: ${rightSidebarMinWidth};`}>
+		{#if rightAvailable}
+			<aside
+				class="right-sidebar relative h-full min-h-0"
+				class:pointer-events-none={!rightOpen}
+				class:invisible={!rightOpen}
+			>
+				{#if rightOpen}
+					<Button
+						type="button"
+						variant="outline"
+						size="icon"
+						class="absolute -left-3 top-1/2 z-50 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-sm"
+						onclick={() => (isRightSidebarCollapsed = true)}
+						aria-label="Hide explanation panel"
+						title="Hide explanation panel"
+					>
+						<ChevronRight class="h-4 w-4" />
+					</Button>
+				{/if}
+
 				{@render rightSidebar?.()}
-			</div>
+			</aside>
 		{/if}
 	</div>
 </Sidebar.Provider>
 
 <style>
+	.method-layout-grid {
+		position: relative;
+		display: grid;
+
+		grid-template-columns:
+			var(--left-column-width)
+			minmax(0, 1fr)
+			var(--right-column-width);
+
+		--left-column-width: 0px;
+		--right-column-width: 0px;
+	}
+
+	.method-layout-grid[data-left-open='true'] {
+		--left-column-width: var(--method-left-sidebar-width);
+	}
+
+	.method-layout-grid[data-right-open='true'] {
+		--right-column-width: var(--method-right-sidebar-width);
+	}
+
 	.left-sidebar {
-		flex-shrink: 0;
+		grid-column: 1;
+		min-width: 0;
+		overflow: hidden;
+		background: white;
 		border-right: 1px solid var(--border-color, #e2e8f0);
 	}
 
 	.right-sidebar {
-		flex-shrink: 0;
+		grid-column: 3;
+		min-width: 0;
+		overflow: hidden;
+		background: white;
 		border-left: 1px solid var(--border-color, #e2e8f0);
 	}
 
-	/* Responsive design */
-	@media (max-width: 768px) {
-		.left-sidebar,
-		.right-sidebar {
-			position: fixed;
-			top: 0;
-			height: 100vh;
-			z-index: 1000;
-			background: white;
-			box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
-		}
-
-		.left-sidebar {
-			left: 0;
-		}
-
-		.right-sidebar {
-			right: 0;
-		}
+	.center-area {
+		grid-column: 2;
+		min-width: 0;
 	}
 </style>

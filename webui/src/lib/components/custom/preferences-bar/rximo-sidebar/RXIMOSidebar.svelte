@@ -43,6 +43,7 @@
 		onApplyScenarioPreferences?: (values: number[]) => void;
 		isLoading?: boolean;
 		ref?: HTMLElement | null;
+		fitParent?: boolean;
 	}
 
 	let {
@@ -56,6 +57,7 @@
 		rximo_results = null,
 		onApplyScenarioPreferences,
 		isLoading = false,
+		fitParent = false,
 		ref = null
 	}: Props = $props();
 
@@ -355,7 +357,9 @@
 <Sidebar.Root
 	side="right"
 	collapsible="none"
-	class="fixed top-12 right-0 h-[calc(100vh-3rem)] w-[25rem]"
+	class={fitParent
+		? 'h-full min-h-0 w-full'
+		: 'fixed top-12 right-0 h-[calc(100vh-3rem)] w-[25rem]'}
 	bind:ref
 >
 	<Sidebar.Header>
