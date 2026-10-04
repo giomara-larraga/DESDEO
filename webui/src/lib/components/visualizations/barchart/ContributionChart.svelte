@@ -211,7 +211,7 @@
 		{#if suggestedDesiredValueName}
 			<span>
 				<span class="font-semibold text-amber-600">★</span>
-				R-XIMO suggestion
+				Suggestion
 			</span>
 		{/if}
 	</div>
