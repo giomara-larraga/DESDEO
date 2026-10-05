@@ -149,6 +149,16 @@
 		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
 	}
 
+	function isSameSolution(a: Solution | null | undefined, b: Solution | null | undefined): boolean {
+		if (!a || !b) return false;
+
+		return (
+			a.state_id === b.state_id &&
+			a.solution_index !== null &&
+			b.solution_index !== null &&
+			a.solution_index === b.solution_index
+		);
+	}
 	function getSolutionObjectiveValue(
 		solution: Solution | null,
 		symbol: string
@@ -171,6 +181,20 @@
 
 		return Number.isFinite(value) ? value : undefined;
 	}
+
+	let current_solution_index_in_visualization = $derived.by(() => {
+		const currentSolution = iterate_explanation_solutions[0];
+
+		if (!currentSolution) {
+			return null;
+		}
+
+		const index = visualization_solutions.findIndex((solution) =>
+			isSameSolution(solution, currentSolution)
+		);
+
+		return index >= 0 ? index : null;
+	});
 
 	let selected_solution_for_left_sidebar = $derived.by(() => {
 		if (chosen_solutions.length === 0) {
@@ -277,6 +301,7 @@
 							currentPreferenceValues={current_preference}
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
+							currentSolutionIndex={current_solution_index_in_visualization}
 							perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
 							referenceDataLabels={{
 								perturbedRefLabels: perturbed_reference_point_labels_for_plot

@@ -50,7 +50,18 @@ export function drawGenericReferencePoint(
 	line: d3.Line<[string, number]>,
 	dimensions: DimensionDefinition[],
 	pointData: Solution | undefined,
-	modifiedOptions: { groupClass: string; color: string },
+	modifiedOptions: {
+		groupClass: string;
+		lineColor: string;
+		lineDash?: string | null;
+		lineOpacity?: number;
+
+		markerFill: string;
+		markerStroke: string;
+		markerStrokeWidth?: number;
+		markerRadius?: number;
+		markerOpacity?: number;
+	},
 	strokeWidth: number,
 	addTooltip: TooltipApplier
 ): void {
@@ -67,24 +78,47 @@ export function drawGenericReferencePoint(
 			.datum(refLineData)
 			.attr("d", line)
 			.attr("fill", "none")
-			.attr("stroke", modifiedOptions.color)
-			.attr("stroke-width", strokeWidth + 1)
-			.attr("stroke-dasharray", "8,4")
-			.attr("opacity", 0.8);
+			.attr('stroke', modifiedOptions.lineColor)
+			.attr('stroke-width', strokeWidth)
+			.attr(
+				'stroke-dasharray',
+				modifiedOptions.lineDash ?? null
+			)
+			.attr(
+				'opacity',
+				modifiedOptions.lineOpacity ?? 0.8
+			);
 
 		refLineData.forEach(([dimName, value]) => {
 			const x = xScale(dimName);
 			const y = scales[dimName](value);
 			if (x !== undefined && !Number.isNaN(y)) {
 				referenceGroup
-					.append("circle")
-					.attr("cx", x)
-					.attr("cy", y)
-					.attr("r", 4)
-					.attr("fill", modifiedOptions.color)
-					.attr("stroke", "#fff")
-					.attr("stroke-width", 2)
-					.attr("opacity", 0.8);
+					.append('circle')
+					.attr('cx', x)
+					.attr('cy', y)
+					.attr(
+						'r',
+						modifiedOptions.markerRadius ?? 5
+					)
+					.attr(
+						'fill',
+						modifiedOptions.markerFill
+					)
+					.attr(
+						'stroke',
+						modifiedOptions.markerStroke
+					)
+					.attr(
+						'stroke-width',
+						modifiedOptions.markerStrokeWidth ?? 2
+					)
+					.attr(
+						'fill-opacity',
+						modifiedOptions.markerOpacity ?? 1
+					)
+					.attr(
+						'stroke-opacity', 1);
 			}
 		});
 

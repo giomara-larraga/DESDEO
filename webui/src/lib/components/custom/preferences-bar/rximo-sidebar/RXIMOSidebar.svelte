@@ -370,11 +370,30 @@
 					<InfoIcon class="h-3.5 w-3.5" />
 				</Tooltip.Trigger>
 				<Tooltip.Content sideOffset={6} class="max-w-84">
-					<strong>Explanation tabs</strong>
-					<ul>
-						<li><strong>Understand:</strong> Why was this value obtained?</li>
-						<li><strong>Explore:</strong> What trade-offs are possible?</li>
-						<li><strong>Details:</strong> What relationships and contributions explain it?</li>
+					<strong>How to use the explanation sidebar</strong>
+
+					<p class="mt-1">
+						First, select an objective at the top of the sidebar. This is the achieved value you
+						will explore across the three questions.
+					</p>
+
+					<ul class="mt-2 list-disc space-y-1 pl-4">
+						<li>
+							<strong>What contributed to this achieved value?</strong>
+							Inspect which desired values had supportive or limiting contributions to the selected achieved
+							value.
+						</li>
+
+						<li>
+							<strong>What happens if I relax a desired value?</strong>
+							Select a desired value to inspect the resulting trade-off: what improves in the selected
+							objective and what is given up elsewhere.
+						</li>
+
+						<li>
+							<strong>How are desired and achieved values related?</strong>
+							Explore the broader contribution structure using the relationship view or contribution matrix.
+						</li>
 					</ul>
 				</Tooltip.Content>
 			</Tooltip.Root>

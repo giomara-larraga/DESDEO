@@ -65,6 +65,8 @@
 	// indexes for the case where multiple lines can be selected
 	export let multipleSelectedIndexes: number[] | null = null;
 
+	export let currentSolutionIndex: number | null = null;
+
 	/**
 	 * Helper function to check if a data point is selected
 	 * Works with both single selection (selectedIndex) and multi-selection (multipleSelectedIndexes) modes
@@ -86,26 +88,21 @@
 	// Callback functions for parent component communication
 	export let onLineSelect: ((index: number | null, data: DataPoint | null) => void) | undefined =
 		undefined;
-	export let onBrushFilter:
-		| ((filters: BrushFilters) => void)
-		| undefined = undefined;
+	export let onBrushFilter: ((filters: BrushFilters) => void) | undefined = undefined;
 
 	// --- Internal State Variables ---
 	let width = 500; // Current container width in pixels
 	let height = 400; // Current container height in pixels
 	let svg: SVGSVGElement; // Reference to the SVG element
 	let container: HTMLDivElement; // Reference to the container div
+	let plotContainer: HTMLDivElement;
 	let resizeObserver: ResizeObserver; // Observer for container size changes
 	let brushes: { [dimension: string]: d3.BrushBehavior<unknown> } = {}; // D3 brush objects per dimension
 	let scales: { [key: string]: d3.ScaleLinear<number, number> } = {}; // D3 scales for each dimension
 	let tooltip: d3.Selection<HTMLDivElement, unknown, null, undefined>; // Single tooltip for all uses
 
-
 	// Helper function to add tooltip functionality to a path
-	function addTooltip(
-		path: d3.Selection<SVGPathElement, any, any, any>,
-		label?: string
-	) {
+	function addTooltip(path: d3.Selection<SVGPathElement, any, any, any>, label?: string) {
 		if (!label) return path; // If no label, return path without tooltip
 
 		return path
@@ -120,7 +117,6 @@
 				tooltip.transition().duration(500).style('opacity', 0);
 			});
 	}
-
 
 	/**
 	 * Handles line selection when user clicks on a data line
@@ -259,29 +255,86 @@
 		// Draw previous reference points (light red, multiple)
 		if (referenceData?.previousReferencePoints) {
 			referenceData.previousReferencePoints.forEach((prevPoint) => {
-				drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, prevPoint, {
-					groupClass: `reference-point`,
-					color: '#fecaca' // light red color, tailwind red 200
-				}, options.strokeWidth, addTooltip);
+				drawGenericReferencePointImpl(
+					svgElement,
+					newScales,
+					xScale,
+					line,
+					dimensions,
+					prevPoint,
+					{
+						groupClass: 'previous-reference-point',
+						lineColor: '#6B7280',
+						lineDash: '5,4',
+						lineOpacity: 0.6,
+
+						// Same as HorizontalBar:
+						// previous desired value = black circle
+						markerFill: '#000',
+						markerStroke: '#000',
+						markerStrokeWidth: 1.5,
+						markerOpacity: 0.5,
+						markerRadius: 5
+					},
+					options.strokeWidth,
+					addTooltip
+				);
 			});
 		}
 
 		// Draw perturbed reference points (orange, dashed)
 		if (referenceData?.perturbedReferencePoints) {
 			referenceData.perturbedReferencePoints.forEach((perturbedPoint) => {
-				drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, perturbedPoint, {
-					groupClass: 'perturbed-reference-point',
-					color: '#fb923c' // orange-400
-				}, options.strokeWidth, addTooltip);
+				drawGenericReferencePointImpl(
+					svgElement,
+					newScales,
+					xScale,
+					line,
+					dimensions,
+					perturbedPoint,
+					{
+						groupClass: 'perturbed-reference-point',
+						lineColor: '#F59E0B',
+						lineDash: '5,4',
+						lineOpacity: 0.65,
+
+						markerFill: '#F59E0B',
+						markerStroke: '#FFFFFF',
+						markerStrokeWidth: 1.5,
+						markerRadius: 4
+					},
+					options.strokeWidth,
+					addTooltip
+				);
 			});
 		}
 
 		// Draw reference visualizations (on top of data lines)
 		// Draw current reference point (red)
-		drawGenericReferencePointImpl(svgElement, newScales, xScale, line, dimensions, referenceData?.referencePoint, {
-			groupClass: 'reference-point',
-			color: '#f87171' // Red color, tailwind red 400
-		}, options.strokeWidth, addTooltip);
+		drawGenericReferencePointImpl(
+			svgElement,
+			newScales,
+			xScale,
+			line,
+			dimensions,
+			referenceData?.referencePoint,
+			{
+				groupClass: 'current-reference-point',
+				lineColor: '#9CA3AF',
+				lineDash: null,
+				lineOpacity: 0.8,
+
+				// Same as HorizontalBar:
+				// current desired value = white circle
+				markerFill: '#FFFFFF',
+				markerStroke: '#222222',
+				markerStrokeWidth: 2,
+				markerOpacity: 0.5,
+				markerRadius: 6
+			},
+			options.strokeWidth,
+			addTooltip
+		);
 
 		drawReferenceSolutionsImpl(
 			svgElement,
@@ -315,12 +368,16 @@
 		const updateVisibleLines = (
 			targetLines: d3.Selection<SVGPathElement, DataPoint, SVGGElement, unknown>
 		) => {
-			updateLineVisibilityImpl(
-				targetLines,
-				options,
-				isSelected,
-				(d) => passesFilters(d, brushFilters, scales)
+			updateLineVisibilityImpl(targetLines, options, isSelected, (d) =>
+				passesFilters(d, brushFilters, scales)
 			);
+			if (currentSolutionIndex !== null && currentSolutionIndex >= 0) {
+				targetLines
+					.filter((_d, index) => index === currentSolutionIndex)
+					.attr('stroke', '#374151')
+					.attr('stroke-width', options.strokeWidth + 1)
+					.attr('opacity', 1);
+			}
 		};
 
 		// Set up brushing for each axis (must be done before line updates)
@@ -346,6 +403,41 @@
 		// Apply initial line styling based on current state
 		updateVisibleLines(lines);
 
+		if (
+			currentSolutionIndex !== null &&
+			currentSolutionIndex >= 0 &&
+			currentSolutionIndex < data.length
+		) {
+			const currentSolution = data[currentSolutionIndex];
+
+			const markerGroup = svgElement
+				.append('g')
+				.attr('class', 'current-solution-markers')
+				.attr('pointer-events', 'none');
+
+			dimensions.forEach((dim) => {
+				const value = currentSolution[dim.symbol];
+
+				if (value === undefined || value === null) {
+					return;
+				}
+
+				const x = xScale(dim.symbol);
+				const y = newScales[dim.symbol](value);
+
+				if (x === undefined || !Number.isFinite(y)) {
+					return;
+				}
+
+				markerGroup
+					.append('path')
+					.attr('d', d3.symbol().type(d3.symbolTriangle).size(75)())
+					.attr('transform', `translate(${x}, ${y}) rotate(180)`)
+					.attr('fill', '#374151')
+					.attr('stroke', '#FFFFFF')
+					.attr('stroke-width', 1);
+			});
+		}
 		attachHoverInteractions(
 			lines,
 			options.highlightOnHover,
@@ -402,7 +494,7 @@
 				drawChart(); // Redraw chart with new dimensions
 			}
 		});
-		resizeObserver.observe(container); // Start observing the container
+		resizeObserver.observe(plotContainer); // Start observing the container
 		drawChart(); // Draw initial chart
 	});
 
@@ -416,24 +508,103 @@
 
 	// --- Reactive Updates ---
 	// Redraw chart whenever any of these values change
-	$: data,
+	$: (data,
 		dimensions,
 		options,
 		referenceData,
 		selectedIndex,
 		multipleSelectedIndexes,
+		currentSolutionIndex,
 		brushFilters,
 		width,
 		height,
-		drawChart();
+		drawChart());
 </script>
 
 <!--
     Responsive container for the parallel coordinates plot.
     Uses aspect ratio to maintain consistent proportions.
 -->
-<div bind:this={container} style="height: 100%;width: 100%;">
-	<svg bind:this={svg} style="width: 100%; height: 100%;" />
+<div bind:this={container} class="grid h-full min-h-0 w-full overflow-hidden">
+	<!-- Plot -->
+	<div bind:this={plotContainer} class="absolute inset-0">
+		<svg bind:this={svg} class="block h-full w-full"></svg>
+
+		<!-- Legend -->
+		<div
+			class="
+			absolute bottom-0 left-0 right-0 z-20
+			flex flex-wrap items-center justify-center
+			gap-x-4 gap-y-1
+			
+			px-3 py-2
+			text-[11px] text-gray-600
+		"
+			aria-label="Parallel coordinates legend"
+		>
+			{#if referenceData?.previousReferencePoints?.length}
+				<span class="inline-flex items-center gap-1.5">
+					<svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+						<line
+							x1="1"
+							y1="6"
+							x2="23"
+							y2="6"
+							stroke="#6B7280"
+							stroke-width="1.5"
+							stroke-dasharray="4 3"
+						/>
+						<circle cx="12" cy="6" r="4" fill="#111827" />
+					</svg>
+
+					Previous desired values
+				</span>
+			{/if}
+
+			{#if referenceData?.referencePoint}
+				<span class="inline-flex items-center gap-1.5">
+					<svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+						<line x1="1" y1="6" x2="23" y2="6" stroke="#374151" stroke-width="1.5" />
+						<circle cx="12" cy="6" r="4.5" fill="#FFFFFF" stroke="#222222" stroke-width="2" />
+					</svg>
+
+					Current desired values
+				</span>
+			{/if}
+
+			{#if currentSolutionIndex !== null}
+				<span class="inline-flex items-center gap-1.5">
+					<svg width="24" height="14" viewBox="0 0 24 14" aria-hidden="true">
+						<line x1="1" y1="7" x2="23" y2="7" stroke="#374151" stroke-width="2" />
+
+						<polygon points="8,4 16,4 12,11" fill="#374151" stroke="#FFFFFF" stroke-width="1" />
+					</svg>
+
+					Current solution
+				</span>
+			{/if}
+
+			{#if referenceData?.perturbedReferencePoints?.length}
+				<span class="inline-flex items-center gap-1.5">
+					<svg width="24" height="12" viewBox="0 0 24 12" aria-hidden="true">
+						<line
+							x1="1"
+							y1="6"
+							x2="23"
+							y2="6"
+							stroke="#F59E0B"
+							stroke-width="1.5"
+							stroke-dasharray="4 3"
+						/>
+
+						<circle cx="12" cy="6" r="3.5" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1" />
+					</svg>
+
+					Relaxed desired values
+				</span>
+			{/if}
+		</div>
+	</div>
 </div>
 
 <style>

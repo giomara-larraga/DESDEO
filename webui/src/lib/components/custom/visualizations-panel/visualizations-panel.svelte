@@ -67,7 +67,6 @@
 	import { onMount } from 'svelte';
 	import { SegmentedControl } from '$lib/components/custom/segmented-control';
 
-
 	/**
 	 * Component Props Interface
 	 *
@@ -92,6 +91,7 @@
 		currentPreferenceValues?: number[];
 		previousPreferenceType: string;
 		currentPreferenceType: string;
+		currentSolutionIndex?: number | null;
 		solutionsObjectiveValues?: number[][];
 		solutionsDecisionValues?: number[][];
 		onSelectSolution?: (index: number) => void;
@@ -125,6 +125,7 @@
 		externalSelectedIndexes = null,
 		lineLabels = {},
 		referenceDataLabels = {},
+		currentSolutionIndex = null,
 		perturbedReferencePointValues
 	}: Props = $props();
 
@@ -220,8 +221,7 @@
 	let visualizationType = $state<VisualizationType>('parallel');
 
 	// Use the height passed from parent
-	const plotHeight = $derived(height || Math.max(containerSize.height - 50, 10)); // Reserve 50px for controls, ensure minimum height of 10px
-
+	//const plotHeight = $derived(height || Math.max(containerSize.height - 50, 10)); // Reserve 50px for controls, ensure minimum height of 10px
 </script>
 
 <!--
@@ -232,10 +232,10 @@
  */
 -->
 
-<div bind:this={containerElement} class="flex h-full w-full flex-col p-4 overflow-hidden">
+<div bind:this={containerElement} class="flex h-full min-h-0 w-full flex-col overflow-hidden p-4">
 	{#if solutionsObjectiveValues.length > 0}
 		<!-- Visualization Type Selector -->
-<!-- 		<div class="mb-2 flex items-center justify-between">
+		<!-- 		<div class="mb-2 flex items-center justify-between">
 			<h3>Visualization</h3>
 			<SegmentedControl
 				bind:value={visualizationType}
@@ -248,7 +248,7 @@
 		</div> -->
 
 		<!-- Visualization Container with dynamic height -->
-		<div class="w-full border-gray-200" style="height: {plotHeight}px;">
+		<div class="relative min-h-0 w-full flex-1 border-gray-200">
 			{#if visualizationType === 'parallel'}
 				<ParallelCoordinates
 					data={objectiveData()}
@@ -256,6 +256,7 @@
 					referenceData={referenceData()}
 					options={plotOptions}
 					{selectedIndex}
+					{currentSolutionIndex}
 					multipleSelectedIndexes={externalSelectedIndexes}
 					onLineSelect={handleLineSelect}
 					{lineLabels}
