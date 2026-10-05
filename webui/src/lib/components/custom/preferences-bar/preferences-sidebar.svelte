@@ -189,7 +189,19 @@
 
 	// Add a helper function to safely get preference values
 	function get_preference_value(idx: number): number {
-		return internal_preference_values[idx] ?? 0;
+		// if no preference is set, return a value in the middle of the ideal and nadir values
+		if (internal_preference_values[idx] === undefined) {
+			const objective = problem.objectives[idx];
+			if (
+				objective.ideal !== undefined &&
+				objective.ideal !== null &&
+				objective.nadir !== undefined &&
+				objective.nadir !== null
+			) {
+				return (objective.ideal + objective.nadir) / 2;
+			}
+		}
+		return internal_preference_values[idx];
 	}
 
 	function get_objective_value(idx: number): number | undefined {
