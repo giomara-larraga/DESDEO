@@ -2,7 +2,7 @@
 	import ConfigPanel from './config-panel.svelte';
 	import HistoryBrowser from './history-browser.svelte';
 
-	type Phase = 'learning' | 'consensus';
+	type Phase = 'learning' | 'consensus' | 'decision';
 
 	type RestartPhase = 'learning' | 'consensus' | 'decision';
 
@@ -77,6 +77,14 @@
 	function checkboxValue(event: Event): boolean {
 		return (event.currentTarget as HTMLInputElement).checked;
 	}
+
+	const isLearningPhase = $derived(phase === 'learning');
+
+	const isConsensusPhase = $derived(phase === 'consensus');
+
+	const isDecisionPhase = $derived(phase === 'decision');
+
+	const showScoreBandsControls = $derived(isLearningPhase || isConsensusPhase);
 </script>
 
 <aside class="space-y-4">
@@ -139,92 +147,108 @@
 				</div>
 			</section>
 		{/if}
-		<section class="bg-card rounded-lg border shadow-sm">
-			<header class="border-b px-4 py-3">
-				<h2 class="text-sm font-semibold">Visualization options</h2>
-			</header>
 
-			<div class="space-y-4 p-4">
-				<!-- 				<div>
-					<div class="text-xs text-muted-foreground">
-						Input data
-					</div>
+		{#if isDecisionPhase}
+			<div class="bg-card rounded-lg border shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Decision phase</h2>
+				</div>
 
-					<div class="mt-1 text-sm font-medium">
-						{problemName}
-					</div>
-				</div> -->
+				<div class="p-4">
+					<p class="text-muted-foreground text-sm">
+						Compare the candidate solutions in the parallel coordinates plot and numerical table,
+						then select a solution for voting.
+					</p>
 
-				<div class="space-y-2">
-					<label class="flex items-center gap-2 text-sm">
-						<input
-							type="checkbox"
-							checked={showBands}
-							disabled={!canToggleBands}
-							class="
-								checkbox checkbox-primary
-								checkbox-sm
-							"
-							onchange={(event) => onShowBandsChange(checkboxValue(event))}
-						/>
-
-						Show bands
-					</label>
-
-					<label class="flex items-center gap-2 text-sm">
-						<input
-							type="checkbox"
-							checked={showMedians}
-							disabled={!canToggleMedians}
-							class="
-								checkbox checkbox-primary
-								checkbox-sm
-							"
-							onchange={(event) => onShowMediansChange(checkboxValue(event))}
-						/>
-
-						Show medians
-					</label>
+					{#if isOwner}
+						<p class="text-muted-foreground mt-3 text-xs">
+							As group owner, you can use the history below to return the process to an earlier
+							iteration or phase if reconsideration is needed.
+						</p>
+					{/if}
 				</div>
 			</div>
-		</section>
+		{/if}
+		{#if showScoreBandsControls}
+			<section class="bg-card rounded-lg border shadow-sm">
+				<header class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">Visualization options</h2>
+				</header>
+
+				<div class="space-y-4 p-4">
+					<div class="space-y-2">
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={showBands}
+								disabled={!canToggleBands}
+								class="
+									checkbox checkbox-primary
+									checkbox-sm
+								"
+								onchange={(event) => onShowBandsChange(checkboxValue(event))}
+							/>
+
+							Show bands
+						</label>
+
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={showMedians}
+								disabled={!canToggleMedians}
+								class="
+									checkbox checkbox-primary
+									checkbox-sm
+								"
+								onchange={(event) => onShowMediansChange(checkboxValue(event))}
+							/>
+
+							Show medians
+						</label>
+					</div>
+				</div>
+			</section>
+		{/if}
 	{/if}
 
-	<section class="bg-card rounded-lg border shadow-sm">
-		<header class="border-b px-4 py-3">
-			<h2 class="text-sm font-semibold">Visible bands</h2>
-		</header>
+	{#if showScoreBandsControls}
+		<section class="bg-card rounded-lg border shadow-sm">
+			<header class="border-b px-4 py-3">
+				<h2 class="text-sm font-semibold">Visible bands</h2>
+			</header>
 
-		<div class="space-y-3 p-4">
-			{#each clusterIds as clusterId}
-				<label
-					class="
+			<div class="space-y-3 p-4">
+				{#each clusterIds as clusterId}
+					<label
+						class="
 						flex items-center justify-between
 						gap-2 text-sm
 					"
-				>
-					<span class="flex items-center gap-2">
-						<span
-							class="h-3 w-3 rounded-full"
-							style:background-color={clusterColors[clusterId] ?? '#64748b'}
-						></span>
+					>
+						<span class="flex items-center gap-2">
+							<span
+								class="h-3 w-3 rounded-full"
+								style:background-color={clusterColors[clusterId] ?? '#64748b'}
+							></span>
 
-						Band {clusterId}
-					</span>
+							Band {clusterId}
+						</span>
 
-					<input
-						type="checkbox"
-						checked={clusterVisibilityMap[clusterId] !== false}
-						class="
+						<input
+							type="checkbox"
+							checked={clusterVisibilityMap[clusterId] !== false}
+							class="
 							checkbox checkbox-primary
 							checkbox-sm
 						"
-						onchange={(event) => onVisibilityChange(clusterId, checkboxValue(event))}
-					/>
-				</label>
-			{/each}
-		</div>
-	</section>
+							onchange={(event) => onVisibilityChange(clusterId, checkboxValue(event))}
+						/>
+					</label>
+				{/each}
+			</div>
+		</section>
+	{/if}
 
 	<!-- 	{#if phase === 'consensus' && isOwner}
 		<ConfigPanel

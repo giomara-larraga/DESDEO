@@ -1239,6 +1239,10 @@
 				throw new Error('Could not determine the current SCORE Bands response.');
 			}
 
+			// IMPORTANT:
+			// Check whether the phase changed BEFORE calling setPhase().
+			//const hasPhaseChanged = previousPhase !== currentResponse.phase;
+
 			if (currentResponse.phase === 'learning' || currentResponse.phase === 'consensus') {
 				const scoreBandsResponse = currentResponse as GDMSCOREBandsResponse & {
 					phase: 'learning' | 'consensus';
@@ -1285,9 +1289,6 @@
 				setPhase('decision');
 				scoreBandsResult = null;
 
-				// Clear notices left over from the consensus phase.
-				decisionNotice = null;
-
 				if (
 					finalDecisionData.winner_solution_objectives &&
 					Object.keys(finalDecisionData.winner_solution_objectives).length > 0
@@ -1303,6 +1304,10 @@
 			const iterationChanged = groupIterationId !== previousIterationId;
 
 			const phaseChanged = phase !== previousPhase;
+
+			if (phaseChanged) {
+				decisionNotice = null;
+			}
 
 			if (iterationChanged || phaseChanged) {
 				selected_band = null;
@@ -2221,151 +2226,131 @@
 				/>
 			</div>
 		{:else if isDecisionPhase}
-			<!-- DECISION PHASE: Solution Selection Content -->
-			<div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
-				<!-- Decision Controls -->
-				<div class="lg:col-span-1">
-					{#if isDecisionMaker}
-						<!-- Voting -->
-						<div class="card bg-base-100 shadow-xl">
-							<div class="card-body">
-								<h2 class="card-title">
-									{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}
-								</h2>
-								{#if decisionNotice}
-									<div
-										class="
-											rounded-md border border-amber-200
-											bg-amber-50 p-3 text-sm
-											text-amber-900
-										"
-									>
-										{decisionNotice}
-									</div>
-								{/if}
+			<div class="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+				<!-- LEFT: Data & History -->
+				<ScoreBandsLeftSidebar
+					phase="decision"
+					{isOwner}
+					{isDecisionMaker}
+					problemName={data.problem.name ?? 'Current problem'}
+					clusterIds={[]}
+					clusterColors={{}}
+					clusterVisibilityMap={{}}
+					onVisibilityChange={() => {}}
+					showBands={false}
+					showMedians={false}
+					canToggleBands={false}
+					canToggleMedians={false}
+					onShowBandsChange={() => {}}
+					onShowMediansChange={() => {}}
+					currentConfig={null}
+					latestIteration={null}
+					{totalVoters}
+					onRecalculate={configure}
+					{history}
+					currentIterationId={groupIterationId}
+					onRevertToIteration={revert_to}
+					onRestartToPhase={restartScoreBands}
+					{canRestartToPhase}
+					{isRestarting}
+				/>
 
-								<div class="space-y-2 p-2">
-									{#if !isGroupDecisionReached}
-										<Button
-											onclick={() => vote(selected_solution)}
-											disabled={selected_solution === null || vote_confirmed}
-										>
-											Vote for Selected Solution
-										</Button>
-										<Button onclick={confirm_vote} disabled={!have_all_voted || vote_confirmed}>
-											{vote_confirmed ? 'Vote Confirmed' : 'Confirm Vote'}
-										</Button>
-										{#if vote_confirmed}
-											<div class="alert alert-info">
-												<span>
-													Your vote has been confirmed. Waiting for the other decision makers.
-												</span>
-											</div>
-										{/if}
-									{:else}
-										<div class="alert alert-success">
-											<span>Group decision reached!</span>
-											<div class="mt-2 text-sm">
-												Final solution: Solution {winnerSolutionIndex !== null
-													? winnerSolutionIndex + 1
-													: 'N/A'}
-											</div>
-										</div>
-									{/if}
-								</div>
+				<!-- CENTER: PCP + numerical values -->
+				<main class="space-y-4">
+					<div class="bg-card rounded-lg border shadow-sm">
+						<div class="flex items-center justify-between border-b px-4 py-3">
+							<div>
+								<h2 class="text-sm font-semibold">Solution comparison</h2>
+
+								<p class="text-muted-foreground mt-1 text-xs">
+									Select a solution in the parallel coordinates plot or in the table below.
+								</p>
 							</div>
 						</div>
-					{:else if isOwner}
-						<div class="card bg-base-100 shadow-xl">
-							<div class="card-body">
-								<h2 class="card-title">
-									{isGroupDecisionReached ? 'Final Solution' : 'Solution Voting'}
-								</h2>
 
-								{#if decisionNotice}
-									<div
-										class="
-											rounded-md border border-amber-200
-											bg-amber-50 p-3 text-sm
-											text-amber-900
-										"
-									>
-										{decisionNotice}
-									</div>
-								{/if}
-
-								<div class="space-y-2 p-2">
-									{#if !isGroupDecisionReached}
-										<div>Voting is still ongoing.</div>
-									{:else}
-										<div class="alert alert-success">
-											<span> Group decision reached! </span>
-											<div class="mt-2 text-sm">
-												Final solution: Solution
-												{winnerSolutionIndex !== null ? winnerSolutionIndex + 1 : 'N/A'}
-											</div>
-										</div>
-									{/if}
-								</div>
-							</div>
-						</div>
-					{/if}
-
-					<!-- History Browser Component -->
-					<HistoryBrowser
-						{history}
-						currentIterationId={groupIterationId}
-						onRevertToIteration={revert_to}
-						{isOwner}
-						onRestartToPhase={restartScoreBands}
-						{canRestartToPhase}
-						isRestartingPhase={isRestarting}
-					/>
-				</div>
-				<!-- Visualization Area -->
-				<div class="lg:col-span-3">
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
+						<div class="h-[520px] p-4">
 							{#if decisionResult && decisionSolutions.length > 0}
-								<div class="flex h-[600px] w-full items-center justify-center">
-									<!-- Parallel Coordinates Component -->
-									<ParallelCoordinates
-										data={decisionSolutions}
-										dimensions={decisionObjectiveDimensions}
-										selectedIndex={selected_solution}
-										onLineSelect={handle_solution_select}
-										referenceData={{
-											preferredSolutions:
-												usersVote !== null
-													? [
-															{
-																values: decisionSolutions[usersVote],
-																label: `Your Vote: Solution ${usersVote + 1}`
-															}
-														]
-													: []
-										}}
-									/>
-								</div>
-								<h2 class="card-title mb-4">Numerical values</h2>
-								<ScoreBandsSolutionTable
-									problem={data.problem}
-									solutions={decisionSolutions}
-									selectedSolution={selected_solution}
-									onSolutionSelect={handle_solution_select}
+								<ParallelCoordinates
+									data={decisionSolutions}
 									dimensions={decisionObjectiveDimensions}
-									userVotedSolution={usersVote}
-									groupVotes={votes_and_confirms.votes || {}}
+									selectedIndex={selected_solution}
+									onLineSelect={handle_solution_select}
+									referenceData={{
+										preferredSolutions:
+											usersVote !== null
+												? [
+														{
+															values: decisionSolutions[usersVote],
+															label: `Your Vote: Solution ${usersVote + 1}`
+														}
+													]
+												: []
+									}}
 								/>
 							{:else}
-								<div class="text-center">
-									<h2 class="mb-4 text-2xl font-bold">Decision Phase</h2>
-									<p class="mb-4 text-gray-600">Loading solutions...</p>
+								<div
+									class="
+								text-muted-foreground
+								flex h-full items-center
+								justify-center text-sm
+							"
+								>
+									Loading solutions...
 								</div>
 							{/if}
 						</div>
+
+						<div class="text-muted-foreground border-t px-4 py-3 text-sm">
+							The lines represent the candidate solutions retained for the final group decision.
+						</div>
 					</div>
-				</div>
+
+					{#if decisionResult && decisionSolutions.length > 0}
+						<div class="bg-card rounded-lg border shadow-sm">
+							<div class="border-b px-4 py-3">
+								<h2 class="text-sm font-semibold">Numerical values</h2>
+
+								<p class="text-muted-foreground mt-1 text-xs">
+									Compare objective values or select a solution from the table.
+								</p>
+							</div>
+
+							<div class="p-4">
+								<ScoreBandsSolutionTable
+									problem={data.problem}
+									solutions={decisionSolutions}
+									dimensions={decisionObjectiveDimensions}
+									selectedSolution={selected_solution}
+									onSolutionSelect={handle_solution_select}
+									userVotedSolution={usersVote}
+									groupVotes={votes_and_confirms.votes || {}}
+								/>
+							</div>
+						</div>
+					{/if}
+				</main>
+
+				<!-- RIGHT: Solution voting -->
+				<ScoreBandsRightSidebar
+					phase="decision"
+					{isOwner}
+					{isDecisionMaker}
+					decision={{
+						totalVoters,
+						selectedSolution: selected_solution,
+						userVote: usersVote,
+						voteConfirmed: vote_confirmed,
+						haveAllVoted: have_all_voted,
+						haveAllConfirmed: have_all_confirmed,
+						isGroupDecisionReached,
+						winnerSolutionIndex,
+						decisionNotice,
+						voters: voterStatuses,
+						onVote: () => vote(selected_solution),
+						onConfirmVote: confirm_vote,
+						onSolutionSelect: handle_solution_select
+					}}
+				/>
 			</div>
 		{:else}
 			<!-- FALLBACK: Unknown phase -->

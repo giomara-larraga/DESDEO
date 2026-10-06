@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 
-	type Phase = 'learning' | 'consensus';
+	type Phase = 'learning' | 'consensus' | 'decision';
 
 	type LearningSidebarContext = {
 		totalVoters: number;
@@ -73,15 +73,40 @@
 		axisAgreement: Record<string, string>;
 	};
 
+	type DecisionVoterStatus = {
+		id: number;
+		username: string;
+		votedSolutionIndex: number | null;
+		hasVoted: boolean;
+		hasConfirmed: boolean;
+	};
+
+	type DecisionProps = {
+		totalVoters: number;
+		selectedSolution: number | null;
+		userVote: number | null;
+		voteConfirmed: boolean;
+		haveAllVoted: boolean;
+		haveAllConfirmed: boolean;
+		isGroupDecisionReached: boolean;
+		winnerSolutionIndex: number | null;
+		decisionNotice: string | null;
+		voters: DecisionVoterStatus[];
+		onVote: () => void | Promise<void>;
+		onConfirmVote: () => void | Promise<void>;
+		onSolutionSelect: (index: number | null) => void;
+	};
+
 	type Props = {
 		phase: Phase;
 		isOwner: boolean;
 		isDecisionMaker: boolean;
 		learning?: LearningSidebarContext;
 		consensus?: ConsensusSidebarContext;
+		decision?: DecisionProps;
 	};
 
-	let { phase, isOwner, isDecisionMaker, learning, consensus }: Props = $props();
+	let { phase, isOwner, isDecisionMaker, learning, consensus, decision }: Props = $props();
 </script>
 
 <aside class="space-y-4">
@@ -405,6 +430,94 @@
 				{/each}
 			</div>
 		</section> -->
+	{:else if phase === 'decision' && decision}
+		<div class="space-y-4">
+			<div class="bg-card rounded-lg border shadow-sm">
+				<div class="border-b px-4 py-3">
+					<h2 class="text-sm font-semibold">
+						{decision.isGroupDecisionReached ? 'Final solution' : 'Solution voting'}
+					</h2>
+
+					<p class="text-muted-foreground mt-1 text-xs">
+						{decision.isGroupDecisionReached
+							? 'The group decision process is complete.'
+							: 'Select one candidate solution and cast your vote.'}
+					</p>
+				</div>
+
+				<div class="space-y-4 p-4">
+					{#if decision.decisionNotice}
+						<div
+							class="
+							rounded-md border border-amber-200
+							bg-amber-50 p-3 text-sm
+							text-amber-900
+						"
+						>
+							{decision.decisionNotice}
+						</div>
+					{/if}
+
+					{#if decision.isGroupDecisionReached}
+						<div
+							class="
+							rounded-md border border-green-200
+							bg-green-50 p-3 text-sm
+							text-green-900
+						"
+						>
+							<div class="font-medium">Group decision reached</div>
+
+							{#if decision.winnerSolutionIndex !== null}
+								<div class="mt-1">
+									Final solution: Solution {decision.winnerSolutionIndex + 1}
+								</div>
+							{/if}
+						</div>
+					{:else if isDecisionMaker}
+						<div>
+							<div class="text-muted-foreground text-xs">Selected solution</div>
+
+							<div class="mt-1 font-medium">
+								{decision.selectedSolution !== null
+									? `Solution ${decision.selectedSolution + 1}`
+									: 'No solution selected'}
+							</div>
+						</div>
+
+						<Button
+							class="w-full"
+							onclick={decision.onVote}
+							disabled={decision.selectedSolution === null || decision.voteConfirmed}
+						>
+							{decision.userVote !== null ? 'Change vote' : 'Vote for selected solution'}
+						</Button>
+
+						<Button
+							class="w-full"
+							variant="outline"
+							onclick={decision.onConfirmVote}
+							disabled={!decision.haveAllVoted || decision.voteConfirmed}
+						>
+							{decision.voteConfirmed ? 'Vote confirmed' : 'Confirm vote'}
+						</Button>
+
+						{#if decision.voteConfirmed}
+							<p class="text-muted-foreground text-xs">
+								Your vote has been confirmed. Waiting for the other decision makers.
+							</p>
+						{:else if decision.userVote !== null}
+							<p class="text-muted-foreground text-xs">
+								Your current vote is Solution
+								{decision.userVote + 1}.
+							</p>
+						{/if}
+					{:else if isOwner}
+						<p class="text-muted-foreground text-sm">Voting is still ongoing.</p>
+					{/if}
+				</div>
+			</div>
+		</div>
 	{:else}
 		<div class="bg-card text-muted-foreground rounded-lg border p-4 text-sm shadow-sm">
 			Sidebar information is unavailable.
