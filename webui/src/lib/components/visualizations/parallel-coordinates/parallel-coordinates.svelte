@@ -86,6 +86,7 @@
 	export let dimensions: {
 		symbol: string;
 		name: string;
+		unit?: string;
 		min?: number;
 		max?: number;
 		direction?: 'max' | 'min';
@@ -137,8 +138,7 @@
 	export let onLineSelect: ((index: number | null, data: any | null) => void) | undefined =
 		undefined;
 	export let onBrushFilter:
-		| ((filters: { [dimension: string]: [number, number] }) => void)
-		| undefined = undefined;
+		((filters: { [dimension: string]: [number, number] }) => void) | undefined = undefined;
 
 	// --- Internal State Variables ---
 	let width = 500; // Current container width in pixels
@@ -811,7 +811,7 @@
 					.style('font-size', '12px')
 					.style('font-weight', 'bold')
 					.style('fill', '#333')
-					.text(dim.name);
+					.text(dim.name + (dim.unit ? ` (${dim.unit})` : '')); // Include unit if available
 
 				// Add an arrow if direction is specified
 				if (dim.direction) {
@@ -968,7 +968,7 @@
 
 	// --- Reactive Updates ---
 	// Redraw chart whenever any of these values change
-	$: data,
+	$: (data,
 		dimensions,
 		options,
 		referenceData,
@@ -977,7 +977,7 @@
 		brushFilters,
 		width,
 		height,
-		drawChart();
+		drawChart());
 </script>
 
 <!--

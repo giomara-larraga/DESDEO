@@ -69,6 +69,7 @@
 	let {
 		problem,
 		solutions,
+		dimensions,
 		selectedSolution,
 		onSolutionSelect,
 		userVotedSolution = null,
@@ -76,6 +77,14 @@
 	}: {
 		problem: ProblemInfo;
 		solutions: Array<{ [key: string]: number }>;
+		dimensions: {
+			symbol?: string | null;
+			name?: string | null;
+			unit?: string | null;
+			min?: number;
+			max?: number;
+			direction?: 'min' | 'max';
+		}[];
 		selectedSolution: number | null;
 		onSolutionSelect: (index: number | null, solutionData?: any) => void;
 		userVotedSolution?: number | null;
@@ -120,31 +129,74 @@
 
 	// Define columns for the table
 	const columns: ColumnDef<SolutionData>[] = $derived.by(() => {
+		const orderedObjectives = dimensions
+			.map((dimension) => {
+				return problem.objectives.find(
+					(objective) =>
+						objective.symbol === dimension.symbol ||
+						objective.name === dimension.name ||
+						objective.symbol === dimension.name ||
+						objective.name === dimension.symbol
+				);
+			})
+			.filter(
+				(objective): objective is (typeof problem.objectives)[number] => objective !== undefined
+			);
+
 		return [
 			// Solution name column
 			{
 				accessorKey: 'index',
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Solution' }),
-				cell: ({ row }) => renderSnippet(SolutionNameCell, { solution: row.original }),
+				header: ({ column }) =>
+					renderSnippet(ColumnHeader, {
+						column,
+						title: 'Solution'
+					}),
+				cell: ({ row }) =>
+					renderSnippet(SolutionNameCell, {
+						solution: row.original
+					}),
 				enableSorting: false
 			},
-			// Add columns for each objective
-			...problem.objectives.map((objective, idx) => ({
-				accessorKey: objective.symbol,
-				header: ({ column }: { column: Column<SolutionData> }) =>
-					renderSnippet(ObjectiveColumnHeader, { column, objective, idx }),
-				cell: ({ row }: { row: Row<SolutionData> }) =>
-					renderSnippet(ObjectiveCell, {
-						value: row.original[objective.symbol],
-						accuracy: displayAccuracy[idx]
-					}),
-				enableSorting: true
-			})),
+
+			// Objective columns in the same order as the PCP
+			...orderedObjectives.map((objective, displayIndex) => {
+				const originalIndex = problem.objectives.findIndex(
+					(problemObjective) => problemObjective.symbol === objective.symbol
+				);
+
+				return {
+					accessorKey: objective.symbol,
+
+					header: ({ column }: { column: Column<SolutionData> }) =>
+						renderSnippet(ObjectiveColumnHeader, {
+							column,
+							objective,
+							idx: displayIndex
+						}),
+
+					cell: ({ row }: { row: Row<SolutionData> }) =>
+						renderSnippet(ObjectiveCell, {
+							value: row.original[objective.symbol],
+							accuracy: displayAccuracy[originalIndex]
+						}),
+
+					enableSorting: true
+				};
+			}),
+
 			// Vote count column
 			{
 				accessorKey: 'votes',
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: 'Votes' }),
-				cell: ({ row }) => renderSnippet(VoteCountCell, { solution: row.original }),
+				header: ({ column }) =>
+					renderSnippet(ColumnHeader, {
+						column,
+						title: 'Votes'
+					}),
+				cell: ({ row }) =>
+					renderSnippet(VoteCountCell, {
+						solution: row.original
+					}),
 				enableSorting: false
 			}
 		];

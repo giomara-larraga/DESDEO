@@ -166,6 +166,54 @@
 		return scoreBandsResult;
 	});
 
+	let decisionObjectiveDimensions = $derived.by(() => {
+		if (!data.problem?.objectives) {
+			return [];
+		}
+
+		const defaultDimensions = createObjectiveDimensions(data.problem);
+
+		if (lastScoreBandsObjectiveOrder.length === 0) {
+			return defaultDimensions;
+		}
+
+		const dimensionsByIdentifier = new Map(
+			defaultDimensions.flatMap((dimension) => {
+				const entries: [string, (typeof defaultDimensions)[number]][] = [];
+
+				if (dimension.name) {
+					entries.push([dimension.name, dimension]);
+				}
+
+				if (dimension.symbol) {
+					entries.push([dimension.symbol, dimension]);
+				}
+
+				return entries;
+			})
+		);
+
+		const orderedDimensions = lastScoreBandsObjectiveOrder
+			.map((objectiveName) => dimensionsByIdentifier.get(objectiveName))
+			.filter(
+				(dimension): dimension is (typeof defaultDimensions)[number] => dimension !== undefined
+			);
+
+		/*
+		 * Keep any dimensions that SCORE Bands did not return,
+		 * although normally every objective should be present.
+		 */
+		const alreadyIncluded = new Set(
+			orderedDimensions.map((dimension) => dimension.symbol ?? dimension.name)
+		);
+
+		const remainingDimensions = defaultDimensions.filter(
+			(dimension) => !alreadyIncluded.has(dimension.symbol ?? dimension.name)
+		);
+
+		return [...orderedDimensions, ...remainingDimensions];
+	});
+
 	const { data } = $props<{
 		data: {
 			refreshToken: string;
@@ -443,6 +491,8 @@
 	// current iteration data for consensus reaching phase, when bands exist
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
 
+	let lastScoreBandsObjectiveOrder: string[] = $state([]);
+
 	// Configuration and latestIteration are used in initialization and configPanel
 	//let latestIteration: number | null = $state(null);
 	let scoreBandsConfig: SCOREBandsConfig = $state({
@@ -488,6 +538,7 @@
 
 		if (!result) {
 			return {
+				rawAxisNames: [] as string[],
 				axisNames: [] as string[],
 				clusterIds: [] as number[],
 				axisPositions: [] as number[],
@@ -533,6 +584,7 @@
 		);
 
 		const derivedData = {
+			rawAxisNames,
 			axisNames: displayAxisNames,
 			clusterIds: Object.keys(result.bands)
 				.sort((a, b) => parseInt(a) - parseInt(b))
@@ -1197,6 +1249,7 @@
 				const scoreBandsData = scoreBandsResponse.result as SCOREBandsResult;
 
 				scoreBandsResult = scoreBandsData;
+				lastScoreBandsObjectiveOrder = [...(scoreBandsData.ordered_dimensions ?? [])];
 				scoreBandsConfig = scoreBandsData.options;
 				groupIterationId = scoreBandsResponse.group_iter_id;
 
@@ -1207,12 +1260,33 @@
 			} else if (currentResponse.phase === 'decision') {
 				const finalDecisionData = currentResponse.result as GDMSCOREBandsFinalSelection;
 
+				/*
+				 * The decision result does not contain SCORE Bands'
+				 * ordered_dimensions. Recover the objective order from
+				 * the most recent SCORE Bands history entry.
+				 */
+				const previousScoreBandsResponse = [...history]
+					.reverse()
+					.find((item) => item.phase === 'consensus' || item.phase === 'learning') as
+					| (GDMSCOREBandsResponse & {
+							phase: 'learning' | 'consensus';
+					  })
+					| undefined;
+
+				if (previousScoreBandsResponse) {
+					const previousScoreBandsResult = previousScoreBandsResponse.result as SCOREBandsResult;
+
+					lastScoreBandsObjectiveOrder = [...(previousScoreBandsResult.ordered_dimensions ?? [])];
+				}
 				latestIteration = null;
 				decisionResult = finalDecisionData;
 				groupIterationId = currentResponse.group_iter_id;
 
 				setPhase('decision');
 				scoreBandsResult = null;
+
+				// Clear notices left over from the consensus phase.
+				decisionNotice = null;
 
 				if (
 					finalDecisionData.winner_solution_objectives &&
@@ -2257,7 +2331,7 @@
 									<!-- Parallel Coordinates Component -->
 									<ParallelCoordinates
 										data={decisionSolutions}
-										dimensions={createObjectiveDimensions(data.problem)}
+										dimensions={decisionObjectiveDimensions}
 										selectedIndex={selected_solution}
 										onLineSelect={handle_solution_select}
 										referenceData={{
@@ -2279,6 +2353,7 @@
 									solutions={decisionSolutions}
 									selectedSolution={selected_solution}
 									onSolutionSelect={handle_solution_select}
+									dimensions={decisionObjectiveDimensions}
 									userVotedSolution={usersVote}
 									groupVotes={votes_and_confirms.votes || {}}
 								/>

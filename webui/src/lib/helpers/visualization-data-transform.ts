@@ -62,6 +62,7 @@ export function createObjectiveDimensions(problem: ProblemInfo | null) {
     return problem.objectives.map((obj) => ({
         symbol: obj.symbol,
         name: obj.name,
+        unit: obj.unit || undefined,
         min: typeof obj.nadir === 'number' ? obj.nadir : undefined,
         max: typeof obj.ideal === 'number' ? obj.ideal : undefined,
         direction: obj.maximize ? ('max' as const) : ('min' as const)
