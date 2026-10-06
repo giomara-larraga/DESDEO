@@ -38,6 +38,7 @@ from desdeo.api.models import (
     GDMSCOREBandsLearningAdvanceRequest,
     GDMSCOREBandsLearningStatusResponse,
     GDMSCOREBandsLearningWarningRequest,
+    GDMSCOREBandsDecisionAdvanceRequest,
     GDMScoreBandsInitializationRequest,
     GDMSCOREBandsResponse,
     GDMSCOREBandsRevertRequest,
@@ -771,6 +772,99 @@ async def advance_learning_phase(
             None,
         ),
     )
+
+
+@router.post("/consensus/continue")
+async def continue_consensus(
+    request: GDMSCOREBandsDecisionAdvanceRequest,
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    session: Annotated[
+        Session,
+        Depends(get_session),
+    ],
+):
+    group_session = session.get(
+        GroupSessionDB,
+        request.group_session_id,
+    )
+
+    if group_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group session not found.",
+        )
+
+    manager = GDMScoreBandsManager(
+        group_session.id,
+        session,
+    )
+
+    try:
+        await manager.continue_consensus(
+            user=user,
+            group_session=group_session,
+            session=session,
+        )
+    except ManagerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    return {"message": "Consensus phase continued."}
+
+
+@router.post("/consensus/advance")
+async def advance_consensus_to_decision(
+    request: GDMSCOREBandsDecisionAdvanceRequest,
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    session: Annotated[
+        Session,
+        Depends(get_session),
+    ],
+):
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    check_group_owner(
+        user,
+        group,
+    )
+
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_session_id=group_session.id,
+        method="gdm-score-bands",
+        db_session=session,
+    )
+
+    try:
+        await group_mgr.advance_consensus_to_decision(
+            user=user,
+            group_session=group_session,
+            session=session,
+        )
+    except ManagerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to advance consensus to decision.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    return {"message": "Decision phase started."}
 
 
 @router.post("/revert")

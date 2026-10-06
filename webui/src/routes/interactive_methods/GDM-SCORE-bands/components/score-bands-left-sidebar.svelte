@@ -4,10 +4,7 @@
 
 	type Phase = 'learning' | 'consensus';
 
-	type RestartPhase =
-	| 'learning'
-	| 'consensus'
-	| 'decision';
+	type RestartPhase = 'learning' | 'consensus' | 'decision';
 
 	type Props = {
 		phase: Phase;
@@ -20,10 +17,7 @@
 		clusterIds: number[];
 		clusterColors: Record<number, string>;
 		clusterVisibilityMap: Record<number, boolean>;
-		onVisibilityChange: (
-			clusterId: number,
-			visible: boolean
-		) => void;
+		onVisibilityChange: (clusterId: number, visible: boolean) => void;
 
 		showBands: boolean;
 		showMedians: boolean;
@@ -41,18 +35,12 @@
 		currentIterationId: number | null;
 		onRevertToIteration: (iterationId: number) => void;
 
-		onRestartToPhase:
-			(
-				phase: RestartPhase
-			) => void | Promise<void>;
+		onRestartToPhase: (phase: RestartPhase) => void | Promise<void>;
 
-		canRestartToPhase:
-			(
-				phase: RestartPhase
-			) => boolean;
+		canRestartToPhase: (phase: RestartPhase) => boolean;
 
 		isRestarting?: boolean;
-		};
+	};
 
 	let {
 		phase,
@@ -93,15 +81,13 @@
 
 <aside class="space-y-4">
 	{#if phase === 'learning'}
-		<section class="rounded-lg border bg-card shadow-sm">
+		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
-				<h2 class="text-sm font-semibold">
-					How to explore
-				</h2>
+				<h2 class="text-sm font-semibold">How to explore</h2>
 			</header>
 
 			<div class="space-y-4 p-4 text-sm">
-<!-- 				<div
+				<!-- 				<div
 					class="
 						rounded-md border border-blue-200
 						bg-blue-50 px-3 py-2 text-blue-900
@@ -117,63 +103,49 @@
 				</div> -->
 
 				{#if isDecisionMaker}
-<div>
-	<div class="font-medium">
-		1. Explore bands
-	</div>
+					<div>
+						<div class="font-medium">1. Explore bands</div>
 
-	<p class="text-muted-foreground">
-		Click a band to inspect its solutions privately.
-	</p>
-</div>
+						<p class="text-muted-foreground">Click a band to inspect its solutions privately.</p>
+					</div>
 
-<div>
-	<div class="font-medium">
-		2. Compare solutions
-	</div>
+					<div>
+						<div class="font-medium">2. Compare solutions</div>
 
-	<p class="text-muted-foreground">
-		Explore the solutions within interesting bands
-		and compare their objective values.
-	</p>
-</div>
+						<p class="text-muted-foreground">
+							Explore the solutions within interesting bands and compare their objective values.
+						</p>
+					</div>
 
-<div>
-	<div class="font-medium">
-		3. Finish exploring
-	</div>
+					<div>
+						<div class="font-medium">3. Finish exploring</div>
 
-	<p class="text-muted-foreground">
-		Mark yourself finished when you are ready
-		to proceed.
-	</p>
-</div>
+						<p class="text-muted-foreground">
+							Mark yourself finished when you are ready to proceed.
+						</p>
+					</div>
 				{:else if isOwner}
 					<p class="text-muted-foreground">
-						Monitor the learning phase while decision
-						makers explore the available bands.
+						Monitor the learning phase while decision makers explore the available bands.
 					</p>
 				{/if}
 			</div>
 		</section>
 	{:else}
 		{#if phase === 'consensus' && isDecisionMaker}
-		<section class="rounded-lg border bg-card shadow-sm">
-			<div class="p-4 text-sm text-muted-foreground">
-				Select a visible band in the chart or table,
-				then cast your vote from the voting panel.
-			</div>
-		</section>
-	{/if}
-		<section class="rounded-lg border bg-card shadow-sm">
+			<section class="bg-card rounded-lg border shadow-sm">
+				<div class="text-muted-foreground p-4 text-sm">
+					Select a visible band in the chart or table, then cast your vote from the voting panel.
+				</div>
+			</section>
+		{/if}
+		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
-				<h2 class="text-sm font-semibold">
-					Visualization options
-				</h2>
+				<h2 class="text-sm font-semibold">Visualization options</h2>
 			</header>
 
 			<div class="space-y-4 p-4">
-<!-- 				<div>
+				<!-- 				<div>
 					<div class="text-xs text-muted-foreground">
 						Input data
 					</div>
@@ -193,10 +165,7 @@
 								checkbox checkbox-primary
 								checkbox-sm
 							"
-							onchange={(event) =>
-								onShowBandsChange(
-									checkboxValue(event)
-								)}
+							onchange={(event) => onShowBandsChange(checkboxValue(event))}
 						/>
 
 						Show bands
@@ -211,10 +180,7 @@
 								checkbox checkbox-primary
 								checkbox-sm
 							"
-							onchange={(event) =>
-								onShowMediansChange(
-									checkboxValue(event)
-								)}
+							onchange={(event) => onShowMediansChange(checkboxValue(event))}
 						/>
 
 						Show medians
@@ -224,12 +190,9 @@
 		</section>
 	{/if}
 
-	<section class="rounded-lg border bg-card shadow-sm">
-	
+	<section class="bg-card rounded-lg border shadow-sm">
 		<header class="border-b px-4 py-3">
-			<h2 class="text-sm font-semibold">
-				Visible bands
-			</h2>
+			<h2 class="text-sm font-semibold">Visible bands</h2>
 		</header>
 
 		<div class="space-y-3 p-4">
@@ -243,10 +206,7 @@
 					<span class="flex items-center gap-2">
 						<span
 							class="h-3 w-3 rounded-full"
-							style:background-color={
-								clusterColors[clusterId] ??
-								'#64748b'
-							}
+							style:background-color={clusterColors[clusterId] ?? '#64748b'}
 						></span>
 
 						Band {clusterId}
@@ -254,27 +214,19 @@
 
 					<input
 						type="checkbox"
-						checked={
-							clusterVisibilityMap[
-								clusterId
-							] !== false
-						}
+						checked={clusterVisibilityMap[clusterId] !== false}
 						class="
 							checkbox checkbox-primary
 							checkbox-sm
 						"
-						onchange={(event) =>
-							onVisibilityChange(
-								clusterId,
-								checkboxValue(event)
-							)}
+						onchange={(event) => onVisibilityChange(clusterId, checkboxValue(event))}
 					/>
 				</label>
 			{/each}
 		</div>
 	</section>
 
-	{#if phase === 'consensus' && isOwner}
+	<!-- 	{#if phase === 'consensus' && isOwner}
 		<ConfigPanel
 			{currentConfig}
 			{latestIteration}
@@ -283,19 +235,17 @@
 			isVisible={true}
 		/>
 
-	{/if}
+	{/if} -->
 
 	{#if isOwner}
 		<HistoryBrowser
 			{history}
 			{currentIterationId}
-			onRevertToIteration={onRevertToIteration}
+			{onRevertToIteration}
 			{isOwner}
 			{onRestartToPhase}
 			{canRestartToPhase}
 			isRestartingPhase={isRestarting}
 		/>
 	{/if}
-
-
 </aside>

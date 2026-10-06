@@ -30,15 +30,11 @@
 		isExploringBand: boolean;
 		explorationDepth: number;
 
-		onExploreBand:
-			(clusterId: number) =>
-				void | Promise<void>;
+		onExploreBand: (clusterId: number) => void | Promise<void>;
 
-		onBackOneLevel:
-			() => void;
+		onBackOneLevel: () => void;
 
-		onExitExploration:
-			() => void;
+		onExitExploration: () => void;
 	};
 
 	type ConsensusSidebarContext = {
@@ -49,7 +45,10 @@
 		selectedBand: number | null;
 		voteConfirmed: boolean;
 		haveAllVoted: boolean;
+		haveAllConfirmed: boolean;
 		isConsensusVoteSyncing: boolean;
+		isAdvancingToDecision: boolean;
+		isContinuingConsensus: boolean;
 
 		voters: Array<{
 			id: number;
@@ -65,6 +64,8 @@
 		onBandSelect: (clusterId: number) => void;
 		onVote: () => void | Promise<void>;
 		onConfirmVote: () => void | Promise<void>;
+		onAdvanceToDecision: () => void | Promise<void>;
+		onContinueConsensus: () => void | Promise<void>;
 
 		axisNames: string[];
 		getConsensusLabel: (axisName: string) => string;
@@ -80,157 +81,108 @@
 		consensus?: ConsensusSidebarContext;
 	};
 
-	let {
-		phase,
-		isOwner,
-		isDecisionMaker,
-		learning,
-		consensus
-	}: Props = $props();
-
-	function handleWarningInput(event: Event) {
-		if (!learning) return;
-
-		const target = event.currentTarget as HTMLInputElement;
-		learning.onOwnerWarningMessageChange(target.value);
-	}
+	let { phase, isOwner, isDecisionMaker, learning, consensus }: Props = $props();
 </script>
 
 <aside class="space-y-4">
 	{#if phase === 'learning' && learning}
-		<section class="rounded-lg border bg-card shadow-sm">
+		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
-				<h2 class="text-sm font-semibold">My exploration</h2>
+				<h2 class="text-sm font-semibold">
+					{#if isOwner}Learning progress{:else}My exploration{/if}
+				</h2>
 
 				{#if isDecisionMaker}
-					<p class="mt-1 text-xs text-muted-foreground">Visible only to you.</p>
+					<p class="text-muted-foreground mt-1 text-xs">Visible only to you.</p>
 				{/if}
 			</header>
 
 			<div class="space-y-3 p-4">
 				<div class="rounded-md border p-3 text-sm">
-					<div class="font-medium">Learning progress</div>
 					<div class="text-muted-foreground">
 						{learning.learningCompletedCount} / {learning.totalVoters} decision makers finished
 					</div>
 				</div>
 
-
-
-			    {#if learning.explorationDepth > 0}
-	<div
-		class="
+				{#if learning.explorationDepth > 0}
+					<div
+						class="
 			rounded-md border border-violet-200
 			bg-violet-50 p-3 text-sm
 		"
-	>
-		<div
-			class="
+					>
+						<div
+							class="
 				font-medium text-violet-900
 			"
-		>
-			Private exploration
-		</div>
+						>
+							Private exploration
+						</div>
 
-		<div class="text-muted-foreground">
-			<span class="font-medium">Selected band: </span><span>{learning.selectedLearningBand}</span>
-			<br />
-			<span class="font-medium">Depth: </span><span>{learning.explorationDepth}</span>
-		</div>
-	</div>
-{/if}
+						<div class="text-muted-foreground">
+							<span class="font-medium">Selected band: </span><span
+								>{learning.selectedLearningBand}</span
+							>
+							<br />
+							<span class="font-medium">Depth: </span><span>{learning.explorationDepth}</span>
+						</div>
+					</div>
+				{/if}
 
-{#if learning.selectedLearningBand !== null}
-	{#if isDecisionMaker}
-<!-- 		<Button
-			class="w-full"
-			onclick={() =>
-				learning.onSaveBand(
-					learning
-						.selectedLearningBand!
-				)}
-		>
-			{learning.savedBands.includes(
-				learning.selectedLearningBand
-			)
-				? 'Remove saved band'
-				: 'Save band'}
-		</Button> -->
-
-		<Button
-			class="w-full"
-			onclick={() =>
-				learning.onExploreBand(
-					learning
-						.selectedLearningBand!
-				)}
-			disabled={
-				learning.isExploringBand
-			}
-		>
-			{learning.isExploringBand
-				? 'Generating bands...'
-				: 'Explore inside band'}
-		</Button>
-	{/if}
-{:else}
-	<p
-		class="
-			text-sm text-muted-foreground
+				{#if learning.selectedLearningBand !== null}
+					{#if isDecisionMaker}
+						<Button
+							class="w-full"
+							onclick={() => learning.onExploreBand(learning.selectedLearningBand!)}
+							disabled={learning.isExploringBand}
+						>
+							{learning.isExploringBand ? 'Generating bands...' : 'Explore inside band'}
+						</Button>
+					{/if}
+				{:else}
+					{#if isDecisionMaker}
+						<p
+							class="
+			text-muted-foreground text-sm
 		"
-	>
-		Select a band to inspect or
-		explore it.
-	</p>
-{/if}
+						>
+							Select a band to inspect or explore it.
+						</p>
+					{/if}
+				{/if}
 
-{#if learning.explorationDepth > 0}
-	<div class="flex gap-2">
-		<Button
-			class="flex-1"
-			variant="outline"
-			size="sm"
-			onclick={
-				learning.onBackOneLevel
-			}
-		>
-			← Back
-		</Button>
+				{#if learning.explorationDepth > 0}
+					<div class="flex gap-2">
+						<Button class="flex-1" variant="outline" size="sm" onclick={learning.onBackOneLevel}>
+							← Back
+						</Button>
 
-		<Button
-			class="flex-1"
-			variant="outline"
-			size="sm"
-			onclick={
-				learning.onExitExploration
-			}
-		>
-			All bands
-		</Button>
-		
-	</div>
-	<div>
-							<Button
-						class="w-full"
-						variant={learning.hasCompletedLearning ? 'outline' : 'default'}
-						onclick={learning.onFinishExploring}
-						disabled={learning.hasCompletedLearning || learning.isMarkingLearningComplete}
-					>
-						{#if learning.isMarkingLearningComplete}
-							Finishing...
-						{:else if learning.hasCompletedLearning}
-							Exploration finished
-						{:else}
-							Finish exploring
-						{/if}
-					</Button>
-	</div>
-{/if}
+						<Button class="flex-1" variant="outline" size="sm" onclick={learning.onExitExploration}>
+							All bands
+						</Button>
+					</div>
+					<div>
+						<Button
+							class="w-full"
+							variant={learning.hasCompletedLearning ? 'outline' : 'default'}
+							onclick={learning.onFinishExploring}
+							disabled={learning.hasCompletedLearning || learning.isMarkingLearningComplete}
+						>
+							{#if learning.isMarkingLearningComplete}
+								Finishing...
+							{:else if learning.hasCompletedLearning}
+								Exploration finished
+							{:else}
+								Finish exploring
+							{/if}
+						</Button>
+					</div>
+				{/if}
 			</div>
 		</section>
 
 		{#if isDecisionMaker && learning.savedBands.length > 0}
-			<section class="rounded-lg border bg-card shadow-sm">
+			<section class="bg-card rounded-lg border shadow-sm">
 				<header class="border-b px-4 py-3">
 					<h2 class="text-sm font-semibold">Saved bands</h2>
 				</header>
@@ -252,48 +204,20 @@
 			</section>
 		{/if}
 
-		<section class="rounded-lg border bg-card shadow-sm">
+		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
 				<h2 class="text-sm font-semibold">What’s next?</h2>
 			</header>
 
-			<div class="space-y-3 p-4 text-sm text-muted-foreground">
+			<div class="text-muted-foreground space-y-3 p-4 text-sm">
 				<p>Once the group is ready, you can move to the consensus phase.</p>
 
 				{#if isOwner}
-<!-- 					<div class="rounded-md border p-3 text-sm">
-						<div class="font-medium text-foreground">Group readiness</div>
-						<div class="text-muted-foreground">
-							{learning.learningCompletedCount} / {learning.totalVoters} finished exploring
-						</div>
-					</div> -->
-
-					<!-- <input
-						type="text"
-						value={learning.ownerWarningMessage}
-						placeholder="Optional warning message"
-						class="input input-bordered w-full"
-						oninput={handleWarningInput}
-					/>
-
-					<Button
-						class="w-full"
-						variant="outline"
-						onclick={learning.onWarnUsers}
-						disabled={learning.isWarningUsers}
-					>
-						{learning.isWarningUsers
-							? 'Sending warning...'
-							: 'Warn users time is expiring'}
-					</Button> -->
-
 					<Button
 						class="w-full"
 						onclick={learning.onAdvanceToConsensus}
-						disabled={
-							!learning.allDecisionMakersFinishedLearning ||
-							learning.isAdvancingToConsensus
-						}
+						disabled={!learning.allDecisionMakersFinishedLearning ||
+							learning.isAdvancingToConsensus}
 					>
 						{learning.isAdvancingToConsensus
 							? 'Starting consensus...'
@@ -303,24 +227,29 @@
 			</div>
 		</section>
 	{:else if phase === 'consensus' && consensus}
-		<section class="rounded-lg border bg-card shadow-sm">
+		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
 				<h2 class="text-sm font-semibold">Group voting</h2>
-				<p class="mt-1 text-xs text-muted-foreground">
+				<p class="text-muted-foreground mt-1 text-xs">
 					{consensus.totalVoters} decision makers
 				</p>
-				<p class="mt-1 text-xs text-muted-foreground">
+				<p class="text-muted-foreground mt-1 text-xs">
 					Vote sync: {consensus.isConsensusVoteSyncing ? 'updating...' : 'live'}
 				</p>
 			</header>
 
 			<div class="space-y-2 p-4">
-				<div class="text-sm font-medium">Select your preferred band</div>
+				<div class="text-sm font-medium">
+					{#if isDecisionMaker}Select your preferred band{:else}Votes per band{/if}
+				</div>
 
 				{#each consensus.clusterIds as clusterId}
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm hover:bg-muted {consensus.selectedBand === clusterId ? 'border-primary bg-muted' : ''}"
+						class="hover:bg-muted flex w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm {consensus.selectedBand ===
+						clusterId
+							? 'border-primary bg-muted'
+							: ''}"
 						onclick={() => consensus.onBandSelect(clusterId)}
 						disabled={consensus.voteConfirmed || !isDecisionMaker}
 					>
@@ -358,30 +287,31 @@
 							Confirm vote
 						</Button>
 						<!-- If the user confirmed their vote, show a confirmation message and to wait until the others confirm theirs -->
-						 <p class="pt-2 text-sm text-muted-foreground">
+						<p class="text-muted-foreground pt-2 text-sm">
 							{#if consensus.voteConfirmed}
-								You have confirmed your vote. Please wait for the other decision makers to confirm theirs.
+								You have confirmed your vote. Please wait for the other decision makers to confirm
+								theirs.
 							{:else if consensus.haveAllVoted}
-								All decision makers have voted. You can now confirm your vote. You can also change your vote before confirming.
+								All decision makers have voted. You can now confirm your vote. You can also change
+								your vote before confirming.
 							{:else}
 								Waiting for all decision makers to vote.
 							{/if}
 						</p>
 					</div>
 				{:else if isOwner}
-					<p class="pt-3 text-sm text-muted-foreground">
-						You can monitor the voting progress.
-					</p>
+					<p class="text-muted-foreground pt-3 text-sm">You can monitor the voting progress.</p>
 					<!-- Show the status of each decision maker: which band (if any) they voted for and whether they confirmed it -->
 					<div class="space-y-2">
 						{#each consensus.voters as voter (voter.id)}
 							<div class="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
 								<span class="font-medium">{voter.username}</span>
-								<span class="flex items-center gap-2 text-muted-foreground">
+								<span class="text-muted-foreground flex items-center gap-2">
 									{#if voter.hasVoted}
 										<span
 											class="h-2.5 w-2.5 rounded-full"
-											style:background-color={consensus.clusterColors[voter.votedClusterId ?? -1] ?? '#64748b'}
+											style:background-color={consensus.clusterColors[voter.votedClusterId ?? -1] ??
+												'#64748b'}
 										></span>
 										Band {voter.votedClusterId}
 										{#if voter.hasConfirmed}
@@ -396,12 +326,53 @@
 							</div>
 						{/each}
 					</div>
+
+					<div class="bg-card rounded-lg border shadow-sm">
+						<div class="border-b px-4 py-3">
+							<h2 class="text-sm font-semibold">Moderator controls</h2>
+						</div>
+
+						<div class="space-y-3 p-4">
+							{#if consensus.haveAllConfirmed}
+								<p class="text-muted-foreground text-sm">
+									All decision makers have confirmed their votes. You can continue consensus
+									reaching or proceed directly to the decision phase.
+								</p>
+							{:else}
+								<p class="text-muted-foreground text-sm">
+									Waiting for all decision makers to confirm their votes.
+								</p>
+							{/if}
+
+							<Button
+								class="w-full"
+								onclick={consensus.onContinueConsensus}
+								disabled={!consensus.haveAllConfirmed ||
+									consensus.isContinuingConsensus ||
+									consensus.isAdvancingToDecision}
+							>
+								{consensus.isContinuingConsensus ? 'Continuing consensus...' : 'Continue consensus'}
+							</Button>
+
+							<Button
+								class="w-full"
+								variant="outline"
+								onclick={consensus.onAdvanceToDecision}
+								disabled={!consensus.haveAllConfirmed ||
+									consensus.isContinuingConsensus ||
+									consensus.isAdvancingToDecision}
+							>
+								{consensus.isAdvancingToDecision
+									? 'Starting decision phase...'
+									: 'Continue to decision phase'}
+							</Button>
+						</div>
+					</div>
 				{/if}
 			</div>
 		</section>
-		
 
-<!-- 		<section class="rounded-lg border bg-card shadow-sm">
+		<!-- 		<section class="rounded-lg border bg-card shadow-sm">
 			<header class="flex items-center justify-between border-b px-4 py-3">
 				<h2 class="text-sm font-semibold">Consensus status</h2>
 				<span class="text-xs text-muted-foreground">Updates after all votes</span>
@@ -435,7 +406,7 @@
 			</div>
 		</section> -->
 	{:else}
-		<div class="rounded-lg border bg-card p-4 text-sm text-muted-foreground shadow-sm">
+		<div class="bg-card text-muted-foreground rounded-lg border p-4 text-sm shadow-sm">
 			Sidebar information is unavailable.
 		</div>
 	{/if}

@@ -171,6 +171,7 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsConsensusPreference",
     "GDMSCOREBandsDecisionPreference",
     "GDMSCOREBandsLearningAdvanceRequest",
+    "GDMSCOREBandsDecisionAdvanceRequest",
     "GDMSCOREBandsLearningStatusResponse",
     "GDMSCOREBandsLearningWarningRequest",
     "GDMSCOREBandsResponse",
@@ -190,7 +191,7 @@ __all__ = [  # noqa: RUF022
     "GDMSCOREBandsLearningState",
     "GDMSCOREBandsConsensusState",
     "GDMSCOREBandsDecisionState",
-    "GDMSCOREBandsRestartRequest"
+    "GDMSCOREBandsRestartRequest",
 ]
 
 
@@ -252,7 +253,7 @@ from .gdm.gdm_aggregate import (
     CreateGroupSessionRequest,
     GroupSessionPublic,
     GroupUserPublic,
-    GroupInfoRequest
+    GroupInfoRequest,
 )
 from .gdm.gdm_base import (
     BaseGroupInfoContainer,
@@ -267,6 +268,7 @@ from .gdm.gdm_score_bands import (
     GDMSCOREBandsDecisionResponse,
     GDMSCOREBandsHistoryResponse,
     GDMSCOREBandsLearningAdvanceRequest,
+    GDMSCOREBandsDecisionAdvanceRequest,
     GDMSCOREBandsLearningStatusResponse,
     GDMSCOREBandsLearningWarningRequest,
     GDMScoreBandsInitializationRequest,
@@ -300,8 +302,6 @@ from .generic_states import (
     State,
     StateDB,
     UserSavedSolutionDB,
-
-
 )
 from .nautilus_navigator import (
     NautilusNavigatorInitializationState,

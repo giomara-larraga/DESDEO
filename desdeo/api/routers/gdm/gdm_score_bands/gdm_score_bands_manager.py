@@ -556,6 +556,188 @@ class GDMScoreBandsManager(GroupManager):
 
             await self.broadcast("UPDATE: A vote has been cast.")
 
+    async def continue_consensus(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+    ):
+        """Continue to the next consensus iteration after all DMs confirm."""
+        async with self.lock:
+            group = self._get_group(group_session, session)
+            self._check_owner(user, group)
+
+            group_iteration = self._get_head_iteration(
+                group_session,
+                session,
+            )
+
+            preferences = copy.deepcopy(group_iteration.info_container)
+
+            if not isinstance(
+                preferences,
+                GDMSCOREBandsConsensusPreference,
+            ):
+                raise ManagerError("The group is not in the consensus phase.")
+
+            member_ids = sorted(self._get_member_ids(group))
+            confirmed_ids = sorted(preferences.user_confirms)
+
+            if confirmed_ids != member_ids:
+                raise ManagerError(
+                    "All decision makers must confirm their votes "
+                    "before consensus can continue."
+                )
+
+            current_state_db, current_state = self._get_iteration_state(
+                iteration=group_iteration,
+                session=session,
+            )
+
+            if not isinstance(
+                current_state,
+                GDMSCOREBandsConsensusState,
+            ):
+                raise ManagerError("Invalid consensus state.")
+
+            current_result = SCOREBandsGDMResult.model_validate(current_state.result)
+            current_config = SCOREBandsGDMConfig.model_validate(current_state.config)
+
+            votes = preferences.user_votes
+
+            winners = consensus_rule(
+                votes,
+                current_config.minimum_votes,
+            )
+
+            relevant_ids = current_result.relevant_ids
+            clustering = current_result.score_bands_result.clusters
+
+            selected_solution_ids = [
+                solution_id
+                for solution_id, cluster_id in zip(
+                    relevant_ids,
+                    clustering,
+                    strict=True,
+                )
+                if cluster_id in winners
+            ]
+
+            solution_number_threshold = 10
+
+            discrete_repr = self._get_discrete_representation(session)
+
+            if len(selected_solution_ids) <= solution_number_threshold:
+                objective_keys = list(discrete_repr.objective_values)
+                variable_keys = list(discrete_repr.variable_values)
+
+                objectives = pl.DataFrame(
+                    discrete_repr.objective_values
+                ).with_row_index(name="index_")
+
+                variables = pl.DataFrame(discrete_repr.variable_values).with_row_index(
+                    name="index_"
+                )
+
+                selected_indices = pl.DataFrame({"index_": selected_solution_ids})
+
+                objectives = selected_indices.join(
+                    objectives,
+                    how="left",
+                    on="index_",
+                ).select(objective_keys)
+
+                variables = selected_indices.join(
+                    variables,
+                    how="left",
+                    on="index_",
+                ).select(variable_keys)
+
+                next_state: SQLModel = GDMSCOREBandsDecisionState(
+                    solution_variables=variables.to_dict(as_series=False),
+                    solution_objectives=objectives.to_dict(as_series=False),
+                    winner_index=None,
+                    winner_solution_variables=None,
+                    winner_solution_objectives=None,
+                )
+
+                next_preferences: BaseGroupInfoContainer = (
+                    GDMSCOREBandsDecisionPreference(
+                        user_votes={},
+                        user_confirms=[],
+                    )
+                )
+
+            else:
+                objective_keys = list(discrete_repr.objective_values)
+
+                objectives = pl.DataFrame(discrete_repr.objective_values).select(
+                    objective_keys
+                )
+
+                next_config = current_config.model_copy(deep=True)
+
+                next_config.from_iteration = current_result.iteration
+
+                result_history = self._get_result_history(
+                    group_session=group_session,
+                    session=session,
+                )
+
+                next_results = score_bands_gdm(
+                    data=objectives,
+                    config=next_config,
+                    state=result_history,
+                    votes=votes,
+                )
+
+                if not next_results:
+                    raise ManagerError("SCORE Bands did not produce a new result.")
+
+                next_result = next_results[-1]
+
+                if next_result.iteration <= current_result.iteration:
+                    raise ManagerError(
+                        "SCORE Bands failed to advance to a new "
+                        "iteration. "
+                        f"Current iteration: "
+                        f"{current_result.iteration}, "
+                        f"returned iteration: "
+                        f"{next_result.iteration}."
+                    )
+
+                next_state = GDMSCOREBandsConsensusState(
+                    config=next_config.model_dump(mode="json"),
+                    result=next_result.model_dump(mode="json"),
+                    selected_band_indices=list(winners),
+                )
+
+                next_preferences = GDMSCOREBandsConsensusPreference(
+                    user_votes={},
+                    user_confirms=[],
+                )
+
+            next_state_db = self._create_state(
+                session=session,
+                group_session=group_session,
+                state=next_state,
+                parent_state_id=current_state_db.id,
+            )
+
+            new_iteration = self._create_iteration(
+                session=session,
+                group_session=group_session,
+                info_container=next_preferences,
+                state_id=next_state_db.id,
+                parent_iteration_id=group_iteration.id,
+            )
+
+            session.commit()
+            session.refresh(new_iteration)
+            session.refresh(group_session)
+
+            await self.broadcast("UPDATE: A new SCORE Bands phase has begun.")
+
     async def confirm(
         self,
         user: User,
@@ -664,7 +846,18 @@ class GDMScoreBandsManager(GroupManager):
             ):
                 raise ManagerError("Invalid consensus state.")
 
-            current_result = SCOREBandsGDMResult.model_validate(current_state.result)
+            # All decision makers have confirmed their votes.
+            # Do NOT automatically create the next consensus iteration.
+            # The group owner now decides whether to continue consensus
+            # or move directly to the decision phase.
+            await self.broadcast(
+                "UPDATE: All decision makers have confirmed their votes. "
+                "Waiting for the group owner to continue."
+            )
+
+            return "ready"
+
+            """ current_result = SCOREBandsGDMResult.model_validate(current_state.result)
             current_config = SCOREBandsGDMConfig.model_validate(current_state.config)
 
             votes = preferences.user_votes
@@ -784,7 +977,7 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(new_iteration)
             session.refresh(group_session)
 
-            await self.broadcast("UPDATE: A new SCORE Bands phase has begun.")
+            await self.broadcast("UPDATE: A new SCORE Bands phase has begun.") """
 
     async def mark_learning_complete(
         self,
@@ -934,6 +1127,125 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(group_session)
 
             await self.broadcast("UPDATE: Consensus phase has started.")
+
+    async def advance_consensus_to_decision(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        session: Session,
+    ) -> None:
+        """Allow the group owner to move directly from consensus to decision."""
+        async with self.lock:
+            group = self._get_group(group_session, session)
+            self._check_owner(user, group)
+
+            consensus_iteration = self._get_head_iteration(
+                group_session,
+                session,
+            )
+
+            preferences = copy.deepcopy(consensus_iteration.info_container)
+
+            if not isinstance(
+                preferences,
+                GDMSCOREBandsConsensusPreference,
+            ):
+                raise ManagerError("The group is not in the consensus phase.")
+
+            consensus_state_db, consensus_state = self._get_iteration_state(
+                iteration=consensus_iteration,
+                session=session,
+            )
+
+            if not isinstance(
+                consensus_state,
+                GDMSCOREBandsConsensusState,
+            ):
+                raise ManagerError("Invalid consensus state.")
+
+            # Only allow the owner to advance after every DM
+            # has confirmed their vote.
+
+            required_users = sorted(self._get_member_ids(group))
+
+            confirmed_users = sorted(preferences.user_confirms)
+
+            if confirmed_users != required_users:
+                raise ManagerError(
+                    "All decision makers must confirm their votes "
+                    "before the group owner can advance to the "
+                    "decision phase."
+                )
+
+            current_result = SCOREBandsGDMResult.model_validate(consensus_state.result)
+
+            # Take ALL solutions remaining in the current consensus
+            # iteration to the decision phase.
+            selected_solution_ids = current_result.relevant_ids
+
+            if not selected_solution_ids:
+                raise ManagerError("No solutions are available for the decision phase.")
+
+            discrete_repr = self._get_discrete_representation(session)
+
+            objective_keys = list(discrete_repr.objective_values)
+            variable_keys = list(discrete_repr.variable_values)
+
+            objectives = pl.DataFrame(discrete_repr.objective_values).with_row_index(
+                name="index_"
+            )
+
+            variables = pl.DataFrame(discrete_repr.variable_values).with_row_index(
+                name="index_"
+            )
+
+            selected_indices = pl.DataFrame({"index_": selected_solution_ids})
+
+            objectives = selected_indices.join(
+                objectives,
+                how="left",
+                on="index_",
+            ).select(objective_keys)
+
+            variables = selected_indices.join(
+                variables,
+                how="left",
+                on="index_",
+            ).select(variable_keys)
+
+            decision_state = GDMSCOREBandsDecisionState(
+                solution_variables=variables.to_dict(as_series=False),
+                solution_objectives=objectives.to_dict(as_series=False),
+                winner_index=None,
+                winner_solution_variables=None,
+                winner_solution_objectives=None,
+            )
+
+            decision_preferences = GDMSCOREBandsDecisionPreference(
+                user_votes={},
+                user_confirms=[],
+            )
+
+            decision_state_db = self._create_state(
+                session=session,
+                group_session=group_session,
+                state=decision_state,
+                parent_state_id=consensus_state_db.id,
+            )
+
+            decision_iteration = self._create_iteration(
+                session=session,
+                group_session=group_session,
+                info_container=decision_preferences,
+                state_id=decision_state_db.id,
+                parent_iteration_id=consensus_iteration.id,
+            )
+
+            session.commit()
+            session.refresh(decision_iteration)
+            session.refresh(group_session)
+
+            await self.broadcast("UPDATE: Decision phase has started.")
 
     async def revert(
         self,

@@ -121,6 +121,12 @@ class GDMSCOREBandsLearningAdvanceRequest(SQLModel):
     group_session_id: int = Field(description="Group Session ID.")
 
 
+class GDMSCOREBandsDecisionAdvanceRequest(SQLModel):
+    """Request for moving the group from consensus to decision."""
+
+    group_session_id: int = Field(description="Group Session ID.")
+
+
 class GDMSCOREBandsLearningWarningRequest(SQLModel):
     """Request for sending a learning-phase warning to connected users."""
 
