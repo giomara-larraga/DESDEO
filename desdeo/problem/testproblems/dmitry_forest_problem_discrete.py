@@ -28,6 +28,13 @@ def dmitry_forest_problem_disc() -> Problem:
     )
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
+    full_names = [
+        "Harvest Revenue",
+        "Habitat Availability",
+        "Carbon Storage",
+        "Deadwood Volume",
+    ]
+    units = ["M€", "", "k Mg C", "k m³"]
 
     var_name = "index"
 
@@ -53,12 +60,14 @@ def dmitry_forest_problem_disc() -> Problem:
         Objective(
             name=obj_name,
             symbol=obj_name,
+            description=full_name,
+            unit=unit,
             objective_type=ObjectiveTypeEnum.data_based,
             ideal=data[obj_name].max(),
             nadir=data[obj_name].min(),
             maximize=True,
         )
-        for obj_name in obj_names
+        for obj_name, full_name, unit in zip(obj_names, full_names, units, strict=True)
     ]
 
     discrete_def = DiscreteRepresentation(

@@ -309,7 +309,11 @@
 				.attr('font-size', '12px')
 				.attr('font-weight', isSelected ? 'bold' : 'bold')
 				.attr('fill', isSelected ? '#e15759' : axisStyle.color)
-				.text(sortedAxisNames[sortedIndex] + " ("+ (sortedAxisDirections[sortedIndex] + (sortedUnits[sortedIndex] ? ", " + sortedUnits[sortedIndex] : "")) + ")")
+				.text(
+					sortedAxisNames[sortedIndex] +
+						(sortedUnits[sortedIndex] ? ' (' + sortedUnits[sortedIndex] + ')' : '') +
+						(sortedAxisDirections[sortedIndex] == 'min' ? ' ▼' : ' ▲')
+				)
 				.style('cursor', 'pointer');
 
 			// Add click handler for axis label selection
@@ -386,7 +390,7 @@
 	});
 
 	// Redraw chart whenever any parameter or cluster visibility or axis order changes
-	$: data,
+	$: (data,
 		axisNames,
 		axisPositions,
 		axisSigns,
@@ -397,7 +401,7 @@
 		selectedBand,
 		selectedAxis,
 		axisOptions,
-		drawChart();
+		drawChart());
 </script>
 
 <!--

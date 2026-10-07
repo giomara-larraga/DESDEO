@@ -91,7 +91,11 @@
 	{#if phase === 'learning'}
 		<section class="bg-card rounded-lg border shadow-sm">
 			<header class="border-b px-4 py-3">
-				<h2 class="text-sm font-semibold">How to explore</h2>
+				{#if isDecisionMaker}
+					<h2 class="text-sm font-semibold">How to explore</h2>
+				{:else if isOwner}
+					<h2 class="text-sm font-semibold">Monitoring the learning phase</h2>
+				{/if}
 			</header>
 
 			<div class="space-y-4 p-4 text-sm">
@@ -112,29 +116,26 @@
 
 				{#if isDecisionMaker}
 					<div>
-						<div class="font-medium">1. Explore bands</div>
-
-						<p class="text-muted-foreground">Click a band to inspect its solutions privately.</p>
-					</div>
-
-					<div>
-						<div class="font-medium">2. Compare solutions</div>
+						<div class="font-medium">1. Zoom into bands</div>
 
 						<p class="text-muted-foreground">
-							Explore the solutions within interesting bands and compare their objective values.
+							Click a band to zoom into it. This will create new bands in the selected area. You can
+							do this for multiple bands (one at a time).
 						</p>
 					</div>
 
 					<div>
-						<div class="font-medium">3. Finish exploring</div>
+						<div class="font-medium">2. Finish exploring</div>
 
 						<p class="text-muted-foreground">
-							Mark yourself finished when you are ready to proceed.
+							Once you have finished exploring the bands, mark yourself as finished and wait for
+							instructions from the moderator.
 						</p>
 					</div>
 				{:else if isOwner}
 					<p class="text-muted-foreground">
-						Monitor the learning phase while decision makers explore the available bands.
+						Monitor the learning phase while decision makers explore the available bands. Once
+						everyone has finished exploring, you can start the consensus phase.
 					</p>
 				{/if}
 			</div>

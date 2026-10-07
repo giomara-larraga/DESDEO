@@ -235,7 +235,7 @@
 			</header>
 
 			<div class="text-muted-foreground space-y-3 p-4 text-sm">
-				<p>Once the group is ready, you can move to the consensus phase.</p>
+				<p>Once the group is ready, the moderator will advance to the consensus phase.</p>
 
 				{#if isOwner}
 					<Button

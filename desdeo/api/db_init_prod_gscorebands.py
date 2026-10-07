@@ -53,12 +53,7 @@ extra_problems = [
 ]
 
 predefined_experiment = True
-predefined_names = [
-    "jpajamas",
-    "kmiettinen",
-    "bsaini",
-    "glarraga",
-]
+predefined_names = ["jpajamas", "kmiettinen", "bsaini", "glarraga", "bafsar"]
 extra_usernames = [
     "juuso",
     "kaisa",

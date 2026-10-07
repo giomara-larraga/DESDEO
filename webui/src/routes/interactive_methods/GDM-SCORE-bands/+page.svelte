@@ -1895,9 +1895,8 @@
 							<!-- Instructions Section -->
 							{#if isLearningPhase}
 								<p class="mt-2 text-sm text-slate-600">
-									Explore the SCORE bands privately. Your saved bands, comparisons, and zoomed views
-									do not affect the rest of the group. Mark yourself finished when you are done
-									exploring.
+									Explore the SCORE bands privately. Your selections and zoomed views do not affect
+									the rest of the group. Mark yourself finished when you are done exploring.
 								</p>
 							{:else if isConsensusPhase && usersVote === null}
 								<p class="mt-2 text-sm text-slate-600">
@@ -1948,11 +1947,11 @@
 						{#if isOwner}
 							<div class="mt-2 text-sm text-gray-600">
 								{isLearningPhase
-									? 'You can monitor who has finished exploring, warn users before the timer expires, and manually start the consensus phase once everyone is ready.'
+									? 'You can monitor who has finished exploring, and manually start the consensus phase once everyone is ready.'
 									: 'You can revert to a previous iteration using the History Browser.'}
-								{isConsensusPhase
+								<!-- {isConsensusPhase
 									? 'You can also adjust the SCORE Bands parameters and recalculate the bands below.'
-									: ''}
+									: ''} -->
 							</div>
 						{/if}
 					</div>
