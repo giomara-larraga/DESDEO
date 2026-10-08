@@ -161,40 +161,70 @@ export function drawReferenceSolutions(
 	}
 
 	if (referenceData?.preferredSolutions) {
-		const preferredGroup = svgElement.append("g").attr("class", "preferred-solutions");
-		referenceData.preferredSolutions.forEach((solution) => {
-			const solutionData: [string, number][] = dimensions
-				.map((dim) => [dim.symbol, solution.values[dim.symbol]] as [string, number])
-				.filter(([, value]) => value !== undefined && value !== null);
+	const previousGroup = svgElement
+		.append('g')
+		.attr('class', 'previous-solutions');
 
-			if (solutionData.length > 0) {
-				const path = preferredGroup
-					.append("path")
-					.datum(solutionData)
-					.attr("d", line)
-					.attr("fill", "none")
-					.attr("stroke", "#10b981")
-					.attr("stroke-width", strokeWidth + 1)
-					.attr("stroke-dasharray", "4,2")
-					.attr("opacity", 0.6);
+	referenceData.preferredSolutions.forEach((solution) => {
+		const solutionData: [string, number][] = dimensions
+			.map(
+				(dim) =>
+					[
+						dim.symbol,
+						solution.values[dim.symbol]
+					] as [string, number]
+			)
+			.filter(
+				([, value]) =>
+					value !== undefined &&
+					value !== null
+			);
 
-				addTooltip(path, solution.label);
+		if (solutionData.length === 0) {
+			return;
+		}
 
-				solutionData.forEach(([dimName, value]) => {
-					const x = xScale(dimName);
-					const y = scales[dimName](value);
-					if (x !== undefined && !Number.isNaN(y)) {
-						preferredGroup
-							.append("polygon")
-							.attr("points", `${x},${y - 4} ${x + 4},${y + 3} ${x - 4},${y + 3}`)
-							.attr("fill", "#10b981")
-							.attr("stroke", "#fff")
-							.attr("stroke-width", 1);
-					}
-				});
+		// Previous solution line:
+		// neutral gray + dashed
+		const path = previousGroup
+			.append('path')
+			.datum(solutionData)
+			.attr('d', line)
+			.attr('fill', 'none')
+			.attr('stroke', '#9CA3AF')
+			.attr('stroke-width', strokeWidth)
+			.attr('stroke-dasharray', '5,4')
+			.attr('opacity', 0.85);
+
+		addTooltip(path, solution.label);
+
+		// Previous solution markers:
+		// hollow downward triangles
+		solutionData.forEach(([dimName, value]) => {
+			const x = xScale(dimName);
+			const y = scales[dimName](value);
+
+			if (
+				x === undefined ||
+				Number.isNaN(y)
+			) {
+				return;
 			}
+
+			previousGroup
+				.append('polygon')
+				.attr(
+					'points',
+					`${x - 4},${y - 3} ` +
+						`${x + 4},${y - 3} ` +
+						`${x},${y + 4}`
+				)
+				.attr('fill', '#FFFFFF')
+				.attr('stroke', '#6B7280')
+				.attr('stroke-width', 1.5);
 		});
-	}
+	});
+}
 
 	if (referenceData?.nonPreferredSolutions) {
 		const nonPreferredGroup = svgElement.append("g").attr("class", "non-preferred-solutions");

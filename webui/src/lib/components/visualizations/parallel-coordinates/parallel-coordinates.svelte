@@ -572,6 +572,26 @@
 				</span>
 			{/if}
 
+			{#if referenceData?.preferredSolutions?.length}
+				<span class="inline-flex items-center gap-1.5">
+					<svg width="24" height="14" viewBox="0 0 24 14" aria-hidden="true">
+						<line
+							x1="1"
+							y1="7"
+							x2="23"
+							y2="7"
+							stroke="#9CA3AF"
+							stroke-width="2"
+							stroke-dasharray="4 3"
+						/>
+
+						<polygon points="8,4 16,4 12,11" fill="#FFFFFF" stroke="#6B7280" stroke-width="1.5" />
+					</svg>
+
+					Previous solution
+				</span>
+			{/if}
+
 			{#if currentSolutionIndex !== null}
 				<span class="inline-flex items-center gap-1.5">
 					<svg width="24" height="14" viewBox="0 0 24 14" aria-hidden="true">

@@ -186,6 +186,11 @@
 
 	let iterate_explanation_perturbed_reference_points: ReferencePoint[] = $state([]);
 
+	// Snapshot from the preceding successful Iterate request.
+	// Used only for iteration-to-iteration comparison in the PCP/table.
+	let previous_iterate_presented_solution: Solution | null = $state(null);
+	let previous_iterate_reference_values: number[] = $state([]);
+
 	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -562,6 +567,10 @@
 
 		const iteratedReferenceValues = [...current_preference];
 
+		// Preserve the solution/reference point whose explanation the user just saw.
+		const previousPresentedSolution = iterate_explanation_solutions[0] ?? null;
+		const previousReferenceValues = [...iterate_explanation_reference_values];
+
 		const result = await handleIterateRequest(
 			problem,
 			iteratedReferenceValues,
@@ -570,7 +579,10 @@
 		);
 
 		if (result) {
-			// Store the preference values that were just used for iteration
+			// Freeze the preceding presented solution and its reference point.
+			previous_iterate_presented_solution = previousPresentedSolution;
+			previous_iterate_reference_values = previousPresentedSolution ? previousReferenceValues : [];
+
 			current_state = result;
 			addToStateHistory(result);
 
@@ -1146,6 +1158,8 @@
 		iterate_explanation_solutions,
 		iterate_explanation_reference_values,
 		iterate_explanation_perturbed_reference_points,
+		previous_iterate_presented_solution,
+		previous_iterate_reference_values,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,

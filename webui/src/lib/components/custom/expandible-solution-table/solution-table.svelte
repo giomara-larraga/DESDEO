@@ -23,7 +23,8 @@
 	 * @property {Function} isSaved - Function to check if a solution is already saved
 	 * @property {boolean} [savingEnabled=true] - Whether saving functionality is enabled
 	 * @property {string} [selected_type_solutions="current"] - Current view mode (modes are different between NIMBUS and GNIMBUS)
-	 * @property {{ [key: string]: number }[]} [secondaryObjectiveValues=[]] - Previous objective values for comparison
+	 * @property {{ [key: string]: number }[]} [secondaryObjectiveValues=[]] - Previous presented solution objective values for comparison
+	 * @property {number[]} [previousPreferences=[]] - Desired values used for the previous presented solution
 	 * @property {string} [methodPage="nimbus"] - What page is using this component ("nimbus" or "gnimbus"). For conditional rendering
 	 * @property {boolean} [isFrozen=false] - Whether the table is in read-only mode
 	 * @property {number | null} [personalResultIndex] - Index of user's personal result, used in group nimbus
@@ -107,6 +108,7 @@
 	import SolutionTableToolbar from './solution-table-toolbar.svelte';
 	import PreviousPreferences from './solution-table-preferences.svelte';
 
+	import PreviousSolutions from './solution-table-prev-solutions.svelte';
 	// Types matching your original solution-table
 
 	type Solution = SolutionReferenceResponse & {
@@ -129,6 +131,7 @@
 		savingEnabled = true,
 		selected_type_solutions = 'current',
 		secondaryObjectiveValues = [],
+		previousPreferences = [],
 		methodPage = 'nimbus',
 		isFrozen = false,
 		personalResultIndex,
@@ -136,7 +139,7 @@
 		expandable = true,
 		expandableRowCount = 0,
 		expandedRowsData = [],
-		expandedRowIndexes = [],
+		expandedRowIndexes = []
 	}: {
 		problem: ProblemInfo;
 		preferences: number[];
@@ -150,6 +153,7 @@
 		savingEnabled?: boolean;
 		selected_type_solutions?: string;
 		secondaryObjectiveValues?: { [key: string]: number }[];
+		previousPreferences?: number[];
 		methodPage?: MethodPage;
 		isFrozen?: boolean;
 		personalResultIndex?: number | null;
@@ -162,8 +166,8 @@
 
 	// Get the display accuracy
 	let displayAccuracy = $derived.by(() => getDisplayAccuracy(problem));
-	let totalSolutionsCount = $derived.by(() =>
-		solverResults.length + (expandable ? expandedRowsData.length : 0)
+	let totalSolutionsCount = $derived.by(
+		() => solverResults.length + (expandable ? expandedRowsData.length : 0)
 	);
 	let effectiveExpandedCount = $derived.by(() =>
 		expandable ? (expandedRowsData.length > 0 ? expandedRowsData.length : expandableRowCount) : 0
@@ -176,12 +180,11 @@
 
 	// Helper function to get solution display name. idx is solutions solution_index
 	let displayName = $derived((idx: number | null, iterationNumber?: number) => {
-		if (methodPage !== "gnimbus") {
+		if (methodPage !== 'gnimbus') {
 			// For NIMBUS, use original logic
-			let indexSuffix = (totalSolutionsCount > 1 && idx !== null) ? idx + 1 : '';
+			let indexSuffix = totalSolutionsCount > 1 && idx !== null ? idx + 1 : '';
 			return `Solution ${indexSuffix}`;
 		}
-		
 
 		// For GNIMBUS, use switch for clear case handling
 		switch (selected_type_solutions) {
@@ -198,7 +201,6 @@
 					return `Group solution ${idx}`;
 				}
 				return 'Group solution';
-
 		}
 	});
 
@@ -240,7 +242,8 @@
 							cell: ({ row }: { row: Row<Solution> }) =>
 								renderSnippet(ExpandCell, {
 									rowId: row.id,
-									canExpand: expandedRowsData.length > 0 ? row.index === 0 : effectiveExpandedCount > 0,
+									canExpand:
+										expandedRowsData.length > 0 ? row.index === 0 : effectiveExpandedCount > 0,
 									isExpanded: expandedRowIds.has(row.id)
 								}),
 							enableSorting: false
@@ -263,9 +266,13 @@
 				accessorKey: 'name',
 				size: COLUMN_WIDTHS.name,
 				minSize: COLUMN_WIDTHS.name,
-				header: ({ column }) => renderSnippet(ColumnHeader, { column, title: methodPage === "nimbus" ? 'Name (optional)' : "" }),
+				header: ({ column }) =>
+					renderSnippet(ColumnHeader, {
+						column,
+						title: methodPage === 'nimbus' ? 'Name (optional)' : ''
+					}),
 				cell: ({ row }) => renderSnippet(NameCell, { solution: row.original }),
-				enableSorting: methodPage === "nimbus",
+				enableSorting: methodPage === 'nimbus',
 				sortUndefined: 'last'
 			},
 			// Third column - Edit button (if saved)
@@ -394,24 +401,6 @@
 			next.add(rowId);
 		}
 		expandedRowIds = next;
-	}
-
-	function computeDifferenceFromCurrentSolution(
-		preferences: number[],
-		currentSolution: Solution
-	): number[] {
-		if (!currentSolution || !currentSolution.objective_values) {
-			return [];
-		}
-
-		return problem.objectives.map((objective) => {
-			const currentValue = currentSolution.objective_values?.[objective.symbol];
-			const prefValue = preferences[problem.objectives.findIndex(obj => obj.symbol === objective.symbol)];
-			if (currentValue == null || prefValue == null) {
-				return 0; // or some default value if missing
-			}
-			return currentValue - prefValue;
-		});
 	}
 </script>
 
@@ -594,7 +583,7 @@
 {/snippet}
 
 {#snippet IterationCell({ solution }: { solution: Solution })}
-	{#if methodPage ==="gnimbus"}
+	{#if methodPage === 'gnimbus'}
 		{solution.iteration_number}
 	{:else}
 		{solution.state_id}
@@ -658,7 +647,7 @@
 				onclick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
 				class="-ml-3 h-8 {objective ? 'flex-1 justify-start text-left' : ''}"
 				title={objective ? getObjectiveTitle(objective) : undefined}
-            >
+			>
 				<span>
 					{#if objective}
 						{objective.name}
@@ -682,7 +671,7 @@
 {#if problem}
 	<div class="flex h-full flex-col items-start">
 		{#if selected_type_solutions !== 'current' && !isFrozen}
-			{#if methodPage ==='gnimbus'}
+			{#if methodPage === 'gnimbus'}
 				<SolutionTableToolbar
 					{table}
 					filterColumn="iteration_number"
@@ -699,7 +688,7 @@
 					{#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
 						<Table.Row>
 							{#each headerGroup.headers as header (header.id)}
-									<Table.Head colspan={header.colSpan} style={`width: ${header.getSize()}px;`}>
+								<Table.Head colspan={header.colSpan} style={`width: ${header.getSize()}px;`}>
 									{#if !header.isPlaceholder}
 										<FlexRender
 											content={header.column.columnDef.header}
@@ -727,7 +716,7 @@
 									style={`width: ${cell.column.getSize()}px;`}
 									class={isFirstCell(cellIndex)
 										? selectedSolutions.includes(row.index)
-											? 'border-l-10 border-blue-600'
+											? 'border-l-10'
 											: 'border-l-10'
 										: ''}
 								>
@@ -738,26 +727,30 @@
 						{#if expandable && effectiveExpandedCount > 0 && expandedRowIds.has(row.id)}
 							{#if expandedRowsData.length > 0}
 								{#each expandedRowsData as expandedSolution, expandedIndex (`${row.id}-expanded-${expandedIndex}`)}
-									{@const expandedSourceIndex = effectiveExpandedIndexes[expandedIndex] ?? expandedIndex + 1}
+									{@const expandedSourceIndex =
+										effectiveExpandedIndexes[expandedIndex] ?? expandedIndex + 1}
 									<Table.Row
-										onclick={!isFrozen
-											? () => handle_row_click(expandedSourceIndex)
-											: undefined}
-										class="{isFrozen ? '' : 'cursor-pointer'} {selectedSolutions.includes(expandedSourceIndex)
+										onclick={!isFrozen ? () => handle_row_click(expandedSourceIndex) : undefined}
+										class="{isFrozen ? '' : 'cursor-pointer'} {selectedSolutions.includes(
+											expandedSourceIndex
+										)
 											? 'bg-gray-200'
 											: 'bg-gray-50'} {isFrozen ? 'pointer-events-none' : ''}"
 										aria-label="Select expanded row"
 									>
-										<Table.Cell style={`width: ${COLUMN_WIDTHS.expand}px;`} class="border-l-10 border-blue-200">
+										<Table.Cell style={`width: ${COLUMN_WIDTHS.expand}px;`} class="border-l-10">
 											<div class="h-8 w-8"></div>
 										</Table.Cell>
 										<Table.Cell
 											style={`width: ${COLUMN_WIDTHS.saved}px;`}
 											class={selectedSolutions.includes(expandedSourceIndex)
-												? 'border-l-10 border-blue-500 pl-4'
-												: 'border-l-10 border-blue-200 pl-4'}
+												? 'border-l-10'
+												: 'border-l-10'}
 										>
-											{@render SavedCell({ solution: expandedSolution, rowIndex: expandedSourceIndex })}
+											{@render SavedCell({
+												solution: expandedSolution,
+												rowIndex: expandedSourceIndex
+											})}
 										</Table.Cell>
 										<Table.Cell style={`width: ${COLUMN_WIDTHS.name}px;`}>
 											{@render NameCell({ solution: expandedSolution })}
@@ -781,19 +774,20 @@
 									</Table.Row>
 								{/each}
 							{:else}
-								{#each Array.from({ length: effectiveExpandedCount }) as _, expandedIndex (`${row.id}-expanded-${expandedIndex}`)}
+								{#each Array.from( { length: effectiveExpandedCount } ) as _, expandedIndex (`${row.id}-expanded-${expandedIndex}`)}
 									<Table.Row class="bg-gray-50">
 										{#each row.getVisibleCells() as cell, cellIndex (`${cell.id}-expanded-${expandedIndex}`)}
 											<Table.Cell
 												style={`width: ${cell.column.getSize()}px;`}
-												class={isFirstCell(cellIndex)
-													? 'border-l-10 border-blue-200 pl-6 text-xs text-gray-500'
-													: ''}
+												class={isFirstCell(cellIndex) ? 'border-l-10' : ''}
 											>
 												{#if isFirstCell(cellIndex)}
 													<span class="mr-2">Expanded {expandedIndex + 1}</span>
 												{/if}
-												<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
+												<FlexRender
+													content={cell.column.columnDef.cell}
+													context={cell.getContext()}
+												/>
 											</Table.Cell>
 										{/each}
 									</Table.Row>
@@ -807,16 +801,25 @@
 							</Table.Cell>
 						</Table.Row>
 					{/each}
-					{#if selected_type_solutions === 'current'}
-						{#if preferences.length > 0}
-							<PreviousPreferences
-								{problem}
-								previousPreferences={[preferences]}
-								differenceFromSolution={computeDifferenceFromCurrentSolution(preferences, solverResults[selectedSolutions[0]])}
-								displayAccuracy={displayAccuracy}
-								columnsLength={columns.length}
-							/>
-						{/if}
+
+					{#if selected_type_solutions === 'current' && secondaryObjectiveValues.length > 0}
+						<PreviousSolutions
+							{problem}
+							previousObjectiveValues={secondaryObjectiveValues}
+							currentObjectiveValues={solverResults[0]?.objective_values ?? null}
+							{displayAccuracy}
+							columnsLength={columns.length}
+						/>
+					{/if}
+
+					{#if selected_type_solutions === 'current' && (preferences.length > 0 || previousPreferences.length > 0)}
+						<PreviousPreferences
+							{problem}
+							currentDesiredValues={preferences}
+							previousDesiredValues={previousPreferences}
+							{displayAccuracy}
+							columnsLength={columns.length}
+						/>
 					{/if}
 				</Table.Body>
 			</Table.Root>
@@ -826,10 +829,10 @@
 		{/if}
 	</div>
 {/if}
+
 <style>
 	:global(table) {
 		table-layout: fixed;
 		width: 100%;
 	}
-
 </style>

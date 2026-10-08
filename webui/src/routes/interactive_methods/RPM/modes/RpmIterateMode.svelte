@@ -12,10 +12,7 @@
 	import RximoSidebar from '$lib/components/custom/preferences-bar/rximo-sidebar/RXIMOSidebar.svelte';
 	import { PREFERENCE_TYPES, options_segmented_control } from '$lib/constants';
 
-	import {
-		mapSolutionsToObjectiveValues,
-		processPreviousObjectiveValues
-	} from '../helper-functions';
+	import { mapSolutionsToObjectiveValues } from '../helper-functions';
 	import type { MethodMode, ProblemInfo, Solution, SolutionType } from '$lib/types';
 	import type { MapState, Response, ReferencePoint } from '../types';
 
@@ -48,6 +45,8 @@
 		iterate_explanation_solutions,
 		iterate_explanation_reference_values,
 		iterate_explanation_perturbed_reference_points,
+		previous_iterate_presented_solution,
+		previous_iterate_reference_values,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,
@@ -82,6 +81,8 @@
 		iterate_explanation_solutions: Solution[];
 		iterate_explanation_reference_values: number[];
 		iterate_explanation_perturbed_reference_points: ReferencePoint[];
+		previous_iterate_presented_solution: Solution | null;
+		previous_iterate_reference_values: number[];
 		current_SHAP_values: Record<string, Record<string, number>>;
 		current_SHAP_baseline: Record<string, number>;
 		current_rximo_results: Record<
@@ -231,6 +232,19 @@
 
 		return values as number[];
 	});
+
+	let previous_presented_objective_values = $derived.by(() => {
+		if (!problem || !previous_iterate_presented_solution) {
+			return [];
+		}
+
+		return mapSolutionsToObjectiveValues([previous_iterate_presented_solution], problem);
+	});
+
+	let previous_presented_objective_records = $derived.by(() => {
+		const objectiveValues = previous_iterate_presented_solution?.objective_values;
+		return objectiveValues ? [objectiveValues] : [];
+	});
 </script>
 
 <BaseLayout
@@ -297,13 +311,17 @@
 						<VisualizationsPanel
 							{height}
 							{problem}
-							previousPreferenceValues={[last_iterated_preference]}
+							previousPreferenceValues={previous_iterate_reference_values.length > 0
+								? [previous_iterate_reference_values]
+								: []}
 							currentPreferenceValues={current_preference}
 							previousPreferenceType={type_preferences}
 							currentPreferenceType={type_preferences}
 							currentSolutionIndex={current_solution_index_in_visualization}
 							perturbedReferencePointValues={perturbed_reference_point_values_for_plot}
 							referenceDataLabels={{
+								previousSolutionLabels:
+									previous_presented_objective_values.length > 0 ? ['Previous solution'] : [],
 								perturbedRefLabels: perturbed_reference_point_labels_for_plot
 							}}
 							solutionsObjectiveValues={mapSolutionsToObjectiveValues(
@@ -311,7 +329,7 @@
 								problem
 							)}
 							previousObjectiveValues={selected_type_solutions === 'current'
-								? processPreviousObjectiveValues(current_state, problem)
+								? previous_presented_objective_values
 								: []}
 							externalSelectedIndexes={selectedIndexes}
 							onSelectSolution={handle_solution_click}
@@ -345,7 +363,10 @@
 			<div class="relative h-full flex-row flex items-center px-4">
 				<SolutionTable
 					{problem}
-					preferences={last_iterated_preference}
+					preferences={iterate_explanation_reference_values.length > 0
+						? iterate_explanation_reference_values
+						: last_iterated_preference}
+					previousPreferences={previous_iterate_reference_values}
 					expandable={false}
 					solverResults={table_solver_results}
 					expandedRowsData={table_expanded_rows}
@@ -358,11 +379,7 @@
 					{isSaved}
 					{selected_type_solutions}
 					secondaryObjectiveValues={selected_type_solutions === 'current'
-						? [
-								...(current_state.previous_objectives ? [current_state.previous_objectives] : []),
-								...(current_state.reference_solution_1 ? [current_state.reference_solution_1] : []),
-								...(current_state.reference_solution_2 ? [current_state.reference_solution_2] : [])
-							]
+						? previous_presented_objective_records
 						: []}
 				/>
 			</div>
