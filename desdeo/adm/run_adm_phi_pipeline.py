@@ -282,18 +282,20 @@ class MethodFrontResult:
     solution_ids: list
     objectives: np.ndarray
     generation_fronts: list  # list[np.ndarray], one entry per completed generation
-
+    generation_numbers: list[int]
 
 ALGORITHM_CONFIGS = {
     "iRVEA": {
         "options_factory": rvea_options,
         "preference_method": "Hakanen",
-        # "skip_initial_recorded_front": False,
+        "first_recorded_generation": 2,
+        "skip_initial_recorded_front": False,
     },
     "PBEA": {
         "options_factory": pbea_options,
         "preference_method": "PBEA",
-        # "skip_initial_recorded_front": True,  # Since PBEA's first generation is always the initial population, which is not preference-guided, we skip recording it for PHI.
+        "first_recorded_generation": 1,
+        "skip_initial_recorded_front": True,
     },
 }
 
@@ -330,6 +332,8 @@ class RealAlgorithmRunner:
 
         self.options_factory = config["options_factory"]
         self.preference_method = config["preference_method"]
+        self.first_recorded_generation = config["first_recorded_generation"]
+        self.skip_initial_recorded_front = config["skip_initial_recorded_front"]
 
         # If specificity was explicitly supplied, use it.
         # Otherwise use the objective-dependent PBEA value,
@@ -391,10 +395,23 @@ class RealAlgorithmRunner:
         ]
 
         if not generation_fronts:
-            # Fallback if no per-generation messages were emitted.
-            generation_fronts = [objectives]
+            raise RuntimeError(
+                f"{self.method_name}: no generation fronts were collected."
+            )
+
+        generation_numbers = list(
+            range(
+                self.first_recorded_generation,
+                self.first_recorded_generation + len(generation_fronts),
+            )
+        )
+
+        if self.skip_initial_recorded_front:
+            generation_fronts = generation_fronts[1:]
+            generation_numbers = generation_numbers[1:]
 
         self._record_population_history(
+            generation_numbers,
             generation_fronts,
             iteration,
             phase,
@@ -405,13 +422,18 @@ class RealAlgorithmRunner:
             solution_ids=solution_ids,
             objectives=objectives,
             generation_fronts=generation_fronts,
+            generation_numbers=generation_numbers,
         )
 
     def _record_population_history(
-        self, generation_fronts: list[np.ndarray], iteration: int, phase: str | None
+        self, generation_numbers: list[int], generation_fronts: list[np.ndarray], iteration: int, phase: str | None
     ) -> None:
         """Append one row per solution, per recorded generation, to `self.population_history`."""
-        for generation_in_iteration, front in enumerate(generation_fronts, start=1):
+        for generation_in_iteration, front in zip(
+            generation_numbers,
+            generation_fronts,
+            strict=True,
+        ):
             df = pl.DataFrame(front, schema=self.symbols).with_columns(
                 method=pl.lit(self.method_name),
                 adm_iteration=pl.lit(iteration),
@@ -468,6 +490,7 @@ class ExperimentPipeline:
         self.methods = methods
         self.learning_iterations = learning_iterations
         self.decision_iterations = decision_iterations
+        self.phi_iteration_inputs = []
         self.generations_per_iteration = generations_per_iteration
         self.seed = seed
         self.run_index = run_index
@@ -524,7 +547,10 @@ class ExperimentPipeline:
         if hasattr(self.adm, "true_nadir"):
             self.adm.true_nadir = self.nadir
 
-        self.dystopian_point = self.nadir * (1.0 + self.nadir_margin)
+        self.dystopian_point = (
+            self.nadir
+            + self.nadir_margin * np.maximum(np.abs(self.nadir), 1.0)
+        )
         self.runners = [
             RealAlgorithmRunner(
                 name,
@@ -592,21 +618,28 @@ class ExperimentPipeline:
             self.adm.true_nadir = self.nadir
 
     def _expand_nadir(self, points: np.ndarray) -> None:
-        """Shared helper: expands self.nadir so it keeps dominating every
-        point in `points` (shape (*, n_obj)), applying nadir_margin on top
-        of the observed max whenever the current nadir is exceeded. Also
-        keeps the ADM's own nadir copy in sync (CHANGE 4) so it never
-        scores preferences against a stale, smaller nadir."""
+        """Expand the ADM nadir only when needed; keep PHI bounds separate."""
         if points.size == 0:
             return
+
         observed_max = points.reshape(-1, self.n_obj).max(axis=0)
+
         if np.any(observed_max > self.nadir):
-            self.nadir = np.maximum(
-                self.nadir, observed_max * (1.0 + self.nadir_margin)
+            margin = self.nadir_margin * np.maximum(
+                np.maximum(np.abs(observed_max), np.abs(self.nadir)),
+                1.0,
             )
-            self.dystopian_point = self.nadir
+
+            self.nadir = np.maximum(
+                self.nadir,
+                observed_max + margin,
+            )
             self._sync_nadir_to_adm()
 
+        self.dystopian_point = (
+            self.nadir
+            + self.nadir_margin * np.maximum(np.abs(self.nadir), 1.0)
+        )
     def _update_nadir_from_observations(self, method_fronts: list) -> None:
         """CHANGE 2: expands self.nadir on the fly whenever any observed
         objective vector (final front or any per-generation checkpoint)
@@ -690,8 +723,14 @@ class ExperimentPipeline:
             max_assigned = {"vector_id": "V1", "assigned_count": 0}
             return assignments, max_assigned
 
+        if len(all_solution_ids) != len(assigned_idx):
+            raise ValueError(
+                "ADM composite-front IDs and vector assignments "
+                "have different lengths."
+            )
+
         counts = np.bincount(assigned_idx, minlength=n_vectors)
-        ids_for_assignment = all_solution_ids[: len(assigned_idx)]
+        ids_for_assignment = all_solution_ids
         assignments = []
         for vid in range(n_vectors):
             idx = np.where(assigned_idx == vid)[0]
@@ -744,7 +783,7 @@ class ExperimentPipeline:
             #        "of generations in the same ADM interaction."
             #    )
 
-            n_generations = np.min(generation_counts)
+            #n_generations = np.min(generation_counts)
 
             # CHANGE 2: keep the nadir valid (dominating) w.r.t. every
             # objective vector observed so far, BEFORE computing any
@@ -752,17 +791,34 @@ class ExperimentPipeline:
             # self.adm.true_nadir in sync automatically as part of this.
             self._update_nadir_from_observations(method_fronts)
 
-            composite_front = []
+            self.phi_iteration_inputs.append({
+                "reference_point": current_pref_array.copy(),
+                "method_fronts": {
+                    mf.method_name: [
+                        (generation, np.asarray(front, dtype=float).copy())
+                        for generation, front in zip(
+                            mf.generation_numbers,
+                            mf.generation_fronts,
+                            strict=True,
+                        )
+                    ]
+                    for mf in method_fronts
+                },
+            })
+
+            expected_generations = list(
+                range(2, self.generations_per_iteration + 1)
+            )
+
             for mf in method_fronts:
-                for sid, obj in zip(mf.solution_ids, mf.objectives):
-                    composite_front.append(
-                        {
-                            "solution_id": sid,
-                            "method": mf.method_name,
-                            "objectives": obj.tolist(),
-                        }
+                if mf.generation_numbers != expected_generations:
+                    raise ValueError(
+                        f"{mf.method_name}: expected generations "
+                        f"{expected_generations}, got {mf.generation_numbers}"
                     )
-            all_solution_ids = [entry["solution_id"] for entry in composite_front]
+
+            n_generations = len(expected_generations)
+            #all_solution_ids = [entry["solution_id"] for entry in composite_front]
             # Feed each method's raw front separately, as ADMAfsar.get_next_preference(*fronts)
             # builds its own accumulated composite_front internally via generate_composite_front,
             # and now also stores assigned_vectors_ for external inspection. Thanks to CHANGE 4,
@@ -770,6 +826,25 @@ class ExperimentPipeline:
             pref = self.adm.get_next_preference(
                 *[mf.objectives for mf in method_fronts]
             )
+
+            adm_front = np.asarray(
+                self.adm.composite_front,
+                dtype=float,
+            )
+
+            composite_front = [
+                {
+                    "solution_id": f"ADM_it{iteration}_{i}",
+                    "method": None,
+                    "objectives": row.tolist(),
+                }
+                for i, row in enumerate(adm_front)
+            ]
+
+            all_solution_ids = [
+                entry["solution_id"]
+                for entry in composite_front
+            ]
             pref_serialized = _serialize(pref)
             pref_array = _to_array(pref, self.n_obj)
 
@@ -785,67 +860,10 @@ class ExperimentPipeline:
                 all_solution_ids
             )
 
-            # Positive/negative hypervolume per generation, computed against the
-            # reference point that was ACTIVE during this iteration's runs
-            # (current_pref_array), not the one produced afterwards.
+            # PHI metrics are calculated retrospectively after all ADM
+            # interactions, using the same final dystopian point as RS and FD.
             hv_by_method = {}
             phi_per_method = {}
-
-            for mf in method_fronts:
-                generation_metrics = []
-
-                for generation_idx, gen_front in enumerate(
-                    mf.generation_fronts,
-                    start=1,
-                ):
-                    phi_result = self._phi_for_front(
-                        gen_front,
-                        current_pref_array,
-                    )
-
-                    generation_metrics.append(
-                        {
-                            "generation": generation_idx,
-                            "phi": float(phi_result.phi),
-                            "v_prec": float(phi_result.v_prec),
-                            "v_succ": float(phi_result.v_succ),
-                            "v_plus": float(phi_result.v_plus),
-                            "v_minus": float(phi_result.v_minus),
-                            "solution_hypervolume": float(
-                                phi_result.solution_hypervolume
-                            ),
-                            "reference_point_hypervolume": float(
-                                phi_result.reference_point_hypervolume
-                            ),
-                            "reference_point_is_dominated": bool(
-                                phi_result.reference_point_is_dominated
-                            ),
-                        }
-                    )
-
-                hv_by_method[mf.method_name] = {
-                    "positive_hypervolume_per_generation": [
-                        item["v_plus"] for item in generation_metrics
-                    ],
-                    "negative_hypervolume_per_generation": [
-                        item["v_minus"] for item in generation_metrics
-                    ],
-                    "v_prec_per_generation": [
-                        item["v_prec"] for item in generation_metrics
-                    ],
-                    "v_succ_per_generation": [
-                        item["v_succ"] for item in generation_metrics
-                    ],
-                    "phi_per_generation": [item["phi"] for item in generation_metrics],
-                    "phi_final_generation": (
-                        generation_metrics[-1]["phi"] if generation_metrics else 0.0
-                    ),
-                    "generation_metrics": generation_metrics,
-                }
-
-                phi_per_method[mf.method_name] = (
-                    generation_metrics[-1]["phi"] if generation_metrics else 0.0
-                )
 
             # ----------------------------------------------------------
             # Store data required for formal learning/decision PHI
@@ -879,10 +897,7 @@ class ExperimentPipeline:
                 # from each interaction.
                 for mf in method_fronts:
                     self.phi_decision_fronts[mf.method_name].append(
-                        np.asarray(
-                            mf.generation_fronts[-1],
-                            dtype=float,
-                        ).copy()
+                        np.asarray(mf.objectives, dtype=float).copy()
                     )
 
                 self.phi_decision_reference_points.append(
@@ -898,7 +913,16 @@ class ExperimentPipeline:
                     composite_front=composite_front,
                     preference_information={
                         "type": "reference_point",
+
+                        # Preference used during this interaction and its PHI evaluation.
+                        "active_reference_point": _serialize(current_pref_array),
+
+                        # Preference generated after this interaction for the next one.
+                        "next_reference_point": pref_serialized,
+
+                        # Preserve the existing field for backward compatibility.
                         "reference_point": pref_serialized,
+
                         "selected_reference_vector": max_assigned["vector_id"],
                         "selection_rule": (
                             "least_assigned_vector_for_exploration"
@@ -916,9 +940,32 @@ class ExperimentPipeline:
             current_preference_dict = _to_preference_dict(pref, self.problem)
             current_pref_array = pref_array
 
+        # The final evaluation point is now known.
+        # Recalculate all displayed trajectories on the same basis as RS/FD.
+        self._recalculate_generation_phi()
+
         # Calculate formal phase-level PHI metrics only after
         # all ADM interactions have completed.
+
         self.phi_learning_results = self._calculate_learning_phi()
+
+        for method_name in self.method_names:
+            displayed = [
+                item["phi"]
+                for record in self.iteration_records
+                if record.phase == "learning"
+                for item in record.hypervolume_by_method[
+                    method_name
+                ]["generation_metrics"]
+            ]
+
+            formal = self.phi_learning_results[method_name]["phi_values"]
+
+            if not np.allclose(displayed, formal, rtol=1e-9, atol=1e-10):
+                raise ValueError(
+                    f"{method_name}: displayed PHI does not match "
+                    "the formal learning-phase PHI values."
+                )
 
         self.phi_decision_results = self._calculate_decision_phi()
 
@@ -926,6 +973,74 @@ class ExperimentPipeline:
             self._save_population_histories()
 
         return self._build_output(initial_reference_point)
+
+
+    def _recalculate_generation_phi(self) -> None:
+        """Recompute recorded PHI with the final dystopian point."""
+
+        for record, inputs in zip(
+            self.iteration_records,
+            self.phi_iteration_inputs,
+            strict=True,
+        ):
+            reference_point = inputs["reference_point"]
+
+            hv_by_method = {}
+            phi_per_method = {}
+
+            for method_name, fronts in inputs["method_fronts"].items():
+                generation_metrics = []
+
+                for generation, front in fronts:
+                    result = self._phi_for_front(
+                        front,
+                        reference_point,
+                    )
+
+                    generation_metrics.append({
+                        "generation": generation,
+                        "phi": float(result.phi),
+                        "v_prec": float(result.v_prec),
+                        "v_succ": float(result.v_succ),
+                        "v_plus": float(result.v_plus),
+                        "v_minus": float(result.v_minus),
+                        "solution_hypervolume": float(
+                            result.solution_hypervolume
+                        ),
+                        "reference_point_hypervolume": float(
+                            result.reference_point_hypervolume
+                        ),
+                        "reference_point_is_dominated": bool(
+                            result.reference_point_is_dominated
+                        ),
+                    })
+
+                hv_by_method[method_name] = {
+                    "positive_hypervolume_per_generation": [
+                        item["v_plus"] for item in generation_metrics
+                    ],
+                    "negative_hypervolume_per_generation": [
+                        item["v_minus"] for item in generation_metrics
+                    ],
+                    "v_prec_per_generation": [
+                        item["v_prec"] for item in generation_metrics
+                    ],
+                    "v_succ_per_generation": [
+                        item["v_succ"] for item in generation_metrics
+                    ],
+                    "phi_per_generation": [
+                        item["phi"] for item in generation_metrics
+                    ],
+                    "phi_final_generation": generation_metrics[-1]["phi"],
+                    "generation_metrics": generation_metrics,
+                }
+
+                phi_per_method[method_name] = (
+                    generation_metrics[-1]["phi"]
+                )
+
+            record.hypervolume_by_method = hv_by_method
+            record.phi_per_method = phi_per_method
 
     def _calculate_learning_phi(self) -> dict:
         """Calculate formal PHI learning-phase robustness score (RS)."""
@@ -946,6 +1061,15 @@ class ExperimentPipeline:
         results = {}
 
         for method_name in self.method_names:
+            fronts = self.phi_learning_fronts[method_name]
+            if not (
+                len(fronts)
+                == len(reference_points)
+                == len(generations)
+            ):
+                raise ValueError(
+                    f"{method_name}: learning PHI inputs have different lengths."
+                )
             result = phi_learning_phase(
                 solution_sets=self.phi_learning_fronts[method_name],
                 reference_points=reference_points,
@@ -1030,7 +1154,9 @@ class ExperimentPipeline:
                 "learning_iterations": self.learning_iterations,
                 "decision_iterations": self.decision_iterations,
                 "generations_per_iteration": self.generations_per_iteration,
-                "number_of_reference_vectors": self.number_of_vectors,
+                "number_of_reference_vectors": int(
+                    self.reference_vectors.shape[0]
+                ),
                 "seed": self.seed,
             },
             "initial_reference_point": initial_reference_point,
@@ -1154,18 +1280,16 @@ def main():
     run_experiment_suite(
         problem_factories=[
             lambda: dtlz2(n_objectives=3, n_variables=12),
-            re21,
-            re34,
-            re61,
+
         ],
         methods=[
             "iRVEA",
             "PBEA",
         ],
-        learning_iters=4,
-        decision_iters=3,
-        gens_per_iter=100,
-        n_runs=10,
+        learning_iters=2,
+        decision_iters=2,
+        gens_per_iter=10,
+        n_runs=2,
         base_seed=123,
         number_of_vectors=100,
         output_dir="output",

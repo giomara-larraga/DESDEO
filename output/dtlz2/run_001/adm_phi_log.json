@@ -1,0 +1,5362 @@
+{
+  "experiment_id": "dtlz2_run_001",
+  "run": {
+    "index": 1,
+    "seed": 66316748
+  },
+  "problem": {
+    "name": "dtlz2",
+    "objectives": 3,
+    "variables": 12
+  },
+  "methods": [
+    "iRVEA",
+    "PBEA"
+  ],
+  "adm_configuration": {
+    "learning_iterations": 2,
+    "decision_iterations": 2,
+    "generations_per_iteration": 10,
+    "number_of_reference_vectors": 45,
+    "seed": 66316748
+  },
+  "initial_reference_point": [
+    0.07109157778981148,
+    0.8423963682576892,
+    0.09385506021962853
+  ],
+  "final_nadir": [
+    1.6893443125473642,
+    2.117046730683473,
+    2.9038774602818096
+  ],
+  "reference_vectors": [
+    {
+      "vector_id": "V1",
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "vector_id": "V2",
+      "direction": [
+        0.0,
+        0.1414213562373095,
+        0.9899494936611665
+      ]
+    },
+    {
+      "vector_id": "V3",
+      "direction": [
+        0.0,
+        0.31622776601683794,
+        0.9486832980505138
+      ]
+    },
+    {
+      "vector_id": "V4",
+      "direction": [
+        0.0,
+        0.5144957554275265,
+        0.8574929257125441
+      ]
+    },
+    {
+      "vector_id": "V5",
+      "direction": [
+        0.0,
+        0.7071067811865475,
+        0.7071067811865475
+      ]
+    },
+    {
+      "vector_id": "V6",
+      "direction": [
+        0.0,
+        0.8574929257125441,
+        0.5144957554275265
+      ]
+    },
+    {
+      "vector_id": "V7",
+      "direction": [
+        0.0,
+        0.9486832980505138,
+        0.31622776601683794
+      ]
+    },
+    {
+      "vector_id": "V8",
+      "direction": [
+        0.0,
+        0.9899494936611665,
+        0.1414213562373095
+      ]
+    },
+    {
+      "vector_id": "V9",
+      "direction": [
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V10",
+      "direction": [
+        0.1414213562373095,
+        0.0,
+        0.9899494936611665
+      ]
+    },
+    {
+      "vector_id": "V11",
+      "direction": [
+        0.16222142113076254,
+        0.16222142113076254,
+        0.9733285267845753
+      ]
+    },
+    {
+      "vector_id": "V12",
+      "direction": [
+        0.18257418583505536,
+        0.3651483716701107,
+        0.9128709291752769
+      ]
+    },
+    {
+      "vector_id": "V13",
+      "direction": [
+        0.19611613513818404,
+        0.5883484054145521,
+        0.7844645405527362
+      ]
+    },
+    {
+      "vector_id": "V14",
+      "direction": [
+        0.19611613513818404,
+        0.7844645405527362,
+        0.5883484054145521
+      ]
+    },
+    {
+      "vector_id": "V15",
+      "direction": [
+        0.18257418583505536,
+        0.9128709291752769,
+        0.3651483716701107
+      ]
+    },
+    {
+      "vector_id": "V16",
+      "direction": [
+        0.16222142113076254,
+        0.9733285267845753,
+        0.16222142113076254
+      ]
+    },
+    {
+      "vector_id": "V17",
+      "direction": [
+        0.1414213562373095,
+        0.9899494936611665,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V18",
+      "direction": [
+        0.31622776601683794,
+        0.0,
+        0.9486832980505138
+      ]
+    },
+    {
+      "vector_id": "V19",
+      "direction": [
+        0.3651483716701107,
+        0.18257418583505536,
+        0.9128709291752769
+      ]
+    },
+    {
+      "vector_id": "V20",
+      "direction": [
+        0.4082482904638631,
+        0.4082482904638631,
+        0.8164965809277261
+      ]
+    },
+    {
+      "vector_id": "V21",
+      "direction": [
+        0.42640143271122083,
+        0.6396021490668313,
+        0.6396021490668313
+      ]
+    },
+    {
+      "vector_id": "V22",
+      "direction": [
+        0.4082482904638631,
+        0.8164965809277261,
+        0.4082482904638631
+      ]
+    },
+    {
+      "vector_id": "V23",
+      "direction": [
+        0.3651483716701107,
+        0.9128709291752769,
+        0.18257418583505536
+      ]
+    },
+    {
+      "vector_id": "V24",
+      "direction": [
+        0.31622776601683794,
+        0.9486832980505138,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V25",
+      "direction": [
+        0.5144957554275265,
+        0.0,
+        0.8574929257125441
+      ]
+    },
+    {
+      "vector_id": "V26",
+      "direction": [
+        0.5883484054145521,
+        0.19611613513818404,
+        0.7844645405527362
+      ]
+    },
+    {
+      "vector_id": "V27",
+      "direction": [
+        0.6396021490668313,
+        0.42640143271122083,
+        0.6396021490668313
+      ]
+    },
+    {
+      "vector_id": "V28",
+      "direction": [
+        0.6396021490668313,
+        0.6396021490668313,
+        0.42640143271122083
+      ]
+    },
+    {
+      "vector_id": "V29",
+      "direction": [
+        0.5883484054145521,
+        0.7844645405527362,
+        0.19611613513818404
+      ]
+    },
+    {
+      "vector_id": "V30",
+      "direction": [
+        0.5144957554275265,
+        0.8574929257125441,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V31",
+      "direction": [
+        0.7071067811865475,
+        0.0,
+        0.7071067811865475
+      ]
+    },
+    {
+      "vector_id": "V32",
+      "direction": [
+        0.7844645405527362,
+        0.19611613513818404,
+        0.5883484054145521
+      ]
+    },
+    {
+      "vector_id": "V33",
+      "direction": [
+        0.8164965809277261,
+        0.4082482904638631,
+        0.4082482904638631
+      ]
+    },
+    {
+      "vector_id": "V34",
+      "direction": [
+        0.7844645405527362,
+        0.5883484054145521,
+        0.19611613513818404
+      ]
+    },
+    {
+      "vector_id": "V35",
+      "direction": [
+        0.7071067811865475,
+        0.7071067811865475,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V36",
+      "direction": [
+        0.8574929257125441,
+        0.0,
+        0.5144957554275265
+      ]
+    },
+    {
+      "vector_id": "V37",
+      "direction": [
+        0.9128709291752769,
+        0.18257418583505536,
+        0.3651483716701107
+      ]
+    },
+    {
+      "vector_id": "V38",
+      "direction": [
+        0.9128709291752769,
+        0.3651483716701107,
+        0.18257418583505536
+      ]
+    },
+    {
+      "vector_id": "V39",
+      "direction": [
+        0.8574929257125441,
+        0.5144957554275265,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V40",
+      "direction": [
+        0.9486832980505138,
+        0.0,
+        0.31622776601683794
+      ]
+    },
+    {
+      "vector_id": "V41",
+      "direction": [
+        0.9733285267845753,
+        0.16222142113076254,
+        0.16222142113076254
+      ]
+    },
+    {
+      "vector_id": "V42",
+      "direction": [
+        0.9486832980505138,
+        0.31622776601683794,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V43",
+      "direction": [
+        0.9899494936611665,
+        0.0,
+        0.1414213562373095
+      ]
+    },
+    {
+      "vector_id": "V44",
+      "direction": [
+        0.9899494936611665,
+        0.1414213562373095,
+        0.0
+      ]
+    },
+    {
+      "vector_id": "V45",
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "iterations": [
+    {
+      "iteration": 1,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "ADM_it1_0",
+          "method": null,
+          "objectives": [
+            0.023771649561428247,
+            0.5338019199963211,
+            1.1908155717227518
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_1",
+          "method": null,
+          "objectives": [
+            1.0930808466740969,
+            0.11744503419604449,
+            0.2063249809896627
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_2",
+          "method": null,
+          "objectives": [
+            0.5450162856592161,
+            0.9346710976857099,
+            0.39060519886925543
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_3",
+          "method": null,
+          "objectives": [
+            0.810229444234891,
+            0.043675629900357234,
+            0.8353302470890641
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_4",
+          "method": null,
+          "objectives": [
+            0.21765668304766964,
+            1.0470903366215434,
+            0.10605819447752543
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_5",
+          "method": null,
+          "objectives": [
+            0.7888241531813444,
+            0.017836281459661724,
+            0.8532477916152498
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_6",
+          "method": null,
+          "objectives": [
+            0.03181879122595346,
+            1.0836862272739523,
+            0.10997505150207264
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_7",
+          "method": null,
+          "objectives": [
+            0.033290450759819755,
+            1.0462361433379634,
+            0.3455280221447174
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_8",
+          "method": null,
+          "objectives": [
+            0.7762146629985562,
+            0.04184205422992149,
+            0.845457037243855
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_9",
+          "method": null,
+          "objectives": [
+            0.23542912668337793,
+            1.0809661199462752,
+            0.020446202273929577
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_10",
+          "method": null,
+          "objectives": [
+            0.02581562735074569,
+            1.2035071636537271,
+            0.00318018491904034
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_11",
+          "method": null,
+          "objectives": [
+            0.9203858339163637,
+            0.020811052398700784,
+            0.8184557304859782
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_12",
+          "method": null,
+          "objectives": [
+            0.046439157922632604,
+            1.1354520814823141,
+            0.0020112610221959715
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_13",
+          "method": null,
+          "objectives": [
+            0.030824728579867955,
+            1.093294926367181,
+            0.11094644119076069
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_14",
+          "method": null,
+          "objectives": [
+            0.2163262031106991,
+            1.0040556158178422,
+            0.3287327586292449
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_15",
+          "method": null,
+          "objectives": [
+            2.733625550834308e-05,
+            1.128700509555604,
+            0.20940244896861712
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_16",
+          "method": null,
+          "objectives": [
+            0.7329426076929366,
+            0.016572731187129697,
+            0.9021031750689013
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_17",
+          "method": null,
+          "objectives": [
+            0.23040522028571014,
+            0.9780485501729068,
+            0.33415164086402127
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_18",
+          "method": null,
+          "objectives": [
+            0.2219144372926607,
+            1.037705347653944,
+            0.10514845610282735
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_19",
+          "method": null,
+          "objectives": [
+            0.045224007035188925,
+            1.0667283814774693,
+            0.08506389803959023
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_20",
+          "method": null,
+          "objectives": [
+            0.15046007929491342,
+            1.0546022647113407,
+            0.0239926094480104
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_21",
+          "method": null,
+          "objectives": [
+            0.35738046117317884,
+            1.072702744870744,
+            0.0017556590506478391
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_22",
+          "method": null,
+          "objectives": [
+            0.3447079843152103,
+            1.0282623709986043,
+            0.034999397013898835
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_23",
+          "method": null,
+          "objectives": [
+            0.03207516125677937,
+            1.0821394714947876,
+            0.09196555930623393
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_24",
+          "method": null,
+          "objectives": [
+            0.23593035211724211,
+            1.1137410645365038,
+            0.016088429500663002
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_25",
+          "method": null,
+          "objectives": [
+            0.21569359280168318,
+            1.0532118058339228,
+            0.0236468827698233
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_26",
+          "method": null,
+          "objectives": [
+            0.35466970768697537,
+            1.0650438540736002,
+            0.019327422820965626
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_27",
+          "method": null,
+          "objectives": [
+            0.2286478580717837,
+            1.0368745989451054,
+            0.10828104501471797
+          ]
+        },
+        {
+          "solution_id": "ADM_it1_28",
+          "method": null,
+          "objectives": [
+            0.011399445158713816,
+            1.1012435792154485,
+            0.019718151591091786
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          2.733625550834308e-05,
+          0.42668897106240894,
+          1.2321043786764854
+        ],
+        "selected_reference_vector": "V8",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "auto-generated preference from ADM"
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            5.998988569048511,
+            6.107972734230968,
+            6.191807180392274,
+            6.238877590078625,
+            6.344687671208803,
+            6.43840812862733,
+            6.461673630129216,
+            6.517345955065013,
+            6.625171560585475
+          ],
+          "negative_hypervolume_per_generation": [
+            1.9804054431830558,
+            1.9838321972848547,
+            1.9838321972848547,
+            1.9706540700926585,
+            1.8509747071268663,
+            2.1492094659408743,
+            2.131580415647093,
+            2.131580415647093,
+            2.1427255142586326
+          ],
+          "v_prec_per_generation": [
+            5.998988569048511,
+            6.107972734230968,
+            6.191807180392274,
+            6.238877590078625,
+            6.344687671208803,
+            6.43840812862733,
+            6.461673630129216,
+            6.517345955065013,
+            6.625171560585475
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.863591343112523,
+            0.8792802847573713,
+            0.8913487694904603,
+            0.8981248447994918,
+            0.9133568575006843,
+            0.9268484944270776,
+            0.9301977066249242,
+            0.938212080600157,
+            0.9537342404478639
+          ],
+          "phi_final_generation": 0.9537342404478639,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.863591343112523,
+              "v_prec": 5.998988569048511,
+              "v_succ": 0.0,
+              "v_plus": 5.998988569048511,
+              "v_minus": 1.9804054431830558,
+              "solution_hypervolume": 7.979394012231567,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.8792802847573713,
+              "v_prec": 6.107972734230968,
+              "v_succ": 0.0,
+              "v_plus": 6.107972734230968,
+              "v_minus": 1.9838321972848547,
+              "solution_hypervolume": 8.091804931515822,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.8913487694904603,
+              "v_prec": 6.191807180392274,
+              "v_succ": 0.0,
+              "v_plus": 6.191807180392274,
+              "v_minus": 1.9838321972848547,
+              "solution_hypervolume": 8.175639377677129,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.8981248447994918,
+              "v_prec": 6.238877590078625,
+              "v_succ": 0.0,
+              "v_plus": 6.238877590078625,
+              "v_minus": 1.9706540700926585,
+              "solution_hypervolume": 8.209531660171283,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9133568575006843,
+              "v_prec": 6.344687671208803,
+              "v_succ": 0.0,
+              "v_plus": 6.344687671208803,
+              "v_minus": 1.8509747071268663,
+              "solution_hypervolume": 8.195662378335669,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9268484944270776,
+              "v_prec": 6.43840812862733,
+              "v_succ": 0.0,
+              "v_plus": 6.43840812862733,
+              "v_minus": 2.1492094659408743,
+              "solution_hypervolume": 8.587617594568204,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9301977066249242,
+              "v_prec": 6.461673630129216,
+              "v_succ": 0.0,
+              "v_plus": 6.461673630129216,
+              "v_minus": 2.131580415647093,
+              "solution_hypervolume": 8.593254045776309,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.938212080600157,
+              "v_prec": 6.517345955065013,
+              "v_succ": 0.0,
+              "v_plus": 6.517345955065013,
+              "v_minus": 2.131580415647093,
+              "solution_hypervolume": 8.648926370712106,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9537342404478639,
+              "v_prec": 6.625171560585475,
+              "v_succ": 0.0,
+              "v_plus": 6.625171560585475,
+              "v_minus": 2.1427255142586326,
+              "solution_hypervolume": 8.767897074844107,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            }
+          ]
+        },
+        "PBEA": {
+          "positive_hypervolume_per_generation": [
+            6.405531841137174,
+            6.6034662707538665,
+            6.712569261000938,
+            6.709790811523245,
+            6.772359949622627,
+            6.770140908809571,
+            6.426690445541558,
+            6.493794302482803,
+            6.528360831098494
+          ],
+          "negative_hypervolume_per_generation": [
+            3.202998440913211,
+            3.398226366518326,
+            3.5940062388389684,
+            3.6843592958732287,
+            3.7057978241766847,
+            3.828023545874011,
+            2.367302256900196,
+            2.6667464362162185,
+            2.3410187598901775
+          ],
+          "v_prec_per_generation": [
+            6.405531841137174,
+            6.6034662707538665,
+            6.712569261000938,
+            6.709790811523245,
+            6.772359949622627,
+            6.770140908809571,
+            6.426690445541558,
+            6.493794302482803,
+            6.528360831098494
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9221157504080837,
+            0.9506096303269117,
+            0.9663156775714734,
+            0.9659157026609374,
+            0.9749229153579952,
+            0.9746034707692764,
+            0.9251616617955872,
+            0.9348216751923307,
+            0.9397977398289562
+          ],
+          "phi_final_generation": 0.9397977398289562,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9221157504080837,
+              "v_prec": 6.405531841137174,
+              "v_succ": 0.0,
+              "v_plus": 6.405531841137174,
+              "v_minus": 3.202998440913211,
+              "solution_hypervolume": 9.608530282050385,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9506096303269117,
+              "v_prec": 6.6034662707538665,
+              "v_succ": 0.0,
+              "v_plus": 6.6034662707538665,
+              "v_minus": 3.398226366518326,
+              "solution_hypervolume": 10.001692637272193,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9663156775714734,
+              "v_prec": 6.712569261000938,
+              "v_succ": 0.0,
+              "v_plus": 6.712569261000938,
+              "v_minus": 3.5940062388389684,
+              "solution_hypervolume": 10.306575499839907,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9659157026609374,
+              "v_prec": 6.709790811523245,
+              "v_succ": 0.0,
+              "v_plus": 6.709790811523245,
+              "v_minus": 3.6843592958732287,
+              "solution_hypervolume": 10.394150107396474,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9749229153579952,
+              "v_prec": 6.772359949622627,
+              "v_succ": 0.0,
+              "v_plus": 6.772359949622627,
+              "v_minus": 3.7057978241766847,
+              "solution_hypervolume": 10.478157773799312,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9746034707692764,
+              "v_prec": 6.770140908809571,
+              "v_succ": 0.0,
+              "v_plus": 6.770140908809571,
+              "v_minus": 3.828023545874011,
+              "solution_hypervolume": 10.598164454683582,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9251616617955872,
+              "v_prec": 6.426690445541558,
+              "v_succ": 0.0,
+              "v_plus": 6.426690445541558,
+              "v_minus": 2.367302256900196,
+              "solution_hypervolume": 8.793992702441754,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9348216751923307,
+              "v_prec": 6.493794302482803,
+              "v_succ": 0.0,
+              "v_plus": 6.493794302482803,
+              "v_minus": 2.6667464362162185,
+              "solution_hypervolume": 9.160540738699021,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9397977398289562,
+              "v_prec": 6.528360831098494,
+              "v_succ": 0.0,
+              "v_plus": 6.528360831098494,
+              "v_minus": 2.3410187598901775,
+              "solution_hypervolume": 8.869379590988672,
+              "reference_point_hypervolume": 6.946559407864356,
+              "reference_point_is_dominated": false
+            }
+          ]
+        }
+      },
+      "phi_per_method": {
+        "iRVEA": 0.9537342404478639,
+        "PBEA": 0.9397977398289562
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "ADM_it1_0"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V7",
+          "assigned_solution_ids": [
+            "ADM_it1_7"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V8",
+          "assigned_solution_ids": [
+            "ADM_it1_6",
+            "ADM_it1_13",
+            "ADM_it1_15",
+            "ADM_it1_19",
+            "ADM_it1_23"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V9",
+          "assigned_solution_ids": [
+            "ADM_it1_10",
+            "ADM_it1_12",
+            "ADM_it1_28"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V10",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V11",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V12",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V13",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V14",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V15",
+          "assigned_solution_ids": [
+            "ADM_it1_14",
+            "ADM_it1_17"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V16",
+          "assigned_solution_ids": [
+            "ADM_it1_4",
+            "ADM_it1_18",
+            "ADM_it1_27"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V17",
+          "assigned_solution_ids": [
+            "ADM_it1_9",
+            "ADM_it1_20",
+            "ADM_it1_24",
+            "ADM_it1_25"
+          ],
+          "assigned_count": 4
+        },
+        {
+          "vector_id": "V18",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V19",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V20",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V21",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V22",
+          "assigned_solution_ids": [
+            "ADM_it1_2"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V23",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V24",
+          "assigned_solution_ids": [
+            "ADM_it1_21",
+            "ADM_it1_22",
+            "ADM_it1_26"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V25",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V26",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V27",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V28",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V29",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V30",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V31",
+          "assigned_solution_ids": [
+            "ADM_it1_3",
+            "ADM_it1_5",
+            "ADM_it1_8",
+            "ADM_it1_11",
+            "ADM_it1_16"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V32",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V33",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V34",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V35",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V36",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V37",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V38",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V39",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V40",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V41",
+          "assigned_solution_ids": [
+            "ADM_it1_1"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V42",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V43",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V44",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V45",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V8",
+        "assigned_count": 5
+      }
+    },
+    {
+      "iteration": 2,
+      "phase": "learning",
+      "composite_front": [
+        {
+          "solution_id": "ADM_it2_0",
+          "method": null,
+          "objectives": [
+            1.0930808466740969,
+            0.11744503419604449,
+            0.2063249809896627
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_1",
+          "method": null,
+          "objectives": [
+            0.810229444234891,
+            0.043675629900357234,
+            0.8353302470890641
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_2",
+          "method": null,
+          "objectives": [
+            0.7888241531813444,
+            0.017836281459661724,
+            0.8532477916152498
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_3",
+          "method": null,
+          "objectives": [
+            0.7762146629985562,
+            0.04184205422992149,
+            0.845457037243855
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_4",
+          "method": null,
+          "objectives": [
+            0.02581562735074569,
+            1.2035071636537271,
+            0.00318018491904034
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_5",
+          "method": null,
+          "objectives": [
+            0.9203858339163637,
+            0.020811052398700784,
+            0.8184557304859782
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_6",
+          "method": null,
+          "objectives": [
+            0.046439157922632604,
+            1.1354520814823141,
+            0.0020112610221959715
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_7",
+          "method": null,
+          "objectives": [
+            0.2163262031106991,
+            1.0040556158178422,
+            0.3287327586292449
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_8",
+          "method": null,
+          "objectives": [
+            2.733625550834308e-05,
+            1.128700509555604,
+            0.20940244896861712
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_9",
+          "method": null,
+          "objectives": [
+            0.7329426076929366,
+            0.016572731187129697,
+            0.9021031750689013
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_10",
+          "method": null,
+          "objectives": [
+            0.23040522028571014,
+            0.9780485501729068,
+            0.33415164086402127
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_11",
+          "method": null,
+          "objectives": [
+            0.35738046117317884,
+            1.072702744870744,
+            0.0017556590506478391
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_12",
+          "method": null,
+          "objectives": [
+            0.011399445158713816,
+            1.1012435792154485,
+            0.019718151591091786
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_13",
+          "method": null,
+          "objectives": [
+            1.068269944540395,
+            0.12494108575801667,
+            0.20185443099931502
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_14",
+          "method": null,
+          "objectives": [
+            0.5702634183415035,
+            0.7383278571528974,
+            0.6117827193085565
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_15",
+          "method": null,
+          "objectives": [
+            0.41264811850416433,
+            0.8023496880386426,
+            0.7654995370479197
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_16",
+          "method": null,
+          "objectives": [
+            0.07444652429127743,
+            0.12425395157483203,
+            2.2560664828702164
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_17",
+          "method": null,
+          "objectives": [
+            0.15624415307121428,
+            0.6092529056871592,
+            0.8135825733106524
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_18",
+          "method": null,
+          "objectives": [
+            0.013114889191367284,
+            1.0553454038506176,
+            0.021622039168355506
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_19",
+          "method": null,
+          "objectives": [
+            0.011575622769026354,
+            0.5430341056528076,
+            0.8974329724492127
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_20",
+          "method": null,
+          "objectives": [
+            0.35154986081427425,
+            0.9790736418981701,
+            0.0220918454015785
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_21",
+          "method": null,
+          "objectives": [
+            0.1522925051345435,
+            1.0192552664467285,
+            0.009402923703147204
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_22",
+          "method": null,
+          "objectives": [
+            0.009862336144028903,
+            1.0356748954866515,
+            0.023247249918737452
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_23",
+          "method": null,
+          "objectives": [
+            0.46237131267999393,
+            0.9259534807934773,
+            0.03228646731010428
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_24",
+          "method": null,
+          "objectives": [
+            0.006926639375554091,
+            0.5944470619771112,
+            0.8600968775169705
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_25",
+          "method": null,
+          "objectives": [
+            0.023733335139495992,
+            1.048518835101813,
+            0.01994423886157593
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_26",
+          "method": null,
+          "objectives": [
+            0.023411113596776615,
+            1.0342833576760304,
+            0.032432469486427584
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_27",
+          "method": null,
+          "objectives": [
+            0.023921077965181035,
+            1.041077581727698,
+            0.019768825316097232
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_28",
+          "method": null,
+          "objectives": [
+            0.001005950553994585,
+            0.33429346196931226,
+            0.985371982680345
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_29",
+          "method": null,
+          "objectives": [
+            0.010050650163460748,
+            1.0563739757008732,
+            0.02191341623147165
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_30",
+          "method": null,
+          "objectives": [
+            0.0031392740677954898,
+            0.33166085126204087,
+            0.9776513976472976
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_31",
+          "method": null,
+          "objectives": [
+            0.035697266120563176,
+            1.0336150568060698,
+            0.01979802343971547
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_32",
+          "method": null,
+          "objectives": [
+            0.15100644772854596,
+            1.0106480090977357,
+            0.022367680400823178
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_33",
+          "method": null,
+          "objectives": [
+            0.013081751864233906,
+            0.5419339514292868,
+            0.879953518596259
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_34",
+          "method": null,
+          "objectives": [
+            0.06455602979300112,
+            1.0369253148059623,
+            0.019722894837602475
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_35",
+          "method": null,
+          "objectives": [
+            0.017701684922103708,
+            0.6028850063285817,
+            0.8475801040533756
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_36",
+          "method": null,
+          "objectives": [
+            0.007434287420250689,
+            0.5926220978213174,
+            0.8574656205914198
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_37",
+          "method": null,
+          "objectives": [
+            0.3624540632428902,
+            0.9733182811652737,
+            0.02205659153557512
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_38",
+          "method": null,
+          "objectives": [
+            0.0007943492266766321,
+            0.57037639634571,
+            0.8905255578443663
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_39",
+          "method": null,
+          "objectives": [
+            0.3575507154171262,
+            0.004063972658812684,
+            1.022961910880284
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_40",
+          "method": null,
+          "objectives": [
+            0.06117407621682977,
+            0.3241079491569645,
+            0.9758133157229195
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_41",
+          "method": null,
+          "objectives": [
+            0.13867678652099086,
+            0.5407513399926226,
+            0.867690458973847
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_42",
+          "method": null,
+          "objectives": [
+            0.1359322781311351,
+            0.5300495013744421,
+            0.8716724518190445
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_43",
+          "method": null,
+          "objectives": [
+            0.0025205064432654543,
+            0.2655377293166103,
+            1.0138365694305147
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_44",
+          "method": null,
+          "objectives": [
+            0.3526233547506936,
+            0.004007967571520019,
+            1.0394640760908456
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_45",
+          "method": null,
+          "objectives": [
+            0.0017701806381048887,
+            1.0503207958278453,
+            0.022286539577714527
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_46",
+          "method": null,
+          "objectives": [
+            0.39011816852022535,
+            0.9645016770925237,
+            0.022539247893132684
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_47",
+          "method": null,
+          "objectives": [
+            0.019217906626934924,
+            0.6159191500475775,
+            0.8386314092995892
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_48",
+          "method": null,
+          "objectives": [
+            0.005464490457934867,
+            0.5572749931718463,
+            0.8693749049342554
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_49",
+          "method": null,
+          "objectives": [
+            0.0020459222225251645,
+            0.30750548688007256,
+            0.9822257467767967
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_50",
+          "method": null,
+          "objectives": [
+            0.03188378899006788,
+            0.5481749523836272,
+            0.8664227790226238
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_51",
+          "method": null,
+          "objectives": [
+            0.37051358976326193,
+            0.9676395917934614,
+            0.030327247801777233
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_52",
+          "method": null,
+          "objectives": [
+            0.3520203650265849,
+            0.0054184475607622394,
+            1.0377424715495485
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_53",
+          "method": null,
+          "objectives": [
+            0.012199035958009984,
+            0.5440275424015656,
+            0.8833176821528519
+          ]
+        },
+        {
+          "solution_id": "ADM_it2_54",
+          "method": null,
+          "objectives": [
+            0.0011711980202009547,
+            0.3298997990801401,
+            0.9876673568932216
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          2.733625550834308e-05,
+          0.004007967571520019,
+          2.2604974775431663
+        ],
+        "selected_reference_vector": "V9",
+        "selection_rule": "least_assigned_vector_for_exploration",
+        "description": "auto-generated preference from ADM"
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            5.503415637185156,
+            5.600629173746781,
+            5.6591511323934585,
+            5.69743305897853,
+            5.728755179914587,
+            5.745807882525244,
+            5.747861174148826,
+            5.751063129661978,
+            5.767471677732277
+          ],
+          "negative_hypervolume_per_generation": [
+            3.0869667057260637,
+            3.1557686600322894,
+            3.498742715513278,
+            3.5098740213722612,
+            3.2671334044076827,
+            3.3499239777409437,
+            3.383463578777117,
+            3.519780529831144,
+            3.599747153660254
+          ],
+          "v_prec_per_generation": [
+            5.503415637185156,
+            5.600629173746781,
+            5.6591511323934585,
+            5.69743305897853,
+            5.728755179914587,
+            5.745807882525244,
+            5.747861174148826,
+            5.751063129661978,
+            5.767471677732277
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9506647074001688,
+            0.9674574565551213,
+            0.9775665895665222,
+            0.9841794421902295,
+            0.9895900520546989,
+            0.9925357504366649,
+            0.9928904377816204,
+            0.9934435463057979,
+            0.9962779728834879
+          ],
+          "phi_final_generation": 0.9962779728834879,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9506647074001688,
+              "v_prec": 5.503415637185156,
+              "v_succ": 0.0,
+              "v_plus": 5.503415637185156,
+              "v_minus": 3.0869667057260637,
+              "solution_hypervolume": 8.59038234291122,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9674574565551213,
+              "v_prec": 5.600629173746781,
+              "v_succ": 0.0,
+              "v_plus": 5.600629173746781,
+              "v_minus": 3.1557686600322894,
+              "solution_hypervolume": 8.75639783377907,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9775665895665222,
+              "v_prec": 5.6591511323934585,
+              "v_succ": 0.0,
+              "v_plus": 5.6591511323934585,
+              "v_minus": 3.498742715513278,
+              "solution_hypervolume": 9.157893847906736,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9841794421902295,
+              "v_prec": 5.69743305897853,
+              "v_succ": 0.0,
+              "v_plus": 5.69743305897853,
+              "v_minus": 3.5098740213722612,
+              "solution_hypervolume": 9.207307080350791,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9895900520546989,
+              "v_prec": 5.728755179914587,
+              "v_succ": 0.0,
+              "v_plus": 5.728755179914587,
+              "v_minus": 3.2671334044076827,
+              "solution_hypervolume": 8.99588858432227,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9925357504366649,
+              "v_prec": 5.745807882525244,
+              "v_succ": 0.0,
+              "v_plus": 5.745807882525244,
+              "v_minus": 3.3499239777409437,
+              "solution_hypervolume": 9.095731860266188,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9928904377816204,
+              "v_prec": 5.747861174148826,
+              "v_succ": 0.0,
+              "v_plus": 5.747861174148826,
+              "v_minus": 3.383463578777117,
+              "solution_hypervolume": 9.131324752925943,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9934435463057979,
+              "v_prec": 5.751063129661978,
+              "v_succ": 0.0,
+              "v_plus": 5.751063129661978,
+              "v_minus": 3.519780529831144,
+              "solution_hypervolume": 9.270843659493123,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9962779728834879,
+              "v_prec": 5.767471677732277,
+              "v_succ": 0.0,
+              "v_plus": 5.767471677732277,
+              "v_minus": 3.599747153660254,
+              "solution_hypervolume": 9.367218831392531,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            }
+          ]
+        },
+        "PBEA": {
+          "positive_hypervolume_per_generation": [
+            5.432299541769127,
+            5.48644947731415,
+            5.536077589905818,
+            5.559733178285833,
+            5.608275886966829,
+            5.771214035531682,
+            5.785954061988558,
+            5.787355770512755,
+            5.78646005266731
+          ],
+          "negative_hypervolume_per_generation": [
+            4.555721943047675,
+            4.593780273747927,
+            4.160846478105195,
+            4.180319466806973,
+            4.200721890641941,
+            4.326693074734865,
+            4.366657838607259,
+            4.498533656736316,
+            4.4499729059519515
+          ],
+          "v_prec_per_generation": [
+            5.432299541769127,
+            5.48644947731415,
+            5.536077589905818,
+            5.559733178285833,
+            5.608275886966829,
+            5.771214035531682,
+            5.785954061988558,
+            5.787355770512755,
+            5.78646005266731
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9383800524699988,
+            0.9477339584848055,
+            0.9563067609489696,
+            0.9603930474459801,
+            0.9687783563135898,
+            0.9969244309591454,
+            0.9994706356913512,
+            0.9997127680164135,
+            0.9995580409524245
+          ],
+          "phi_final_generation": 0.9995580409524245,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9383800524699988,
+              "v_prec": 5.432299541769127,
+              "v_succ": 0.0,
+              "v_plus": 5.432299541769127,
+              "v_minus": 4.555721943047675,
+              "solution_hypervolume": 9.988021484816802,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9477339584848055,
+              "v_prec": 5.48644947731415,
+              "v_succ": 0.0,
+              "v_plus": 5.48644947731415,
+              "v_minus": 4.593780273747927,
+              "solution_hypervolume": 10.080229751062078,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9563067609489696,
+              "v_prec": 5.536077589905818,
+              "v_succ": 0.0,
+              "v_plus": 5.536077589905818,
+              "v_minus": 4.160846478105195,
+              "solution_hypervolume": 9.696924068011013,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9603930474459801,
+              "v_prec": 5.559733178285833,
+              "v_succ": 0.0,
+              "v_plus": 5.559733178285833,
+              "v_minus": 4.180319466806973,
+              "solution_hypervolume": 9.740052645092806,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9687783563135898,
+              "v_prec": 5.608275886966829,
+              "v_succ": 0.0,
+              "v_plus": 5.608275886966829,
+              "v_minus": 4.200721890641941,
+              "solution_hypervolume": 9.80899777760877,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9969244309591454,
+              "v_prec": 5.771214035531682,
+              "v_succ": 0.0,
+              "v_plus": 5.771214035531682,
+              "v_minus": 4.326693074734865,
+              "solution_hypervolume": 10.097907110266547,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9994706356913512,
+              "v_prec": 5.785954061988558,
+              "v_succ": 0.0,
+              "v_plus": 5.785954061988558,
+              "v_minus": 4.366657838607259,
+              "solution_hypervolume": 10.152611900595817,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9997127680164135,
+              "v_prec": 5.787355770512755,
+              "v_succ": 0.0,
+              "v_plus": 5.787355770512755,
+              "v_minus": 4.498533656736316,
+              "solution_hypervolume": 10.28588942724907,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9995580409524245,
+              "v_prec": 5.78646005266731,
+              "v_succ": 0.0,
+              "v_plus": 5.78646005266731,
+              "v_minus": 4.4499729059519515,
+              "solution_hypervolume": 10.236432958619261,
+              "reference_point_hypervolume": 5.7890185617972785,
+              "reference_point_is_dominated": false
+            }
+          ]
+        }
+      },
+      "phi_per_method": {
+        "iRVEA": 0.9962779728834879,
+        "PBEA": 0.9995580409524245
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "ADM_it2_16"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "ADM_it2_28",
+            "ADM_it2_30",
+            "ADM_it2_40",
+            "ADM_it2_43",
+            "ADM_it2_49",
+            "ADM_it2_54"
+          ],
+          "assigned_count": 6
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "ADM_it2_19",
+            "ADM_it2_24",
+            "ADM_it2_33",
+            "ADM_it2_35",
+            "ADM_it2_36",
+            "ADM_it2_38",
+            "ADM_it2_47",
+            "ADM_it2_48",
+            "ADM_it2_50",
+            "ADM_it2_53"
+          ],
+          "assigned_count": 10
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V7",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V8",
+          "assigned_solution_ids": [
+            "ADM_it2_8"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V9",
+          "assigned_solution_ids": [
+            "ADM_it2_4",
+            "ADM_it2_6",
+            "ADM_it2_12",
+            "ADM_it2_18",
+            "ADM_it2_22",
+            "ADM_it2_25",
+            "ADM_it2_26",
+            "ADM_it2_27",
+            "ADM_it2_29",
+            "ADM_it2_31",
+            "ADM_it2_34",
+            "ADM_it2_45"
+          ],
+          "assigned_count": 12
+        },
+        {
+          "vector_id": "V10",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V11",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V12",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V13",
+          "assigned_solution_ids": [
+            "ADM_it2_17",
+            "ADM_it2_41",
+            "ADM_it2_42"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V14",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V15",
+          "assigned_solution_ids": [
+            "ADM_it2_7",
+            "ADM_it2_10"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V16",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V17",
+          "assigned_solution_ids": [
+            "ADM_it2_21",
+            "ADM_it2_32"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V18",
+          "assigned_solution_ids": [
+            "ADM_it2_39",
+            "ADM_it2_44",
+            "ADM_it2_52"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V19",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V20",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V21",
+          "assigned_solution_ids": [
+            "ADM_it2_14",
+            "ADM_it2_15"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V22",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V23",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V24",
+          "assigned_solution_ids": [
+            "ADM_it2_11",
+            "ADM_it2_20",
+            "ADM_it2_37",
+            "ADM_it2_46",
+            "ADM_it2_51"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V25",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V26",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V27",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V28",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V29",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V30",
+          "assigned_solution_ids": [
+            "ADM_it2_23"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V31",
+          "assigned_solution_ids": [
+            "ADM_it2_1",
+            "ADM_it2_2",
+            "ADM_it2_3",
+            "ADM_it2_5",
+            "ADM_it2_9"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V32",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V33",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V34",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V35",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V36",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V37",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V38",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V39",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V40",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V41",
+          "assigned_solution_ids": [
+            "ADM_it2_0",
+            "ADM_it2_13"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V42",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V43",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V44",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V45",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V9",
+        "assigned_count": 12
+      }
+    },
+    {
+      "iteration": 3,
+      "phase": "decision",
+      "composite_front": [
+        {
+          "solution_id": "ADM_it3_0",
+          "method": null,
+          "objectives": [
+            0.810229444234891,
+            0.043675629900357234,
+            0.8353302470890641
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_1",
+          "method": null,
+          "objectives": [
+            0.7888241531813444,
+            0.017836281459661724,
+            0.8532477916152498
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_2",
+          "method": null,
+          "objectives": [
+            0.7762146629985562,
+            0.04184205422992149,
+            0.845457037243855
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_3",
+          "method": null,
+          "objectives": [
+            0.02581562735074569,
+            1.2035071636537271,
+            0.00318018491904034
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_4",
+          "method": null,
+          "objectives": [
+            0.9203858339163637,
+            0.020811052398700784,
+            0.8184557304859782
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_5",
+          "method": null,
+          "objectives": [
+            0.046439157922632604,
+            1.1354520814823141,
+            0.0020112610221959715
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_6",
+          "method": null,
+          "objectives": [
+            0.2163262031106991,
+            1.0040556158178422,
+            0.3287327586292449
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_7",
+          "method": null,
+          "objectives": [
+            2.733625550834308e-05,
+            1.128700509555604,
+            0.20940244896861712
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_8",
+          "method": null,
+          "objectives": [
+            0.7329426076929366,
+            0.016572731187129697,
+            0.9021031750689013
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_9",
+          "method": null,
+          "objectives": [
+            0.23040522028571014,
+            0.9780485501729068,
+            0.33415164086402127
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_10",
+          "method": null,
+          "objectives": [
+            0.35738046117317884,
+            1.072702744870744,
+            0.0017556590506478391
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_11",
+          "method": null,
+          "objectives": [
+            0.5702634183415035,
+            0.7383278571528974,
+            0.6117827193085565
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_12",
+          "method": null,
+          "objectives": [
+            0.41264811850416433,
+            0.8023496880386426,
+            0.7654995370479197
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_13",
+          "method": null,
+          "objectives": [
+            0.15624415307121428,
+            0.6092529056871592,
+            0.8135825733106524
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_14",
+          "method": null,
+          "objectives": [
+            0.011575622769026354,
+            0.5430341056528076,
+            0.8974329724492127
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_15",
+          "method": null,
+          "objectives": [
+            0.35154986081427425,
+            0.9790736418981701,
+            0.0220918454015785
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_16",
+          "method": null,
+          "objectives": [
+            0.006926639375554091,
+            0.5944470619771112,
+            0.8600968775169705
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_17",
+          "method": null,
+          "objectives": [
+            0.001005950553994585,
+            0.33429346196931226,
+            0.985371982680345
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_18",
+          "method": null,
+          "objectives": [
+            0.0031392740677954898,
+            0.33166085126204087,
+            0.9776513976472976
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_19",
+          "method": null,
+          "objectives": [
+            0.15100644772854596,
+            1.0106480090977357,
+            0.022367680400823178
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_20",
+          "method": null,
+          "objectives": [
+            0.013081751864233906,
+            0.5419339514292868,
+            0.879953518596259
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_21",
+          "method": null,
+          "objectives": [
+            0.017701684922103708,
+            0.6028850063285817,
+            0.8475801040533756
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_22",
+          "method": null,
+          "objectives": [
+            0.007434287420250689,
+            0.5926220978213174,
+            0.8574656205914198
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_23",
+          "method": null,
+          "objectives": [
+            0.3624540632428902,
+            0.9733182811652737,
+            0.02205659153557512
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_24",
+          "method": null,
+          "objectives": [
+            0.0007943492266766321,
+            0.57037639634571,
+            0.8905255578443663
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_25",
+          "method": null,
+          "objectives": [
+            0.06117407621682977,
+            0.3241079491569645,
+            0.9758133157229195
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_26",
+          "method": null,
+          "objectives": [
+            0.13867678652099086,
+            0.5407513399926226,
+            0.867690458973847
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_27",
+          "method": null,
+          "objectives": [
+            0.1359322781311351,
+            0.5300495013744421,
+            0.8716724518190445
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_28",
+          "method": null,
+          "objectives": [
+            0.0025205064432654543,
+            0.2655377293166103,
+            1.0138365694305147
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_29",
+          "method": null,
+          "objectives": [
+            0.0017701806381048887,
+            1.0503207958278453,
+            0.022286539577714527
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_30",
+          "method": null,
+          "objectives": [
+            0.39011816852022535,
+            0.9645016770925237,
+            0.022539247893132684
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_31",
+          "method": null,
+          "objectives": [
+            0.019217906626934924,
+            0.6159191500475775,
+            0.8386314092995892
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_32",
+          "method": null,
+          "objectives": [
+            0.005464490457934867,
+            0.5572749931718463,
+            0.8693749049342554
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_33",
+          "method": null,
+          "objectives": [
+            0.0020459222225251645,
+            0.30750548688007256,
+            0.9822257467767967
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_34",
+          "method": null,
+          "objectives": [
+            0.03188378899006788,
+            0.5481749523836272,
+            0.8664227790226238
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_35",
+          "method": null,
+          "objectives": [
+            0.37051358976326193,
+            0.9676395917934614,
+            0.030327247801777233
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_36",
+          "method": null,
+          "objectives": [
+            0.012199035958009984,
+            0.5440275424015656,
+            0.8833176821528519
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_37",
+          "method": null,
+          "objectives": [
+            0.0011711980202009547,
+            0.3298997990801401,
+            0.9876673568932216
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_38",
+          "method": null,
+          "objectives": [
+            0.0002181997037726102,
+            4.6953373888958266e-06,
+            1.2080624074526554
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_39",
+          "method": null,
+          "objectives": [
+            0.4095821103753232,
+            0.9418652522185157,
+            0.006929791171826301
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_40",
+          "method": null,
+          "objectives": [
+            0.00978110064408891,
+            1.027144100482154,
+            0.022261444047041862
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_41",
+          "method": null,
+          "objectives": [
+            0.008915973222039261,
+            1.0279165009341076,
+            0.00666583806278419
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_42",
+          "method": null,
+          "objectives": [
+            1.0278218380364097,
+            0.019989684579191355,
+            0.01938476143281479
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_43",
+          "method": null,
+          "objectives": [
+            1.0195637678925538,
+            0.04291038811977402,
+            0.019027746677839203
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_44",
+          "method": null,
+          "objectives": [
+            1.0465151872175624,
+            0.021723619821200968,
+            0.004646537325169562
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_45",
+          "method": null,
+          "objectives": [
+            0.0028131703151630244,
+            1.0411041347806391,
+            0.00675112798676358
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_46",
+          "method": null,
+          "objectives": [
+            1.0406789112270174,
+            0.019612027950573416,
+            0.006749544182864137
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_47",
+          "method": null,
+          "objectives": [
+            1.0210805553150388,
+            0.11283939721138359,
+            0.006661567303493695
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_48",
+          "method": null,
+          "objectives": [
+            1.0336373775237135,
+            0.021456301539215256,
+            0.004777165450651769
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_49",
+          "method": null,
+          "objectives": [
+            1.0215415406629458,
+            0.08813931958131169,
+            0.017492078807510403
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_50",
+          "method": null,
+          "objectives": [
+            0.4044111491640028,
+            0.9466197207631379,
+            0.0019002017876571672
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_51",
+          "method": null,
+          "objectives": [
+            0.0019250686385951644,
+            0.10312788645203158,
+            1.0161357584210131
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_52",
+          "method": null,
+          "objectives": [
+            1.029220568377798,
+            0.05612317698337423,
+            0.0016523731383513683
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_53",
+          "method": null,
+          "objectives": [
+            0.4953131661824888,
+            0.8919073395231514,
+            0.04861340365986655
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_54",
+          "method": null,
+          "objectives": [
+            0.00026292994541587137,
+            0.0015574497597673018,
+            1.1485867494314983
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_55",
+          "method": null,
+          "objectives": [
+            0.01443530479378877,
+            0.10474080318770726,
+            1.012923925415835
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_56",
+          "method": null,
+          "objectives": [
+            3.6909181464603335e-05,
+            0.00562650469310504,
+            1.0499371124104937
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_57",
+          "method": null,
+          "objectives": [
+            5.545640379508707e-05,
+            0.005555961335837136,
+            1.0368026664167125
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_58",
+          "method": null,
+          "objectives": [
+            1.0057595404853394,
+            0.11383851578938904,
+            0.006563552979869184
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_59",
+          "method": null,
+          "objectives": [
+            0.4588647154362523,
+            0.9188487997554735,
+            0.006929700137850268
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_60",
+          "method": null,
+          "objectives": [
+            0.00013199362760948083,
+            0.005536923406984032,
+            1.0334920511836423
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_61",
+          "method": null,
+          "objectives": [
+            0.00048253321859911184,
+            3.0067466085000102e-05,
+            1.1456849596805596
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_62",
+          "method": null,
+          "objectives": [
+            1.178920213295487e-05,
+            0.014303866416861943,
+            1.0617544378460184
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_63",
+          "method": null,
+          "objectives": [
+            0.00019516109054547464,
+            0.00818669832736798,
+            1.0297190718669613
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_64",
+          "method": null,
+          "objectives": [
+            0.003465338277486174,
+            8.948546857146226e-05,
+            1.0222760392437529
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_65",
+          "method": null,
+          "objectives": [
+            0.014729858083121257,
+            1.0219535784053597,
+            0.006627608714091485
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_66",
+          "method": null,
+          "objectives": [
+            0.00032876926403850544,
+            0.0019474450142442175,
+            1.1449487471351991
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_67",
+          "method": null,
+          "objectives": [
+            0.0010607018178263262,
+            6.583166382347374e-05,
+            1.0293679930564772
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_68",
+          "method": null,
+          "objectives": [
+            5.282348782654678e-05,
+            0.008052511336434661,
+            1.0368665509579384
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_69",
+          "method": null,
+          "objectives": [
+            0.020177329349110453,
+            1.0147193092519713,
+            0.006581310064109427
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_70",
+          "method": null,
+          "objectives": [
+            0.44119354150675855,
+            0.9248835512355037,
+            0.0034141242768772596
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_71",
+          "method": null,
+          "objectives": [
+            4.0608654458132424e-05,
+            0.004068423096878524,
+            1.0499752895789576
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_72",
+          "method": null,
+          "objectives": [
+            0.000601989412292728,
+            0.0034949766654257357,
+            1.021937610918531
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_73",
+          "method": null,
+          "objectives": [
+            0.001133268616592639,
+            1.8196920782858556e-05,
+            1.03104780780262
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_74",
+          "method": null,
+          "objectives": [
+            0.009780623598404897,
+            1.0270940044165042,
+            0.024464064867862283
+          ]
+        },
+        {
+          "solution_id": "ADM_it3_75",
+          "method": null,
+          "objectives": [
+            0.00026014701614081114,
+            0.00531357882336499,
+            1.0170727733659892
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          1.178920213295487e-05,
+          4.6953373888958266e-06,
+          1.0170866817590163
+        ],
+        "selected_reference_vector": "V1",
+        "selection_rule": "max_assigned_vector_as_roi",
+        "description": "auto-generated preference from ADM"
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            3.0150530243497937,
+            3.0157793171535077,
+            3.0356656911722806,
+            3.0599284235985604,
+            3.0900442140342723,
+            3.0940679726408136,
+            3.101877071346634,
+            3.101885414483237,
+            3.103361793264176
+          ],
+          "negative_hypervolume_per_generation": [
+            6.688028094746876,
+            6.70431259409442,
+            6.802792353743268,
+            6.811539216410811,
+            6.931626106991843,
+            6.923669764343257,
+            6.967579012217232,
+            6.987534897675959,
+            6.962477771435983
+          ],
+          "v_prec_per_generation": [
+            3.0150530243497937,
+            3.0157793171535077,
+            3.0356656911722806,
+            3.0599284235985604,
+            3.0900442140342723,
+            3.0940679726408136,
+            3.101877071346634,
+            3.101885414483237,
+            3.103361793264176
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9714396187808563,
+            0.9716736278011504,
+            0.9780809484816537,
+            0.9858983166501124,
+            0.9956015197924389,
+            0.9968979608484457,
+            0.999414025345003,
+            0.9994167134746563,
+            0.9998923975931607
+          ],
+          "phi_final_generation": 0.9998923975931607,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9714396187808563,
+              "v_prec": 3.0150530243497937,
+              "v_succ": 0.0,
+              "v_plus": 3.0150530243497937,
+              "v_minus": 6.688028094746876,
+              "solution_hypervolume": 9.70308111909667,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9716736278011504,
+              "v_prec": 3.0157793171535077,
+              "v_succ": 0.0,
+              "v_plus": 3.0157793171535077,
+              "v_minus": 6.70431259409442,
+              "solution_hypervolume": 9.720091911247927,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9780809484816537,
+              "v_prec": 3.0356656911722806,
+              "v_succ": 0.0,
+              "v_plus": 3.0356656911722806,
+              "v_minus": 6.802792353743268,
+              "solution_hypervolume": 9.838458044915548,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9858983166501124,
+              "v_prec": 3.0599284235985604,
+              "v_succ": 0.0,
+              "v_plus": 3.0599284235985604,
+              "v_minus": 6.811539216410811,
+              "solution_hypervolume": 9.87146764000937,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9956015197924389,
+              "v_prec": 3.0900442140342723,
+              "v_succ": 0.0,
+              "v_plus": 3.0900442140342723,
+              "v_minus": 6.931626106991843,
+              "solution_hypervolume": 10.021670321026114,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9968979608484457,
+              "v_prec": 3.0940679726408136,
+              "v_succ": 0.0,
+              "v_plus": 3.0940679726408136,
+              "v_minus": 6.923669764343257,
+              "solution_hypervolume": 10.01773773698407,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.999414025345003,
+              "v_prec": 3.101877071346634,
+              "v_succ": 0.0,
+              "v_plus": 3.101877071346634,
+              "v_minus": 6.967579012217232,
+              "solution_hypervolume": 10.069456083563866,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9994167134746563,
+              "v_prec": 3.101885414483237,
+              "v_succ": 0.0,
+              "v_plus": 3.101885414483237,
+              "v_minus": 6.987534897675959,
+              "solution_hypervolume": 10.089420312159195,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9998923975931607,
+              "v_prec": 3.103361793264176,
+              "v_succ": 0.0,
+              "v_plus": 3.103361793264176,
+              "v_minus": 6.962477771435983,
+              "solution_hypervolume": 10.065839564700159,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            }
+          ]
+        },
+        "PBEA": {
+          "positive_hypervolume_per_generation": [
+            3.071330727541698,
+            3.088443364628074,
+            3.0885017151233467,
+            3.0888237209459057,
+            3.103514078316833,
+            3.103555779174233,
+            3.1036928940174957,
+            3.103678732478285,
+            3.10369566535392
+          ],
+          "negative_hypervolume_per_generation": [
+            7.803650062212014,
+            7.893195760912974,
+            7.884530228452389,
+            7.878549135961013,
+            7.9057262213217925,
+            7.893758416951396,
+            7.8893245853795975,
+            7.910099491218546,
+            7.9267684138630905
+          ],
+          "v_prec_per_generation": [
+            3.071330727541698,
+            3.088443364628074,
+            3.0885017151233467,
+            3.0888237209459057,
+            3.103514078316833,
+            3.103555779174233,
+            3.1036928940174957,
+            3.103678732478285,
+            3.10369566535392
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9895720994016226,
+            0.9950857316705307,
+            0.9951045319975651,
+            0.995208281155867,
+            0.9999414633085244,
+            0.9999548991800293,
+            0.999999077106584,
+            0.999994514307807,
+            0.9999999700215602
+          ],
+          "phi_final_generation": 0.9999999700215602,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9895720994016226,
+              "v_prec": 3.071330727541698,
+              "v_succ": 0.0,
+              "v_plus": 3.071330727541698,
+              "v_minus": 7.803650062212014,
+              "solution_hypervolume": 10.874980789753712,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9950857316705307,
+              "v_prec": 3.088443364628074,
+              "v_succ": 0.0,
+              "v_plus": 3.088443364628074,
+              "v_minus": 7.893195760912974,
+              "solution_hypervolume": 10.981639125541047,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9951045319975651,
+              "v_prec": 3.0885017151233467,
+              "v_succ": 0.0,
+              "v_plus": 3.0885017151233467,
+              "v_minus": 7.884530228452389,
+              "solution_hypervolume": 10.973031943575736,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.995208281155867,
+              "v_prec": 3.0888237209459057,
+              "v_succ": 0.0,
+              "v_plus": 3.0888237209459057,
+              "v_minus": 7.878549135961013,
+              "solution_hypervolume": 10.967372856906918,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9999414633085244,
+              "v_prec": 3.103514078316833,
+              "v_succ": 0.0,
+              "v_plus": 3.103514078316833,
+              "v_minus": 7.9057262213217925,
+              "solution_hypervolume": 11.009240299638625,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9999548991800293,
+              "v_prec": 3.103555779174233,
+              "v_succ": 0.0,
+              "v_plus": 3.103555779174233,
+              "v_minus": 7.893758416951396,
+              "solution_hypervolume": 10.997314196125629,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.999999077106584,
+              "v_prec": 3.1036928940174957,
+              "v_succ": 0.0,
+              "v_plus": 3.1036928940174957,
+              "v_minus": 7.8893245853795975,
+              "solution_hypervolume": 10.993017479397093,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.999994514307807,
+              "v_prec": 3.103678732478285,
+              "v_succ": 0.0,
+              "v_plus": 3.103678732478285,
+              "v_minus": 7.910099491218546,
+              "solution_hypervolume": 11.01377822369683,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9999999700215602,
+              "v_prec": 3.10369566535392,
+              "v_succ": 0.0,
+              "v_plus": 3.10369566535392,
+              "v_minus": 7.9267684138630905,
+              "solution_hypervolume": 11.03046407921701,
+              "reference_point_hypervolume": 3.1036957583978766,
+              "reference_point_is_dominated": false
+            }
+          ]
+        }
+      },
+      "phi_per_method": {
+        "iRVEA": 0.9998923975931607,
+        "PBEA": 0.9999999700215602
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "ADM_it3_38",
+            "ADM_it3_54",
+            "ADM_it3_56",
+            "ADM_it3_57",
+            "ADM_it3_60",
+            "ADM_it3_61",
+            "ADM_it3_62",
+            "ADM_it3_63",
+            "ADM_it3_64",
+            "ADM_it3_66",
+            "ADM_it3_67",
+            "ADM_it3_68",
+            "ADM_it3_71",
+            "ADM_it3_72",
+            "ADM_it3_73",
+            "ADM_it3_75"
+          ],
+          "assigned_count": 16
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [
+            "ADM_it3_51",
+            "ADM_it3_55"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "ADM_it3_17",
+            "ADM_it3_18",
+            "ADM_it3_25",
+            "ADM_it3_28",
+            "ADM_it3_33",
+            "ADM_it3_37"
+          ],
+          "assigned_count": 6
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "ADM_it3_14",
+            "ADM_it3_16",
+            "ADM_it3_20",
+            "ADM_it3_21",
+            "ADM_it3_22",
+            "ADM_it3_24",
+            "ADM_it3_31",
+            "ADM_it3_32",
+            "ADM_it3_34",
+            "ADM_it3_36"
+          ],
+          "assigned_count": 10
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V7",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V8",
+          "assigned_solution_ids": [
+            "ADM_it3_7"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V9",
+          "assigned_solution_ids": [
+            "ADM_it3_3",
+            "ADM_it3_5",
+            "ADM_it3_29",
+            "ADM_it3_40",
+            "ADM_it3_41",
+            "ADM_it3_45",
+            "ADM_it3_65",
+            "ADM_it3_69",
+            "ADM_it3_74"
+          ],
+          "assigned_count": 9
+        },
+        {
+          "vector_id": "V10",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V11",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V12",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V13",
+          "assigned_solution_ids": [
+            "ADM_it3_13",
+            "ADM_it3_26",
+            "ADM_it3_27"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V14",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V15",
+          "assigned_solution_ids": [
+            "ADM_it3_6",
+            "ADM_it3_9"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V16",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V17",
+          "assigned_solution_ids": [
+            "ADM_it3_19"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V18",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V19",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V20",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V21",
+          "assigned_solution_ids": [
+            "ADM_it3_11",
+            "ADM_it3_12"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V22",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V23",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V24",
+          "assigned_solution_ids": [
+            "ADM_it3_10",
+            "ADM_it3_15",
+            "ADM_it3_23",
+            "ADM_it3_30",
+            "ADM_it3_35",
+            "ADM_it3_39",
+            "ADM_it3_50"
+          ],
+          "assigned_count": 7
+        },
+        {
+          "vector_id": "V25",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V26",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V27",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V28",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V29",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V30",
+          "assigned_solution_ids": [
+            "ADM_it3_53",
+            "ADM_it3_59",
+            "ADM_it3_70"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V31",
+          "assigned_solution_ids": [
+            "ADM_it3_0",
+            "ADM_it3_1",
+            "ADM_it3_2",
+            "ADM_it3_4",
+            "ADM_it3_8"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V32",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V33",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V34",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V35",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V36",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V37",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V38",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V39",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V40",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V41",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V42",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V43",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V44",
+          "assigned_solution_ids": [
+            "ADM_it3_47",
+            "ADM_it3_49",
+            "ADM_it3_58"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V45",
+          "assigned_solution_ids": [
+            "ADM_it3_42",
+            "ADM_it3_43",
+            "ADM_it3_44",
+            "ADM_it3_46",
+            "ADM_it3_48",
+            "ADM_it3_52"
+          ],
+          "assigned_count": 6
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V1",
+        "assigned_count": 16
+      }
+    },
+    {
+      "iteration": 4,
+      "phase": "decision",
+      "composite_front": [
+        {
+          "solution_id": "ADM_it4_0",
+          "method": null,
+          "objectives": [
+            0.810229444234891,
+            0.043675629900357234,
+            0.8353302470890641
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_1",
+          "method": null,
+          "objectives": [
+            0.7888241531813444,
+            0.017836281459661724,
+            0.8532477916152498
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_2",
+          "method": null,
+          "objectives": [
+            0.7762146629985562,
+            0.04184205422992149,
+            0.845457037243855
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_3",
+          "method": null,
+          "objectives": [
+            0.02581562735074569,
+            1.2035071636537271,
+            0.00318018491904034
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_4",
+          "method": null,
+          "objectives": [
+            0.9203858339163637,
+            0.020811052398700784,
+            0.8184557304859782
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_5",
+          "method": null,
+          "objectives": [
+            0.046439157922632604,
+            1.1354520814823141,
+            0.0020112610221959715
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_6",
+          "method": null,
+          "objectives": [
+            0.2163262031106991,
+            1.0040556158178422,
+            0.3287327586292449
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_7",
+          "method": null,
+          "objectives": [
+            2.733625550834308e-05,
+            1.128700509555604,
+            0.20940244896861712
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_8",
+          "method": null,
+          "objectives": [
+            0.7329426076929366,
+            0.016572731187129697,
+            0.9021031750689013
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_9",
+          "method": null,
+          "objectives": [
+            0.23040522028571014,
+            0.9780485501729068,
+            0.33415164086402127
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_10",
+          "method": null,
+          "objectives": [
+            0.35738046117317884,
+            1.072702744870744,
+            0.0017556590506478391
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_11",
+          "method": null,
+          "objectives": [
+            0.5702634183415035,
+            0.7383278571528974,
+            0.6117827193085565
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_12",
+          "method": null,
+          "objectives": [
+            0.41264811850416433,
+            0.8023496880386426,
+            0.7654995370479197
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_13",
+          "method": null,
+          "objectives": [
+            0.15624415307121428,
+            0.6092529056871592,
+            0.8135825733106524
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_14",
+          "method": null,
+          "objectives": [
+            0.011575622769026354,
+            0.5430341056528076,
+            0.8974329724492127
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_15",
+          "method": null,
+          "objectives": [
+            0.35154986081427425,
+            0.9790736418981701,
+            0.0220918454015785
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_16",
+          "method": null,
+          "objectives": [
+            0.006926639375554091,
+            0.5944470619771112,
+            0.8600968775169705
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_17",
+          "method": null,
+          "objectives": [
+            0.001005950553994585,
+            0.33429346196931226,
+            0.985371982680345
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_18",
+          "method": null,
+          "objectives": [
+            0.0031392740677954898,
+            0.33166085126204087,
+            0.9776513976472976
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_19",
+          "method": null,
+          "objectives": [
+            0.013081751864233906,
+            0.5419339514292868,
+            0.879953518596259
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_20",
+          "method": null,
+          "objectives": [
+            0.017701684922103708,
+            0.6028850063285817,
+            0.8475801040533756
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_21",
+          "method": null,
+          "objectives": [
+            0.007434287420250689,
+            0.5926220978213174,
+            0.8574656205914198
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_22",
+          "method": null,
+          "objectives": [
+            0.3624540632428902,
+            0.9733182811652737,
+            0.02205659153557512
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_23",
+          "method": null,
+          "objectives": [
+            0.0007943492266766321,
+            0.57037639634571,
+            0.8905255578443663
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_24",
+          "method": null,
+          "objectives": [
+            0.06117407621682977,
+            0.3241079491569645,
+            0.9758133157229195
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_25",
+          "method": null,
+          "objectives": [
+            0.13867678652099086,
+            0.5407513399926226,
+            0.867690458973847
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_26",
+          "method": null,
+          "objectives": [
+            0.1359322781311351,
+            0.5300495013744421,
+            0.8716724518190445
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_27",
+          "method": null,
+          "objectives": [
+            0.0017701806381048887,
+            1.0503207958278453,
+            0.022286539577714527
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_28",
+          "method": null,
+          "objectives": [
+            0.39011816852022535,
+            0.9645016770925237,
+            0.022539247893132684
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_29",
+          "method": null,
+          "objectives": [
+            0.019217906626934924,
+            0.6159191500475775,
+            0.8386314092995892
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_30",
+          "method": null,
+          "objectives": [
+            0.005464490457934867,
+            0.5572749931718463,
+            0.8693749049342554
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_31",
+          "method": null,
+          "objectives": [
+            0.0020459222225251645,
+            0.30750548688007256,
+            0.9822257467767967
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_32",
+          "method": null,
+          "objectives": [
+            0.03188378899006788,
+            0.5481749523836272,
+            0.8664227790226238
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_33",
+          "method": null,
+          "objectives": [
+            0.37051358976326193,
+            0.9676395917934614,
+            0.030327247801777233
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_34",
+          "method": null,
+          "objectives": [
+            0.012199035958009984,
+            0.5440275424015656,
+            0.8833176821528519
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_35",
+          "method": null,
+          "objectives": [
+            0.0011711980202009547,
+            0.3298997990801401,
+            0.9876673568932216
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_36",
+          "method": null,
+          "objectives": [
+            0.4095821103753232,
+            0.9418652522185157,
+            0.006929791171826301
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_37",
+          "method": null,
+          "objectives": [
+            1.0465151872175624,
+            0.021723619821200968,
+            0.004646537325169562
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_38",
+          "method": null,
+          "objectives": [
+            0.0028131703151630244,
+            1.0411041347806391,
+            0.00675112798676358
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_39",
+          "method": null,
+          "objectives": [
+            1.0336373775237135,
+            0.021456301539215256,
+            0.004777165450651769
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_40",
+          "method": null,
+          "objectives": [
+            0.4044111491640028,
+            0.9466197207631379,
+            0.0019002017876571672
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_41",
+          "method": null,
+          "objectives": [
+            1.029220568377798,
+            0.05612317698337423,
+            0.0016523731383513683
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_42",
+          "method": null,
+          "objectives": [
+            0.4953131661824888,
+            0.8919073395231514,
+            0.04861340365986655
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_43",
+          "method": null,
+          "objectives": [
+            0.4588647154362523,
+            0.9188487997554735,
+            0.006929700137850268
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_44",
+          "method": null,
+          "objectives": [
+            0.44119354150675855,
+            0.9248835512355037,
+            0.0034141242768772596
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_45",
+          "method": null,
+          "objectives": [
+            9.173099785300693e-05,
+            2.1209997599098296e-06,
+            1.0713146268758598
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_46",
+          "method": null,
+          "objectives": [
+            0.3220480889106267,
+            0.5215728462918163,
+            0.9551949217694243
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_47",
+          "method": null,
+          "objectives": [
+            2.210582440105887e-06,
+            0.00010418016825151161,
+            1.0152863240170598
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_48",
+          "method": null,
+          "objectives": [
+            0.004137217226428926,
+            1.016838149091056,
+            0.010335928977464328
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_49",
+          "method": null,
+          "objectives": [
+            1.0187052445134628,
+            0.02078014686686006,
+            0.005472986547846082
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_50",
+          "method": null,
+          "objectives": [
+            1.0127403168282898,
+            0.002597154752507515,
+            0.010513361873702344
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_51",
+          "method": null,
+          "objectives": [
+            0.00014221659115836656,
+            0.00025710238401192804,
+            1.0115347049704062
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_52",
+          "method": null,
+          "objectives": [
+            0.47651707526556397,
+            0.9010026864109597,
+            9.710698833083545e-05
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_53",
+          "method": null,
+          "objectives": [
+            0.47580502427572635,
+            0.9002846727082859,
+            0.0005697088354742021
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_54",
+          "method": null,
+          "objectives": [
+            0.02601389773870279,
+            1.0134829007918424,
+            0.00325312455584621
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_55",
+          "method": null,
+          "objectives": [
+            1.0158778348356112,
+            0.012486753403961742,
+            0.00658801947122874
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_56",
+          "method": null,
+          "objectives": [
+            0.5243277841277117,
+            0.8632398546064106,
+            0.0066573485440416195
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_57",
+          "method": null,
+          "objectives": [
+            7.363732891623875e-06,
+            0.0004316590610176329,
+            1.0105036029343095
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_58",
+          "method": null,
+          "objectives": [
+            0.0010150284943869737,
+            6.238950027770532e-05,
+            1.0070526702361677
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_59",
+          "method": null,
+          "objectives": [
+            0.015113246364463625,
+            1.0068665720786774,
+            0.011053254443432204
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_60",
+          "method": null,
+          "objectives": [
+            1.0066711414007508,
+            0.020534668175707812,
+            0.006529178471737773
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_61",
+          "method": null,
+          "objectives": [
+            0.4723304713566477,
+            0.8937103689957054,
+            0.0034277311191491158
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_62",
+          "method": null,
+          "objectives": [
+            0.0008884701203038323,
+            0.010080431971312403,
+            1.0038965405016613
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_63",
+          "method": null,
+          "objectives": [
+            4.181030217361852e-05,
+            0.00037855976127825494,
+            1.0076463135499605
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_64",
+          "method": null,
+          "objectives": [
+            0.019988205865051182,
+            1.007605306931043,
+            0.0065351636249688875
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_65",
+          "method": null,
+          "objectives": [
+            0.005972800647034968,
+            1.0150142100937503,
+            0.01031748227945005
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_66",
+          "method": null,
+          "objectives": [
+            0.00013620698366442852,
+            0.0002603522168280196,
+            1.0115840608404467
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_67",
+          "method": null,
+          "objectives": [
+            0.546017232731593,
+            0.850234983475903,
+            0.0064584938848637925
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_68",
+          "method": null,
+          "objectives": [
+            0.00029294429013501693,
+            2.1030204961748674e-05,
+            1.0111329039380665
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_69",
+          "method": null,
+          "objectives": [
+            0.0003648522531918851,
+            0.003814433375702844,
+            1.0050883735993972
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_70",
+          "method": null,
+          "objectives": [
+            7.416221021754307e-05,
+            0.0029702008923970396,
+            1.0055141526738707
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_71",
+          "method": null,
+          "objectives": [
+            0.0003221975715667266,
+            1.464564234037845e-06,
+            1.007673067087091
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_72",
+          "method": null,
+          "objectives": [
+            4.3109349133393293e-07,
+            0.001017023837298711,
+            1.0074207165811118
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_73",
+          "method": null,
+          "objectives": [
+            7.980725931575678e-05,
+            0.0008768229091740664,
+            1.0064981822002566
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_74",
+          "method": null,
+          "objectives": [
+            1.5635682722159827e-05,
+            0.0010153594371580259,
+            1.005913800215567
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_75",
+          "method": null,
+          "objectives": [
+            1.0212338145664412,
+            0.02725008485925171,
+            0.0032776700556456416
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_76",
+          "method": null,
+          "objectives": [
+            1.0129536178584195,
+            0.027029140292271547,
+            0.0032903170934411633
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_77",
+          "method": null,
+          "objectives": [
+            0.5460672247822935,
+            0.8562316925067369,
+            0.0032586552453075426
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_78",
+          "method": null,
+          "objectives": [
+            0.010819611074925843,
+            1.0098196354048052,
+            0.006656533012613058
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_79",
+          "method": null,
+          "objectives": [
+            0.008790349904425017,
+            1.0134334739148505,
+            0.006571918456783543
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_80",
+          "method": null,
+          "objectives": [
+            0.00453406945821202,
+            0.05144278651833736,
+            1.000951715203164
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_81",
+          "method": null,
+          "objectives": [
+            1.001894416368203,
+            0.023670064070138806,
+            0.006498658398208213
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_82",
+          "method": null,
+          "objectives": [
+            0.0031436992818724956,
+            7.430718125268549e-06,
+            1.004376063288765
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_83",
+          "method": null,
+          "objectives": [
+            3.342168321239311e-05,
+            0.0003021968837889494,
+            1.0121251793209582
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_84",
+          "method": null,
+          "objectives": [
+            1.1143102846702234e-05,
+            0.0007236175634714265,
+            1.0091656443552215
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_85",
+          "method": null,
+          "objectives": [
+            0.0010238831257491845,
+            6.293375694526348e-05,
+            1.0036923043155472
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_86",
+          "method": null,
+          "objectives": [
+            8.445323570630413e-06,
+            0.001016120427880824,
+            1.0065605110615943
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_87",
+          "method": null,
+          "objectives": [
+            0.011594081308424807,
+            1.008450387399768,
+            0.004749473480148588
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_88",
+          "method": null,
+          "objectives": [
+            1.0130188643454752,
+            0.02393288257882105,
+            0.00413126778102145
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_89",
+          "method": null,
+          "objectives": [
+            5.7846939342358246e-05,
+            0.0040368513188016545,
+            1.0053146443694487
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_90",
+          "method": null,
+          "objectives": [
+            0.0002927805279309267,
+            2.3619554843701462e-05,
+            1.01124832648583
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_91",
+          "method": null,
+          "objectives": [
+            0.00012078957706144369,
+            0.00021836614120294715,
+            1.0121500396435525
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_92",
+          "method": null,
+          "objectives": [
+            1.0067452533982193,
+            0.07019229356043918,
+            0.0017364254726202775
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_93",
+          "method": null,
+          "objectives": [
+            0.001041389305165135,
+            1.879674108394462e-05,
+            1.006584419933565
+          ]
+        },
+        {
+          "solution_id": "ADM_it4_94",
+          "method": null,
+          "objectives": [
+            3.5518665079845514e-05,
+            0.0003788611994819202,
+            1.006749069866552
+          ]
+        }
+      ],
+      "preference_information": {
+        "type": "reference_point",
+        "reference_point": [
+          4.3109349133393293e-07,
+          1.464564234037845e-06,
+          1.0022830728978893
+        ],
+        "selected_reference_vector": "V1",
+        "selection_rule": "max_assigned_vector_as_roi",
+        "description": "auto-generated preference from ADM"
+      },
+      "hypervolume": {
+        "iRVEA": {
+          "positive_hypervolume_per_generation": [
+            7.961639362366686,
+            7.968203001615352,
+            7.988563119932559,
+            7.999855401865089,
+            8.000107095740354,
+            7.996936943478419,
+            7.997559491387081,
+            7.9998058137563,
+            7.997987754218711
+          ],
+          "negative_hypervolume_per_generation": [
+            2.136009330288868,
+            2.145922204394587,
+            2.150885509410177,
+            2.237788763605094,
+            2.235327257203865,
+            2.2455245606494394,
+            2.2455245606494394,
+            2.2613349100798743,
+            2.2881697823502556
+          ],
+          "v_prec_per_generation": [
+            7.961639362366686,
+            7.968203001615352,
+            7.988563119932559,
+            7.999855401865089,
+            8.000107095740354,
+            7.996936943478419,
+            7.997559491387081,
+            7.9998058137563,
+            7.997987754218711
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9937077235625685,
+            0.9945269441676751,
+            0.9970681302103499,
+            0.9984775419234754,
+            0.9985089563265199,
+            0.9981132834450723,
+            0.9981909848627036,
+            0.9984713527349858,
+            0.9982444371812697
+          ],
+          "phi_final_generation": 0.9982444371812697,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9937077235625685,
+              "v_prec": 7.961639362366686,
+              "v_succ": 0.0,
+              "v_plus": 7.961639362366686,
+              "v_minus": 2.136009330288868,
+              "solution_hypervolume": 10.097648692655554,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9945269441676751,
+              "v_prec": 7.968203001615352,
+              "v_succ": 0.0,
+              "v_plus": 7.968203001615352,
+              "v_minus": 2.145922204394587,
+              "solution_hypervolume": 10.11412520600994,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9970681302103499,
+              "v_prec": 7.988563119932559,
+              "v_succ": 0.0,
+              "v_plus": 7.988563119932559,
+              "v_minus": 2.150885509410177,
+              "solution_hypervolume": 10.139448629342736,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9984775419234754,
+              "v_prec": 7.999855401865089,
+              "v_succ": 0.0,
+              "v_plus": 7.999855401865089,
+              "v_minus": 2.237788763605094,
+              "solution_hypervolume": 10.237644165470183,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9985089563265199,
+              "v_prec": 8.000107095740354,
+              "v_succ": 0.0,
+              "v_plus": 8.000107095740354,
+              "v_minus": 2.235327257203865,
+              "solution_hypervolume": 10.23543435294422,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9981132834450723,
+              "v_prec": 7.996936943478419,
+              "v_succ": 0.0,
+              "v_plus": 7.996936943478419,
+              "v_minus": 2.2455245606494394,
+              "solution_hypervolume": 10.242461504127858,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9981909848627036,
+              "v_prec": 7.997559491387081,
+              "v_succ": 0.0,
+              "v_plus": 7.997559491387081,
+              "v_minus": 2.2455245606494394,
+              "solution_hypervolume": 10.24308405203652,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9984713527349858,
+              "v_prec": 7.9998058137563,
+              "v_succ": 0.0,
+              "v_plus": 7.9998058137563,
+              "v_minus": 2.2613349100798743,
+              "solution_hypervolume": 10.261140723836174,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9982444371812697,
+              "v_prec": 7.997987754218711,
+              "v_succ": 0.0,
+              "v_plus": 7.997987754218711,
+              "v_minus": 2.2881697823502556,
+              "solution_hypervolume": 10.286157536568966,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            }
+          ]
+        },
+        "PBEA": {
+          "positive_hypervolume_per_generation": [
+            8.011868668429203,
+            8.0119925407293,
+            8.012030509852346,
+            8.012053151871118,
+            8.012053328990682,
+            8.012053354931233,
+            8.012053354953299,
+            8.012053355710918,
+            8.012053359519664
+          ],
+          "negative_hypervolume_per_generation": [
+            3.0217020103980747,
+            3.029890053976656,
+            3.0202047946146724,
+            3.01426561283035,
+            3.024792100790542,
+            3.0262143547833116,
+            3.0515558338159074,
+            3.0664882572073004,
+            3.0701009453932286
+          ],
+          "v_prec_per_generation": [
+            8.011868668429203,
+            8.0119925407293,
+            8.012030509852346,
+            8.012053151871118,
+            8.012053328990682,
+            8.012053354931233,
+            8.012053354953299,
+            8.012053355710918,
+            8.012053359519664
+          ],
+          "v_succ_per_generation": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "phi_per_generation": [
+            0.9999769411334426,
+            0.9999924018766061,
+            0.9999971408768434,
+            0.9999999668713285,
+            0.9999999889779664,
+            0.9999999922156572,
+            0.9999999922184112,
+            0.9999999923129712,
+            0.9999999927883482
+          ],
+          "phi_final_generation": 0.9999999927883482,
+          "generation_metrics": [
+            {
+              "generation": 2,
+              "phi": 0.9999769411334426,
+              "v_prec": 8.011868668429203,
+              "v_succ": 0.0,
+              "v_plus": 8.011868668429203,
+              "v_minus": 3.0217020103980747,
+              "solution_hypervolume": 11.033570678827278,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 3,
+              "phi": 0.9999924018766061,
+              "v_prec": 8.0119925407293,
+              "v_succ": 0.0,
+              "v_plus": 8.0119925407293,
+              "v_minus": 3.029890053976656,
+              "solution_hypervolume": 11.041882594705957,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 4,
+              "phi": 0.9999971408768434,
+              "v_prec": 8.012030509852346,
+              "v_succ": 0.0,
+              "v_plus": 8.012030509852346,
+              "v_minus": 3.0202047946146724,
+              "solution_hypervolume": 11.032235304467019,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 5,
+              "phi": 0.9999999668713285,
+              "v_prec": 8.012053151871118,
+              "v_succ": 0.0,
+              "v_plus": 8.012053151871118,
+              "v_minus": 3.01426561283035,
+              "solution_hypervolume": 11.026318764701468,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 6,
+              "phi": 0.9999999889779664,
+              "v_prec": 8.012053328990682,
+              "v_succ": 0.0,
+              "v_plus": 8.012053328990682,
+              "v_minus": 3.024792100790542,
+              "solution_hypervolume": 11.036845429781224,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 7,
+              "phi": 0.9999999922156572,
+              "v_prec": 8.012053354931233,
+              "v_succ": 0.0,
+              "v_plus": 8.012053354931233,
+              "v_minus": 3.0262143547833116,
+              "solution_hypervolume": 11.038267709714544,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 8,
+              "phi": 0.9999999922184112,
+              "v_prec": 8.012053354953299,
+              "v_succ": 0.0,
+              "v_plus": 8.012053354953299,
+              "v_minus": 3.0515558338159074,
+              "solution_hypervolume": 11.063609188769206,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 9,
+              "phi": 0.9999999923129712,
+              "v_prec": 8.012053355710918,
+              "v_succ": 0.0,
+              "v_plus": 8.012053355710918,
+              "v_minus": 3.0664882572073004,
+              "solution_hypervolume": 11.078541612918219,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            },
+            {
+              "generation": 10,
+              "phi": 0.9999999927883482,
+              "v_prec": 8.012053359519664,
+              "v_succ": 0.0,
+              "v_plus": 8.012053359519664,
+              "v_minus": 3.0701009453932286,
+              "solution_hypervolume": 11.082154304912892,
+              "reference_point_hypervolume": 8.012053417299803,
+              "reference_point_is_dominated": false
+            }
+          ]
+        }
+      },
+      "phi_per_method": {
+        "iRVEA": 0.9982444371812697,
+        "PBEA": 0.9999999927883482
+      },
+      "reference_vector_assignments": [
+        {
+          "vector_id": "V1",
+          "assigned_solution_ids": [
+            "ADM_it4_45",
+            "ADM_it4_47",
+            "ADM_it4_51",
+            "ADM_it4_57",
+            "ADM_it4_58",
+            "ADM_it4_62",
+            "ADM_it4_63",
+            "ADM_it4_66",
+            "ADM_it4_68",
+            "ADM_it4_69",
+            "ADM_it4_70",
+            "ADM_it4_71",
+            "ADM_it4_72",
+            "ADM_it4_73",
+            "ADM_it4_74",
+            "ADM_it4_80",
+            "ADM_it4_82",
+            "ADM_it4_83",
+            "ADM_it4_84",
+            "ADM_it4_85",
+            "ADM_it4_86",
+            "ADM_it4_89",
+            "ADM_it4_90",
+            "ADM_it4_91",
+            "ADM_it4_93",
+            "ADM_it4_94"
+          ],
+          "assigned_count": 26
+        },
+        {
+          "vector_id": "V2",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V3",
+          "assigned_solution_ids": [
+            "ADM_it4_17",
+            "ADM_it4_18",
+            "ADM_it4_24",
+            "ADM_it4_31",
+            "ADM_it4_35"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V4",
+          "assigned_solution_ids": [
+            "ADM_it4_14",
+            "ADM_it4_16",
+            "ADM_it4_19",
+            "ADM_it4_20",
+            "ADM_it4_21",
+            "ADM_it4_23",
+            "ADM_it4_29",
+            "ADM_it4_30",
+            "ADM_it4_32",
+            "ADM_it4_34"
+          ],
+          "assigned_count": 10
+        },
+        {
+          "vector_id": "V5",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V6",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V7",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V8",
+          "assigned_solution_ids": [
+            "ADM_it4_7"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V9",
+          "assigned_solution_ids": [
+            "ADM_it4_3",
+            "ADM_it4_5",
+            "ADM_it4_27",
+            "ADM_it4_38",
+            "ADM_it4_48",
+            "ADM_it4_54",
+            "ADM_it4_59",
+            "ADM_it4_64",
+            "ADM_it4_65",
+            "ADM_it4_78",
+            "ADM_it4_79",
+            "ADM_it4_87"
+          ],
+          "assigned_count": 12
+        },
+        {
+          "vector_id": "V10",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V11",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V12",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V13",
+          "assigned_solution_ids": [
+            "ADM_it4_13",
+            "ADM_it4_25",
+            "ADM_it4_26"
+          ],
+          "assigned_count": 3
+        },
+        {
+          "vector_id": "V14",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V15",
+          "assigned_solution_ids": [
+            "ADM_it4_6",
+            "ADM_it4_9"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V16",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V17",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V18",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V19",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V20",
+          "assigned_solution_ids": [
+            "ADM_it4_46"
+          ],
+          "assigned_count": 1
+        },
+        {
+          "vector_id": "V21",
+          "assigned_solution_ids": [
+            "ADM_it4_11",
+            "ADM_it4_12"
+          ],
+          "assigned_count": 2
+        },
+        {
+          "vector_id": "V22",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V23",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V24",
+          "assigned_solution_ids": [
+            "ADM_it4_10",
+            "ADM_it4_15",
+            "ADM_it4_22",
+            "ADM_it4_28",
+            "ADM_it4_33",
+            "ADM_it4_36",
+            "ADM_it4_40"
+          ],
+          "assigned_count": 7
+        },
+        {
+          "vector_id": "V25",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V26",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V27",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V28",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V29",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V30",
+          "assigned_solution_ids": [
+            "ADM_it4_42",
+            "ADM_it4_43",
+            "ADM_it4_44",
+            "ADM_it4_52",
+            "ADM_it4_53",
+            "ADM_it4_56",
+            "ADM_it4_61",
+            "ADM_it4_67",
+            "ADM_it4_77"
+          ],
+          "assigned_count": 9
+        },
+        {
+          "vector_id": "V31",
+          "assigned_solution_ids": [
+            "ADM_it4_0",
+            "ADM_it4_1",
+            "ADM_it4_2",
+            "ADM_it4_4",
+            "ADM_it4_8"
+          ],
+          "assigned_count": 5
+        },
+        {
+          "vector_id": "V32",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V33",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V34",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V35",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V36",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V37",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V38",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V39",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V40",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V41",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V42",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V43",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V44",
+          "assigned_solution_ids": [],
+          "assigned_count": 0
+        },
+        {
+          "vector_id": "V45",
+          "assigned_solution_ids": [
+            "ADM_it4_37",
+            "ADM_it4_39",
+            "ADM_it4_41",
+            "ADM_it4_49",
+            "ADM_it4_50",
+            "ADM_it4_55",
+            "ADM_it4_60",
+            "ADM_it4_75",
+            "ADM_it4_76",
+            "ADM_it4_81",
+            "ADM_it4_88",
+            "ADM_it4_92"
+          ],
+          "assigned_count": 12
+        }
+      ],
+      "max_assigned_vector": {
+        "vector_id": "V1",
+        "assigned_count": 26
+      }
+    }
+  ],
+  "phi_summary": {
+    "learning": {
+      "iRVEA": {
+        "rs": 16.10936591893686,
+        "phi_values": [
+          0.863591343112523,
+          0.8792802847573713,
+          0.8913487694904603,
+          0.8981248447994918,
+          0.9133568575006843,
+          0.9268484944270776,
+          0.9301977066249242,
+          0.938212080600157,
+          0.9537342404478639,
+          0.9506647074001688,
+          0.9674574565551213,
+          0.9775665895665222,
+          0.9841794421902295,
+          0.9895900520546989,
+          0.9925357504366649,
+          0.9928904377816204,
+          0.9934435463057979,
+          0.9962779728834879
+        ]
+      },
+      "PBEA": {
+        "rs": 16.360685379513978,
+        "phi_values": [
+          0.9221157504080837,
+          0.9506096303269117,
+          0.9663156775714734,
+          0.9659157026609374,
+          0.9749229153579952,
+          0.9746034707692764,
+          0.9251616617955872,
+          0.9348216751923307,
+          0.9397977398289562,
+          0.9383800524699988,
+          0.9477339584848055,
+          0.9563067609489696,
+          0.9603930474459801,
+          0.9687783563135898,
+          0.9969244309591454,
+          0.9994706356913512,
+          0.9997127680164135,
+          0.9995580409524245
+        ]
+      }
+    },
+    "decision": {
+      "iRVEA": {
+        "fd": 0.9990684173872152,
+        "weights": [
+          1.0,
+          1.0
+        ],
+        "phi_values": [
+          0.9998923975931607,
+          0.9982444371812697
+        ]
+      },
+      "PBEA": {
+        "fd": 0.9999999814049542,
+        "weights": [
+          1.0,
+          1.0
+        ],
+        "phi_values": [
+          0.9999999700215602,
+          0.9999999927883482
+        ]
+      }
+    }
+  }
+}
