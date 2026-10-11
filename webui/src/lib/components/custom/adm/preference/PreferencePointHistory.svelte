@@ -12,7 +12,7 @@
   <h3>Current Preference Point</h3>
 
   <div class="values">
-    {#each current.preference_information.reference_point as value, i}
+    {#each (current.preference_information.active_reference_point ?? current.preference_information.reference_point) as value, i}
       <div>
         <span>f{i + 1}</span>
         <strong>{value.toFixed(3)}</strong>

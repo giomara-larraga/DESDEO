@@ -1280,16 +1280,18 @@ def main():
     run_experiment_suite(
         problem_factories=[
             lambda: dtlz2(n_objectives=3, n_variables=12),
-
+            re21,
+            re34,
+            re61,
         ],
         methods=[
             "iRVEA",
             "PBEA",
         ],
-        learning_iters=2,
-        decision_iters=2,
-        gens_per_iter=10,
-        n_runs=2,
+        learning_iters=4,
+        decision_iters=3,
+        gens_per_iter=100,
+        n_runs=10,
         base_seed=123,
         number_of_vectors=100,
         output_dir="output",

@@ -10,9 +10,11 @@ import type {
   PopulationSolution
 } from "$lib/adm/types";
 
-export const load: PageLoad = async () => {
+export const load: PageLoad = async ({ fetch }) => {
   const logResponse =
     await fetch("/data/adm_phi_log.json");
+
+  if (!logResponse.ok) throw new Error(`ADM log: HTTP ${logResponse.status}`);
 
   const rawLog =
     await logResponse.json();
@@ -27,16 +29,20 @@ export const load: PageLoad = async () => {
       "/data/dtlz2_iRVEA_population_history.csv"
     );
 
-  const insgaResponse =
+  const pbeaResponse =
     await fetch(
-      "/data/dtlz2_iNSGA-III_population_history.csv"
+      "/data/dtlz2_PBEA_population_history.csv"
     );
+
+  if (!irveaResponse.ok || !pbeaResponse.ok) {
+    throw new Error("Unable to load one or both population CSV files");
+  }
 
   const irveaText =
     await irveaResponse.text();
 
-  const insgaText =
-    await insgaResponse.text();
+  const pbeaText =
+    await pbeaResponse.text();
 
   const objectiveCount =
     log.problem.objectives;
@@ -50,8 +56,8 @@ export const load: PageLoad = async () => {
         )
     );
 
-  const insga =
-    csvParse(insgaText).map(
+  const pbea =
+    csvParse(pbeaText).map(
       (row) =>
         parsePopulationRow(
           row,
@@ -62,7 +68,7 @@ export const load: PageLoad = async () => {
   const populationHistory:
     PopulationSolution[] = [
       ...irvea,
-      ...insga
+      ...pbea
     ];
 
   return {

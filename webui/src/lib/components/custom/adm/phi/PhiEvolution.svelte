@@ -6,6 +6,7 @@
 
   export let log: ADMLog;
   export let selectedIteration: number;
+  export let selectedMethods: string[] | null = null;
 
   export let onSelect: (iteration: number) => void = () => {};
 
@@ -39,7 +40,9 @@
     method: string
   ): number | null {
     const value =
-      iteration.hypervolume?.[method]?.phi_iteration;
+      iteration.phi_per_method?.[method]
+      ?? iteration.hypervolume?.[method]?.phi_final_generation
+      ?? iteration.hypervolume?.[method]?.phi_iteration;
 
     if (
       value === undefined ||
@@ -82,7 +85,7 @@
      * ----------------------------------------------------
      */
 
-    const series = log.methods.map((method) => ({
+    const series = log.methods.filter(method => selectedMethods === null || selectedMethods.includes(method)).map((method) => ({
       method,
 
       values: log.iterations

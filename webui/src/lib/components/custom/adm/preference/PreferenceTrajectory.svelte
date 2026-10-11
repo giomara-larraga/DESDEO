@@ -35,7 +35,7 @@
     iteration: iteration.iteration,
     phase: iteration.phase,
     referencePoint:
-      iteration.preference_information.reference_point,
+      iteration.preference_information.next_reference_point ?? iteration.preference_information.reference_point,
     selectedVector:
       iteration.preference_information.selected_reference_vector,
     selectionRule:

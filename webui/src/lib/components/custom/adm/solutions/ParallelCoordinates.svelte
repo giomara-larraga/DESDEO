@@ -31,7 +31,7 @@
   let tooltipX = 0;
   let tooltipY = 0;
 
-  let visibleMethods: string[] = [];
+  export let visibleMethods: string[] = [];
 
   // --------------------------------------------------
   // Benchmark context
@@ -105,7 +105,10 @@
   // --------------------------------------------------
 
   $: referencePoint =
-    iteration.preference_information.reference_point;
+    iteration.preference_information.active_reference_point ??
+    (selectedIteration === 1 ? log.initial_reference_point :
+      getIteration(log, selectedIteration - 1).preference_information.next_reference_point ??
+      getIteration(log, selectedIteration - 1).preference_information.reference_point);
 
   $: activeVector =
     selectedVector ??

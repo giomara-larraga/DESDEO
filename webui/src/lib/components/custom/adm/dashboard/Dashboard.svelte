@@ -1,1152 +1,202 @@
 <script lang="ts">
-
-  import type {
-    ADMLog,
-    PopulationSolution
-  } from "$lib/adm/types";
-
-
-
-  import {
-    getObjectives,
-    getIteration,
-    getReferenceVectorViewData
-  } from "$lib/adm/adapters";
-
-  import Header from "./Header.svelte";
-  import IterationTimeline from "./IterationTimeline.svelte";
-
+  import type { ADMLog, PopulationSolution } from "$lib/adm/types";
+  import { getIteration, getObjectives, getReferenceVectorViewData } from "$lib/adm/adapters";
   import PhiEvolution from "../phi/PhiEvolution.svelte";
   import GenerationPhi from "../phi/GenerationPhi.svelte";
-
   import PreferenceTrajectory from "../preference/PreferenceTrajectory.svelte";
-  import PreferencePointHistory from "../preference/PreferencePointHistory.svelte";
-
   import ReferenceVectorExplorer from "../reference-vectors/ReferenceVectorExplorer.svelte";
-
   import ParallelCoordinates from "../solutions/ParallelCoordinates.svelte";
   import ScatterPlot from "../solutions/ScatterPlot.svelte";
   import SolutionTable from "../solutions/SolutionTable.svelte";
 
   export let log: ADMLog;
-  export let populationHistory:
-    PopulationSolution[] = [];
+  export let populationHistory: PopulationSolution[] = [];
 
-  /*
-   * Coordinated dashboard state
-   */
+  // One source of truth for coordinated selections.
   let selectedIteration = 1;
   let selectedGeneration: number | null = null;
   let selectedVector: string | null = null;
+  let visibleMethods: string[] = [...log.methods];
+  let showDetails = false;
+  let showInteractionOverview = false;
 
-  /*
-   * Derived data
-   */
+  $: iteration = getIteration(log, selectedIteration);
   $: objectives = getObjectives(log);
+  $: referenceVectors = getReferenceVectorViewData(log, selectedIteration);
+  $: activeReferencePoint = iteration.preference_information.active_reference_point ??
+    (selectedIteration === 1 ? log.initial_reference_point :
+      getIteration(log, selectedIteration - 1).preference_information.next_reference_point ??
+      getIteration(log, selectedIteration - 1).preference_information.reference_point);
+  $: nextReferencePoint = iteration.preference_information.next_reference_point ??
+    iteration.preference_information.reference_point;
+  $: availableGenerations = Array.from(new Set(populationHistory
+    .filter(row => row.adm_iteration === selectedIteration)
+    .map(row => row.generation_in_iteration))).sort((a,b)=>a-b);
+  $: currentGeneration = selectedGeneration ?? availableGenerations[availableGenerations.length - 1] ?? null;
+  $: populationCount = populationHistory.filter(row =>
+    row.adm_iteration === selectedIteration &&
+    row.generation_in_iteration === currentGeneration &&
+    visibleMethods.includes(row.method)).length;
+  $: occupiedVectors = iteration.reference_vector_assignments.filter(item => item.assigned_count > 0).length;
 
-  $: iteration =
-    getIteration(log, selectedIteration);
-
-  $: referenceVectors =
-    getReferenceVectorViewData(
-      log,
-      selectedIteration
-    );
-
-  /*
-   * Initialize the selected vector from
-   * the ADM preference of the first interaction.
-   */
-  $: if (
-    iteration &&
-    selectedVector === null
-  ) {
-    selectedVector =
-      iteration.preference_information
-        .selected_reference_vector;
-  }
-
-  /*
-   * Interaction navigation
-   */
-  function selectIteration(value: number) {
-    const next = Math.max(
-      1,
-      Math.min(log.iterations.length, value)
-    );
-
-    selectedIteration = next;
-
-    const nextIteration =
-      getIteration(log, next);
-
-    selectedVector =
-      nextIteration.preference_information
-        .selected_reference_vector;
-
-    /*
-     * Generation selection belongs to the
-     * previously selected interaction, so clear it.
-     */
+  function selectIteration(next: number) {
+    selectedIteration = Math.max(1, Math.min(log.iterations.length, next));
     selectedGeneration = null;
+    selectedVector = null;
   }
-
-  function previousIteration() {
-    selectIteration(selectedIteration - 1);
+  function toggleMethod(method: string) {
+    if (visibleMethods.includes(method)) {
+      if (visibleMethods.length > 1) visibleMethods = visibleMethods.filter(m => m !== method);
+    } else {
+      visibleMethods = [...visibleMethods, method];
+    }
   }
-
-  function nextIteration() {
-    selectIteration(selectedIteration + 1);
+  function selectGeneration(value: number) {
+    if (availableGenerations.includes(value)) selectedGeneration = value;
   }
-
-  function selectVector(vectorId: string | null) {
-    selectedVector = vectorId;
+  function reset() {
+    selectedGeneration = null;
+    selectedVector = null;
+    visibleMethods = [...log.methods];
   }
 </script>
 
-<div class="dashboard">
-
-  <!-- ======================================================
-       TOP BAR
-       ====================================================== -->
-
-  <Header
-    {log}
-    {selectedIteration}
-    onPrevious={previousIteration}
-    onNext={nextIteration}
-  />
-
-  <main class="dashboard-content">
-
-    <!-- ====================================================
-         ROW 1 — EXPERIMENT OVERVIEW
-         ==================================================== -->
-
-    <section class="overview-grid">
-
-      <!-- Interaction overview -->
-      <article class="card interaction-overview-card">
-
-        <div class="card-header">
-          <div>
-            <h2>Interaction Overview</h2>
-
-            <p>
-              Performance evolution across learning
-              and decision phases
-            </p>
-          </div>
-
-          <div
-            class:learning={iteration.phase === "learning"}
-            class:decision={iteration.phase === "decision"}
-            class="phase-chip"
-          >
-            {iteration.phase}
-          </div>
-        </div>
-
-        <IterationTimeline
-          {log}
-          {selectedIteration}
-          onSelect={selectIteration}
-        />
-
-        <div class="overview-chart">
-          <PhiEvolution
-            {log}
-            {selectedIteration}
-            onSelect={selectIteration}
-          />
-        </div>
-
-      </article>
-
-
-      <!-- Selected interaction context -->
-      <article class="card interaction-context-card">
-
-        <div class="card-header">
-          <div>
-            <h2>
-              Selected Interaction
-              ({selectedIteration})
-            </h2>
-
-            <p>
-              ADM context and benchmark state
-            </p>
-          </div>
-        </div>
-
-        <div class="context-list">
-
-          <div class="context-row">
-            <span>Phase</span>
-
-            <strong class="capitalize">
-              {iteration.phase}
-            </strong>
-          </div>
-
-          <div class="context-row">
-            <span>ADM selected vector</span>
-
-            <button
-              type="button"
-              class="link-button"
-              on:click={() =>
-                selectVector(
-                  iteration.preference_information
-                    .selected_reference_vector
-                )
-              }
-            >
-              {
-                iteration.preference_information
-                  .selected_reference_vector
-              }
-            </button>
-          </div>
-
-          <div class="context-row vertical">
-            <span>Selection rule</span>
-
-            <strong>
-              {
-                iteration.preference_information
-                  .selection_rule
-              }
-            </strong>
-          </div>
-
-          {#if iteration.max_assigned_vector}
-            <div class="context-row">
-              <span>Most assigned vector</span>
-
-              <button
-                type="button"
-                class="link-button"
-                on:click={() =>
-                  selectVector(
-                    iteration.max_assigned_vector
-                      .vector_id
-                  )
-                }
-              >
-                {
-                  iteration.max_assigned_vector
-                    .vector_id
-                }
-
-                <small>
-                  (
-                  {
-                    iteration.max_assigned_vector
-                      .assigned_count
-                  }
-                  )
-                </small>
-              </button>
-            </div>
-          {/if}
-
-          <div class="context-row">
-            <span>Composite front</span>
-
-            <strong>
-              {iteration.composite_front.length}
-              solutions
-            </strong>
-          </div>
-
-          {#if selectedGeneration !== null}
-            <div class="context-row selected-generation">
-              <span>Selected generation</span>
-
-              <strong>
-                {selectedGeneration}
-              </strong>
-            </div>
-          {/if}
-
-        </div>
-
-        <div class="reference-point-section">
-
-          <div class="section-label">
-            Current reference point
-          </div>
-
-          <div class="reference-point-grid">
-
-            {#each iteration.preference_information.reference_point as value, index}
-
-              <div class="reference-value">
-                <span>
-                  {objectives[index]}
-                </span>
-
-                <strong>
-                  {value.toFixed(3)}
-                </strong>
-              </div>
-
-            {/each}
-
-          </div>
-
-        </div>
-
-      </article>
-
-
-      <!-- Preference trajectory -->
-      <article class="card preference-trajectory-card">
-
-        <div class="card-header">
-          <div>
-            <h2>ADM Preference Trajectory</h2>
-
-            <p>
-              Evolution of reference points across
-              interactions
-            </p>
-          </div>
-        </div>
-
-        <PreferenceTrajectory
-          {log}
-          {selectedIteration}
-          onSelect={selectIteration}
-        />
-
-      </article>
-
-    </section>
-
-
-    <!-- ====================================================
-         ROW 2 — WITHIN-INTERACTION BEHAVIOR
-         ==================================================== -->
-
-    <section class="behavior-grid">
-
-      <!-- Generation performance -->
-      <article class="card generation-card">
-
-        <GenerationPhi
-          {log}
-          {selectedIteration}
-          bind:selectedGeneration
-        />
-
-      </article>
-
-
-      <!-- Preference / HV detail -->
-      <article class="card preference-history-card">
-
-        <div class="card-header">
-          <div>
-            <h2>Preference Context</h2>
-
-            <p>
-              Preference evolution and interaction
-              history
-            </p>
-          </div>
-        </div>
-
-        <PreferencePointHistory
-          {log}
-          {selectedIteration}
-        />
-
-      </article>
-
-
-      <!-- Parallel coordinates -->
-      <article class="card solutions-card">
-
-        <div class="card-header">
-          <div>
-            <h2>
-              Solutions in Objective Space
-            </h2>
-
-            <p>
-              Composite-front solution profiles
-            </p>
-          </div>
-
-          <div class="solution-status">
-            {#if selectedVector}
-              <span>
-                Vector:
-                <strong>{selectedVector}</strong>
-              </span>
-            {/if}
-
-            {#if selectedGeneration !== null}
-              <span>
-                Generation:
-                <strong>
-                  {selectedGeneration}
-                </strong>
-              </span>
-            {/if}
-          </div>
-        </div>
-
-        <ParallelCoordinates
-          {log}
-          {populationHistory}
-          {selectedIteration}
-          bind:selectedGeneration
-          {selectedVector}
-        />
-
-      </article>
-
-    </section>
-
-
-    <!-- ====================================================
-         ROW 3 — EXPLORATION / METHOD COMPARISON
-         ==================================================== -->
-
-    <section class="exploration-grid">
-
-      <!-- Reference vector exploration -->
-      <article class="card reference-vectors-card">
-
-        <div class="card-header">
-          <div>
-            <h2>Reference Vector Exploration</h2>
-
-            <p>
-              Assignment patterns across the
-              benchmark
-            </p>
-          </div>
-
-          {#if selectedVector}
-            <button
-              type="button"
-              class="clear-selection"
-              on:click={() =>
-                selectVector(null)
-              }
-            >
-              Clear vector
-            </button>
-          {/if}
-        </div>
-
-       <ReferenceVectorExplorer
-        {log}
-        vectors={referenceVectors}
-        {objectives}
-        bind:selectedId={selectedVector}
-        onSelectIteration={selectIteration}
-      />
-
-      </article>
-
-
-      <!-- Composite front projection -->
-      <article class="card front-map-card">
-
-        <div class="card-header">
-
-          <div>
-            <h2>Composite Front Map</h2>
-
-            <p>
-              Low-dimensional projection for
-              exploration
-            </p>
-          </div>
-
-          <span class="projection-note">
-            Projection only
-          </span>
-
-        </div>
-
-        <ScatterPlot
-          {log}
-          {selectedIteration}
-          {selectedVector}
-          {selectedGeneration}
-        />
-
-      </article>
-
-
-      <!-- Method comparison -->
-      <article class="card comparison-card">
-
-        <div class="card-header">
-          <div>
-            <h2>Method Comparison</h2>
-
-            <p>
-              Interaction
-              {selectedIteration}
-            </p>
-          </div>
-        </div>
-
-        <SolutionTable
-          {log}
-          {selectedIteration}
-        />
-
-      </article>
-
-    </section>
-
-
-    <!-- ====================================================
-         FOOTER / COORDINATION HINT
-         ==================================================== -->
-
-    <div class="coordination-hint">
-
-      <span class="info-icon">i</span>
-
-      <span>
-        All views are linked. Select an interaction,
-        generation, or reference vector to update the
-        corresponding visualizations.
-      </span>
-
-      {#if
-        selectedGeneration !== null ||
-        selectedVector !== null
-      }
-
-        <button
-          type="button"
-          on:click={() => {
-            selectedGeneration = null;
-
-            selectedVector =
-              iteration.preference_information
-                .selected_reference_vector;
-          }}
-        >
-          Reset filters
-        </button>
-
-      {/if}
-
+<svelte:head><title>ADM · Coordinated Optimization Analysis</title></svelte:head>
+<div class="workspace">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">DESDEO · VISUAL ANALYTICS</div>
+      <h1>Interactive optimization analysis</h1>
+      <p>{log.problem.name} · {log.problem.objectives} objectives · {log.adm_configuration.learning_iterations} learning / {log.adm_configuration.decision_iterations} decision interactions</p>
     </div>
+    <div class="summary-metrics" aria-label="Selected context">
+      <span>{iteration.phase} phase</span>
+      <span>{populationCount} selected solutions</span>
+      <span>{occupiedVectors}/{log.reference_vectors.length} occupied vectors</span>
+    </div>
+  </header>
 
+  <nav class="selection-bar" aria-label="Coordinated analysis controls">
+    <label class="control">Interaction
+      <select value={selectedIteration} on:change={e => selectIteration(Number(e.currentTarget.value))}>
+        {#each log.iterations as entry}
+          <option value={entry.iteration}>{entry.iteration} · {entry.phase}</option>
+        {/each}
+      </select>
+    </label>
+    <div class="control generation-control">
+      <label for="generation-slider">Generation <strong>{currentGeneration ?? '—'}</strong></label>
+      <input id="generation-slider" type="range"
+        min={availableGenerations[0] ?? 2}
+        max={availableGenerations[availableGenerations.length-1] ?? 2}
+        step="1" value={currentGeneration ?? 2}
+        disabled={availableGenerations.length === 0}
+        on:input={e => selectGeneration(Number(e.currentTarget.value))} />
+    </div>
+    <div class="control method-control">
+      <span>Methods</span>
+      <div class="method-buttons">
+        {#each log.methods as method}
+          <button type="button" class:chosen={visibleMethods.includes(method)}
+            aria-pressed={visibleMethods.includes(method)} on:click={() => toggleMethod(method)}>{method}</button>
+        {/each}
+      </div>
+    </div>
+    <label class="control vector-control">Reference vector
+      <select value={selectedVector ?? ''} on:change={e => selectedVector = e.currentTarget.value || null}>
+        <option value="">All vectors</option>
+        {#each log.reference_vectors as vector}
+          <option value={vector.vector_id}>{vector.vector_id}</option>
+        {/each}
+      </select>
+    </label>
+    <button type="button" class="reset-button" on:click={reset}>Reset filters</button>
+  </nav>
+
+  <main class="analysis-grid">
+    <section class="pane populations">
+      <div class="pane-head">
+        <div><div class="pane-kicker">01 · ALGORITHM RESPONSE</div><h2>Population evolution</h2>
+          <p>Compare selected populations at the same generation and active preference.</p></div>
+      </div>
+      <div class="rp-strip">
+        <div><span>Active preference</span><strong>{activeReferencePoint.map(v => v.toFixed(3)).join(' · ')}</strong></div>
+        <span class="rp-arrow">→</span>
+        <div><span>ADM next preference</span><strong>{nextReferencePoint.map(v => v.toFixed(3)).join(' · ')}</strong></div>
+      </div>
+      <ParallelCoordinates {log} {populationHistory} {selectedIteration}
+        bind:selectedGeneration bind:visibleMethods {selectedVector} width={850} height={380} />
+    </section>
+
+    <section class="pane preferences">
+      <div class="pane-head"><div><div class="pane-kicker">02 · PREFERENCE DYNAMICS</div>
+        <h2>Where ADM redirects the search</h2>
+        <p>Select a preference transition to inspect its interaction.</p></div></div>
+      <PreferenceTrajectory {log} {selectedIteration} onSelect={selectIteration} width={580} height={335} />
+      <div class="inline-context">Selected ADM direction <button type="button"
+        on:click={() => selectedVector = iteration.preference_information.selected_reference_vector}>
+        {iteration.preference_information.selected_reference_vector}</button>
+        <span>· {iteration.preference_information.selection_rule.replaceAll('_',' ')}</span></div>
+    </section>
+
+    <section class="pane temporal">
+      <div class="pane-head"><div><div class="pane-kicker">03 · TEMPORAL PERFORMANCE</div>
+        <h2>What changes within the interaction?</h2>
+        <p>Click a PHI sample to update the population view above.</p></div>
+        <button class="subtle-button" type="button" on:click={() => showInteractionOverview = !showInteractionOverview}>
+          {showInteractionOverview ? 'Hide' : 'Show'} across-interaction overview
+        </button>
+      </div>
+      {#if showInteractionOverview}
+        <div class="secondary-chart"><PhiEvolution {log} {selectedIteration} selectedMethods={visibleMethods} onSelect={selectIteration} width={1000} height={195} /></div>
+      {/if}
+      <GenerationPhi {log} {selectedIteration} selectedMethods={visibleMethods} bind:selectedGeneration width={1000} height={315} />
+    </section>
+
+    <section class="pane vectors">
+      <div class="pane-head"><div><div class="pane-kicker">04 · ADM DIAGNOSTICS</div>
+        <h2>Which regions are represented?</h2>
+        <p>Vector occupancy and the accumulated ADM front are end-of-interaction diagnostics.</p></div>
+      </div>
+      <div class="diagnostic-grid">
+        <div class="vector-panel"><ReferenceVectorExplorer {log} vectors={referenceVectors} {objectives}
+          bind:selectedId={selectedVector} onSelectIteration={selectIteration}/></div>
+        <div class="front-panel"><h3>Composite-front projection</h3>
+          <ScatterPlot {log} {selectedIteration} {selectedVector} onSelectVector={id => selectedVector = id}/></div>
+      </div>
+      <button class="subtle-button details-toggle" type="button" on:click={() => showDetails = !showDetails}>
+        {showDetails ? 'Hide' : 'Inspect'} composite-front solution details
+      </button>
+      {#if showDetails}<div class="details-panel"><SolutionTable {log} {selectedIteration}/></div>{/if}
+    </section>
   </main>
-
+  <footer>Coordinated selections: interaction and generation control the optimization history; vector selections highlight end-of-interaction ADM assignments. PHI is a metric, not a substitute for spatial inspection.</footer>
 </div>
 
-
 <style>
-  :global(*) {
-    box-sizing: border-box;
-  }
-
-  :global(html) {
-    background: #f7f8fb;
-  }
-
-  :global(body) {
-    margin: 0;
-    background: #f7f8fb;
-    color: #171b26;
-  }
-
-  /*
-   * ------------------------------------------------------
-   * Main layout
-   * ------------------------------------------------------
-   */
-
-  .dashboard {
-    min-height: 100vh;
-
-    background:
-      linear-gradient(
-        180deg,
-        #fcfdff 0%,
-        #f7f8fb 100%
-      );
-  }
-
-  .dashboard-content {
-    width: 100%;
-    max-width: 1920px;
-
-    margin: 0 auto;
-
-    padding:
-      0.9rem
-      1rem
-      1.4rem;
-
-    display: flex;
-    flex-direction: column;
-
-    gap: 0.9rem;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Grids
-   * ------------------------------------------------------
-   */
-
-  .overview-grid,
-  .behavior-grid,
-  .exploration-grid {
-    display: grid;
-
-    gap: 0.9rem;
-
-    align-items: stretch;
-  }
-
-  .overview-grid {
-    grid-template-columns:
-      minmax(420px, 1.45fr)
-      minmax(250px, 0.72fr)
-      minmax(390px, 1.35fr);
-  }
-
-  .behavior-grid {
-    grid-template-columns:
-      minmax(420px, 1.06fr)
-      minmax(350px, 0.92fr)
-      minmax(460px, 1.25fr);
-  }
-
-  .exploration-grid {
-    grid-template-columns:
-      minmax(460px, 1.25fr)
-      minmax(380px, 1fr)
-      minmax(330px, 0.86fr);
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Card styling
-   * ------------------------------------------------------
-   */
-
-  .card {
-    position: relative;
-
-    min-width: 0;
-
-    padding: 0.9rem;
-
-    overflow: hidden;
-
-    border:
-      1px solid
-      #e6e9f0;
-
-    border-radius:
-      11px;
-
-    background:
-      rgba(
-        255,
-        255,
-        255,
-        0.98
-      );
-
-    box-shadow:
-      0 1px 2px
-        rgb(15 23 42 / 0.018),
-      0 8px 30px
-        rgb(15 23 42 / 0.018);
-  }
-
-  .card-header {
-    min-height: 39px;
-
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-
-    gap: 0.8rem;
-
-    margin-bottom: 0.55rem;
-  }
-
-  .card-header h2 {
-    margin: 0;
-
-    color: #171b27;
-
-    font-size: 0.84rem;
-    font-weight: 700;
-
-    letter-spacing: -0.01em;
-  }
-
-  .card-header p {
-    margin:
-      0.18rem
-      0
-      0;
-
-    color: #8991a4;
-
-    font-size: 0.66rem;
-    line-height: 1.35;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Overview card
-   * ------------------------------------------------------
-   */
-
-  .overview-chart {
-    margin-top: 0.2rem;
-  }
-
-  .phase-chip {
-    padding:
-      0.28rem
-      0.55rem;
-
-    border-radius: 5px;
-
-    font-size: 0.62rem;
-    font-weight: 700;
-
-    text-transform:
-      capitalize;
-  }
-
-  .phase-chip.learning {
-    color: #6341db;
-    background: #f0ebff;
-  }
-
-  .phase-chip.decision {
-    color: #db681d;
-    background: #fff1e7;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Interaction context
-   * ------------------------------------------------------
-   */
-
-  .context-list {
-    display: flex;
-    flex-direction: column;
-
-    gap: 0.04rem;
-  }
-
-  .context-row {
-    min-height: 35px;
-
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    gap: 0.75rem;
-
-    padding:
-      0.38rem
-      0;
-
-    border-bottom:
-      1px solid
-      #f0f2f6;
-  }
-
-  .context-row:last-child {
-    border-bottom: 0;
-  }
-
-  .context-row.vertical {
-    align-items: flex-start;
-  }
-
-  .context-row.vertical strong {
-    max-width: 55%;
-
-    text-align: right;
-
-    overflow-wrap:
-      anywhere;
-  }
-
-  .context-row span {
-    color: #7e8699;
-
-    font-size: 0.66rem;
-  }
-
-  .context-row strong {
-    color: #282e3d;
-
-    font-size: 0.68rem;
-    font-weight: 600;
-  }
-
-  .capitalize {
-    text-transform: capitalize;
-  }
-
-  .selected-generation {
-    background: #faf9ff;
-  }
-
-  .link-button {
-    padding: 0;
-
-    border: 0;
-    background: transparent;
-
-    color: #6544df;
-
-    font-size: 0.68rem;
-    font-weight: 700;
-
-    cursor: pointer;
-  }
-
-  .link-button:hover {
-    text-decoration: underline;
-  }
-
-  .link-button small {
-    color: #9198a8;
-    font-weight: 500;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Reference point
-   * ------------------------------------------------------
-   */
-
-  .reference-point-section {
-    margin-top: 0.75rem;
-
-    padding-top: 0.72rem;
-
-    border-top:
-      1px solid
-      #edf0f5;
-  }
-
-  .section-label {
-    margin-bottom:
-      0.45rem;
-
-    color: #7e8699;
-
-    font-size: 0.63rem;
-  }
-
-  .reference-point-grid {
-    display: grid;
-
-    grid-template-columns:
-      repeat(
-        auto-fit,
-        minmax(48px, 1fr)
-      );
-
-    gap: 0.24rem;
-  }
-
-  .reference-value {
-    display: flex;
-    flex-direction: column;
-
-    gap: 0.08rem;
-
-    padding:
-      0.38rem
-      0.2rem;
-
-    text-align: center;
-
-    border-radius:
-      5px;
-
-    background:
-      #f7f8fb;
-  }
-
-  .reference-value span {
-    color: #9299a9;
-
-    font-size: 0.57rem;
-    font-weight: 600;
-  }
-
-  .reference-value strong {
-    color: #2e3443;
-
-    font-size: 0.64rem;
-    font-variant-numeric:
-      tabular-nums;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Solution header
-   * ------------------------------------------------------
-   */
-
-  .solution-status {
-    display: flex;
-    flex-wrap: wrap;
-
-    justify-content: flex-end;
-
-    gap: 0.25rem;
-  }
-
-  .solution-status span {
-    padding:
-      0.25rem
-      0.42rem;
-
-    border-radius: 4px;
-
-    color: #777f92;
-    background: #f6f7fa;
-
-    font-size: 0.59rem;
-  }
-
-  .solution-status strong {
-    color: #5d40d7;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Reference vectors
-   * ------------------------------------------------------
-   */
-
-  .clear-selection {
-    border: 0;
-
-    padding: 0;
-
-    background:
-      transparent;
-
-    color: #6545dc;
-
-    font-size: 0.61rem;
-
-    cursor: pointer;
-  }
-
-  .clear-selection:hover {
-    text-decoration:
-      underline;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Projection
-   * ------------------------------------------------------
-   */
-
-  .projection-note {
-    padding:
-      0.25rem
-      0.4rem;
-
-    border-radius: 4px;
-
-    color: #8a6a21;
-    background: #fff8e8;
-
-    font-size: 0.57rem;
-    font-weight: 600;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Coordination hint
-   * ------------------------------------------------------
-   */
-
-  .coordination-hint {
-    min-height: 39px;
-
-    display: flex;
-    align-items: center;
-
-    gap: 0.55rem;
-
-    padding:
-      0.55rem
-      0.85rem;
-
-    border:
-      1px solid
-      #e5e8ef;
-
-    border-radius:
-      8px;
-
-    background:
-      rgba(
-        255,
-        255,
-        255,
-        0.88
-      );
-
-    color: #737b8e;
-
-    font-size: 0.64rem;
-  }
-
-  .coordination-hint .info-icon {
-    width: 17px;
-    height: 17px;
-
-    flex: 0 0 auto;
-
-    display: grid;
-    place-items: center;
-
-    border:
-      1px solid
-      #8e96a8;
-
-    border-radius: 50%;
-
-    color: #6d7587;
-
-    font-size: 0.58rem;
-    font-weight: 700;
-  }
-
-  .coordination-hint button {
-    margin-left: auto;
-
-    padding:
-      0.31rem
-      0.55rem;
-
-    border:
-      1px solid
-      #dfe3eb;
-
-    border-radius:
-      5px;
-
-    background: white;
-
-    color: #596174;
-
-    font-size: 0.61rem;
-
-    cursor: pointer;
-  }
-
-  .coordination-hint button:hover {
-    border-color: #c7bdf8;
-    color: #5c40d4;
-  }
-
-
-  /*
-   * ------------------------------------------------------
-   * Responsive layout
-   * ------------------------------------------------------
-   */
-
-  @media (
-    max-width: 1450px
-  ) {
-
-    .overview-grid {
-      grid-template-columns:
-        1.4fr
-        0.8fr;
-    }
-
-    .preference-trajectory-card {
-      grid-column:
-        1 / -1;
-    }
-
-    .behavior-grid {
-      grid-template-columns:
-        1fr
-        1fr;
-    }
-
-    .solutions-card {
-      grid-column:
-        1 / -1;
-    }
-
-    .exploration-grid {
-      grid-template-columns:
-        1fr
-        1fr;
-    }
-
-    .comparison-card {
-      grid-column:
-        1 / -1;
-    }
-
-  }
-
-
-  @media (
-    max-width: 950px
-  ) {
-
-    .dashboard-content {
-      padding: 0.75rem;
-    }
-
-    .overview-grid,
-    .behavior-grid,
-    .exploration-grid {
-      grid-template-columns:
-        1fr;
-    }
-
-    .preference-trajectory-card,
-    .solutions-card,
-    .comparison-card {
-      grid-column: auto;
-    }
-
-  }
+  :global(body){margin:0;background:#f5f7fb;color:#172033}
+  .workspace{max-width:1920px;margin:auto;padding:1.1rem 1.4rem 2rem;font-family:inherit}
+  .topbar{display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:1rem}
+  .eyebrow,.pane-kicker{font-size:.66rem;letter-spacing:.105em;color:#6676a1;font-weight:800}
+  h1{font-size:1.55rem;letter-spacing:-.035em;margin:.2rem 0}.topbar p,.pane-head p{font-size:.8rem;color:#718096;margin:.3rem 0}
+  .summary-metrics{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end}.summary-metrics span{font-size:.75rem;background:#eaf0fa;border:1px solid #dde6f3;border-radius:5px;padding:.4rem .55rem;text-transform:capitalize}
+  .selection-bar{display:flex;flex-wrap:wrap;gap:1rem;align-items:end;background:#fff;border:1px solid #dfe5ef;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;box-shadow:0 1px 7px #17203308}
+  .control{display:flex;flex-direction:column;gap:.35rem;font-size:.72rem;font-weight:650;color:#59677e}
+  .control select{padding:.48rem;border:1px solid #d3dceb;background:#fff;border-radius:6px;color:#172033;min-width:135px}
+  .generation-control{flex:1;min-width:160px}.generation-control label{display:flex;justify-content:space-between}.generation-control input{width:100%;accent-color:#5b52ca;margin:.55rem 0}
+  .method-buttons{display:flex;gap:.2rem}.method-buttons button{padding:.49rem .65rem;border:1px solid #d3dceb;background:#f8faff;border-radius:5px;color:#68768d;cursor:pointer}.method-buttons button.chosen{background:#e9e5ff;color:#5140c1;border-color:#b7adf4;font-weight:700}
+  .reset-button,.subtle-button{cursor:pointer;padding:.5rem .7rem;background:#f8faff;border:1px solid #d5deea;border-radius:6px;color:#495976;font-size:.75rem;font-weight:650}
+  .analysis-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:1rem;align-items:stretch}
+  .pane{background:white;border:1px solid #dfe5ef;border-radius:11px;padding:1rem;min-width:0;overflow:hidden}
+  .pane-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;margin-bottom:.6rem}.pane-head h2{font-size:1rem;letter-spacing:-.015em;margin:.22rem 0}.pane-head p{line-height:1.45}
+  .populations{grid-column:1}.preferences{grid-column:2}.temporal{grid-column:1}.vectors{grid-column:2}
+  .rp-strip{background:#f6f8fd;border:1px solid #e3e8f1;border-radius:7px;padding:.65rem .8rem;display:flex;justify-content:space-between;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.5rem 0}
+  .rp-strip div{display:flex;flex-direction:column;gap:.2rem}.rp-strip span{color:#718096;font-size:.68rem}.rp-strip strong{color:#303a53;font-size:.82rem;font-variant-numeric:tabular-nums}.rp-arrow{font-size:1.2rem!important;color:#a0aec0!important}
+  .inline-context{border-top:1px solid #e8edf3;padding-top:.7rem;font-size:.74rem;color:#64748b;margin-top:.5rem}.inline-context button{border:0;background:#edeaff;color:#5d40ca;padding:.28rem .45rem;border-radius:5px;font-weight:700;cursor:pointer;margin-left:.3rem}
+  .secondary-chart{border-bottom:1px solid #e9eef5;margin-bottom:.8rem;padding-bottom:.8rem}
+  .diagnostic-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.65rem;align-items:start}.front-panel{border-left:1px solid #e9edf4;padding-left:.75rem;min-width:0}.front-panel h3{font-size:.8rem;color:#334155;margin:.4rem 0 .6rem}
+  .details-toggle{margin-top:.75rem;width:100%;text-align:left}.details-panel{margin-top:.8rem;overflow-x:auto;border-top:1px solid #e9eef5;padding-top:.6rem}
+  footer{color:#8993a7;font-size:.72rem;margin-top:1rem;line-height:1.6}
+  @media(max-width:1180px){.analysis-grid{grid-template-columns:minmax(0,1fr)}.populations,.preferences,.temporal,.vectors{grid-column:1}.topbar{align-items:flex-start}.summary-metrics{max-width:350px}}
+  @media(max-width:650px){.workspace{padding:.7rem}.topbar{flex-direction:column;align-items:flex-start}.summary-metrics{justify-content:flex-start}.diagnostic-grid{grid-template-columns:minmax(0,1fr)}.front-panel{border-left:0;border-top:1px solid #e9edf4;padding-left:0;padding-top:.7rem}.pane-head{flex-wrap:wrap}}
 </style>

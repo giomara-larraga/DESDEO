@@ -64,7 +64,7 @@ export type MaxAssignedVector = {
 
 export type CompositeSolution = {
   solution_id: string;
-  method: MethodName;
+  method: MethodName | null;
   objectives: number[];
 };
 
@@ -77,6 +77,8 @@ export type PreferenceInformation = {
   type: string;
 
   reference_point: number[];
+  active_reference_point?: number[];
+  next_reference_point?: number[];
 
   selected_reference_vector: string;
 
@@ -97,7 +99,19 @@ export type MethodPerformance = {
 
   phi_per_generation: number[];
 
-  phi_iteration: number;
+  phi_iteration?: number;
+  phi_final_generation?: number;
+  generation_metrics?: {
+    generation: number;
+    phi: number;
+    v_prec: number;
+    v_succ: number;
+    v_plus: number;
+    v_minus: number;
+    solution_hypervolume: number;
+    reference_point_hypervolume: number;
+    reference_point_is_dominated: boolean;
+  }[];
 };
 
 
@@ -113,6 +127,8 @@ export type ADMIteration = {
   composite_front: CompositeSolution[];
 
   preference_information: PreferenceInformation;
+
+  phi_per_method?: Record<MethodName, number>;
 
   hypervolume: Record<
     MethodName,

@@ -7,6 +7,7 @@
 
   export let log: ADMLog;
   export let selectedIteration: number;
+  export let selectedMethods: string[] | null = null;
 
   // Bind this from Dashboard.svelte if you want the selected generation
   // to update other coordinated views.
@@ -75,7 +76,7 @@
       return null;
     }
 
-    return iteration.hypervolume[method]?.phi_iteration ?? null;
+    return iteration.phi_per_method?.[method] ?? iteration.hypervolume[method]?.phi_final_generation ?? iteration.hypervolume[method]?.phi_iteration ?? null;
   }
 
   function setMetric(nextMetric: MetricType) {
@@ -100,11 +101,11 @@
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    const series = log.methods.map((method) => ({
+    const series = log.methods.filter(method => selectedMethods === null || selectedMethods.includes(method)).map((method) => ({
       method,
       values: getMetricValues(method).map((value, index) => ({
         method,
-        generation: index + 1,
+        generation: iteration.hypervolume[method]?.generation_metrics?.[index]?.generation ?? index + 2,
         value
       }))
     }));
@@ -125,6 +126,8 @@
       return;
     }
 
+    const firstGeneration = d3.min(allPoints, (d) => d.generation) ?? 2;
+
     const generations = d3.max(
       allPoints,
       (d) => d.generation
@@ -132,7 +135,7 @@
 
     const x = d3
       .scaleLinear()
-      .domain([1, generations])
+      .domain([firstGeneration, generations])
       .range([0, innerWidth]);
 
     let yMin = d3.min(allPoints, (d) => d.value) ?? 0;
@@ -406,7 +409,7 @@
       persist = false
     ) {
       const clamped = Math.max(
-        1,
+        firstGeneration,
         Math.min(generations, generation)
       );
 
@@ -448,7 +451,7 @@
         const [mouseX] = d3.pointer(event, this);
 
         const generation = Math.max(
-          1,
+          firstGeneration,
           Math.min(
             generations,
             Math.round(x.invert(mouseX))
@@ -462,7 +465,7 @@
         tooltipValues = series
           .map((methodSeries) => {
             const point =
-              methodSeries.values[generation - 1];
+              methodSeries.values.find((point) => point.generation === generation);
 
             return {
               method: methodSeries.method,
@@ -497,7 +500,7 @@
         const [mouseX] = d3.pointer(event, this);
 
         const generation = Math.max(
-          1,
+          firstGeneration,
           Math.min(
             generations,
             Math.round(x.invert(mouseX))
