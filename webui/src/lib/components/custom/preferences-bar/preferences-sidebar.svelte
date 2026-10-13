@@ -29,6 +29,7 @@
 		typePreferences: PreferenceValue;
 		preferenceValues: number[];
 		objectiveValues: number[] | undefined[];
+		highlightedPreferenceIndexes?: number[];
 		onPreferenceChange?: (data: {
 			numSolutions: number;
 			typePreferences: PreferenceValue;
@@ -77,7 +78,8 @@
 		maxNumSolutions = 4,
 		lastIteratedPreference = [],
 		isFinishButton = true,
-		fitParent = false
+		fitParent = false,
+		highlightedPreferenceIndexes = []
 	}: Props = $props();
 
 	// Validate that preference_types only contains valid values
@@ -187,6 +189,9 @@
 		});
 	}
 
+	function isPreferenceHighlighted(index: number): boolean {
+		return highlightedPreferenceIndexes.includes(index);
+	}
 	// Add a helper function to safely get preference values
 	function get_preference_value(idx: number): number {
 		// if no preference is set, return a value in the middle of the ideal and nadir values
@@ -421,9 +426,20 @@
 			</Popover.Root>
 			{#each problem.objectives as objective, idx}
 				{#if objective.ideal != null && objective.nadir != null}
-					<div class="mb-4 flex flex-col gap-2">
-						<div class="text-sm font-semibold text-gray-700">
-							{objective.name} ({objective.maximize ? 'max' : 'min'})
+					<div
+						class={`mb-4 flex flex-col gap-2 rounded-md border p-2
+				transition-all duration-300
+				${
+					isPreferenceHighlighted(idx)
+						? 'border-amber-300 bg-amber-50 ring-2 ring-amber-200/70'
+						: 'border-transparent'
+				}`}
+					>
+						<div class="flex items-center justify-between gap-2">
+							<div class="text-sm font-semibold text-gray-700">
+								{objective.name}
+								({objective.maximize ? 'max' : 'min'})
+							</div>
 						</div>
 						<div class="flex flex-row">
 							<div class="flex w-1/4 flex-col justify-center">

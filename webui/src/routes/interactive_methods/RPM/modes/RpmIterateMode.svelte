@@ -146,8 +146,42 @@
 		return chosen_solutions;
 	});
 
+	let highlightedPreferenceIndexes = $state<number[]>([]);
+	let preferenceHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	type ObjectiveValue = number | number[] | null | undefined;
 
+	function applyScenarioPreferences(values: number[]) {
+		const changedIndexes = values
+			.map((value, index) => {
+				const current = current_preference[index];
+
+				if (!Number.isFinite(value) || !Number.isFinite(current)) {
+					return -1;
+				}
+
+				return Math.abs(value - current) > 1e-9 ? index : -1;
+			})
+			.filter((index) => index >= 0);
+
+		highlightedPreferenceIndexes = changedIndexes;
+
+		handle_preference_change({
+			numSolutions: current_num_iteration_solutions,
+			typePreferences: type_preferences,
+			preferenceValues: values,
+			objectiveValues: selected_objective_values
+		});
+
+		if (preferenceHighlightTimeout) {
+			clearTimeout(preferenceHighlightTimeout);
+		}
+
+		preferenceHighlightTimeout = setTimeout(() => {
+			highlightedPreferenceIndexes = [];
+			preferenceHighlightTimeout = null;
+		}, 4000);
+	}
 	function normalizeSymbol(symbol: string): string {
 		return symbol.startsWith('z_') ? symbol.slice(2) : symbol;
 	}
@@ -273,6 +307,7 @@
 					onPreferenceChange={handle_preference_change}
 					onIterate={handle_iterate}
 					isFinishButton={false}
+					{highlightedPreferenceIndexes}
 				/>
 			{/if}
 		</div>
@@ -628,13 +663,7 @@
 					SHAP_values={current_SHAP_values}
 					SHAP_baseline={current_SHAP_baseline}
 					rximo_results={current_rximo_results}
-					onApplyScenarioPreferences={(values) =>
-						handle_preference_change({
-							numSolutions: current_num_iteration_solutions,
-							typePreferences: type_preferences,
-							preferenceValues: values,
-							objectiveValues: iterate_explanation_objective_values
-						})}
+					onApplyScenarioPreferences={applyScenarioPreferences}
 					isLoading={is_fetching_explanation}
 					fitParent={true}
 				/>
