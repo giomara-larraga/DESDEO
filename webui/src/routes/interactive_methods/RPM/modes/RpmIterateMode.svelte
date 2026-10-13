@@ -47,6 +47,7 @@
 		iterate_explanation_perturbed_reference_points,
 		previous_iterate_presented_solution,
 		previous_iterate_reference_values,
+		is_first_iteration,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,
@@ -98,6 +99,7 @@
 			}
 		> | null;
 		is_fetching_explanation: boolean;
+		is_first_iteration: boolean;
 		handle_type_solutions_change: (event: { value: string }) => void;
 		handle_preference_change: (data: {
 			numSolutions: number;
@@ -250,6 +252,7 @@
 <BaseLayout
 	showLeftSidebar={canShowLeftSidebar}
 	showRightSidebar={hasRightSidebarContent}
+	showBottomPanel={!is_first_iteration}
 	bind:isLeftSidebarCollapsed
 	bind:isRightSidebarCollapsed
 	bottomPanelTitle={selected_type_solutions_label}
@@ -304,7 +307,234 @@
 	{/snippet}
 
 	{#snippet visualizationArea(height)}
-		{#if problem && current_state}
+		{#if problem && is_first_iteration}
+			<div
+				class="
+				flex h-full min-h-0 w-full
+				items-center justify-center
+				overflow-auto p-6
+			"
+			>
+				<div class="w-full max-w-3xl">
+					<div class="mb-6 text-center">
+						<p
+							class="
+							text-xs font-semibold uppercase
+							tracking-wide text-gray-500
+						"
+						>
+							Getting started
+						</p>
+
+						<h2
+							class="
+							mt-1 text-xl font-semibold
+							text-gray-900
+						"
+						>
+							Start your first iteration
+						</h2>
+
+						<p
+							class="
+							mx-auto mt-2 max-w-xl
+							text-sm text-gray-500
+						"
+						>
+							Begin by specifying what you would like to achieve. R-XIMO will then generate a
+							solution and help you understand the result.
+						</p>
+					</div>
+
+					<ol class="space-y-3">
+						<li
+							class="
+							flex gap-4 rounded-lg
+							border border-gray-200
+							bg-white p-4
+						"
+						>
+							<div
+								class="
+								flex h-8 w-8 shrink-0
+								items-center justify-center
+								rounded-full bg-gray-900
+								text-sm font-semibold
+								text-white
+							"
+							>
+								1
+							</div>
+
+							<div>
+								<p
+									class="
+									font-medium
+									text-gray-900
+								"
+								>
+									Set your desired values
+								</p>
+
+								<p
+									class="
+									mt-1 text-sm
+									text-gray-500
+								"
+								>
+									Use the preference panel on the left to specify a desired value for each
+									objective.
+								</p>
+							</div>
+						</li>
+
+						<li
+							class="
+							flex gap-4 rounded-lg
+							border border-gray-200
+							bg-white p-4
+						"
+						>
+							<div
+								class="
+								flex h-8 w-8 shrink-0
+								items-center justify-center
+								rounded-full bg-gray-900
+								text-sm font-semibold
+								text-white
+							"
+							>
+								2
+							</div>
+
+							<div>
+								<p
+									class="
+									font-medium
+									text-gray-900
+								"
+								>
+									Run the iteration
+								</p>
+
+								<p
+									class="
+									mt-1 text-sm
+									text-gray-500
+								"
+								>
+									Select
+									<span class="font-medium"> Iterate </span>
+									to generate a solution based on your desired values.
+								</p>
+							</div>
+						</li>
+
+						<li
+							class="
+							flex gap-4 rounded-lg
+							border border-gray-200
+							bg-white p-4
+						"
+						>
+							<div
+								class="
+								flex h-8 w-8 shrink-0
+								items-center justify-center
+								rounded-full bg-gray-900
+								text-sm font-semibold
+								text-white
+							"
+							>
+								3
+							</div>
+
+							<div>
+								<p
+									class="
+									font-medium
+									text-gray-900
+								"
+								>
+									Assess the solution
+								</p>
+
+								<p
+									class="
+									mt-1 text-sm
+									text-gray-500
+								"
+								>
+									Compare your desired values with the achieved values in the visualization and
+									table.
+								</p>
+							</div>
+						</li>
+
+						<li
+							class="
+							flex gap-4 rounded-lg
+							border border-gray-200
+							bg-white p-4
+						"
+						>
+							<div
+								class="
+								flex h-8 w-8 shrink-0
+								items-center justify-center
+								rounded-full bg-gray-900
+								text-sm font-semibold
+								text-white
+							"
+							>
+								4
+							</div>
+
+							<div>
+								<p
+									class="
+									font-medium
+									text-gray-900
+								"
+								>
+									Understand and adjust
+								</p>
+
+								<p
+									class="
+									mt-1 text-sm
+									text-gray-500
+								"
+								>
+									Use the explanation sidebar to understand the relationships between desired and
+									achieved values, then adjust your desired values and iterate again.
+								</p>
+							</div>
+						</li>
+					</ol>
+
+					<div
+						class="
+						mt-5 flex flex-wrap
+						items-center justify-center
+						gap-2 text-xs text-gray-500
+					"
+					>
+						<span>Set desired values</span>
+						<span aria-hidden="true">→</span>
+						<span>Iterate</span>
+						<span aria-hidden="true">→</span>
+						<span>Assess</span>
+						<span aria-hidden="true">→</span>
+						<span>Explain</span>
+						<span aria-hidden="true">→</span>
+						<span>Adjust</span>
+						<span aria-hidden="true">→</span>
+						<span>Repeat</span>
+					</div>
+				</div>
+			</div>
+		{:else if problem && current_state}
 			<div class="relative h-full">
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={65} minSize={40} maxSize={80} class="h-full">

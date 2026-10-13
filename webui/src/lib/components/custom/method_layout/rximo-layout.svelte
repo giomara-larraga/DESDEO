@@ -21,6 +21,7 @@
 		rightSidebarWidth?: string;
 
 		bottomPanelTitle?: string;
+		showBottomPanel?: boolean;
 
 		leftSidebar?: Snippet;
 		explorerTitle?: Snippet;
@@ -41,6 +42,7 @@
 
 		leftSidebarWidth = 'clamp(16rem, 22vw, 23rem)',
 		rightSidebarWidth = 'clamp(19rem, 30vw, 30rem)',
+		showBottomPanel = true,
 
 		bottomPanelTitle = 'Numerical values',
 
@@ -131,77 +133,81 @@
 			class="center-area relative h-full min-h-0 min-w-0 overflow-hidden bg-background"
 		>
 			<div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-				<Resizable.PaneGroup direction="vertical" class="h-full min-h-0 w-full flex-1">
-					<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
-						<!-- Top Panel: Explorer Title and Controls -->
-						<div class="flex-shrink-0 p-2">
-							<div class="flex flex-row items-center justify-between gap-4 pb-2">
-								<div class="font-semibold">
-									{#if explorerTitle}
-										{@render explorerTitle()}
-									{:else}
-										Solution Explorer
-									{/if}
-								</div>
-								<div class="flex items-center gap-2">
-									{#if explorerControls}
-										{@render explorerControls()}
-									{/if}
-								</div>
-							</div>
-						</div>
-						<!-- Visualization Area -->
-						<div
-							class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4"
-							bind:clientHeight={visualizationHeight}
-						>
-							<!-- Main Visualization Area -->
-							<div class="h-full w-full">
-								<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-									<div class="h-full flex-1 rounded">
-										{#if visualizationArea}
-											{@render visualizationArea(visualizationHeight)}
+				{#key showBottomPanel}
+					<Resizable.PaneGroup direction="vertical" class="h-full min-h-0 w-full flex-1">
+						<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
+							<!-- Top Panel: Explorer Title and Controls -->
+							<div class="flex-shrink-0 p-2">
+								<div class="flex flex-row items-center justify-between gap-4 pb-2">
+									<div class="font-semibold">
+										{#if explorerTitle}
+											{@render explorerTitle()}
+										{:else}
+											Solution Explorer
+										{/if}
+									</div>
+									<div class="flex items-center gap-2">
+										{#if explorerControls}
+											{@render explorerControls()}
 										{/if}
 									</div>
 								</div>
 							</div>
-						</div>
-					</Resizable.Pane>
+							<!-- Visualization Area -->
+							<div
+								class="mx-2 min-h-0 flex-1 rounded border bg-gray-100 p-4"
+								bind:clientHeight={visualizationHeight}
+							>
+								<!-- Main Visualization Area -->
+								<div class="h-full w-full">
+									<div class="grid h-full w-full gap-4 xl:grid-cols-1">
+										<div class="h-full flex-1 rounded">
+											{#if visualizationArea}
+												{@render visualizationArea(visualizationHeight)}
+											{/if}
+										</div>
+									</div>
+								</div>
+							</div>
+						</Resizable.Pane>
 
-					<ResizableHandle />
-					<!-- Bottom Panel: Numerical Values and Tables -->
-					<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
-						<div class="min-h-0 w-full flex-shrink p-2">
-							<Tabs.Root value="numerical-values" class="flex h-full flex-shrink flex-col">
-								<Tabs.List class="flex-shrink-0">
-									{#if tabsList}
-										{@render tabsList()}
-									{:else}
-										<span class="text-black">{bottomPanelTitle}</span>
-									{/if}
-								</Tabs.List>
+						{#if showBottomPanel}
+							<ResizableHandle />
+							<!-- Bottom Panel: Numerical Values and Tables -->
+							<Resizable.Pane defaultSize={50} class="flex min-h-0 flex-col">
+								<div class="min-h-0 w-full flex-shrink p-2">
+									<Tabs.Root value="numerical-values" class="flex h-full flex-shrink flex-col">
+										<Tabs.List class="flex-shrink-0">
+											{#if tabsList}
+												{@render tabsList()}
+											{:else}
+												<span class="text-black">{bottomPanelTitle}</span>
+											{/if}
+										</Tabs.List>
 
-								<!-- Numerical Values Tab Content -->
-								<Tabs.Content value="numerical-values" class="min-h-0">
-									{#if numericalValues}
-										{@render numericalValues()}
-									{:else}
-										<div class="p-4">Default numerical values content</div>
-									{/if}
-								</Tabs.Content>
+										<!-- Numerical Values Tab Content -->
+										<Tabs.Content value="numerical-values" class="min-h-0">
+											{#if numericalValues}
+												{@render numericalValues()}
+											{:else}
+												<div class="p-4">Default numerical values content</div>
+											{/if}
+										</Tabs.Content>
 
-								<!-- Saved Solutions Tab Content -->
-								<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
-									{#if savedSolutions}
-										{@render savedSolutions()}
-									{:else}
-										<div class="p-4">Default saved solutions content</div>
-									{/if}
-								</Tabs.Content>
-							</Tabs.Root>
-						</div>
-					</Resizable.Pane>
-				</Resizable.PaneGroup>
+										<!-- Saved Solutions Tab Content -->
+										<Tabs.Content value="saved-solutions" class="min-h-0 flex-grow">
+											{#if savedSolutions}
+												{@render savedSolutions()}
+											{:else}
+												<div class="p-4">Default saved solutions content</div>
+											{/if}
+										</Tabs.Content>
+									</Tabs.Root>
+								</div>
+							</Resizable.Pane>
+						{/if}
+					</Resizable.PaneGroup>
+				{/key}
 			</div>
 		</Sidebar.Inset>
 

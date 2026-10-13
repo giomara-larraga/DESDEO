@@ -1160,6 +1160,7 @@
 		iterate_explanation_perturbed_reference_points,
 		previous_iterate_presented_solution,
 		previous_iterate_reference_values,
+		is_first_iteration: stateHistory.length === 0,
 		handle_type_solutions_change,
 		handle_preference_change,
 		handle_iterate,
