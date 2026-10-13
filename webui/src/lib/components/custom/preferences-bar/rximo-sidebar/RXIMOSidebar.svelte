@@ -119,6 +119,10 @@
 	const selectedObjectiveIndex = $derived(
 		problem.objectives.findIndex((o) => o.symbol === selectedObjectiveSymbol)
 	);
+	const selectedObjectiveColor = $derived.by(() => {
+		const index = selectedObjectiveIndex;
+		return index >= 0 ? COLOR_PALETTE[index % COLOR_PALETTE.length] : '#000000';
+	});
 	const selectedObjectiveDigits = $derived.by(() => {
 		if (selectedObjectiveIndex < 0) return 3;
 		const digits = displayAccuracy[selectedObjectiveIndex];
@@ -408,8 +412,8 @@
 				<div class="py-8 text-center text-sm text-gray-500">No solution details available yet.</div>
 			{:else}
 				<div class="space-y-4">
-					<div class="flex items-center gap-3">
-						<div class="rounded-md border border-gray-200 bg-white p-3">
+					<div class="w-full">
+						<div class="w-full min-w-0 rounded-md border border-gray-200 bg-white p-3">
 							<div class="mb-2 flex items-center justify-between gap-2">
 								<div>
 									<div class="text-sm font-semibold text-gray-900">Objectives</div>
@@ -505,7 +509,11 @@
 							<Accordion.Trigger class="w-full text-left">
 								<div class="flex items-center justify-between gap-2">
 									<span class="text-sm font-semibold"
-										>Why does {selectedObjectiveName} have this achieved value?</span
+										>Why does {selectedObjectiveName}
+										<span
+											class="inline-block h-2.5 w-2.5 rounded-full"
+											style="background-color: {selectedObjectiveColor}"
+										></span> have this achieved value?</span
 									>
 									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
 								</div>
@@ -537,7 +545,11 @@
 							<Accordion.Trigger class="w-full text-left">
 								<div class="flex items-center justify-between gap-2">
 									<span class="text-sm font-semibold"
-										>How can I improve {selectedObjectiveName}?</span
+										>How can I improve {selectedObjectiveName}
+										<span
+											class="inline-block h-2.5 w-2.5 rounded-full"
+											style="background-color: {selectedObjectiveColor}"
+										></span>?</span
 									>
 									<InfoIcon class="h-3.5 w-3.5 text-gray-400" />
 								</div>
