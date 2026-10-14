@@ -43,7 +43,10 @@ from desdeo.problem.testproblems import (
     forest_problem_income_carbon_habitat,
 )
 
-PREDEFINED_ADMINS = ["glarraga", "gmisitano", "kmiettinen", "kmatkovic"]
+PREDEFINED_ADMINS = ["glarraga", "gmisitano", "kmiettinen", "kmatkovic", "alpha", "beta"]
+
+#alpha for pilot
+#beta for case study
 
 problems = [
     river_pollution_problem(five_objective_variant=False),
