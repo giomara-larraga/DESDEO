@@ -2211,8 +2211,31 @@
 						</div>
 
 						<div class="text-muted-foreground border-t px-4 py-3 text-sm">
-							Bands show the regions of the Pareto front still available after the previous
-							iteration.
+							{#if isDecisionMaker}
+								{#if have_all_voted}
+									<div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 text-xs">
+										<span class="text-muted-foreground font-medium"> Axis colors: </span>
+
+										<span class="flex items-center gap-2">
+											<span class="h-3 w-3 rounded-full bg-green-600"></span>
+											<span>Green — Agreement</span>
+										</span>
+
+										<span class="flex items-center gap-2">
+											<span class="h-3 w-3 rounded-full bg-red-600"></span>
+											<span>Red — Disagreement</span>
+										</span>
+
+										<span class="flex items-center gap-2">
+											<span class="h-3 w-3 rounded-full bg-slate-400"></span>
+											<span>Default — Neutral</span>
+										</span>
+									</div>
+								{:else}
+									Bands show the regions of the Pareto front still available after the previous
+									iteration.
+								{/if}
+							{/if}
 						</div>
 					</div>
 
