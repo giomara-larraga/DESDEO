@@ -172,8 +172,7 @@
 							<p class="mt-2 text-sm text-amber-700" role="alert">
 								Cannot zoom into this band because it contains only
 								{learning.selectedBandSolutionCount}
-								solution(s), but {learning.requiredClusterCount}
-								clusters are required. Please select another band.
+								solution(s). Please select another band.
 							</p>
 						{/if}
 					{/if}

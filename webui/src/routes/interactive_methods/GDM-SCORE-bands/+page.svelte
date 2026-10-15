@@ -2232,9 +2232,12 @@
 										</span>
 									</div>
 								{:else}
-									Bands show the regions of the Pareto front still available after the previous
-									iteration.
+									Each band represents a group of possible solutions. As voting progresses, the
+									group narrows down which solutions remain available.
 								{/if}
+							{:else}
+								Each band represents a group of possible solutions. As voting progresses, the group
+								narrows down which solutions remain available.
 							{/if}
 						</div>
 					</div>
