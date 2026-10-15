@@ -374,7 +374,7 @@
 
 		// Calculate when everyone has voted
 		if (votesCount === totalVoters) {
-			console.log('[axis agreement input]', {
+			/*console.log('[axis agreement input]', {
 				rawVotes: votes_and_confirms.votes,
 
 				mappedVotes: votes_and_confirms.votes,
@@ -385,6 +385,7 @@
 
 				scales: SCOREBands.scales
 			});
+			*/
 			return calculateAxisAgreement(
 				votes_and_confirms,
 				SCOREBands.medians,
@@ -620,9 +621,9 @@
 			solutions_per_cluster: result.cardinalities
 		};
 
-		console.log('bands:', result.bands);
-		console.log('band keys:', Object.keys(result.bands));
-		console.log('clusters:', result.clusters);
+		//('bands:', result.bands);
+		//console.log('band keys:', Object.keys(result.bands));
+		//console.log('clusters:', result.clusters);
 		return derivedData;
 	});
 
@@ -686,13 +687,13 @@
 	let cluster_visibility_map: Record<number, boolean> = $state({});
 
 	// Helper function to initialize all clusters as visible
-	function clusters_to_visible() {
+	/*function clusters_to_visible() {
 		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
 			SCOREBands.clusterIds.forEach((clusterId) => {
 				cluster_visibility_map[clusterId] = true;
 			});
 		}
-	}
+	}*/
 
 	// Update cluster visibility when groups data changes
 	$effect(() => {
@@ -789,6 +790,18 @@
 	let selected_band: number | null = $state(null);
 	let selected_axis: number | null = $state(null); // not used, axis selection commented out
 	let selected_solution: number | null = $state(null); // for decision phase
+
+	let selectedBandSolutionCount = $derived(
+		learningState.selectedBand === null
+			? 0
+			: (SCOREBands.solutions_per_cluster[learningState.selectedBand] ?? 0)
+	);
+
+	let requiredClusterCount = $derived(SCOREBands.clusterIds.length);
+
+	let cannotZoomIntoSelectedBand = $derived(
+		learningState.selectedBand !== null && selectedBandSolutionCount <= requiredClusterCount
+	);
 
 	// Selection handlers
 	function selectLearningBand(clusterId: number | null) {
@@ -956,13 +969,13 @@
 
 		learningProgress.completedUserIds = completedIds.map(Number).filter(Number.isFinite);
 
-		console.log('Learning completion state:', {
+		/*console.log('Learning completion state:', {
 			currentUserId: userId,
 			completedUserIds: learningProgress.completedUserIds,
 			hasCurrentUserCompleted: learningProgress.completedUserIds
 				.map(String)
 				.includes(String(userId))
-		});
+		});*/
 
 		learningProgress.startedAt = source.learning_started_at ?? source.started_at ?? null;
 
@@ -1091,7 +1104,7 @@
 	onMount(async () => {
 		// Initialize WebSocket connection
 		if (data.group) {
-			console.log('Initializing WebSocket for group:', data.group.id);
+			//console.log('Initializing WebSocket for group:', data.group.id);
 			wsService = wsService = new WebSocketService(
 				data.groupSession.id,
 				'gdm-score-bands',
@@ -1110,7 +1123,7 @@
 				// Handle different message types from the backend:
 				const msg =
 					typeof store.message === 'string' ? store.message : JSON.stringify(store.message);
-				console.log('WebSocket message received:', msg);
+				//console.log('WebSocket message received:', msg);
 
 				if (msg.includes('UPDATE: No majority was reached')) {
 					void (async () => {
@@ -1157,7 +1170,7 @@
 					fetch_votes_and_confirms(true);
 
 					fetch_score_bands();
-					clusters_to_visible();
+					//clusters_to_visible();
 					return;
 				}
 
@@ -1173,7 +1186,7 @@
 		await fetch_score_bands();
 		await fetch_votes_and_confirms(true);
 
-		clusters_to_visible();
+		//clusters_to_visible();
 	});
 
 	// Cleanup websocket connection when component is destroyed
@@ -1225,9 +1238,9 @@
 			}
 
 			history = scoreResult.data?.history ?? [];
-			console.log('Raw fetch_score_bands response:', scoreResult);
+			//console.log('Raw fetch_score_bands response:', scoreResult);
 
-			console.log('Full history received:', history);
+			//console.log('Full history received:', history);
 
 			if (!Array.isArray(history) || history.length === 0) {
 				throw new Error('SCORE Bands response contained no history entries.');
@@ -1260,7 +1273,7 @@
 				setPhase(scoreBandsResponse.phase);
 				decisionResult = null;
 
-				console.log('SCORE bands fetched successfully:', scoreBandsResponse);
+				//console.log('SCORE bands fetched successfully:', scoreBandsResponse);
 			} else if (currentResponse.phase === 'decision') {
 				const finalDecisionData = currentResponse.result as GDMSCOREBandsFinalSelection;
 
@@ -1295,8 +1308,8 @@
 				) {
 					decisionNotice = 'The group selected a final solution.';
 				}
-
-				console.log('Decision phase data fetched successfully:', currentResponse);
+				//console.log('Decision phase data fetched successfully:', currentResponse);
+				//console.log('Decision phase data fetched successfully:', currentResponse);
 			} else {
 				throw new Error(`Unknown SCORE Bands phase: ${currentResponse.phase}`);
 			}
@@ -1304,6 +1317,11 @@
 			const iterationChanged = groupIterationId !== previousIterationId;
 
 			const phaseChanged = phase !== previousPhase;
+
+			// Reset band visibility only when the group iteration or phase changes.
+			if (iterationChanged || phaseChanged) {
+				cluster_visibility_map = {};
+			}
 
 			if (phaseChanged) {
 				decisionNotice = null;
@@ -1323,7 +1341,18 @@
 	}
 
 	async function exploreLearningBand(clusterId: number) {
-		if (isExploringBand || !isDecisionMaker) {
+		if (isExploringBand || !isDecisionMaker || !isLearningPhase) {
+			return;
+		}
+
+		const solutionCount = SCOREBands.solutions_per_cluster[clusterId] ?? 0;
+		const clusterCount = SCOREBands.clusterIds.length;
+
+		if (solutionCount < clusterCount) {
+			errorMessage.set(
+				`Cannot explore Band ${clusterId}: it contains only ${solutionCount} solutions, ` +
+					`but ${clusterCount} clusters are required.`
+			);
 			return;
 		}
 
@@ -1381,7 +1410,7 @@
 			// Reset visibility for the newly returned clusters.
 			cluster_visibility_map = {};
 
-			console.log('Personal SCORE Bands exploration:', exploration);
+			//console.log('Personal SCORE Bands exploration:', exploration);
 		} catch (error) {
 			console.error('Failed to explore learning band:', error);
 
@@ -1410,17 +1439,17 @@
 			// Consensus votes are actual SCORE Bands cluster IDs.
 			voteValue = selection;
 
-			console.log('[consensus vote]', {
+			/*console.log('[consensus vote]', {
 				clusterId: selection,
 				backendVoteValue: voteValue
-			});
+			});*/
 		}
 
 		if (isDecisionPhase) {
 			decisionNotice = null;
 		}
 
-		console.log('Selection to vote for:', selection, 'Backend vote value:', voteValue);
+		//console.log('Selection to vote for:', selection, 'Backend vote value:', voteValue);
 
 		try {
 			const voteResult = await callGSCOREBandsAPI<{
@@ -1432,7 +1461,7 @@
 			});
 
 			if (voteResult.success) {
-				console.log('Voted successfully:', voteResult.data?.message);
+				//console.log('Voted successfully:', voteResult.data?.message);
 
 				await fetch_votes_and_confirms();
 			} else {
@@ -1510,9 +1539,9 @@
 				decisionNotice = null;
 			}
 
-			if (isConsensusPhase) {
+			/*if (isConsensusPhase) {
 				clusters_to_visible();
-			}
+			}*/
 		} catch (error) {
 			console.error('Error in Confirm:', error);
 			errorMessage.set(`${error}`);
@@ -1686,7 +1715,7 @@
 			}
 			await fetch_score_bands();
 			await fetch_votes_and_confirms(true);
-			clusters_to_visible();
+			//clusters_to_visible();
 		} catch (error) {
 			console.error('Error in advance_to_consensus:', error);
 			errorMessage.set(`${error}`);
@@ -1706,11 +1735,11 @@
 			});
 
 			if (result.success) {
-				console.log('Reverted to previous iteration successfully:', result.data?.message);
+				//console.log('Reverted to previous iteration successfully:', result.data?.message);
 				// Refresh score bands and votes after reverting
 				await fetch_score_bands();
 				await fetch_votes_and_confirms();
-				clusters_to_visible();
+				//clusters_to_visible();
 			} else {
 				throw new Error(`Revert iteration failed: ${result.error || 'Unknown error'}`);
 			}
@@ -1736,7 +1765,7 @@
 				minimumVotes = config.minimum_votes;
 				await fetch_score_bands();
 				await fetch_votes_and_confirms(true);
-				clusters_to_visible();
+				//clusters_to_visible();
 			} else {
 				throw new Error(`Configure failed: ${configureResult.error || 'Unknown error'}`);
 			}
@@ -1747,7 +1776,7 @@
 	}
 
 	async function restartScoreBands(targetPhase: RestartPhase) {
-		console.log('[restartScoreBands] called', targetPhase);
+		//console.log('[restartScoreBands] called', targetPhase);
 
 		if (!isOwner) {
 			errorMessage.set('Only the group owner can reset the SCORE Bands process.');
@@ -1791,8 +1820,7 @@
 						target_phase: targetPhase
 					};
 
-					console.log('[restartScoreBands] sending:', payload);
-
+					//console.log('[restartScoreBands] sending:', payload);
 					const restartResult = await callGSCOREBandsAPI<{
 						message: string;
 						group_session_id: number;
@@ -1800,7 +1828,7 @@
 						phase: RestartPhase;
 					}>('restart', payload);
 
-					console.log('[restartScoreBands] response:', restartResult);
+					//console.log('[restartScoreBands] response:', restartResult);
 
 					if (!restartResult.success) {
 						throw new Error(restartResult.error ?? 'Failed to reset SCORE Bands.');
@@ -1828,11 +1856,12 @@
 
 					await fetch_votes_and_confirms(true);
 
-					clusters_to_visible();
+					//clusters_to_visible();
+					//console.log('[restartScoreBands] completed successfully');
 
 					restartNotice = `The SCORE Bands process was reset to the ${phaseLabel}.`;
 
-					console.log('[restartScoreBands] completed successfully');
+					//console.log('[restartScoreBands] completed successfully');
 				} catch (error) {
 					console.error('[restartScoreBands] failed:', error);
 
@@ -2083,6 +2112,10 @@
 
 						selectedLearningBand: learningState.selectedBand,
 
+						selectedBandSolutionCount,
+						requiredClusterCount,
+						cannotZoomIntoSelectedBand,
+
 						savedBands: learningState.savedBands,
 
 						solutionsPerCluster: SCOREBands.solutions_per_cluster,
@@ -2203,6 +2236,7 @@
 						clusterIds: SCOREBands.clusterIds,
 						clusterColors: cluster_colors,
 						selectedBand: selected_band,
+						userVotedBand: usersConsensusBandId,
 						voteConfirmed: vote_confirmed,
 						haveAllVoted: have_all_voted,
 						haveAllConfirmed: have_all_confirmed,

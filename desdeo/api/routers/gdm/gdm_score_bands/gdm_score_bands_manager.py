@@ -1179,15 +1179,30 @@ class GDMScoreBandsManager(GroupManager):
 
             current_result = SCOREBandsGDMResult.model_validate(consensus_state.result)
 
-            # Take ALL solutions remaining in the current consensus
-            # iteration to the decision phase.
-            selected_solution_ids = current_result.relevant_ids
+            current_config = SCOREBandsGDMConfig.model_validate(consensus_state.config)
+
+            winners = consensus_rule(
+                preferences.user_votes,
+                current_config.minimum_votes,
+            )
+
+            relevant_ids = current_result.relevant_ids
+            clustering = current_result.score_bands_result.clusters
+
+            selected_solution_ids = [
+                solution_id
+                for solution_id, cluster_id in zip(
+                    relevant_ids,
+                    clustering,
+                    strict=True,
+                )
+                if cluster_id in winners
+            ]
 
             if not selected_solution_ids:
                 raise ManagerError("No solutions are available for the decision phase.")
 
             discrete_repr = self._get_discrete_representation(session)
-
             objective_keys = list(discrete_repr.objective_values)
             variable_keys = list(discrete_repr.variable_values)
 

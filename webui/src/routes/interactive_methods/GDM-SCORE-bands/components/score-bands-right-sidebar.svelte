@@ -21,6 +21,10 @@
 
 		solutionsPerCluster: Record<string, number>;
 
+		selectedBandSolutionCount: number;
+		requiredClusterCount: number;
+		cannotZoomIntoSelectedBand: boolean;
+
 		onFinishExploring: () => void | Promise<void>;
 		onSaveBand: (clusterId: number) => void;
 		onRemoveSavedBand: (clusterId: number) => void;
@@ -43,6 +47,7 @@
 		clusterColors: Record<number, string>;
 
 		selectedBand: number | null;
+		userVotedBand: number | null;
 		voteConfirmed: boolean;
 		haveAllVoted: boolean;
 		haveAllConfirmed: boolean;
@@ -159,10 +164,18 @@
 						<Button
 							class="w-full"
 							onclick={() => learning.onExploreBand(learning.selectedLearningBand!)}
-							disabled={learning.isExploringBand}
+							disabled={learning.isExploringBand || learning.cannotZoomIntoSelectedBand}
 						>
 							{learning.isExploringBand ? 'Generating bands...' : 'Explore inside band'}
 						</Button>
+						{#if learning.cannotZoomIntoSelectedBand}
+							<p class="mt-2 text-sm text-amber-700" role="alert">
+								Cannot zoom into this band because it contains only
+								{learning.selectedBandSolutionCount}
+								solution(s), but {learning.requiredClusterCount}
+								clusters are required. Please select another band.
+							</p>
+						{/if}
 					{/if}
 				{:else}
 					{#if isDecisionMaker}
@@ -271,10 +284,17 @@
 				{#each consensus.clusterIds as clusterId}
 					<button
 						type="button"
-						class="hover:bg-muted flex w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm {consensus.selectedBand ===
-						clusterId
-							? 'border-primary bg-muted'
-							: ''}"
+						class="
+		hover:bg-muted flex w-full items-center
+		justify-between rounded-md border px-3
+		py-3 text-left text-sm
+
+		{consensus.userVotedBand === clusterId
+							? 'border-primary bg-primary/10'
+							: consensus.selectedBand === clusterId
+								? 'border-primary/60 bg-muted'
+								: ''}
+	"
 						onclick={() => consensus.onBandSelect(clusterId)}
 						disabled={consensus.voteConfirmed || !isDecisionMaker}
 					>
@@ -284,6 +304,17 @@
 								style:background-color={consensus.clusterColors[clusterId] ?? '#64748b'}
 							></span>
 							Band {clusterId}
+							{#if consensus.userVotedBand === clusterId}
+								<span
+									class="
+				bg-primary/10 text-primary
+				rounded-full px-2 py-0.5
+				text-xs font-medium
+			"
+								>
+									Your vote
+								</span>
+							{/if}
 						</span>
 
 						<span class="text-muted-foreground">
@@ -298,7 +329,9 @@
 						<Button
 							class="w-full"
 							onclick={consensus.onVote}
-							disabled={consensus.selectedBand === null || consensus.voteConfirmed}
+							disabled={consensus.selectedBand === null ||
+								consensus.voteConfirmed ||
+								consensus.selectedBand === consensus.userVotedBand}
 						>
 							Vote
 						</Button>
