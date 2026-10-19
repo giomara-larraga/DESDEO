@@ -160,13 +160,11 @@
 							>
 								<!-- Main Visualization Area -->
 								<div class="h-full w-full">
-									<div class="grid h-full w-full gap-4 xl:grid-cols-1">
-										<div class="h-full flex-1 rounded">
+									
 											{#if visualizationArea}
 												{@render visualizationArea(visualizationHeight)}
 											{/if}
-										</div>
-									</div>
+									
 								</div>
 							</div>
 						</Resizable.Pane>
@@ -280,4 +278,13 @@
 		grid-column: 2;
 		min-width: 0;
 	}
+
+	.method-layout-grid[data-left-open='false'][data-right-open='false'] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.method-layout-grid[data-left-open='false'][data-right-open='false']
+	.center-area {
+	grid-column: 1;
+}
 </style>

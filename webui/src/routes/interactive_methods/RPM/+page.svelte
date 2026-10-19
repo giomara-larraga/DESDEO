@@ -191,6 +191,8 @@
 	let previous_iterate_presented_solution: Solution | null = $state(null);
 	let previous_iterate_reference_values: number[] = $state([]);
 
+	let finalized_solution: Solution | null = $state(null);
+
 	let is_fetching_explanation: boolean = $state(false); // separate loading state for SHAP, does not block main UI
 	// Reactive variable for selected indexes based on current mode
 	let selectedIndexes = $derived.by(() => {
@@ -301,6 +303,36 @@
 		mapDescription: undefined
 	});
 
+	function resetInteractionState() {
+	current_state = {} as Response;
+
+	mode = 'iterate';
+
+	selected_type_solutions = 'current';
+
+	selected_iteration_index = [0];
+	selected_intermediate_indexes = [];
+	selected_solutions_for_intermediate = [];
+
+	current_preference = [];
+	last_iterated_preference = [];
+
+	current_SHAP_values = {};
+	current_SHAP_baseline = {};
+	current_rximo_results = null;
+
+	iterate_explanation_solutions = [];
+	iterate_explanation_reference_values = [];
+	iterate_explanation_perturbed_reference_points = [];
+
+	previous_iterate_presented_solution = null;
+	previous_iterate_reference_values = [];
+
+	finalized_solution = null;
+
+	mapStates = [];
+}
+
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
 	}
@@ -348,56 +380,108 @@
 
 	// Function to handle finishing
 	function confirm_finish() {
-		// We now only handle the case when exactly one solution is selected
-		// The button will be disabled otherwise
-		// Get solution name or default to Solution #
-		const selectedSolution = chosen_solutions[selectedIndexes[0]];
-		const final_solution = { ...selectedSolution }; // Save the actual solution
-		const solutionName = selectedSolution.name || `Solution #${selectedIndexes[0] + 1}`;
+	const selectedIndex = selectedIndexes[0];
 
-		openConfirmDialog({
-			title: 'Confirm Final Choice',
-			description: `Are you sure you want to proceed with "${solutionName}" as your final choice?`,
-			confirmText: 'Yes, Proceed',
-			cancelText: 'Cancel',
-			confirmVariant: 'destructive',
-			onConfirm: () => handle_finish(final_solution, selectedIndexes[0])
-		});
-	}
-	// Actual function to handle finishing after confirmation
-	async function handle_finish(final_solution: Solution, index: number) {
-		if (!current_state.previous_preference) {
-			console.error('No previous preference values found for finishing.');
-			return;
-		}
-		const response = await handleFinishRequest(
-			problem,
-			final_solution,
-			current_state.previous_preference,
-			selectedSessionId,
-			current_state.state_id
+	if (selectedIndex == null) {
+		console.error(
+			'Cannot finish: no solution selected.'
 		);
-		if (response) {
-			// Update the selected iteration index to match our final solution
-			// This will ensure that in final mode we show the correct solution
-			selected_iteration_index = [index];
-
-			// Add finalized state to history
-			const finalizedState = {
-				...current_state,
-				response_type: 'rpm.finalize' as const,
-				state_id: current_state.state_id ?? null
-			};
-			addToStateHistory(finalizedState);
-
-			// Persist the finalized session
-			persistSessionToLocalStorage();
-
-			// Set mode to final after updating the indexes
-			mode = 'final';
-		}
+		return;
 	}
 
+	const selectedSolution =
+		chosen_solutions[selectedIndex];
+
+	if (!selectedSolution) {
+		console.error(
+			'Cannot finish: selected solution does not exist.',
+			{
+				selectedIndex,
+				chosenSolutionsLength:
+					chosen_solutions.length,
+				selectedType:
+					selected_type_solutions
+			}
+		);
+		return;
+	}
+
+	const solutionName =
+		selectedSolution.name ??
+		`Solution #${selectedIndex + 1}`;
+
+	openConfirmDialog({
+		title: 'Confirm Final Choice',
+		description:
+			`Are you sure you want to proceed with ` +
+			`"${solutionName}" as your final choice?`,
+		confirmText: 'Yes, Proceed',
+		cancelText: 'Cancel',
+		confirmVariant: 'destructive',
+		onConfirm: () =>
+			handle_finish(selectedSolution)
+	});
+}
+	// Actual function to handle finishing after confirmation
+	async function handle_finish(
+	selectedFinalSolution: Solution
+) {
+	if (!current_state.previous_preference) {
+		console.error(
+			'No previous preference values found for finishing.'
+		);
+		return;
+	}
+
+	console.log(
+		'Selected solution before finalize:',
+		selectedFinalSolution
+	);
+
+	const result = await handleFinishRequest(
+		problem,
+		selectedFinalSolution,
+		current_state.previous_preference,
+		selectedSessionId,
+		current_state.state_id
+	);
+
+	console.log(
+		'Finalize API result:',
+		result
+	);
+
+	if (!result) {
+		console.error(
+			'Finalize request returned null.'
+		);
+		return;
+	}
+
+	/*
+	 * Use the solution returned by the backend when available.
+	 * Fall back to the exact solution the user selected.
+	 */
+	finalized_solution =
+		result.final_solution ??
+		selectedFinalSolution;
+
+	console.log(
+		'finalized_solution after assignment:',
+		finalized_solution
+	);
+
+	const finalizedState = {
+		...result,
+		response_type: 'rpm.finalize' as const
+	};
+
+	mode = 'final';
+
+	addToStateHistory(
+		finalizedState as unknown as Response
+	);
+}
 	import {
 		handle_intermediate as handleIntermediateRequest,
 		handle_iterate as handleIterateRequest,
@@ -883,21 +967,32 @@
 
 	// Create a new session
 	async function createNewSession() {
-		try {
-			const created = await create_session(null);
-			if (created && created.id != null) {
-				selectedSessionId = created.id;
-				stateHistory = [];
-				currentStateIndex = -1;
-				iterationNames = {};
-				console.log(`Created RPM session: ${created.id}`);
-			} else {
-				console.error('Failed to create RPM session');
-			}
-		} catch (err) {
-			console.error('Error creating RPM session:', err);
+	try {
+		const created = await create_session(null);
+
+		if (created?.id != null) {
+			resetInteractionState();
+
+			selectedSessionId = created.id;
+			stateHistory = [];
+			currentStateIndex = -1;
+			iterationNames = {};
+
+			console.log(
+				`Created RPM session: ${created.id}`
+			);
+		} else {
+			console.error(
+				'Failed to create RPM session'
+			);
 		}
+	} catch (err) {
+		console.error(
+			'Error creating RPM session:',
+			err
+		);
 	}
+}
 
 	// Add state to history for back navigation
 	function addToStateHistory(state: Response) {
@@ -1087,8 +1182,7 @@
 
 	let finalModeProps = $derived.by(() => ({
 		problem,
-		selected_iteration_index,
-		chosen_solutions,
+		final_solution:finalized_solution,
 		hasUtopiaMetadata,
 		mapState,
 		last_iterated_preference,

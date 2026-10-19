@@ -19,6 +19,7 @@ import type {
 	RPMSaveRequest,
 	RPMDeleteSaveRequest,
 	RPMFinalizeRequest,
+	RPMFinalizeResponse,
 	IntermediateSolutionRequest,
 	SolutionInfo,
 	BackgroundDatasetInfo,
@@ -235,11 +236,11 @@ export async function handle_finish(
 	preferences: ReferencePoint,
 	session_id?: number | null,
 	parent_state_id?: number | null
-): Promise<boolean> {
+): Promise<RPMFinalizeResponse | null> {
 	if (!problem) {
 		errorMessage.set('No problem selected');
 		console.error('No problem selected');
-		return false;
+		return null;
 	}
 
 	isLoading.set(true);
@@ -256,17 +257,18 @@ export async function handle_finish(
 		const response = await finalizeNimbusMethodRpmFinalizePost(request);
 
 		if (response.status !== 200) {
-			errorMessage.set(`Finalize failed with status ${response.status}`);
-			console.error('RPM finalize failed:', response.status);
-			return false;
+			errorMessage.set(
+				`Finalize failed with status ${response.status}`
+			);
+			return null;
 		}
 
-		return true;
+		return response.data as RPMFinalizeResponse;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : 'Unknown error';
 		errorMessage.set(msg);
 		console.error('Error in handle_finish:', msg);
-		return false;
+		return null;
 	} finally {
 		isLoading.set(false);
 	}

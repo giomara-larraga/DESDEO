@@ -12,8 +12,7 @@
 
 	let {
 		problem,
-		selected_iteration_index,
-		chosen_solutions,
+		final_solution,
 		hasUtopiaMetadata,
 		mapState,
 		last_iterated_preference,
@@ -22,8 +21,7 @@
 		perturbed_reference_point_labels_for_plot
 	}: {
 		problem: ProblemInfo | null;
-		selected_iteration_index: number[];
-		chosen_solutions: Solution[];
+		final_solution: Solution | null;
 		hasUtopiaMetadata: boolean;
 		mapState: MapState;
 		last_iterated_preference: number[];
@@ -31,11 +29,23 @@
 		perturbed_reference_point_values_for_plot: number[][];
 		perturbed_reference_point_labels_for_plot: string[];
 	} = $props();
+
+	$effect(() => {
+	console.log(
+		'RpmFinalMode final_solution:',
+		final_solution
+	);
+
+	console.log(
+		'RpmFinalMode objective values:',
+		final_solution?.objective_values
+	);
+});
 </script>
 
 <BaseLayout showLeftSidebar={false} showRightSidebar={false} bottomPanelTitle="Final Solution">
 	{#snippet visualizationArea(height)}
-		{#if problem && selected_iteration_index.length > 0}
+		{#if problem && final_solution}
 			<div class="h-full">
 				<Resizable.PaneGroup direction="horizontal" class="h-full">
 					<Resizable.Pane defaultSize={65} minSize={40} class="h-full">
@@ -51,9 +61,10 @@
 								perturbedRefLabels: perturbed_reference_point_labels_for_plot
 							}}
 							solutionsObjectiveValues={problem
-								? mapSolutionsToObjectiveValues([chosen_solutions[selected_iteration_index[0]]], problem)
+								&& final_solution
+								? mapSolutionsToObjectiveValues([final_solution], problem)
 								: []}
-							externalSelectedIndexes={selected_iteration_index}
+							externalSelectedIndexes={[]}
 							onSelectSolution={() => {}}
 						/>
 					</Resizable.Pane>
@@ -81,8 +92,8 @@
 	{/snippet}
 
 	{#snippet numericalValues()}
-		{#if problem && chosen_solutions.length > 0 && selected_iteration_index.length > 0}
-			<EndStateView {problem} tableData={[chosen_solutions[selected_iteration_index[0]] as any]} />
+		{#if problem && final_solution}
+			<EndStateView {problem} tableData={[final_solution as any]} />
 		{/if}
 	{/snippet}
 </BaseLayout>

@@ -3,6 +3,7 @@
 import type { ReferencePoint, RPMFinalizeResponse } from "$lib/gen/endpoints/DESDEOFastAPI";
 import type { BaseMethodResponse, PeriodKey, Solution } from "$lib/types";
 
+
 // Type for objective values in reference points and solutions
 export type ObjectiveValues = {
     [key: string]: number;
