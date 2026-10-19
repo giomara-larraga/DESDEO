@@ -304,34 +304,34 @@
 	});
 
 	function resetInteractionState() {
-	current_state = {} as Response;
+		current_state = {} as Response;
 
-	mode = 'iterate';
+		mode = 'iterate';
 
-	selected_type_solutions = 'current';
+		selected_type_solutions = 'current';
 
-	selected_iteration_index = [0];
-	selected_intermediate_indexes = [];
-	selected_solutions_for_intermediate = [];
+		selected_iteration_index = [0];
+		selected_intermediate_indexes = [];
+		selected_solutions_for_intermediate = [];
 
-	current_preference = [];
-	last_iterated_preference = [];
+		current_preference = [];
+		last_iterated_preference = [];
 
-	current_SHAP_values = {};
-	current_SHAP_baseline = {};
-	current_rximo_results = null;
+		current_SHAP_values = {};
+		current_SHAP_baseline = {};
+		current_rximo_results = null;
 
-	iterate_explanation_solutions = [];
-	iterate_explanation_reference_values = [];
-	iterate_explanation_perturbed_reference_points = [];
+		iterate_explanation_solutions = [];
+		iterate_explanation_reference_values = [];
+		iterate_explanation_perturbed_reference_points = [];
 
-	previous_iterate_presented_solution = null;
-	previous_iterate_reference_values = [];
+		previous_iterate_presented_solution = null;
+		previous_iterate_reference_values = [];
 
-	finalized_solution = null;
+		finalized_solution = null;
 
-	mapStates = [];
-}
+		mapStates = [];
+	}
 
 	function handle_type_solutions_change(event: { value: string }) {
 		change_solution_type_updating_selections(event.value as SolutionType);
@@ -380,108 +380,77 @@
 
 	// Function to handle finishing
 	function confirm_finish() {
-	const selectedIndex = selectedIndexes[0];
+		const selectedIndex = selectedIndexes[0];
 
-	if (selectedIndex == null) {
-		console.error(
-			'Cannot finish: no solution selected.'
-		);
-		return;
-	}
+		if (selectedIndex == null) {
+			console.error('Cannot finish: no solution selected.');
+			return;
+		}
 
-	const selectedSolution =
-		chosen_solutions[selectedIndex];
+		const selectedSolution = chosen_solutions[selectedIndex];
 
-	if (!selectedSolution) {
-		console.error(
-			'Cannot finish: selected solution does not exist.',
-			{
+		if (!selectedSolution) {
+			console.error('Cannot finish: selected solution does not exist.', {
 				selectedIndex,
-				chosenSolutionsLength:
-					chosen_solutions.length,
-				selectedType:
-					selected_type_solutions
-			}
-		);
-		return;
+				chosenSolutionsLength: chosen_solutions.length,
+				selectedType: selected_type_solutions
+			});
+			return;
+		}
+
+		const solutionName = selectedSolution.name ?? `Solution #${selectedIndex + 1}`;
+
+		openConfirmDialog({
+			title: 'Confirm Final Choice',
+			description:
+				`Are you sure you want to proceed with ` + `"${solutionName}" as your final choice?`,
+			confirmText: 'Yes, Proceed',
+			cancelText: 'Cancel',
+			confirmVariant: 'destructive',
+			onConfirm: () => handle_finish(selectedSolution)
+		});
 	}
-
-	const solutionName =
-		selectedSolution.name ??
-		`Solution #${selectedIndex + 1}`;
-
-	openConfirmDialog({
-		title: 'Confirm Final Choice',
-		description:
-			`Are you sure you want to proceed with ` +
-			`"${solutionName}" as your final choice?`,
-		confirmText: 'Yes, Proceed',
-		cancelText: 'Cancel',
-		confirmVariant: 'destructive',
-		onConfirm: () =>
-			handle_finish(selectedSolution)
-	});
-}
 	// Actual function to handle finishing after confirmation
-	async function handle_finish(
-	selectedFinalSolution: Solution
-) {
-	if (!current_state.previous_preference) {
-		console.error(
-			'No previous preference values found for finishing.'
+	async function handle_finish(selectedFinalSolution: Solution) {
+		if (!current_state.previous_preference) {
+			console.error('No previous preference values found for finishing.');
+			return;
+		}
+
+		console.log('Selected solution before finalize:', selectedFinalSolution);
+
+		const result = await handleFinishRequest(
+			problem,
+			selectedFinalSolution,
+			current_state.previous_preference,
+			selectedSessionId,
+			current_state.state_id
 		);
-		return;
+
+		console.log('Finalize API result:', result);
+
+		if (!result) {
+			console.error('Finalize request returned null.');
+			return;
+		}
+
+		/*
+		 * Use the solution returned by the backend when available.
+		 * Fall back to the exact solution the user selected.
+		 */
+		finalized_solution = result.final_solution ?? selectedFinalSolution;
+
+		console.log('finalized_solution after assignment:', finalized_solution);
+
+		const finalizedState = {
+			...result,
+			response_type: 'rpm.finalize' as const
+		};
+
+		mode = 'final';
+
+		addToStateHistory(finalizedState as unknown as Response);
 	}
-
-	console.log(
-		'Selected solution before finalize:',
-		selectedFinalSolution
-	);
-
-	const result = await handleFinishRequest(
-		problem,
-		selectedFinalSolution,
-		current_state.previous_preference,
-		selectedSessionId,
-		current_state.state_id
-	);
-
-	console.log(
-		'Finalize API result:',
-		result
-	);
-
-	if (!result) {
-		console.error(
-			'Finalize request returned null.'
-		);
-		return;
-	}
-
-	/*
-	 * Use the solution returned by the backend when available.
-	 * Fall back to the exact solution the user selected.
-	 */
-	finalized_solution =
-		result.final_solution ??
-		selectedFinalSolution;
-
-	console.log(
-		'finalized_solution after assignment:',
-		finalized_solution
-	);
-
-	const finalizedState = {
-		...result,
-		response_type: 'rpm.finalize' as const
-	};
-
-	mode = 'final';
-
-	addToStateHistory(
-		finalizedState as unknown as Response
-	);
-}
 	import {
 		handle_intermediate as handleIntermediateRequest,
 		handle_iterate as handleIterateRequest,
@@ -967,33 +936,30 @@
 
 	// Create a new session
 	async function createNewSession() {
-	try {
-		const created = await create_session(null);
+		try {
+			const created = await create_session(null);
 
-		if (created?.id != null) {
-			resetInteractionState();
+			if (created?.id != null) {
+				resetInteractionState();
 
-			selectedSessionId = created.id;
-			stateHistory = [];
-			currentStateIndex = -1;
-			iterationNames = {};
+				selectedSessionId = created.id;
+				stateHistory = [];
+				currentStateIndex = -1;
+				iterationNames = {};
 
-			console.log(
-				`Created RPM session: ${created.id}`
-			);
-		} else {
-			console.error(
-				'Failed to create RPM session'
-			);
+				// Initialize desired values for the same problem
+				current_preference = problem ? problem.objectives.map((obj) => obj.ideal ?? 0) : [];
+
+				current_num_iteration_solutions = 1;
+
+				console.log(`Created RPM session: ${created.id}`);
+			} else {
+				console.error('Failed to create RPM session');
+			}
+		} catch (err) {
+			console.error('Error creating RPM session:', err);
 		}
-	} catch (err) {
-		console.error(
-			'Error creating RPM session:',
-			err
-		);
 	}
-}
-
 	// Add state to history for back navigation
 	function addToStateHistory(state: Response) {
 		// Remove any future states if we're navigating from middle of history
@@ -1182,13 +1148,14 @@
 
 	let finalModeProps = $derived.by(() => ({
 		problem,
-		final_solution:finalized_solution,
+		final_solution: finalized_solution,
 		hasUtopiaMetadata,
 		mapState,
 		last_iterated_preference,
 		type_preferences,
 		perturbed_reference_point_values_for_plot: perturbed_reference_point_values_for_plot as any,
-		perturbed_reference_point_labels_for_plot
+		perturbed_reference_point_labels_for_plot,
+		onStartNewOptimization: createNewSession
 	}));
 
 	let historyModeProps = $derived.by(() => ({
