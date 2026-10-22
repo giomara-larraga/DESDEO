@@ -214,14 +214,16 @@
 		return [...orderedDimensions, ...remainingDimensions];
 	});
 
-	const { data } = $props<{
+	const {
+		data
+	}: {
 		data: {
 			refreshToken: string;
 			group: GroupPublic;
 			groupSession: GroupSessionPublic;
 			problem: ProblemInfo;
 		};
-	}>();
+	} = $props();
 
 	// User authentication
 	let userId = $auth.user?.id;
@@ -310,6 +312,7 @@
 		id: number;
 		username: string;
 		votedClusterId: number | null;
+		votedSolutionIndex: number | null;
 		hasVoted: boolean;
 		hasConfirmed: boolean;
 	};
@@ -321,10 +324,15 @@
 			const userKey = String(member.id);
 			const hasVoted = Object.prototype.hasOwnProperty.call(votes_and_confirms.votes, userKey);
 
+			const vote = hasVoted ? votes_and_confirms.votes[userKey] : null;
+
 			return {
 				id: member.id,
 				username: member.username,
-				votedClusterId: hasVoted ? votes_and_confirms.votes[userKey] : null,
+
+				votedClusterId: isConsensusPhase ? vote : null,
+				votedSolutionIndex: isDecisionPhase ? vote : null,
+
 				hasVoted,
 				hasConfirmed: confirmedIds.has(Number(member.id))
 			};
