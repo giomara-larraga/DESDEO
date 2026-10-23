@@ -1,10 +1,12 @@
 import {
-	initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
+	initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost,
+	scoreBandsMethodIterationMethodScoreBandsMethodIteratePost
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import type {
 	SCOREBandsMethodInitializeRequest,
-	SCOREBandsMethodInitializeResponse
+	SCOREBandsMethodInitializeResponse,
+	SCOREBandsMethodIterationRequest
 } from '$lib/gen/endpoints/DESDEOFastAPI';
 
 import type { ProblemInfo } from '$lib/types';
@@ -68,4 +70,23 @@ export async function handle_initialize_scorebands(
 	} finally {
 		isLoading.set(false);
 	}
+}
+
+export async function handle_iterate_scorebands(
+    request: SCOREBandsMethodIterationRequest
+) {
+    const response =
+        await scoreBandsMethodIterationMethodScoreBandsMethodIteratePost(
+            request
+        );
+
+    if (response.status !== 200) {
+        const detail = (response.data as { detail?: string })?.detail;
+
+        throw new Error(
+            detail ?? `SCORE Bands iteration failed (${response.status}).`
+        );
+    }
+
+    return response.data;
 }

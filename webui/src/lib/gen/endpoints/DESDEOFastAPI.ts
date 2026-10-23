@@ -2416,6 +2416,14 @@ export interface SCOREBandsMethodInitializeResponse {
 	result: SCOREBandsResult;
 }
 
+export interface SCOREBandsMethodIterationRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id: number;
+	selected_cluster_id: number;
+	optimization_options?: OptimizationOptions;
+}
+
 /**
  * Model of the request to calculate SCORE bands parameters.
  */
@@ -2819,6 +2827,10 @@ export type UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPo
 };
 
 export type InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostParams = {
+	problem_id?: number | null;
+};
+
+export type ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams = {
 	problem_id?: number | null;
 };
 
@@ -8455,6 +8467,67 @@ export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(sCOREBandsMethodInitializeRequest)
+		}
+	);
+};
+
+export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse200 = {
+	data: SCOREBandsMethodInitializeResponse;
+	status: 200;
+};
+
+export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseSuccess =
+	scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse200 & {
+		headers: Headers;
+	};
+export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseError =
+	scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse422 & {
+		headers: Headers;
+	};
+
+export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse =
+	| scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseSuccess
+	| scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseError;
+
+export const getScoreBandsMethodIterationMethodScoreBandsMethodIteratePostUrl = (
+	params?: ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams
+) => {
+	const normalizedParams = new URLSearchParams();
+
+	Object.entries(params || {}).forEach(([key, value]) => {
+		if (value !== undefined) {
+			normalizedParams.append(key, value === null ? 'null' : String(value));
+		}
+	});
+
+	const stringifiedParams = normalizedParams.toString();
+
+	return stringifiedParams.length > 0
+		? `http://localhost:8000/method/score_bands_method/iterate?${stringifiedParams}`
+		: `http://localhost:8000/method/score_bands_method/iterate`;
+};
+
+/**
+ * Run a new evolutionary search using a selected SCORE band.
+ * @summary Score Bands Method Iteration
+ */
+export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePost = async (
+	sCOREBandsMethodIterationRequest: SCOREBandsMethodIterationRequest,
+	params?: ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams,
+	options?: RequestInit
+): Promise<scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse> => {
+	return customFetch<scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse>(
+		getScoreBandsMethodIterationMethodScoreBandsMethodIteratePostUrl(params),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(sCOREBandsMethodIterationRequest)
 		}
 	);
 };

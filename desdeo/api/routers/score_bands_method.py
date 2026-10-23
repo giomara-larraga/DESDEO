@@ -103,12 +103,14 @@ def initialize_or_get_score_bands_method(
 
     # If no relevant state exists, proceed to calculate and persist SCORE Bands
 
-    # Check the optimization options in the request. If optimization is requested, we need to check if the problem is suitable for optimization.
-    if request.optimization_options is not None:
-        return initialize_score_bands_method_with_optimization(request, context)
-    else:
-        # If optimization is not requested, we can proceed with SCORE Bands calculation without additional checks.
-        return initialize_score_bands_method_without_optimization(request, context)
+    if request.optimization_options.optimize:
+        return initialize_score_bands_method_with_optimization(
+            request, context
+        )
+
+    return initialize_score_bands_method_without_optimization(
+        request, context
+    )
 
 
 def initialize_score_bands_method_without_optimization(
@@ -225,43 +227,77 @@ def initialize_score_bands_method_without_optimization(
 
 
 def compute_score_bands_with_optimization(
-    problem: Problem, request: SCOREBandsMethodInitializeRequest, preferred_ranges=None
+    problem: Problem,
+    request: (
+        SCOREBandsMethodInitializeRequest
+        | SCOREBandsMethodIterationRequest
+    ),
+    preferred_ranges: dict[str, tuple[float, float]] | None = None,
 ):
-    """Compute SCORE Bands using an optimization algorithm based on the request."""
-    algorithm = request.optimization_options.algorithm
-    algorithm_options = request.optimization_options.algorithm_options
+    """Solve the problem using an evolutionary algorithm."""
 
-    if algorithm is None:
-        # Use default algorithm (e.g., NSGA-III)
-        algorithm = "nsga3"
+    algorithm = request.optimization_options.algorithm or "nsga3"
+
+    if algorithm == "nsga3":
+        options = algorithms.nsga3_options()
+    elif algorithm == "rvea":
+        options = algorithms.rvea_options()
     else:
-        # Validate the specified algorithm
-        if algorithm not in ["nsga3", "rvea"]:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=(
-                    f"Invalid optimization algorithm: {algorithm}. "
-                    "Supported algorithms are 'nsga3' and 'rvea'."
-                ),
-            )
-    match algorithm:
-        case "nsga3":
-            # Set up NSGA-III optimization algorithm with provided options
-            options = algorithms.nsga3_options()
-
-        case "rvea":
-            # Set up RVEA optimization algorithm with provided options
-            options = algorithms.rvea_options()
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported optimization algorithm: {algorithm}",
+        )
 
     if preferred_ranges is not None:
-        options.preference = preference_handling.DesirableRangesOptions(
-            preferred_ranges
+        aspiration_levels = {}
+        reservation_levels = {}
+
+        for objective in problem.objectives:
+            symbol = objective.symbol
+
+            if symbol not in preferred_ranges:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Missing preferred range for {symbol}.",
+                )
+
+            lower, upper = preferred_ranges[symbol]
+
+            if lower > upper:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Invalid preferred range for {symbol}.",
+                )
+
+            if objective.maximize:
+                aspiration_levels[symbol] = upper
+                reservation_levels[symbol] = lower
+            else:
+                aspiration_levels[symbol] = lower
+                reservation_levels[symbol] = upper
+
+        options.preference = (
+            preference_handling.DesirableRangesOptions(
+                aspiration_levels=aspiration_levels,
+                reservation_levels=reservation_levels,
+            )
         )
-    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
 
-    result_optimizer = solver()
+    algorithm_options = (
+        request.optimization_options.algorithm_options or {}
+    )
 
-    return result_optimizer
+    if "number_of_vectors" in algorithm_options:
+        options.template.selection.reference_vector_options.number_of_vectors = (
+            int(algorithm_options["number_of_vectors"])
+        )
+
+    solver, extras = algorithms.emo_constructor(
+        emo_options=options,
+        problem=problem,
+    )
+
+    return solver()
 
 
 def get_dataset_from_solver_result(problem: Problem, result_optimizer):
@@ -389,13 +425,139 @@ def score_bands_method_iterate(
     return initialize_or_get_score_bands_method(request, context)
 
 
+@router.post("/iterate")
 def score_bands_method_iteration(
     request: SCOREBandsMethodIterationRequest,
     context: Annotated[
         SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
+        Depends(
+            SessionContextGuard(
+                require=[
+                    ContextField.PROBLEM,
+                    ContextField.PARENT_STATE,
+                ]
+            ).post
+        ),
     ],
 ) -> SCOREBandsMethodInitializeResponse:
-    """Perform an iteration of the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
-    # This function takes one selected band and compute new score bands based on that selection.
-    pass
+    """Run a new evolutionary search using a selected SCORE band."""
+
+    db_session = context.db_session
+    problem_db = context.problem_db
+    parent_state_db = context.parent_state
+    interactive_session = context.interactive_session
+
+    if problem_db is None or parent_state_db is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Problem or parent state is missing.",
+        )
+
+    if interactive_session is None:
+        raise HTTPException(
+            status_code=400,
+            detail="An active interactive session is required.",
+        )
+
+    if interactive_session.user_id != context.user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="The interactive session does not belong to this user.",
+        )
+
+    if (
+        parent_state_db.id != request.parent_state_id
+        or parent_state_db.problem_id != problem_db.id
+        or parent_state_db.session_id != interactive_session.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="The parent state does not belong to this session.",
+        )
+
+    parent_state = parent_state_db.state
+
+    if not isinstance(parent_state, SCOREBandsMethodState):
+        raise HTTPException(
+            status_code=400,
+            detail="The parent state is not a SCORE Bands state.",
+        )
+
+    if not request.optimization_options.optimize:
+        raise HTTPException(
+            status_code=422,
+            detail="Evolutionary optimization must be enabled.",
+        )
+
+    parent_result = parent_state.result
+
+    selected_ranges = parent_result.bands.get(
+        request.selected_cluster_id
+    )
+
+    if selected_ranges is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Band {request.selected_cluster_id} "
+                "does not exist in the parent state."
+            ),
+        )
+
+    # Use the selected band's objective ranges as preferences.
+    preferred_ranges = {
+        symbol: (float(bounds[0]), float(bounds[1]))
+        for symbol, bounds in selected_ranges.items()
+    }
+
+    problem = Problem.from_problemdb(problem_db)
+
+    # Run NSGA-III or RVEA with the selected preferences.
+    optimizer_result = compute_score_bands_with_optimization(
+        problem=problem,
+        request=request,
+        preferred_ranges=preferred_ranges,
+    )
+
+    # Extract newly generated objective values.
+    new_data, dimensions = get_dataset_from_solver_result(
+        problem,
+        optimizer_result,
+    )
+
+    if new_data.height == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="The evolutionary algorithm returned no solutions.",
+        )
+
+    # Inherit the SCORE Bands configuration from the parent.
+    scorebands_options = parent_result.options.model_copy(
+        deep=True
+    )
+
+    scorebands_options.dimensions = dimensions
+
+    # Create new SCORE Bands from the new solutions.
+    score_state, result = get_score_bands_state(
+        data=new_data,
+        scorebands_options=scorebands_options,
+    )
+
+    # Persist the new SCORE Bands state as a child of the previous one.
+    state_db = StateDB.create(
+        database_session=db_session,
+        problem_id=problem_db.id,
+        session_id=interactive_session.id,
+        parent_id=parent_state_db.id,
+        state=score_state,
+    )
+
+    db_session.add(state_db)
+    db_session.commit()
+    db_session.refresh(state_db)
+
+    return SCOREBandsMethodInitializeResponse(
+        state_id=state_db.id,
+        result=result,
+    )

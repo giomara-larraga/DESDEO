@@ -56,23 +56,14 @@ class SCOREBandsMethodInitializeResponse(BaseModel):
 
 
 class SCOREBandsMethodIterationRequest(BaseModel):
-    """Calculate and persist SCORE Bands for a discrete problem."""
-
     problem_id: int
     session_id: int | None = None
-    parent_state_id: int | None = None
+    parent_state_id: int
+    selected_cluster_id: int
+
     optimization_options: OptimizationOptions = Field(
-        default_factory=OptimizationOptions,
-        description=(
-            "Options to indicate if SCORE bands will perform optimization or not."
-        ),
+        default_factory=lambda: OptimizationOptions(
+            optimize=True,
+            algorithm="nsga3",
+        )
     )
-    relevant_solutions: list[int] = Field(
-        default_factory=list,
-        description=(
-            "A list of solution IDs that belong to a band selected by the DM. "
-            "If optimization is enabled, the ranges for each objective in the selected band will be used to constrain the optimization problem."
-            "If optimization is not enabled, the relevant solutions will be used to calculate the next set of SCORE bands."
-        ),
-    )
-    scorebands_options: SCOREBandsConfig = Field(default_factory=SCOREBandsConfig)

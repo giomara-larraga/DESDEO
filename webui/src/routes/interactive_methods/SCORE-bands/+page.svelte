@@ -40,7 +40,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
 	import { onMount } from 'svelte';
-	import type { ProblemInfo, SCOREBandsResult} from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import Alert from '$lib/components/custom/notifications/alert.svelte';
@@ -49,14 +49,12 @@
 		generateClusterColors,
 		generateAxisOptions,
 		canToggleBands,
-		canToggleMedians,
+		canToggleMedians
 	} from './helper-functions.js';
 
-	import type {
-		SCOREBandsConfig,
-	} from '$lib/gen/endpoints/DESDEOFastAPI';
+	import type { SCOREBandsConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
 
-	import { handle_initialize_scorebands } from './handlers';
+	import { handle_initialize_scorebands, handle_iterate_scorebands } from './handlers';
 	// Page data props
 	//type Problem = ProblemInfo;
 
@@ -70,8 +68,17 @@
 	// SCORE-bands state variables
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
 
-
 	let StateId: number | null = $state(null);
+
+	let isIterating = $state(false);
+
+	let explorationHistory = $state<
+		{
+			stateId: number;
+			result: SCOREBandsResult;
+			selectedParentBand: number | null;
+		}[]
+	>([]);
 
 	let SCOREBands = $derived.by(() => {
 		if (!scoreBandsResult) {
@@ -188,7 +195,7 @@
 
 	// Load data on component mount
 	onMount(async () => {
-		methodSelection.set($methodSelection.selectedProblemId, 'Explainable NIMBUS');
+		methodSelection.setMethod('SCORE-bands');
 		if ($methodSelection.selectedProblemId) {
 			problem = problem_list.find(
 				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
@@ -235,42 +242,120 @@
 		loading_error = null;
 
 		try {
-			const response =
-				await handle_initialize_scorebands(problem);
+			const response = await handle_initialize_scorebands(problem);
 
 			if (!response) {
-				loading_error =
-					'SCORE Bands did not return a result.';
+				loading_error = 'SCORE Bands did not return a result.';
 				return;
 			}
 
 			StateId = response.state_id;
 			scoreBandsResult = response.result;
 
+			explorationHistory = [
+				{
+					stateId: response.state_id,
+					result: response.result,
+					selectedParentBand: null
+				}
+			];
+
 			selected_band = null;
 			selected_axis = null;
 
 			cluster_visibility_map = Object.fromEntries(
-				Object.keys(response.result.bands).map(
-					(clusterId) => [Number(clusterId), true]
-				)
+				Object.keys(response.result.bands).map((clusterId) => [Number(clusterId), true])
 			);
 		} catch (error) {
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Unable to load SCORE Bands.';
+			const message = error instanceof Error ? error.message : 'Unable to load SCORE Bands.';
 
 			loading_error = message;
 			errorMessage.set(message);
 
-			console.error(
-				'Error fetching SCORE Bands:',
-				error
-			);
+			console.error('Error fetching SCORE Bands:', error);
 		} finally {
 			data_loaded = true;
 		}
+	}
+
+	async function iterateSelectedBand() {
+		if (isIterating || selected_band === null || StateId === null || problem === null) {
+			return;
+		}
+
+		isIterating = true;
+		errorMessage.set(null);
+
+		const bandId = selected_band;
+
+		try {
+			const response = await handle_iterate_scorebands({
+				problem_id: problem.id,
+				session_id: $methodSelection.selectedSessionId ?? null,
+				parent_state_id: StateId,
+				selected_cluster_id: bandId,
+				optimization_options: {
+					optimize: true,
+					algorithm: 'nsga3'
+				}
+			});
+
+			explorationHistory = [
+				...explorationHistory,
+				{
+					stateId: response.state_id,
+					result: response.result,
+					selectedParentBand: bandId
+				}
+			];
+
+			StateId = response.state_id;
+			scoreBandsResult = response.result;
+
+			selected_band = null;
+			selected_axis = null;
+			cluster_visibility_map = {};
+		} catch (error) {
+			errorMessage.set(error instanceof Error ? error.message : String(error));
+
+			console.error('SCORE Bands iteration failed:', error);
+		} finally {
+			isIterating = false;
+		}
+	}
+
+	function backOneLevel() {
+		if (explorationHistory.length <= 1 || isIterating) {
+			return;
+		}
+
+		explorationHistory = explorationHistory.slice(0, -1);
+
+		const previous = explorationHistory[explorationHistory.length - 1];
+
+		StateId = previous.stateId;
+		scoreBandsResult = previous.result;
+
+		selected_band = null;
+		selected_axis = null;
+		cluster_visibility_map = {};
+	}
+
+	function returnToInitialBands() {
+		if (explorationHistory.length === 0 || isIterating) {
+			return;
+		}
+
+		const initial = explorationHistory[0];
+
+		explorationHistory = [initial];
+
+		StateId = initial.stateId;
+		scoreBandsResult = initial.result;
+
+		selected_band = null;
+		selected_axis = null;
+		cluster_visibility_map = {};
 	}
 </script>
 
@@ -301,7 +386,9 @@
 				<div class="flex gap-4">
 					<!-- Header Section -->
 					<div class="font-semibold">SCORE Bands demo page</div>
-					<div>Select one band that best matches your preferred objective ranges, then click "Iterate"</div>
+					<div>
+						Select one band that best matches your preferred objective ranges, then click "Iterate"
+					</div>
 				</div>
 			</div>
 		</div>
@@ -387,9 +474,7 @@
 						class="btn btn-primary"
 						disabled={!problem || !data_loaded}
 					>
-						{data_loaded
-							? 'Recalculate Parameters'
-							: 'Calculating...'}
+						{data_loaded ? 'Recalculate Parameters' : 'Calculating...'}
 					</button>
 				</div>
 			</div>
@@ -398,7 +483,7 @@
 
 		<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
 			<!-- Controls Panel -->
-			 <aside class="space-y-4">
+			<aside class="space-y-4">
 				<div class="space-y-6 lg:col-span-1">
 					<div class="card bg-base-100 shadow-xl">
 						<div class="card-body">
@@ -526,57 +611,78 @@
 								{/if}
 
 								{#if selected_band === null && selected_axis === null}
-									<div class="mt-2 text-xs text-gray-400">Click on bands or axes to select them</div>
+									<div class="mt-2 text-xs text-gray-400">
+										Click on bands or axes to select them
+									</div>
 								{/if}
 							</div>
 						</div>
 					</div>
 
-					<!-- "Voting buttons" -->
+					<!-- Iteration Controls -->
 					<div class="card bg-base-100 shadow-xl">
 						<div class="card-body">
-							<h2 class="card-title">Voting</h2>
-							<div class="space-y-2 p-2">
+							<h2 class="card-title">Iteration</h2>
+							<div class="space-y-2">
 								<Button
-									onclick={() => {}}
-									disabled={selected_band === null}
+									class="w-full"
+									onclick={iterateSelectedBand}
+									disabled={selected_band === null || isIterating}
 								>
-									Iterate
+									{isIterating ? 'Iterating...' : 'Iterate Selected Band'}
 								</Button>
 							</div>
 						</div>
 					</div>
+
+					{#if explorationHistory.length > 1}
+						<div class="flex gap-2">
+							<Button
+								variant="outline"
+								class="flex-1"
+								onclick={backOneLevel}
+								disabled={isIterating}
+							>
+								← Back
+							</Button>
+
+							<Button
+								variant="outline"
+								class="flex-1"
+								onclick={returnToInitialBands}
+								disabled={isIterating}
+							>
+								All bands
+							</Button>
+						</div>
+					{/if}
 				</div>
 			</aside>
 
 			<!-- Visualization Area -->
 			<main class="space-y-4">
-				<div class="rounded-lg border bg-card shadow-sm">
-					
-						<div class="h-[520px] p-4">
-							
-								<ScoreBands
-									data={SCOREBands.data}
-									axisNames={SCOREBands.axisNames}
-									axisPositions={SCOREBands.axisPositions}
-									axisSigns={SCOREBands.axisSigns}
-									groups={SCOREBands.clusterIds}
-									{options}
-									bands={SCOREBands.bands}
-									medians={SCOREBands.medians}
-									scales={SCOREBands.scales}
-									clusterVisibility={cluster_visibility_map}
-									clusterColors={cluster_colors}
-									axisOptions={axis_options}
-									axisOrder={effective_axis_order}
-									onBandSelect={handle_band_select}
-									onAxisSelect={handle_axis_select}
-									selectedBand={selected_band}
-									selectedAxis={selected_axis}
-								/>
-							
-						</div>
-					
+				<div class="bg-card rounded-lg border shadow-sm">
+					<div class="h-[520px] p-4">
+						<ScoreBands
+							data={SCOREBands.data}
+							axisNames={SCOREBands.axisNames}
+							axisPositions={SCOREBands.axisPositions}
+							axisSigns={SCOREBands.axisSigns}
+							groups={SCOREBands.clusterIds}
+							{options}
+							bands={SCOREBands.bands}
+							medians={SCOREBands.medians}
+							scales={SCOREBands.scales}
+							clusterVisibility={cluster_visibility_map}
+							clusterColors={cluster_colors}
+							axisOptions={axis_options}
+							axisOrder={effective_axis_order}
+							onBandSelect={handle_band_select}
+							onAxisSelect={handle_axis_select}
+							selectedBand={selected_band}
+							selectedAxis={selected_axis}
+						/>
+					</div>
 				</div>
 			</main>
 		</div>
