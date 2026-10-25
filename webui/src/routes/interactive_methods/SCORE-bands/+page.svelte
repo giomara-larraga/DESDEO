@@ -1,86 +1,57 @@
 <script lang="ts">
-	/**
-	 * +page.svelte (Single-User SCORE-bands)
-	 *
-	 * @author Stina Palomäki <palomakistina@gmail.com>
-	 * @author Giomara Larraga <glarragw@jyu.fi>
-	 * @created December 2025
-	 * @updated August 2026
-	 *
-	 * @description
-	 * Placeholder page for single-user SCORE-bands interactive multiobjective optimization method.
-	 * This is a template/demonstration page copied from GDM-SCORE-bands and adapted for individual use.
-	 * Currently shows visualization only - actual method functionality needs to be implemented.
-	 *
-	 * @status PLACEHOLDER - For demonstration and future development
-	 * Ready for implementation by adding proper API endpoints and method logic
-	 *
-	 * @props
-	 * @property {Object} data - Contains optimization problems from server
-	 * @property {ProblemInfo[]} data.problems - Available problems for selection
-	 *
-	 * @features
-	 * - SCORE-bands visualization (demonstration)
-	 * - Configuration controls (non-functional)
-	 * - Solution table placeholder
-	 *
-	 * @todo
-	 * - Implement actual SCORE-bands method endpoints
-	 * - Add proper configuration functionality
-	 * - Connect visualization to real method results
-	 * - Implement solution selection and preference handling
-	 * - Add decision phase workflow (there is no actual decision phase in single-user, but view to handle solutions is still needed)
-	 *
-	 * @dependencies
-	 * - ScoreBands: Visualization component (works with mock data)
-	 * - ParallelCoordinates: Alternative visualization for solutions. Not used, need to add solution selection view
-	 * - ScoreBandsSolutionTable: Solution display (needs real data integration) Not used, need to add solution selection view
-	 */
-
+	/** Single-user SCORE Bands: persisted state lineage, evolutionary zoom, saved bands. */
+	import { onMount } from 'svelte';
+	import type { PageData } from './$types';
+	import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFastAPI';
 	import { Button } from '$lib/components/ui/button';
 	import ScoreBands from '$lib/components/visualizations/score-bands/score-bands.svelte';
-	import { onMount } from 'svelte';
-	import type { ProblemInfo, SCOREBandsResult } from '$lib/gen/endpoints/DESDEOFastAPI';
+	import Alert from '$lib/components/custom/notifications/alert.svelte';
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
-	import Alert from '$lib/components/custom/notifications/alert.svelte';
+	import { create_session } from '../../methods/sessions/handler';
+	import {
+		defaultScoreBandsOptions,
+		handle_initialize_scorebands,
+		handle_iterate_scorebands,
+		handle_save_scorebands,
+		handle_scorebands_history,
+		type ScoreBandsHistoryItem,
+		type ScoreBandsOptimizationOptions,
+		type ScoreBandsSavedBand,
+		type ScoreBandsResponse
+	} from './handlers';
 	import {
 		calculateScales,
 		generateClusterColors,
 		generateAxisOptions,
 		canToggleBands,
 		canToggleMedians
-	} from './helper-functions.js';
+	} from './helper-functions';
 
-	import type { SCOREBandsConfig } from '$lib/gen/endpoints/DESDEOFastAPI';
-
-	import { handle_initialize_scorebands, handle_iterate_scorebands } from './handlers';
-	// Page data props
-	//type Problem = ProblemInfo;
-
+	let { data }: { data: PageData } = $props();
 	let problem: ProblemInfo | null = $state(null);
-	const { data } = $props<{ data: ProblemInfo[] }>();
-	let problem_list = $derived(data.problems ?? []);
-
-	let data_loaded = $state(false);
-	let loading_error: string | null = $state(null);
-
-	// SCORE-bands state variables
+	let sessionId: number | null = $state(null);
+	let stateId: number | null = $state(null);
+	let viewedStateId: number | null = $state(null);
 	let scoreBandsResult: SCOREBandsResult | null = $state(null);
+	let history: ScoreBandsHistoryItem[] = $state([]);
+	let savedBands: ScoreBandsSavedBand[] = $state([]);
+	let selectedBand: number | null = $state(null);
+	let selectedAxis: number | null = $state(null);
+	let clusterVisibility: Record<number, boolean> = $state({});
 
-	let StateId: number | null = $state(null);
+	let busy = $state(false);
+	let loading = $state(true);
+	let showBands = $state(true);
+	let showMedians = $state(false);
+	let showSolutions = $state(false);
+	let quantile = $state(0.25);
+	let numClusters = $state(5);
+	let distanceParameter = $state(0.05);
+	let initialOptimization = $state(false);
+	let algorithm: 'nsga3' | 'rvea' = $state('nsga3');
 
-	let isIterating = $state(false);
-
-	let explorationHistory = $state<
-		{
-			stateId: number;
-			result: SCOREBandsResult;
-			selectedParentBand: number | null;
-		}[]
-	>([]);
-
-	let SCOREBands = $derived.by(() => {
+	let visual = $derived.by(() => {
 		if (!scoreBandsResult) {
 			return {
 				axisNames: [] as string[],
@@ -88,609 +59,556 @@
 				axisPositions: [] as number[],
 				axisSigns: [] as number[],
 				data: [] as number[][],
-				// Empty objects for pre-calculated bands and medians
-				bands: {},
-				medians: {},
-				scales: {}
+				bands: {} as SCOREBandsResult['bands'],
+				medians: {} as SCOREBandsResult['medians'],
+				scales: {} as Record<string, [number, number]>
 			};
 		}
-
-		// Type assertion to help TypeScript understand the structure
-		const result = scoreBandsResult as SCOREBandsResult;
-
-		const derivedData = {
-			// Direct mappings
+		const result = scoreBandsResult;
+		return {
 			axisNames: result.ordered_dimensions,
 			clusterIds: Object.keys(result.bands)
-				.sort((a, b) => parseInt(a) - parseInt(b))
-				.map((id) => Number(id)),
-			// Convert axis_positions dict to ordered array
-			axisPositions: result.ordered_dimensions.map(
-				(objName: string) => result.axis_positions[objName]
-			) as number[],
-
-			// Missing data - need fallbacks
-			axisSigns: new Array(result.ordered_dimensions.length).fill(1), // Default: no flipping
-			data: [], // Empty - use bands-only mode
-
-			// Pre-calculated bands and medians as original key-based structure
-			// bands[clusterId][axisName] = [minValue, maxValue] - quantile-based band limits
+				.map(Number)
+				.sort((a, b) => a - b),
+			axisPositions: result.ordered_dimensions.map((name) => result.axis_positions[name]),
+			axisSigns: result.ordered_dimensions.map(() => 1),
+			data: [] as number[][],
 			bands: result.bands,
-			// medians[clusterId][axisName] = medianValue - median values per cluster per axis
 			medians: result.medians,
-			// scales[axisName] = [minValue, maxValue] - normalization scales for converting raw values to [0,1]
 			scales: calculateScales(problem, result)
 		};
+	});
+	let colors = $derived(generateClusterColors(visual.clusterIds));
+	let axisOptions = $derived(generateAxisOptions(visual.axisNames));
+	let options = $derived({
+		bands: showBands,
+		medians: showMedians,
+		solutions: showSolutions,
+		quantile
+	});
+	let currentGenerationId = $derived(viewedStateId);
+	let isSaved = $derived(
+		selectedBand !== null &&
+			savedBands.some(
+				(band) => band.source_state_id === currentGenerationId && band.cluster_id === selectedBand
+			)
+	);
+	let selectedRanges = $derived(
+		selectedBand === null || !scoreBandsResult
+			? null
+			: ((scoreBandsResult.bands as Record<string, Record<string, [number, number]>>)[
+					String(selectedBand)
+				] ?? null)
+	);
 
-		return derivedData;
+	let historyWithDepth = $derived.by(() => {
+		const depths = new Map<number, number>();
+
+		return history.map((item) => {
+			const parentDepth =
+				item.parent_state_id === null ? -1 : (depths.get(item.parent_state_id) ?? 0);
+
+			const depth = parentDepth + 1;
+
+			depths.set(item.state_id, depth);
+
+			return { ...item, depth };
+		});
 	});
 
-	// Reactive options with checkboxes
-	let show_bands = $state(true);
-	let show_solutions = $state(false); // Disabled for now - no individual solutions
-	let show_medians = $state(false); // Hide medians by default
-	let quantile_value = $state(0.95);
+	let parentViewedStateId = $derived(
+		history.find((item) => item.state_id === viewedStateId)?.parent_state_id ?? null
+	);
 
-	// Score bands calculation parameters
-	let dist_parameter = $state(0.05);
-	let use_absolute_corr = $state(false);
-	let distance_formula = $state(1); // 1 for euclidean, 2 for manhattan
-	let flip_axes = $state(true);
-	let clustering_algorithm = $state('DBSCAN'); // 'DBSCAN' or 'GMM'
-	let clustering_score = $state('silhouette'); // Note: This is the correct spelling used in DESDEO
+	let initialGenerationStateId = $derived(
+		history.find((item) => item.action === 'initialize')?.state_id ?? null
+	);
 
-	let options = $derived.by(() => {
-		return {
-			bands: show_bands,
-			solutions: show_solutions,
-			medians: show_medians,
-			quantile: quantile_value
-		};
-	});
-
-	// Cluster visibility controls - dynamically generated based on data
-	let cluster_visibility_map: Record<number, boolean> = $state({});
-
-	// Helper function to initialize all clusters as visible
-	function clusters_to_visible() {
-		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
-			SCOREBands.clusterIds.forEach((clusterId) => {
-				cluster_visibility_map[clusterId] = true;
-			});
-		}
+	function showResult(result: SCOREBandsResult) {
+		scoreBandsResult = result;
+		selectedBand = null;
+		selectedAxis = null;
+		clusterVisibility = Object.fromEntries(
+			Object.keys(result.bands).map((id) => [Number(id), true])
+		);
 	}
 
-	// Update cluster visibility when groups data changes
-	$effect(() => {
-		if (SCOREBands && SCOREBands.clusterIds.length > 0) {
-			// Initialize all clusters as visible if not already set
-			SCOREBands.clusterIds.forEach((clusterId) => {
-				if (!(clusterId in cluster_visibility_map)) {
-					cluster_visibility_map[clusterId] = true;
-				}
-			});
-			// Remove clusters that no longer exist in the data
-			Object.keys(cluster_visibility_map).forEach((clusterId) => {
-				if (!SCOREBands.clusterIds.includes(Number(clusterId))) {
-					delete cluster_visibility_map[Number(clusterId)];
-				}
-			});
-		}
-	});
+	function saveInitial(response: ScoreBandsResponse) {
+		sessionId = response.session_id;
+		stateId = response.state_id;
+		history = response.history;
+		savedBands = response.saved_bands;
 
-	// Axis order control
-	let custom_axis_order: number[] = $state([]);
-	let use_custom_order = $state(false);
+		const latestGeneration = response.history.at(-1);
 
-	// For SCORE bands, the axisNames from the result are already in optimal order,
-	// so we use the default sequential order [0, 1, 2, ...] unless custom order is specified
-	let effective_axis_order = $derived.by(() => {
-		const axisCount = SCOREBands.axisNames.length;
-		if (use_custom_order && custom_axis_order.length === axisCount) {
-			return custom_axis_order;
-		}
-		// Default sequential order [0, 1, 2, ...] is counted in component, no need here
-		return [];
-	});
+		viewedStateId = latestGeneration?.state_id ?? response.state_id;
 
-	// Load data on component mount
-	onMount(async () => {
-		methodSelection.setMethod('SCORE-bands');
-		if ($methodSelection.selectedProblemId) {
-			problem = problem_list.find(
-				(p: ProblemInfo) => String(p.id) === String($methodSelection.selectedProblemId)
+		methodSelection.setSession(response.session_id, $methodSelection.selectedSessionInfo);
+
+		showResult(response.result);
+	}
+
+	function initialOptions() {
+		const result = defaultScoreBandsOptions();
+		result.clustering_algorithm = { name: 'KMeans', n_clusters: numClusters };
+		result.distance_parameter = distanceParameter;
+		result.interval_size = quantile;
+		return result;
+	}
+
+	async function initializeProblem(selectedSessionId: number | null) {
+		if (!problem) return;
+		busy = true;
+		errorMessage.set(null);
+		try {
+			const response = await handle_initialize_scorebands(
+				problem,
+				selectedSessionId,
+				initialOptions(),
+				{ optimize: initialOptimization, algorithm }
 			);
-			if (problem) {
-				await fetch_score_bands();
-			}
+			saveInitial(response);
+		} catch (error) {
+			errorMessage.set(error instanceof Error ? error.message : String(error));
+		} finally {
+			busy = false;
+			loading = false;
 		}
-	});
-
-	let cluster_colors = $derived(
-		SCOREBands.clusterIds.length > 0 ? generateClusterColors(SCOREBands.clusterIds) : {}
-	);
-
-	let axis_options = $derived(
-		SCOREBands.axisNames.length > 0 ? generateAxisOptions(SCOREBands.axisNames) : []
-	);
-
-	// Selection state
-	let selected_band: number | null = $state(null);
-	let selected_axis: number | null = $state(null);
-
-	let selected_solution: number | null = $state(null);
-
-	// Selection handlers
-	function handle_band_select(clusterId: number | null) {
-		selected_band = clusterId;
 	}
 
-	function handle_axis_select(axisIndex: number | null) {
-		selected_axis = axisIndex;
-	}
-
-	async function fetch_score_bands() {
+	onMount(() => {
+		methodSelection.setMethod('SCORE-bands');
+		const chosen = $methodSelection.selectedProblemId;
+		problem = (data.problems ?? []).find((item) => item.id === chosen) ?? null;
+		// No discrete representation: initialization must compute an
+		// unpreferenced evolutionary approximation of the Pareto front.
+		initialOptimization = problem?.discrete_representation == null;
 		if (!problem) {
-			const message = 'No problem selected.';
-
-			loading_error = message;
-			errorMessage.set(message);
+			errorMessage.set('Select a problem before opening SCORE Bands.');
+			loading = false;
 			return;
 		}
-
-		data_loaded = false;
-		loading_error = null;
-
-		try {
-			const response = await handle_initialize_scorebands(problem);
-
-			if (!response) {
-				loading_error = 'SCORE Bands did not return a result.';
-				return;
-			}
-
-			StateId = response.state_id;
-			scoreBandsResult = response.result;
-
-			explorationHistory = [
-				{
-					stateId: response.state_id,
-					result: response.result,
-					selectedParentBand: null
-				}
-			];
-
-			selected_band = null;
-			selected_axis = null;
-
-			cluster_visibility_map = Object.fromEntries(
-				Object.keys(response.result.bands).map((clusterId) => [Number(clusterId), true])
-			);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unable to load SCORE Bands.';
-
-			loading_error = message;
-			errorMessage.set(message);
-
-			console.error('Error fetching SCORE Bands:', error);
-		} finally {
-			data_loaded = true;
-		}
-	}
+		void initializeProblem($methodSelection.selectedSessionId);
+	});
 
 	async function iterateSelectedBand() {
-		if (isIterating || selected_band === null || StateId === null || problem === null) {
+		if (busy || !problem || sessionId === null || viewedStateId === null || selectedBand === null) {
 			return;
 		}
-
-		isIterating = true;
+		busy = true;
 		errorMessage.set(null);
-
-		const bandId = selected_band;
-
+		const opt: ScoreBandsOptimizationOptions = { optimize: true, algorithm };
 		try {
 			const response = await handle_iterate_scorebands({
 				problem_id: problem.id,
-				session_id: $methodSelection.selectedSessionId ?? null,
-				parent_state_id: StateId,
-				selected_cluster_id: bandId,
-				optimization_options: {
-					optimize: true,
-					algorithm: 'nsga3'
-				}
+				session_id: sessionId,
+				parent_state_id: viewedStateId,
+				preference: { preference_type: 'score_bands.band', cluster_id: selectedBand },
+				optimization_options: opt
 			});
-
-			explorationHistory = [
-				...explorationHistory,
-				{
-					stateId: response.state_id,
-					result: response.result,
-					selectedParentBand: bandId
-				}
-			];
-
-			StateId = response.state_id;
-			scoreBandsResult = response.result;
-
-			selected_band = null;
-			selected_axis = null;
-			cluster_visibility_map = {};
+			saveInitial(response);
 		} catch (error) {
 			errorMessage.set(error instanceof Error ? error.message : String(error));
-
-			console.error('SCORE Bands iteration failed:', error);
 		} finally {
-			isIterating = false;
+			busy = false;
 		}
 	}
 
-	function backOneLevel() {
-		if (explorationHistory.length <= 1 || isIterating) {
+	async function toggleSavedBand() {
+		if (
+			busy ||
+			!problem ||
+			sessionId === null ||
+			stateId === null ||
+			viewedStateId === null ||
+			selectedBand === null
+		) {
 			return;
 		}
+		busy = true;
+		errorMessage.set(null);
+		try {
+			const response = await handle_save_scorebands({
+				problem_id: problem.id,
+				session_id: sessionId,
+				parent_state_id: stateId,
+				preference: { preference_type: 'score_bands.band', cluster_id: selectedBand },
+				save: !isSaved,
+				name: `Band ${selectedBand}`,
+				source_state_id: viewedStateId
+			});
+			stateId = response.state_id;
+			savedBands = response.saved_bands;
 
-		explorationHistory = explorationHistory.slice(0, -1);
-
-		const previous = explorationHistory[explorationHistory.length - 1];
-
-		StateId = previous.stateId;
-		scoreBandsResult = previous.result;
-
-		selected_band = null;
-		selected_axis = null;
-		cluster_visibility_map = {};
+			// The current SCORE Bands visualization and zoom history do not change.
+		} catch (error) {
+			errorMessage.set(error instanceof Error ? error.message : String(error));
+		} finally {
+			busy = false;
+		}
 	}
 
-	function returnToInitialBands() {
-		if (explorationHistory.length === 0 || isIterating) {
+	async function removeSavedBand(band: ScoreBandsSavedBand) {
+		if (busy || !problem || sessionId === null || stateId === null) return;
+		busy = true;
+		errorMessage.set(null);
+		try {
+			const response = await handle_save_scorebands({
+				problem_id: problem.id,
+				session_id: sessionId,
+				parent_state_id: stateId,
+				preference: { preference_type: 'score_bands.band', cluster_id: band.cluster_id },
+				save: false,
+				source_state_id: band.source_state_id
+			});
+			stateId = response.state_id;
+			savedBands = response.saved_bands;
+		} catch (error) {
+			errorMessage.set(error instanceof Error ? error.message : String(error));
+		} finally {
+			busy = false;
+		}
+	}
+
+	function navigateTo(targetStateId: number) {
+		if (busy) return;
+
+		const item = history.find((entry) => entry.state_id === targetStateId);
+
+		if (!item) {
+			errorMessage.set('History state not found.');
 			return;
 		}
 
-		const initial = explorationHistory[0];
+		viewedStateId = item.state_id;
+		showResult(item.result);
+	}
 
-		explorationHistory = [initial];
-
-		StateId = initial.stateId;
-		scoreBandsResult = initial.result;
-
-		selected_band = null;
-		selected_axis = null;
-		cluster_visibility_map = {};
+	async function createNewScoreBandsSession() {
+		if (busy || !problem) return;
+		busy = true;
+		errorMessage.set(null);
+		try {
+			const created = await create_session(`SCORE Bands — problem ${problem.id}`);
+			if (created?.id == null) throw new Error('Failed to create an interactive session.');
+			methodSelection.setSession(created.id, created.info ?? null);
+			await initializeProblem(created.id);
+		} catch (error) {
+			errorMessage.set(error instanceof Error ? error.message : String(error));
+		} finally {
+			busy = false;
+		}
 	}
 </script>
 
 <svelte:head>
-	<title>SCORE-bands Method | DESDEO</title>
-	<meta name="description" content="SCORE-bands interactive multiobjective optimization method" />
+	<title>SCORE Bands | DESDEO</title>
+	<meta name="description" content="Individual interactive SCORE Bands evolutionary optimization" />
 </svelte:head>
 
-<div class="container mx-auto p-6">
+<div class="container mx-auto space-y-4 p-4">
 	{#if $errorMessage}
-		<Alert title="Error" message={$errorMessage} variant="destructive" />
+		<Alert title="SCORE Bands error" message={$errorMessage} variant="destructive" />
 	{/if}
 
-	{#if !data_loaded}
-		<div class="flex h-96 items-center justify-center">
-			<div class="text-center">
-				<div class="loading loading-spinner loading-lg"></div>
-				<p class="mt-4">Loading data...</p>
-				{#if loading_error}
-					<p class="text-error mt-2">Error: {loading_error}</p>
-				{/if}
-			</div>
-		</div>
-	{:else}
-		<!-- Header and Instructions -->
+	<header class="flex flex-wrap items-start justify-between gap-3">
 		<div>
-			<div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-5">
-				<div class="flex gap-4">
-					<!-- Header Section -->
-					<div class="font-semibold">SCORE Bands demo page</div>
-					<div>
-						Select one band that best matches your preferred objective ranges, then click "Iterate"
-					</div>
-				</div>
-			</div>
+			<h1 class="text-2xl font-semibold">SCORE Bands</h1>
+			<p class="text-muted-foreground text-sm">
+				Select a band to guide a new evolutionary search. Saved bands and all iterations are stored
+				in your session.
+			</p>
+			{#if sessionId !== null}
+				<p class="text-muted-foreground text-xs">
+					Session {sessionId}
+					· Viewing state {viewedStateId ?? '—'}
+					· Latest saved state {stateId ?? '—'}
+					· {history.length} generations
+				</p>
+			{/if}
 		</div>
+		<Button variant="outline" onclick={createNewScoreBandsSession} disabled={!problem || busy}>
+			New SCORE Bands session
+		</Button>
+	</header>
 
-		<!-- Parameter Controls -->
-		<div class="card bg-base-100 mb-6 shadow-xl">
-			<div class="card-body">
-				<h3 class="card-title">Score Bands Parameters</h3>
-				<div class="grid grid-cols-2 gap-4">
-					<div class="form-control">
-						<label for="dist_parameter" class="label">
-							<span class="label-text">Distance Parameter</span>
-						</label>
+	{#if loading}
+		<div class="py-20 text-center">Loading SCORE Bands...</div>
+	{:else if !problem}
+		<p>Select a problem from the Methods page.</p>
+	{:else}
+		<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
+			<aside class="space-y-4">
+				<section class="space-y-3 rounded-lg border p-4">
+					<h2 class="font-semibold">Visualization</h2>
+					<label class="flex items-center justify-between gap-2 text-sm">
+						Show bands
 						<input
-							id="dist_parameter"
+							type="checkbox"
+							bind:checked={showBands}
+							disabled={!canToggleBands(showBands, showMedians, showSolutions)}
+						/>
+					</label>
+					<label class="flex items-center justify-between gap-2 text-sm">
+						Show medians
+						<input
+							type="checkbox"
+							bind:checked={showMedians}
+							disabled={!canToggleMedians(showBands, showMedians, showSolutions)}
+						/>
+					</label>
+					<label
+						class="text-muted-foreground flex items-center justify-between gap-2 text-sm"
+						title="Individual solutions require a separate visualization"
+					>
+						Show individual solutions
+						<input type="checkbox" bind:checked={showSolutions} disabled />
+					</label>
+					<div class="text-muted-foreground text-xs">
+						Bands are recalculated from a new evolutionary population at every zoom.
+					</div>
+				</section>
+
+				<section class="space-y-3 rounded-lg border p-4">
+					<h2 class="font-semibold">Optimization setup</h2>
+					<label class="block text-sm">
+						Evolutionary algorithm
+						<select class="mt-1 w-full rounded border p-2" bind:value={algorithm} disabled={busy}>
+							<option value="nsga3">NSGA-III</option>
+							<option value="rvea">RVEA</option>
+						</select>
+					</label>
+					<label class="flex items-center justify-between gap-2 text-sm">
+						Optimize initial population
+						<input
+							type="checkbox"
+							bind:checked={initialOptimization}
+							disabled={busy || problem?.discrete_representation == null}
+						/>
+					</label>
+					<label class="block text-sm">
+						Number of initial clusters
+						<input
+							class="mt-1 w-full rounded border p-2"
 							type="number"
-							bind:value={dist_parameter}
+							min="2"
+							max="20"
+							bind:value={numClusters}
+							disabled={busy}
+						/>
+					</label>
+					<label class="block text-sm">
+						Distance parameter
+						<input
+							class="mt-1 w-full rounded border p-2"
+							type="number"
+							step="0.01"
 							min="0"
 							max="1"
-							step="0.1"
-							class="input input-bordered"
+							bind:value={distanceParameter}
+							disabled={busy}
 						/>
-					</div>
-					<div class="form-control">
-						<label for="distance_formula" class="label">
-							<span class="label-text">Distance Formula</span>
-						</label>
-						<select
-							id="distance_formula"
-							bind:value={distance_formula}
-							class="select select-bordered"
-						>
-							<option value={1}>Euclidean</option>
-							<option value={2}>Manhattan</option>
-						</select>
-					</div>
-					<div class="form-control">
-						<label for="clustering_algorithm" class="label">
-							<span class="label-text">Clustering Algorithm</span>
-						</label>
-						<select
-							id="clustering_algorithm"
-							bind:value={clustering_algorithm}
-							class="select select-bordered"
-						>
-							<option value="DBSCAN">DBSCAN</option>
-							<option value="GMM">GMM</option>
-						</select>
-					</div>
-					<div class="form-control">
-						<label for="clustering_score" class="label">
-							<span class="label-text">Clustering Score</span>
-						</label>
-						<select
-							id="clustering_score"
-							bind:value={clustering_score}
-							class="select select-bordered"
-						>
-							<option value="silhoutte">Silhouette</option>
-							<option value="BIC">BIC</option>
-						</select>
-					</div>
-				</div>
-				<div class="mt-4 flex items-center gap-4">
-					<label class="label cursor-pointer">
-						<input
-							type="checkbox"
-							bind:checked={use_absolute_corr}
-							class="checkbox checkbox-primary mr-2"
-						/>
-						<span class="label-text">Use Absolute Correlation</span>
 					</label>
-					<label class="label cursor-pointer">
-						<input
-							type="checkbox"
-							bind:checked={flip_axes}
-							class="checkbox checkbox-primary mr-2"
-						/>
-						<span class="label-text">Flip Axes</span>
-					</label>
-					<button
-						onclick={fetch_score_bands}
-						class="btn btn-primary"
-						disabled={!problem || !data_loaded}
-					>
-						{data_loaded ? 'Recalculate Parameters' : 'Calculating...'}
-					</button>
-				</div>
-			</div>
-		</div>
-		<!-- LEARNING PHASE: Existing SCORE Bands Content -->
+					{#if problem?.discrete_representation == null}
+						<p class="text-muted-foreground text-xs">
+							No precomputed discrete front is available. Initialization automatically runs {algorithm.toUpperCase()}
+							without preferences to approximate the Pareto front. Selecting a band later guides the next
+							optimization run.
+						</p>
+					{:else}
+						<p class="text-muted-foreground text-xs">
+							Initialization uses the existing discrete solutions unless you enable evolutionary
+							optimization.
+						</p>
+					{/if}
+					<p class="text-muted-foreground text-xs">
+						Initial options apply when creating a new session; resume always uses stored states.
+					</p>
+				</section>
 
-		<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
-			<!-- Controls Panel -->
-			<aside class="space-y-4">
-				<div class="space-y-6 lg:col-span-1">
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Visualization Options</h2>
+				<section class="space-y-3 rounded-lg border p-4">
+					<h2 class="font-semibold">Visible bands</h2>
+					{#each visual.clusterIds as clusterId}
+						<label class="flex items-center justify-between gap-2 text-sm">
+							<span class="flex items-center gap-2">
+								<span
+									class="inline-block h-3 w-3 rounded"
+									style={`background-color:${colors[clusterId] || '#888'}`}
+								></span>
+								Band {clusterId}
+							</span>
+							<input type="checkbox" bind:checked={clusterVisibility[clusterId]} />
+						</label>
+					{/each}
+					{#if !visual.clusterIds.length}<p class="text-muted-foreground text-sm">
+							No bands generated.
+						</p>{/if}
+				</section>
 
-							<!-- Display Options -->
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text">Show Bands</span>
-									<input
-										type="checkbox"
-										bind:checked={show_bands}
-										disabled={!canToggleBands(show_bands, show_medians, show_solutions)}
-										class="checkbox checkbox-primary"
-										title={canToggleBands(show_bands, show_medians, show_solutions)
-											? ''
-											: 'At least one visualization option must remain active'}
-									/>
-								</label>
-							</div>
+				<section class="space-y-2 rounded-lg border p-4">
+					<h2 class="font-semibold">Exploration history</h2>
 
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text text-gray-500">Show Solutions</span>
-									<input
-										type="checkbox"
-										bind:checked={show_solutions}
-										disabled={true}
-										class="checkbox checkbox-primary"
-										title="Individual solutions are not available"
-									/>
-								</label>
-							</div>
+					<p class="text-muted-foreground text-xs">
+						Select any generation to view it. Exploring one of its bands creates a new branch.
+					</p>
 
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text">Show Medians</span>
-									<input
-										type="checkbox"
-										bind:checked={show_medians}
-										disabled={!canToggleMedians(show_bands, show_medians, show_solutions)}
-										class="checkbox checkbox-primary"
-										title={canToggleMedians(show_bands, show_medians, show_solutions)
-											? ''
-											: 'At least one visualization option must remain active'}
-									/>
-								</label>
-							</div>
-
-							<!-- Quantile Slider -->
-							<div class="form-control">
-								<label for="quantile_slider" class="label">
-									<span class="label-text">Quantile: {quantile_value}</span>
-								</label>
-								<input
-									id="quantile_slider"
-									type="range"
-									min="0.1"
-									max="0.5"
-									step="0.05"
-									bind:value={quantile_value}
-									class="range range-primary"
-									title="Adjust quantile to change band width (triggers API call)"
-								/>
-								<div class="flex w-full justify-between px-2 text-xs">
-									<span>0.1</span>
-									<span>0.3</span>
-									<span>0.5</span>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Cluster Visibility -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Cluster Visibility</h2>
-
-							{#each SCOREBands.clusterIds as clusterId}
-								<div class="form-control">
-									<label class="label cursor-pointer">
-										<span class="label-text">
-											<span
-												class="inline-block h-4 w-4 rounded"
-												style="background-color: {cluster_colors[clusterId] || '#000000'};"
-											></span>
-											Cluster {clusterId}
-										</span>
-										<input
-											type="checkbox"
-											bind:checked={cluster_visibility_map[clusterId]}
-											class="checkbox checkbox-primary"
-										/>
-									</label>
-								</div>
-							{/each}
-
-							{#if SCOREBands.clusterIds.length === 0}
-								<p class="text-sm text-gray-500">No clusters available</p>
+					{#each historyWithDepth as item (item.state_id)}
+						<button
+							class={`block rounded border p-2 text-left text-sm
+                ${
+									viewedStateId === item.state_id
+										? 'border-primary bg-primary/10 font-medium'
+										: 'hover:bg-muted'
+								}`}
+							style={`margin-left: ${item.depth * 16}px;
+                width: calc(100% - ${item.depth * 16}px);`}
+							disabled={busy}
+							onclick={() => navigateTo(item.state_id)}
+						>
+							{#if item.depth > 0}
+								↳
 							{/if}
-						</div>
-					</div>
 
-					<!-- Selection Info -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Selection</h2>
-							<div class="space-y-2">
-								{#if selected_band !== null}
-									<div class="alert alert-info">
-										<span class="font-medium">Band {selected_band} selected</span>
-									</div>
-								{:else}
-									<div class="text-sm text-gray-500">No band selected</div>
-								{/if}
+							{#if item.action === 'initialize'}
+								Initial bands
+							{:else}
+								Explored band {item.selected_cluster_id}
+							{/if}
 
-								{#if selected_axis !== null}
-									<div class="alert alert-warning">
-										<span class="font-medium"
-											>Axis "{SCOREBands.axisNames[selected_axis] || 'Unknown'}" selected</span
-										>
-									</div>
-								{:else}
-									<div class="text-sm text-gray-500">No axis selected</div>
-								{/if}
+							<span class="text-muted-foreground text-xs">
+								(State {item.state_id})
+							</span>
 
-								{#if selected_band === null && selected_axis === null}
-									<div class="mt-2 text-xs text-gray-400">
-										Click on bands or axes to select them
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
+							{#if viewedStateId === item.state_id}
+								<span class="text-xs font-semibold"> · Viewing </span>
+							{/if}
+						</button>
+					{/each}
 
-					<!-- Iteration Controls -->
-					<div class="card bg-base-100 shadow-xl">
-						<div class="card-body">
-							<h2 class="card-title">Iteration</h2>
-							<div class="space-y-2">
-								<Button
-									class="w-full"
-									onclick={iterateSelectedBand}
-									disabled={selected_band === null || isIterating}
-								>
-									{isIterating ? 'Iterating...' : 'Iterate Selected Band'}
-								</Button>
-							</div>
-						</div>
-					</div>
-
-					{#if explorationHistory.length > 1}
-						<div class="flex gap-2">
+					{#if history.length > 1}
+						<div class="flex flex-wrap gap-2 pt-2">
 							<Button
 								variant="outline"
-								class="flex-1"
-								onclick={backOneLevel}
-								disabled={isIterating}
+								disabled={busy || parentViewedStateId === null}
+								onclick={() => {
+									if (parentViewedStateId !== null) {
+										navigateTo(parentViewedStateId);
+									}
+								}}
 							>
-								← Back
+								Back
 							</Button>
 
 							<Button
 								variant="outline"
-								class="flex-1"
-								onclick={returnToInitialBands}
-								disabled={isIterating}
+								disabled={busy || initialGenerationStateId === null}
+								onclick={() => {
+									if (initialGenerationStateId !== null) {
+										navigateTo(initialGenerationStateId);
+									}
+								}}
 							>
 								All bands
 							</Button>
 						</div>
 					{/if}
-				</div>
+				</section>
 			</aside>
 
-			<!-- Visualization Area -->
-			<main class="space-y-4">
-				<div class="bg-card rounded-lg border shadow-sm">
-					<div class="h-[520px] p-4">
-						<ScoreBands
-							data={SCOREBands.data}
-							axisNames={SCOREBands.axisNames}
-							axisPositions={SCOREBands.axisPositions}
-							axisSigns={SCOREBands.axisSigns}
-							groups={SCOREBands.clusterIds}
-							{options}
-							bands={SCOREBands.bands}
-							medians={SCOREBands.medians}
-							scales={SCOREBands.scales}
-							clusterVisibility={cluster_visibility_map}
-							clusterColors={cluster_colors}
-							axisOptions={axis_options}
-							axisOrder={effective_axis_order}
-							onBandSelect={handle_band_select}
-							onAxisSelect={handle_axis_select}
-							selectedBand={selected_band}
-							selectedAxis={selected_axis}
-						/>
-					</div>
+			<main class="min-w-0 space-y-4">
+				<div class="rounded-lg border p-3">
+					{#if scoreBandsResult}
+						<div class="h-[520px]">
+							<ScoreBands
+								data={visual.data}
+								axisNames={visual.axisNames}
+								axisPositions={visual.axisPositions}
+								axisSigns={visual.axisSigns}
+								groups={visual.clusterIds}
+								{options}
+								bands={visual.bands}
+								medians={visual.medians}
+								scales={visual.scales}
+								{clusterVisibility}
+								clusterColors={colors}
+								{axisOptions}
+								axisOrder={[]}
+								onBandSelect={(id: number | null) => (selectedBand = id)}
+								onAxisSelect={(id: number | null) => (selectedAxis = id)}
+								{selectedBand}
+								{selectedAxis}
+							/>
+						</div>
+					{:else}
+						<p class="py-20 text-center text-sm">
+							No SCORE Bands result yet. Check the error above or create a new session.
+						</p>
+					{/if}
 				</div>
 			</main>
+
+			<aside class="space-y-4">
+				<section class="space-y-3 rounded-lg border p-4">
+					<h2 class="font-semibold">Selected band</h2>
+					{#if selectedBand !== null}
+						<p class="text-sm font-medium">Band {selectedBand}</p>
+						<p class="text-muted-foreground text-xs">
+							Objective preferences for the next evolutionary iteration:
+						</p>
+						{#if selectedRanges}
+							<div class="space-y-1">
+								{#each Object.entries(selectedRanges) as [name, bounds]}
+									<div class="flex justify-between gap-3 text-xs">
+										<span>{name}</span>
+										<span class="text-right"
+											>{bounds[0].toPrecision(4)} – {bounds[1].toPrecision(4)}</span
+										>
+									</div>
+								{/each}
+							</div>
+						{/if}
+						<Button class="w-full" onclick={iterateSelectedBand} disabled={busy}>
+							{busy ? 'Working...' : 'Explore band with evolutionary optimization'}
+						</Button>
+						<Button class="w-full" variant="outline" onclick={toggleSavedBand} disabled={busy}>
+							{isSaved ? 'Remove saved band' : 'Save band'}
+						</Button>
+					{:else}
+						<p class="text-muted-foreground text-sm">
+							Click a band in the visualization to see its objective ranges and explore it.
+						</p>
+					{/if}
+				</section>
+
+				<section class="space-y-3 rounded-lg border p-4">
+					<h2 class="font-semibold">Saved bands ({savedBands.length})</h2>
+					{#each savedBands as band}
+						<div class="rounded border p-2 text-sm">
+							<div class="font-medium">{band.name ?? `Band ${band.cluster_id}`}</div>
+							<div class="text-muted-foreground text-xs">
+								From state {band.source_state_id}, band {band.cluster_id}
+							</div>
+							<button
+								class="mt-1 text-xs underline disabled:opacity-50"
+								disabled={busy}
+								onclick={() => removeSavedBand(band)}>Remove saved band</button
+							>
+							<div class="mt-1 space-y-1">
+								{#each Object.entries(band.preferred_ranges) as [symbol, interval]}
+									<div class="flex justify-between gap-2 text-xs">
+										<span>{symbol}</span><span
+											>{interval[0].toPrecision(4)} – {interval[1].toPrecision(4)}</span
+										>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+					{#if savedBands.length === 0}
+						<p class="text-muted-foreground text-sm">No bands saved in this session.</p>
+					{/if}
+				</section>
+			</aside>
 		</div>
 	{/if}
 </div>
-
-<style>
-	:global(.container) {
-		max-width: 100%;
-	}
-</style>

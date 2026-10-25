@@ -1,563 +1,627 @@
-import copy
-import logging
+"""Stateful, single-user SCORE Bands method.
+
+Routes:
+  POST /initialize  - resume the latest state, or create the first state
+  POST /iterate     - optimize using selected band ranges; save a child state
+  POST /save        - save/unsave a band; save a child state
+  GET  /history     - restore the current lineage after a reload
+
+The existing /session/new endpoint remains the shared way to create sessions;
+/initialize also creates a session when the user has none, for direct navigation.
+"""
 
 from typing import Annotated
 
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from sqlmodel import Session, select
 
 from desdeo.api.db import get_session
-from desdeo.api.models.problem import ProblemDB
+from desdeo.api.models import SCOREBandsMethodState, StateDB
+from desdeo.api.models.generic_states import StateKind
 from desdeo.api.models.session import InteractiveSessionDB
 from desdeo.api.models.user import User
-from desdeo.api.routers.gdm.utils import check_decision_maker
 from desdeo.api.routers.user_authentication import get_current_user
-from desdeo.emo import algorithms, preference_handling
-
-
-from desdeo.api.models import (
-    SCOREBandsMethodState,
-    StateDB,
-)
-from desdeo.api.routers.utils import (
-    ContextField,
-    SessionContext,
-    SessionContextGuard,
-)
-from desdeo.emo.operators.selection import ReferenceVectorOptions
-from desdeo.problem import Problem
-from desdeo.tools.score_bands import score_json
-
+from desdeo.api.routers.utils import fetch_problem_with_role_check
 from desdeo.api.models.score_bands_method import (
+    SCOREBandsBandPreference,
+    SCOREBandsMethodHistoryItem,
+    SCOREBandsMethodHistoryResponse,
     SCOREBandsMethodInitializeRequest,
-    SCOREBandsMethodInitializeResponse,
     SCOREBandsMethodIterationRequest,
+    SCOREBandsMethodResponse,
+    SCOREBandsMethodSaveRequest,
+    SCOREBandsMethodSaveResponse,
+    SCOREBandsOptimizationOptions,
+    SCOREBandsSavedBand,
+)
+from desdeo.emo import algorithms, preference_handling
+from desdeo.problem import Problem
+from desdeo.tools.score_bands import SCOREBandsConfig, score_json
+
+router = APIRouter(prefix="/method/score_bands_method", tags=["SCORE Bands Method"])
+
+SCORE_KINDS = (
+    StateKind.SCORE_BANDS_METHOD_INITIALIZE,
+    StateKind.SCORE_BANDS_METHOD_ITERATE,
+    StateKind.SCORE_BANDS_METHOD_SAVE,
 )
 
-logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/method/score_bands_method")
+
+def _problem(user: User, db: Session, problem_id: int):
+    problem_db = fetch_problem_with_role_check(user, problem_id, db)
+    if problem_db is None:
+        raise HTTPException(status_code=404, detail="Problem not found or not accessible.")
+    return problem_db
 
 
-def get_objective_ranges(problem: Problem, relevant_solutions):
-    """Get the ranges for each objective from the relevant solutions."""
-    objective_ranges = {}
-    for objective in problem.objectives:
-        symbol = objective.symbol
-        if symbol in relevant_solutions:
-            values = relevant_solutions[symbol]
-            objective_ranges[symbol] = [min(values), max(values)]
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Objective {symbol} not found in relevant solutions.",
+def _session(user: User, db: Session, session_id: int | None, *, create: bool):
+    requested = session_id if session_id is not None else user.active_session_id
+    found = db.get(InteractiveSessionDB, requested) if requested is not None else None
+    if session_id is not None and found is None:
+        raise HTTPException(status_code=404, detail="Interactive session not found.")
+    if found is not None:
+        if found.user_id != user.id:
+            raise HTTPException(status_code=403, detail="Interactive session belongs to another user.")
+        return found
+    if not create:
+        raise HTTPException(status_code=400, detail="An active interactive session is required.")
+
+    found = InteractiveSessionDB(user_id=user.id, info="SCORE Bands")
+    db.add(found)
+    db.flush()
+    user.active_session_id = found.id
+    db.add(user)
+    db.commit()
+    db.refresh(found)
+    return found
+
+
+def _latest(db: Session, problem_id: int, session_id: int) -> StateDB | None:
+    # Looking only at SCORE states avoids treating another method's state as the parent.
+    rows = db.exec(
+        select(StateDB)
+        .where(StateDB.problem_id == problem_id, StateDB.session_id == session_id)
+        .order_by(StateDB.id.desc())
+    ).all()
+    return next(
+        (row for row in rows if row.base_state is not None and row.base_state.kind in SCORE_KINDS),
+        None,
+    )
+
+
+def _require_state(db: Session, state_id: int, problem_id: int, session_id: int) -> StateDB:
+    row = db.get(StateDB, state_id)
+    if (
+        row is None
+        or row.problem_id != problem_id
+        or row.session_id != session_id
+        or row.base_state is None
+        or row.base_state.kind not in SCORE_KINDS
+    ):
+        raise HTTPException(status_code=404, detail="SCORE Bands state not found in this session.")
+    return row
+
+
+def _all_history(
+    db: Session,
+    problem_id: int,
+    session_id: int,
+) -> list[SCOREBandsMethodHistoryItem]:
+    """Return all SCORE Bands generations, including branches."""
+
+    rows = db.exec(
+        select(StateDB)
+        .where(
+            StateDB.problem_id == problem_id,
+            StateDB.session_id == session_id,
+        )
+        .order_by(StateDB.id.asc())
+    ).all()
+
+    history = []
+
+    for row in rows:
+        if (
+            row.base_state is None
+            or row.base_state.kind not in SCORE_KINDS
+        ):
+            continue
+
+        state = row.state
+
+        # Save actions are persisted but are not optimization levels.
+        if state.action not in ("initialize", "iterate"):
+            continue
+
+        parent_id = None
+
+        if row.parent_id is not None:
+            parent = _require_state(
+                db,
+                row.parent_id,
+                problem_id,
+                session_id,
             )
-    return objective_ranges
+
+            # A generation may have been created after a save state.
+            # Follow that save state to its actual generation.
+            parent_id = _source_state_id(db, parent)
+
+        history.append(
+            SCOREBandsMethodHistoryItem(
+                state_id=row.id,
+                parent_state_id=parent_id,
+                action=state.action,
+                selected_cluster_id=state.selected_cluster_id,
+                result=state.result,
+            )
+        )
+
+    return history
+
+def _response(db: Session, head: StateDB, session_id: int, *, initialized: bool):
+    state = head.state
+    return SCOREBandsMethodResponse(
+        response_type="score_bands.initialize" if initialized else "score_bands.iterate",
+        state_id=head.id,
+        session_id=session_id,
+        result=state.result,
+        saved_bands=[SCOREBandsSavedBand.model_validate(x) for x in _session_saved_bands(db, head.problem_id, session_id)],
+        history=_all_history(
+            db,
+            head.problem_id,
+            session_id,
+        ),
+    )
+
+
+def _options(problem: Problem, config: SCOREBandsConfig, data: pl.DataFrame) -> SCOREBandsConfig:
+    cloned = config.model_copy(deep=True)
+    symbols = [obj.symbol for obj in problem.objectives]
+    columns = data.columns
+    dimensions = cloned.dimensions or [symbol for symbol in symbols if symbol in columns]
+    if len(dimensions) < 2 or any(dim not in columns for dim in dimensions):
+        raise HTTPException(status_code=422, detail="At least two valid objective dimensions are required.")
+    cloned.dimensions = dimensions
+    by_symbol = {obj.symbol: obj for obj in problem.objectives}
+    if cloned.descriptive_names is None:
+        cloned.descriptive_names = {key: by_symbol[key].name for key in dimensions}
+    if cloned.units is None:
+        cloned.units = {key: by_symbol[key].unit or "" for key in dimensions}
+    return cloned
+
+
+def _is_analytical_problem(problem: Problem) -> bool:
+    """Whether all objectives are evaluable analytical functions.
+
+    Data-based objectives require a precomputed discrete representation and
+    must not be sent to a continuous evolutionary solver without one.
+    """
+    objectives = problem.objectives or []
+    if len(objectives) < 2:
+        return False
+    for objective in objectives:
+        kind = getattr(objective, "objective_type", "analytical")
+        kind = getattr(kind, "value", kind)
+        if kind != "analytical" or getattr(objective, "func", None) is None:
+            return False
+    return bool(problem.get_flattened_variables())
+
+
+def _discrete_dataset(problem: Problem) -> pl.DataFrame:
+    # Only call this when a discrete representation actually exists.
+    discrete = problem.discrete_representation
+    if discrete is None:
+        raise HTTPException(status_code=422, detail="No discrete data were supplied for this problem.")
+    values = discrete.objective_values
+    if not values or len({len(column) for column in values.values()}) != 1:
+        raise HTTPException(status_code=422, detail="Invalid discrete objective columns.")
+    return pl.DataFrame(values)
+
+
+def _solve(
+    problem: Problem,
+    optimization: SCOREBandsOptimizationOptions,
+    ranges: dict[str, tuple[float, float]] | None = None,
+    *,
+    use_archive: bool = False,
+) -> tuple[pl.DataFrame, dict[str, list] | None]:
+    """Run an evolutionary solver; no preference for first-front approximation.
+
+    An unpreferenced initialization can use the non-dominated archive, which
+    represents more of the discovered Pareto front than the final population.
+    We do not couple its objective rows with final-population variable rows.
+    """
+    if not optimization.optimize:
+        raise HTTPException(status_code=422, detail="Evolutionary optimization must be enabled.")
+    if not _is_analytical_problem(problem):
+        raise HTTPException(
+            status_code=422,
+            detail="Evolutionary SCORE Bands requires evaluable analytical objective functions and decision variables.",
+        )
+
+    options = (
+        algorithms.nsga3_options()
+        if optimization.algorithm == "nsga3"
+        else algorithms.rvea_options()
+    )
+    if ranges is not None:
+        aspirations, reservations = {}, {}
+        for objective in problem.objectives:
+            symbol = objective.symbol
+            if symbol not in ranges:
+                raise HTTPException(status_code=422, detail=f"Band lacks range for {symbol}.")
+            lower, upper = ranges[symbol]
+            if not (float("-inf") < lower <= upper < float("inf")):
+                raise HTTPException(status_code=422, detail=f"Invalid bounds for {symbol}.")
+            aspirations[symbol] = upper if objective.maximize else lower
+            reservations[symbol] = lower if objective.maximize else upper
+        options.preference = preference_handling.DesirableRangesOptions(
+            aspiration_levels=aspirations,
+            reservation_levels=reservations,
+        )
+    else:
+        # First approximation explores the full trade-off space, not one band.
+        options.preference = None
+
+    extra = optimization.algorithm_options or {}
+    unknown = set(extra) - {"number_of_vectors"}
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unsupported optimization options: {sorted(unknown)}")
+    if "number_of_vectors" in extra:
+        n = extra["number_of_vectors"]
+        if n <= 0:
+            raise HTTPException(status_code=422, detail="number_of_vectors must be positive.")
+        options.template.selection.reference_vector_options.number_of_vectors = n
+
+    solver, extras = algorithms.emo_constructor(emo_options=options, problem=problem)
+    optimized = solver()
+    final_outputs = optimized.optimal_outputs
+    if not isinstance(final_outputs, pl.DataFrame):
+        final_outputs = pl.DataFrame(final_outputs)
+    outputs = final_outputs
+    variables = getattr(optimized, "optimal_variables", None)
+
+    if use_archive and ranges is None:
+        archive = getattr(extras, "archive", None)
+        archived = getattr(archive, "solutions", None)
+        if archived is not None:
+            if not isinstance(archived, pl.DataFrame):
+                archived = pl.DataFrame(archived)
+            symbols = {obj.symbol for obj in problem.objectives}
+            if archived.height > 0 and symbols.issubset(archived.columns):
+                outputs = archived
+                # Archive entries and last-generation entries have different
+                # row counts/order. Only save variables if present in archive.
+                variable_symbols = [v.symbol for v in problem.get_flattened_variables()]
+                variables = (
+                    archived.select(variable_symbols)
+                    if variable_symbols and set(variable_symbols).issubset(archived.columns)
+                    else None
+                )
+
+    dimensions = [obj.symbol for obj in problem.objectives if obj.symbol in outputs.columns]
+    if len(dimensions) < 2 or outputs.height == 0:
+        raise HTTPException(status_code=422, detail="Evolutionary algorithm generated no usable objective data.")
+
+    if isinstance(variables, pl.DataFrame):
+        variables = variables.to_dict(as_series=False)
+    elif variables is not None:
+        variables = jsonable_encoder(variables)
+
+    # The archive is already non-dominated by design; remove duplicated
+    # objective vectors so clustering is not distorted by repeated entries.
+    objectives = outputs.select(dimensions).unique(maintain_order=True)
+    # When using a final population with decision variables, deduplication
+    # would break row correspondence. Preserve the original rows in that case.
+    if variables is not None:
+        objectives = outputs.select(dimensions)
+    return objectives, variables
+
+
+def _make_state(
+    problem: Problem,
+    data: pl.DataFrame,
+    config: SCOREBandsConfig,
+    *,
+    action: str,
+    selected_cluster_id: int | None = None,
+    preferred_ranges: dict[str, tuple[float, float]] | None = None,
+    saved_bands: list[dict] | None = None,
+    optimization: SCOREBandsOptimizationOptions | None = None,
+    variable_values: dict | None = None,
+) -> SCOREBandsMethodState:
+    options = _options(problem, config, data)
+    try:
+        result = score_json(data=data.select(options.dimensions), options=options)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    state = SCOREBandsMethodState.from_result(result)
+    state.action = action
+    state.selected_cluster_id = selected_cluster_id
+    state.preferred_ranges = jsonable_encoder(preferred_ranges)
+    state.saved_bands = jsonable_encoder(saved_bands or [])
+    state.optimization_options = jsonable_encoder(optimization) if optimization else None
+    state.objective_values = jsonable_encoder(data.to_dict(as_series=False))
+    state.variable_values = jsonable_encoder(variable_values)
+    return state
+
+
+def get_score_bands_state(
+    data: pl.DataFrame,
+    scorebands_options: SCOREBandsConfig,
+    relevant_solution_ids: list[int] | None = None,
+):
+    """Compatibility helper also used by GDM Learning's private exploration."""
+    try:
+        result = score_json(data=data, options=scorebands_options)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return SCOREBandsMethodState.from_result(
+        result, relevant_solution_ids=relevant_solution_ids
+    ), result
+
+
+def _session_saved_bands(db: Session, problem_id: int, session_id: int) -> list[dict]:
+    """Saved bands belong to the session, not only one exploration branch."""
+    latest = _latest(db, problem_id, session_id)
+    return list(latest.state.saved_bands) if latest is not None else []
+
+
+def _source_state_id(db: Session, row: StateDB) -> int:
+    """Ignore save-only states when referring to an actual band generation."""
+    cursor = row
+    while cursor.state.action == "save":
+        if cursor.parent_id is None:
+            raise HTTPException(status_code=500, detail="Save state has no origin.")
+        cursor = db.get(StateDB, cursor.parent_id)
+        if cursor is None:
+            raise HTTPException(status_code=500, detail="Saved band origin not found.")
+    return cursor.id
+
+
+def _persist(
+    db: Session,
+    *,
+    problem_id: int,
+    session_id: int,
+    parent_id: int | None,
+    state: SCOREBandsMethodState,
+    kind: StateKind,
+) -> StateDB:
+    row = StateDB.create(
+        database_session=db,
+        problem_id=problem_id,
+        session_id=session_id,
+        parent_id=parent_id,
+        state=state,
+        kind=kind,
+    )
+    try:
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    except Exception:
+        db.rollback()
+        raise
+    return row
 
 
 @router.post("/initialize")
 def initialize_or_get_score_bands_method(
     request: SCOREBandsMethodInitializeRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
-    ],
-) -> SCOREBandsMethodInitializeResponse:
-    """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
-
-    db_session = context.db_session
-    user = context.user
-    problem_db = context.problem_db
-    interactive_session = context.interactive_session
-    parent_state = context.parent_state
-
-    # Look for latest relevant state in the session
-    statement = (
-        select(StateDB)
-        .where(
-            StateDB.problem_id == request.problem_id,
-            StateDB.session_id
-            == (
-                interactive_session.id
-                if interactive_session
-                else user.active_session_id
-            ),
-        )
-        .order_by(StateDB.id.desc())
-    )
-    states = db_session.exec(statement).all()
-
-    # Find the latest state that is a SCOREBandsMethodState
-    latest_state = None
-    for state in states:
-        if isinstance(state.state, SCOREBandsMethodState):
-            latest_state = state
-            break
-
-    if latest_state is not None:
-        # If a relevant state exists, return it without recalculating
-        return SCOREBandsMethodInitializeResponse(
-            state_id=latest_state.id,
-            result=latest_state.state.result,
-        )
-
-    # If no relevant state exists, proceed to calculate and persist SCORE Bands
-
-    if request.optimization_options.optimize:
-        return initialize_score_bands_method_with_optimization(
-            request, context
-        )
-
-    return initialize_score_bands_method_without_optimization(
-        request, context
-    )
-
-
-def initialize_score_bands_method_without_optimization(
-    request: SCOREBandsMethodInitializeRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
-    ],
-) -> SCOREBandsMethodInitializeResponse:
-    """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
-
-    db_session = context.db_session
-    user = context.user
-    problem_db = context.problem_db
-    interactive_session = context.interactive_session
-    parent_state = context.parent_state
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_session)],
+) -> SCOREBandsMethodResponse:
+    problem_db = _problem(user, db, request.problem_id)
+    interactive = _session(user, db, request.session_id, create=True)
+    current = _latest(db, problem_db.id, interactive.id)
+    if current is not None:
+        return _response(db, current, interactive.id, initialized=True)
 
     problem = Problem.from_problemdb(problem_db)
 
-    discrete = problem.discrete_representation
+    # Initialization is not a preference-guided search: either cluster the
+    # available discrete Pareto approximation, or generate one from an
+    # evaluable analytical problem using an unpreferenced evolutionary run.
+    effective_optimization = request.optimization_options.model_copy(deep=True)
+    has_discrete = problem.discrete_representation is not None
 
-    if discrete is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "SCORE Bands requires a problem with a " "discrete representation."
-            ),
-        )
-
-    objective_values = discrete.objective_values
-
-    # Use scorebands_options.dimensions when explicitly provided.
-    # Otherwise use all objectives in the order defined by the problem.
-    if request.scorebands_options.dimensions is not None:
-        dimensions = request.scorebands_options.dimensions
-    else:
-        dimensions = [
-            objective.symbol
-            for objective in problem.objectives
-            if objective.symbol in objective_values
-        ]
-
-    if len(dimensions) < 2:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="SCORE Bands requires at least two objectives.",
-        )
-
-    unknown_dimensions = [
-        symbol for symbol in dimensions if symbol not in objective_values
-    ]
-
-    if unknown_dimensions:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "The discrete representation does not contain "
-                f"these objectives: {unknown_dimensions}."
-            ),
-        )
-
-    column_lengths = {symbol: len(objective_values[symbol]) for symbol in dimensions}
-
-    if len(set(column_lengths.values())) != 1:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Discrete objective columns have different "
-                f"lengths: {column_lengths}."
-            ),
-        )
-
-    data = pl.DataFrame({symbol: objective_values[symbol] for symbol in dimensions})
-
-    objective_by_symbol = {
-        objective.symbol: objective for objective in problem.objectives
-    }
-
-    # Copy so the request object itself is not modified.
-    scorebands_options = request.scorebands_options.model_copy(deep=True)
-    scorebands_options.dimensions = dimensions
-
-    # Fill display metadata from the problem only when not supplied.
-    if scorebands_options.descriptive_names is None:
-        scorebands_options.descriptive_names = {
-            symbol: objective_by_symbol[symbol].name for symbol in dimensions
-        }
-
-    if scorebands_options.units is None:
-        scorebands_options.units = {
-            symbol: objective_by_symbol[symbol].unit or "" for symbol in dimensions
-        }
-
-    score_state, result = get_score_bands_state(data, scorebands_options)
-
-    state = StateDB.create(
-        database_session=db_session,
-        problem_id=problem_db.id,
-        session_id=(
-            interactive_session.id if interactive_session is not None else None
-        ),
-        parent_id=(parent_state.id if parent_state is not None else None),
-        state=score_state,
-    )
-
-    db_session.add(state)
-    db_session.commit()
-    db_session.refresh(state)
-
-    return SCOREBandsMethodInitializeResponse(
-        state_id=state.id,
-        result=result,
-    )
-
-
-def compute_score_bands_with_optimization(
-    problem: Problem,
-    request: (
-        SCOREBandsMethodInitializeRequest
-        | SCOREBandsMethodIterationRequest
-    ),
-    preferred_ranges: dict[str, tuple[float, float]] | None = None,
-):
-    """Solve the problem using an evolutionary algorithm."""
-
-    algorithm = request.optimization_options.algorithm or "nsga3"
-
-    if algorithm == "nsga3":
-        options = algorithms.nsga3_options()
-    elif algorithm == "rvea":
-        options = algorithms.rvea_options()
+    if effective_optimization.optimize:
+        data, variables = _solve(problem, effective_optimization, use_archive=True)
+    elif has_discrete:
+        data, variables = _discrete_dataset(problem), None
+    elif _is_analytical_problem(problem):
+        # Automatically optimize; the UI must not require this checkbox to
+        # have been selected for an analytical-only problem.
+        effective_optimization.optimize = True
+        data, variables = _solve(problem, effective_optimization, use_archive=True)
     else:
         raise HTTPException(
             status_code=422,
-            detail=f"Unsupported optimization algorithm: {algorithm}",
-        )
-
-    if preferred_ranges is not None:
-        aspiration_levels = {}
-        reservation_levels = {}
-
-        for objective in problem.objectives:
-            symbol = objective.symbol
-
-            if symbol not in preferred_ranges:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Missing preferred range for {symbol}.",
-                )
-
-            lower, upper = preferred_ranges[symbol]
-
-            if lower > upper:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid preferred range for {symbol}.",
-                )
-
-            if objective.maximize:
-                aspiration_levels[symbol] = upper
-                reservation_levels[symbol] = lower
-            else:
-                aspiration_levels[symbol] = lower
-                reservation_levels[symbol] = upper
-
-        options.preference = (
-            preference_handling.DesirableRangesOptions(
-                aspiration_levels=aspiration_levels,
-                reservation_levels=reservation_levels,
-            )
-        )
-
-    algorithm_options = (
-        request.optimization_options.algorithm_options or {}
-    )
-
-    if "number_of_vectors" in algorithm_options:
-        options.template.selection.reference_vector_options.number_of_vectors = (
-            int(algorithm_options["number_of_vectors"])
-        )
-
-    solver, extras = algorithms.emo_constructor(
-        emo_options=options,
-        problem=problem,
-    )
-
-    return solver()
-
-
-def get_dataset_from_solver_result(problem: Problem, result_optimizer):
-    """Extract the dataset from the solver result for SCORE Bands calculation."""
-    dimensions = [
-        objective.symbol
-        for objective in problem.objectives
-        if objective.symbol in result_optimizer.optimal_outputs
-    ]
-
-    data = pl.DataFrame(
-        {symbol: result_optimizer.optimal_outputs[symbol] for symbol in dimensions}
-    )
-
-    return data, dimensions
-
-
-def get_score_bands_state(
-    data: pl.DataFrame,
-    scorebands_options,
-    relevant_solution_ids: list[int] | None = None,
-):
-    try:
-        result = score_json(
-            data=data,
-            options=scorebands_options,
-        )
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
-        ) from exc
-
-    score_state = SCOREBandsMethodState.from_result(
-        result,
-        relevant_solution_ids=relevant_solution_ids,
-    )
-
-    return score_state, result
-
-
-def initialize_score_bands_method_with_optimization(
-    request: SCOREBandsMethodInitializeRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
-    ],
-) -> SCOREBandsMethodInitializeResponse:
-    """Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists."""
-
-    db_session = context.db_session
-    problem_db = context.problem_db
-    interactive_session = context.interactive_session
-    parent_state = context.parent_state
-
-    problem = Problem.from_problemdb(problem_db)
-
-    # Use NSGA-III or RVEA optimization algorithm based on the request. If no algorithm is specified, use the default algorithm.
-    if request.optimization_options is not None:
-        # Here you would implement the logic to run the optimization algorithm based on the request.
-        # For example, you might call a function that runs NSGA-III or RVEA and returns the results.
-        result_optimizer = compute_score_bands_with_optimization(problem, request)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "Optimization options must be provided when optimization is requested."
+                "Cannot initialize SCORE Bands: this problem does not supply "
+                "a discrete objective dataset or evaluable analytical objectives."
             ),
         )
 
-    # Get the data from the solver result for SCORE Bands calculation. This assumes that the solver result contains the necessary objective values in a suitable format.
-    data, dimensions = get_dataset_from_solver_result(problem, result_optimizer)
-
-    objective_by_symbol = {
-        objective.symbol: objective for objective in problem.objectives
-    }
-
-    # Copy so the request object itself is not modified.
-    scorebands_options = request.scorebands_options.model_copy(deep=True)
-    scorebands_options.dimensions = dimensions
-
-    # Fill display metadata from the problem only when not supplied.
-    if scorebands_options.descriptive_names is None:
-        scorebands_options.descriptive_names = {
-            symbol: objective_by_symbol[symbol].name for symbol in dimensions
-        }
-
-    if scorebands_options.units is None:
-        scorebands_options.units = {
-            symbol: objective_by_symbol[symbol].unit or "" for symbol in dimensions
-        }
-
-    score_state, result = get_score_bands_state(data, scorebands_options)
-
-    state = StateDB.create(
-        database_session=db_session,
-        problem_id=problem_db.id,
-        session_id=(
-            interactive_session.id if interactive_session is not None else None
-        ),
-        parent_id=(parent_state.id if parent_state is not None else None),
-        state=score_state,
+    state = _make_state(
+        problem, data, request.scorebands_options,
+        action="initialize", optimization=effective_optimization,
+        variable_values=variables,
     )
-
-    db_session.add(state)
-    db_session.commit()
-    db_session.refresh(state)
-
-    return SCOREBandsMethodInitializeResponse(
-        state_id=state.id,
-        result=result,
+    saved = _persist(
+        db, problem_id=problem_db.id, session_id=interactive.id,
+        parent_id=None, state=state, kind=StateKind.SCORE_BANDS_METHOD_INITIALIZE,
     )
-
-
-def score_bands_method_iterate(
-    request: SCOREBandsMethodInitializeRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(SessionContextGuard(require=[ContextField.PROBLEM]).post),
-    ],
-) -> SCOREBandsMethodInitializeResponse:
-    """Iterate the SCORE Bands method for a problem, calculating and persisting new SCORE Bands."""
-    # This function can be implemented to perform iterative calculations of SCORE Bands if needed.
-    # For now, it simply calls the initialize function to get or calculate the latest SCORE Bands.
-    return initialize_or_get_score_bands_method(request, context)
+    return _response(db, saved, interactive.id, initialized=True)
 
 
 @router.post("/iterate")
-def score_bands_method_iteration(
+def iterate_score_bands_method(
     request: SCOREBandsMethodIterationRequest,
-    context: Annotated[
-        SessionContext,
-        Depends(
-            SessionContextGuard(
-                require=[
-                    ContextField.PROBLEM,
-                    ContextField.PARENT_STATE,
-                ]
-            ).post
-        ),
-    ],
-) -> SCOREBandsMethodInitializeResponse:
-    """Run a new evolutionary search using a selected SCORE band."""
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_session)],
+) -> SCOREBandsMethodResponse:
+    problem_db = _problem(user, db, request.problem_id)
+    interactive = _session(user, db, request.session_id, create=False)
+    parent = (
+        _require_state(db, request.parent_state_id, problem_db.id, interactive.id)
+        if request.parent_state_id is not None
+        else _latest(db, problem_db.id, interactive.id)
+    )
+    if parent is None:
+        raise HTTPException(status_code=400, detail="Initialize SCORE Bands before iterating.")
 
-    db_session = context.db_session
-    problem_db = context.problem_db
-    parent_state_db = context.parent_state
-    interactive_session = context.interactive_session
+    parent_state = parent.state
+    band = parent_state.result.bands.get(request.preference.cluster_id)
+    if band is None:
+        raise HTTPException(status_code=422, detail="Selected band is not present in the parent state.")
+    ranges = {k: (float(v[0]), float(v[1])) for k, v in band.items()}
+    problem = Problem.from_problemdb(problem_db)
+    data, variables = _solve(problem, request.optimization_options, ranges)
+    state = _make_state(
+        problem, data, request.scorebands_options or parent_state.result.options,
+        action="iterate", selected_cluster_id=request.preference.cluster_id,
+        preferred_ranges=ranges, saved_bands=_session_saved_bands(db, problem_db.id, interactive.id),
+        optimization=request.optimization_options, variable_values=variables,
+    )
+    created = _persist(
+        db, problem_id=problem_db.id, session_id=interactive.id,
+        parent_id=parent.id, state=state, kind=StateKind.SCORE_BANDS_METHOD_ITERATE,
+    )
+    return _response(db, created, interactive.id, initialized=False)
 
-    if problem_db is None or parent_state_db is None:
+
+@router.post("/save")
+def save_score_band(
+    request: SCOREBandsMethodSaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_session)],
+) -> SCOREBandsMethodSaveResponse:
+    problem_db = _problem(user, db, request.problem_id)
+    interactive = _session(user, db, request.session_id, create=False)
+    head = _latest(db, problem_db.id, interactive.id)
+
+    if head is None:
         raise HTTPException(
             status_code=400,
-            detail="Problem or parent state is missing.",
+            detail="Initialize SCORE Bands before saving.",
         )
 
-    if interactive_session is None:
-        raise HTTPException(
-            status_code=400,
-            detail="An active interactive session is required.",
-        )
-
-    if interactive_session.user_id != context.user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="The interactive session does not belong to this user.",
-        )
-
+    # Prevent a stale browser tab from replacing newer saved data.
     if (
-        parent_state_db.id != request.parent_state_id
-        or parent_state_db.problem_id != problem_db.id
-        or parent_state_db.session_id != interactive_session.id
+        request.parent_state_id is not None
+        and request.parent_state_id != head.id
     ):
         raise HTTPException(
-            status_code=403,
-            detail="The parent state does not belong to this session.",
+            status_code=409,
+            detail="Session state has changed. Refresh and try again.",
         )
 
-    parent_state = parent_state_db.state
-
-    if not isinstance(parent_state, SCOREBandsMethodState):
-        raise HTTPException(
-            status_code=400,
-            detail="The parent state is not a SCORE Bands state.",
-        )
-
-    if not request.optimization_options.optimize:
-        raise HTTPException(
-            status_code=422,
-            detail="Evolutionary optimization must be enabled.",
-        )
-
-    parent_result = parent_state.result
-
-    selected_ranges = parent_result.bands.get(
-        request.selected_cluster_id
+    # The band may come from an older exploration generation.
+    source_id = (
+        request.source_state_id
+        if request.source_state_id is not None
+        else _source_state_id(db, head)
     )
 
-    if selected_ranges is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Band {request.selected_cluster_id} "
-                "does not exist in the parent state."
-            ),
-        )
-
-    # Use the selected band's objective ranges as preferences.
-    preferred_ranges = {
-        symbol: (float(bounds[0]), float(bounds[1]))
-        for symbol, bounds in selected_ranges.items()
-    }
-
-    problem = Problem.from_problemdb(problem_db)
-
-    # Run NSGA-III or RVEA with the selected preferences.
-    optimizer_result = compute_score_bands_with_optimization(
-        problem=problem,
-        request=request,
-        preferred_ranges=preferred_ranges,
+    source = _require_state(
+        db,
+        source_id,
+        problem_db.id,
+        interactive.id,
     )
 
-    # Extract newly generated objective values.
-    new_data, dimensions = get_dataset_from_solver_result(
-        problem,
-        optimizer_result,
+    source_id = _source_state_id(db, source)
+
+    source = _require_state(
+        db,
+        source_id,
+        problem_db.id,
+        interactive.id,
     )
 
-    if new_data.height == 0:
+    band_id = request.preference.cluster_id
+    existing_band = source.state.result.bands.get(band_id)
+
+    if request.save and existing_band is None:
         raise HTTPException(
             status_code=422,
-            detail="The evolutionary algorithm returned no solutions.",
+            detail="Selected band is not present in the source state.",
         )
 
-    # Inherit the SCORE Bands configuration from the parent.
-    scorebands_options = parent_result.options.model_copy(
-        deep=True
-    )
+    saved = [
+        SCOREBandsSavedBand.model_validate(x)
+        for x in _session_saved_bands(
+            db,
+            problem_db.id,
+            interactive.id,
+        )
+    ]
 
-    scorebands_options.dimensions = dimensions
+    if request.save:
+        if not any(x.source_state_id == source_id and x.cluster_id == band_id for x in saved):
+            saved.append(SCOREBandsSavedBand(
+                source_state_id=source_id,
+                cluster_id=band_id,
+                name=request.name,
+                preferred_ranges={k: tuple(v) for k, v in existing_band.items()},
+            ))
+    else:
+        saved = [x for x in saved if not (x.cluster_id == band_id and x.source_state_id == source_id)]
 
-    # Create new SCORE Bands from the new solutions.
-    score_state, result = get_score_bands_state(
-        data=new_data,
-        scorebands_options=scorebands_options,
-    )
+    # Save actions copy visualization/population data but are NOT new optimization levels.
+    old = head.state
 
-    # Persist the new SCORE Bands state as a child of the previous one.
-    state_db = StateDB.create(
-        database_session=db_session,
+    state = SCOREBandsMethodState.from_result(old.result)
+    state.action = "save"
+    state.selected_cluster_id = old.selected_cluster_id
+    state.preferred_ranges = old.preferred_ranges
+    state.optimization_options = old.optimization_options
+    state.objective_values = old.objective_values
+    state.variable_values = old.variable_values
+    state.saved_bands = jsonable_encoder(saved)
+
+    created = _persist(
+        db,
         problem_id=problem_db.id,
-        session_id=interactive_session.id,
-        parent_id=parent_state_db.id,
-        state=score_state,
+        session_id=interactive.id,
+        parent_id=head.id,
+        state=state,
+        kind=StateKind.SCORE_BANDS_METHOD_SAVE,
+    )
+    return SCOREBandsMethodSaveResponse(
+        state_id=created.id, session_id=interactive.id, saved_bands=saved,
     )
 
-    db_session.add(state_db)
-    db_session.commit()
-    db_session.refresh(state_db)
 
-    return SCOREBandsMethodInitializeResponse(
-        state_id=state_db.id,
-        result=result,
+@router.get("/history")
+def score_bands_method_history(
+    problem_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_session)],
+    session_id: int | None = None,
+    head_state_id: int | None = None,
+) -> SCOREBandsMethodHistoryResponse:
+    problem_db = _problem(user, db, problem_id)
+    interactive = _session(user, db, session_id, create=False)
+    head = (
+        _require_state(db, head_state_id, problem_db.id, interactive.id)
+        if head_state_id is not None
+        else _latest(db, problem_db.id, interactive.id)
+    )
+    if head is None:
+        return SCOREBandsMethodHistoryResponse(session_id=interactive.id)
+    return SCOREBandsMethodHistoryResponse(
+        session_id=interactive.id,
+        state_id=head.id,
+        saved_bands=[SCOREBandsSavedBand.model_validate(x) for x in _session_saved_bands(db, problem_db.id, interactive.id)],
+        history=_all_history(
+            db,
+            problem_db.id,
+            interactive.id,
+        ),
     )

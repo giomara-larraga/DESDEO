@@ -401,6 +401,15 @@ from .user import User, UserBase, UserPublic, UserRole
 from .utopia import UtopiaRequest, UtopiaResponse
 
 from .score_bands_method import (
+    SCOREBandsBandPreference,
+    SCOREBandsSavedBand,
+    SCOREBandsOptimizationOptions,
     SCOREBandsMethodInitializeRequest,
     SCOREBandsMethodInitializeResponse,
+    SCOREBandsMethodIterationRequest,
+    SCOREBandsMethodSaveRequest,
+    SCOREBandsMethodResponse,
+    SCOREBandsMethodSaveResponse,
+    SCOREBandsMethodHistoryResponse,
+    SCOREBandsMethodHistoryItem,
 )

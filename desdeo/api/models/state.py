@@ -1159,6 +1159,27 @@ class SCOREBandsMethodState(SQLModel, table=True):
         ),
     )
 
+    # Single-user interactive SCORE Bands metadata.
+    # Each save/iterate state keeps a complete snapshot so reloading does not
+    # require rerunning the evolutionary algorithm.
+    action: str = Field(default="initialize")
+    selected_cluster_id: int | None = Field(default=None)
+    preferred_ranges: dict[str, list[float]] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    optimization_options: dict | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    saved_bands: list[dict] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
+    objective_values: dict[str, list] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    variable_values: dict[str, list] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
     relevant_solution_ids: list[int] = Field(
         default_factory=list,
         sa_column=Column(
@@ -1252,8 +1273,6 @@ class SCOREBandsMethodState(SQLModel, table=True):
             medians=self.medians,
             cardinalities=self.cardinalities,
         )
-
-
 class GDMSCOREBandsLearningState(ResultInterface, SQLModel, table=True):
     """SCORE Bands data available during the learning phase."""
 

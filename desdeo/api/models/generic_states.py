@@ -90,6 +90,8 @@ class StateKind(str, Enum):
     CUMULUS_MODIFY = "cumulus.modify"
     CUMULUS_OBJ_CONSTRAINT = "cumulus.objective_constraint"
     SCORE_BANDS_METHOD_INITIALIZE = "score_bands_method.initialize"
+    SCORE_BANDS_METHOD_ITERATE = "score_bands_method.iterate"
+    SCORE_BANDS_METHOD_SAVE = "score_bands_method.save"
     GDM_SCORE_BANDS_LEARNING = "gdm-score-bands.learning"
     GDM_SCORE_BANDS_CONSENSUS = "gdm-score-bands.consensus"
     GDM_SCORE_BANDS_DECISION = "gdm-score-bands.decision"
@@ -254,6 +256,8 @@ KIND_TO_TABLE: dict[StateKind, SQLModel] = {
     StateKind.CUMULUS_MODIFY: CumulusModificationState,
     StateKind.CUMULUS_OBJ_CONSTRAINT: CumulusObjectiveConstraintState,
     StateKind.SCORE_BANDS_METHOD_INITIALIZE: SCOREBandsMethodState,
+    StateKind.SCORE_BANDS_METHOD_ITERATE: SCOREBandsMethodState,
+    StateKind.SCORE_BANDS_METHOD_SAVE: SCOREBandsMethodState,
     StateKind.GDM_SCORE_BANDS_LEARNING: GDMSCOREBandsLearningState,
     StateKind.GDM_SCORE_BANDS_CONSENSUS: GDMSCOREBandsConsensusState,
     StateKind.GDM_SCORE_BANDS_DECISION: GDMSCOREBandsDecisionState,
