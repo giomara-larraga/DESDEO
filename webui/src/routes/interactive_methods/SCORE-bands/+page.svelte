@@ -9,6 +9,8 @@
 	import { methodSelection } from '../../../stores/methodSelection';
 	import { errorMessage } from '../../../stores/uiState';
 	import { create_session } from '../../methods/sessions/handler';
+	import ScoreBandsLayout from '$lib/components/custom/method_layout/score-bands-layout.svelte';
+
 	import {
 		defaultScoreBandsOptions,
 		handle_initialize_scorebands,
@@ -27,6 +29,8 @@
 		canToggleBands,
 		canToggleMedians
 	} from './helper-functions';
+
+	import ScoreBandsHistoryGraph from '$lib/components/custom/score-bands-history-graph/score-bands-history-graph.svelte';
 
 	let { data }: { data: PageData } = $props();
 	let problem: ProblemInfo | null = $state(null);
@@ -50,6 +54,13 @@
 	let distanceParameter = $state(0.05);
 	let initialOptimization = $state(false);
 	let algorithm: 'nsga3' | 'rvea' = $state('nsga3');
+
+	let leftCollapsed = $state(false);
+	let rightCollapsed = $state(false);
+
+	let viewedGeneration = $derived(history.find((item) => item.state_id === viewedStateId) ?? null);
+
+	let latestGenerationId = $derived(history.at(-1)?.state_id ?? null);
 
 	let visual = $derived.by(() => {
 		if (!scoreBandsResult) {
@@ -90,7 +101,7 @@
 	let isSaved = $derived(
 		selectedBand !== null &&
 			savedBands.some(
-				(band) => band.source_state_id === currentGenerationId && band.cluster_id === selectedBand
+				(band) => band.source_state_id === viewedStateId && band.cluster_id === selectedBand
 			)
 	);
 	let selectedRanges = $derived(
@@ -306,309 +317,305 @@
 	<meta name="description" content="Individual interactive SCORE Bands evolutionary optimization" />
 </svelte:head>
 
-<div class="container mx-auto space-y-4 p-4">
-	{#if $errorMessage}
-		<Alert title="SCORE Bands error" message={$errorMessage} variant="destructive" />
-	{/if}
-
-	<header class="flex flex-wrap items-start justify-between gap-3">
-		<div>
-			<h1 class="text-2xl font-semibold">SCORE Bands</h1>
-			<p class="text-muted-foreground text-sm">
-				Select a band to guide a new evolutionary search. Saved bands and all iterations are stored
-				in your session.
-			</p>
-			{#if sessionId !== null}
+<ScoreBandsLayout
+	bottomPanelTitle="Exploration history"
+	showBottomPanel={true}
+	bind:isLeftSidebarCollapsed={leftCollapsed}
+	bind:isRightSidebarCollapsed={rightCollapsed}
+	leftSidebarWidth="clamp(16rem, 20vw, 21rem)"
+	rightSidebarWidth="clamp(17rem, 23vw, 24rem)"
+>
+	<!-- LEFT SIDEBAR: USER INPUTS AND ACTIONS -->
+	{#snippet leftSidebar()}
+		<div class="h-full min-h-0 space-y-5 overflow-y-auto p-4">
+			<div>
+				<h2 class="text-lg font-semibold">Preferences</h2>
 				<p class="text-muted-foreground text-xs">
-					Session {sessionId}
-					· Viewing state {viewedStateId ?? '—'}
-					· Latest saved state {stateId ?? '—'}
-					· {history.length} generations
+					Select a band and click the "Explore selected band" button to start exploring it.
 				</p>
+			</div>
+
+			<!-- Optimization inputs -->
+			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">Optimization settings</h3>
+
+				<label class="block space-y-1 text-sm">
+					<span>Evolutionary algorithm</span>
+
+					<select class="w-full rounded border p-2" bind:value={algorithm} disabled={busy}>
+						<option value="nsga3">NSGA-III</option>
+						<option value="rvea">RVEA</option>
+					</select>
+				</label>
+
+				<label class="block space-y-1 text-sm">
+					<span>Number of initial clusters</span>
+
+					<input
+						type="number"
+						min="2"
+						max="20"
+						class="w-full rounded border p-2"
+						bind:value={numClusters}
+						disabled={busy}
+					/>
+				</label>
+
+				<label class="block space-y-1 text-sm">
+					<span>Distance parameter</span>
+
+					<input
+						type="number"
+						min="0"
+						max="1"
+						step="0.01"
+						class="w-full rounded border p-2"
+						bind:value={distanceParameter}
+						disabled={busy}
+					/>
+				</label>
+
+				<label class="flex items-center justify-between gap-2 text-sm">
+					<span>Optimize initial population</span>
+
+					<input
+						type="checkbox"
+						bind:checked={initialOptimization}
+						disabled={busy || problem?.discrete_representation == null}
+					/>
+				</label>
+
+				<p class="text-muted-foreground text-xs">
+					Initial settings apply when starting a new session. Zoom iterations use the selected
+					band's ranges.
+				</p>
+			</section>
+
+			<!-- Exploration actions -->
+			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">Explore a band</h3>
+
+				{#if selectedBand !== null}
+					<p class="text-sm">
+						Selected: <strong>Band {selectedBand}</strong>
+					</p>
+				{:else}
+					<p class="text-muted-foreground text-sm">Select a band in the visualization.</p>
+				{/if}
+
+				<Button
+					class="w-full"
+					onclick={iterateSelectedBand}
+					disabled={busy || selectedBand === null || viewedStateId === null}
+				>
+					{busy ? 'Processing...' : 'Explore selected band'}
+				</Button>
+
+				<!-- 				<Button
+					variant="outline"
+					class="w-full"
+					onclick={toggleSavedBand}
+					disabled={busy || selectedBand === null || stateId === null}
+				>
+					{isSaved ? 'Remove saved band' : 'Save selected band'}
+				</Button> -->
+			</section>
+
+			<!-- Actions for previously saved bands -->
+			<!-- 			{#if savedBands.length > 0}
+				<section class="space-y-2 rounded-lg border p-3">
+					<h3 class="font-semibold">Manage saved bands</h3>
+
+					{#each savedBands as band}
+						<Button
+							variant="outline"
+							size="sm"
+							class="w-full"
+							disabled={busy}
+							onclick={() => removeSavedBand(band)}
+						>
+							Remove {band.name ?? `Band ${band.cluster_id}`}
+						</Button>
+					{/each}
+				</section>
+			{/if} -->
+		</div>
+	{/snippet}
+
+	<!-- TOP CENTER: HEADER -->
+	{#snippet explorerTitle()}
+		<div class="flex items-center gap-3">
+			<span>SCORE Bands Explorer</span>
+		</div>
+	{/snippet}
+
+	<!-- TOP CENTER: SCORE BANDS VISUALIZATION -->
+	{#snippet visualizationArea(_height)}
+		<div class="h-full min-h-0 w-full">
+			{#if scoreBandsResult}
+				<ScoreBands
+					data={visual.data}
+					axisNames={visual.axisNames}
+					axisPositions={visual.axisPositions}
+					axisSigns={visual.axisSigns}
+					groups={visual.clusterIds}
+					{options}
+					bands={visual.bands}
+					medians={visual.medians}
+					scales={visual.scales}
+					{clusterVisibility}
+					clusterColors={colors}
+					{axisOptions}
+					axisOrder={[]}
+					onBandSelect={(id: number | null) => (selectedBand = id)}
+					onAxisSelect={(id: number | null) => (selectedAxis = id)}
+					{selectedBand}
+					{selectedAxis}
+				/>
+			{:else}
+				<div class="text-muted-foreground flex h-full items-center justify-center text-sm">
+					No SCORE Bands result available.
+				</div>
 			{/if}
 		</div>
-		<Button variant="outline" onclick={createNewScoreBandsSession} disabled={!problem || busy}>
-			New SCORE Bands session
-		</Button>
-	</header>
+	{/snippet}
 
-	{#if loading}
-		<div class="py-20 text-center">Loading SCORE Bands...</div>
-	{:else if !problem}
-		<p>Select a problem from the Methods page.</p>
-	{:else}
-		<div class="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_340px]">
-			<aside class="space-y-4">
-				<section class="space-y-3 rounded-lg border p-4">
-					<h2 class="font-semibold">Visualization</h2>
-					<label class="flex items-center justify-between gap-2 text-sm">
-						Show bands
-						<input
-							type="checkbox"
-							bind:checked={showBands}
-							disabled={!canToggleBands(showBands, showMedians, showSolutions)}
-						/>
-					</label>
-					<label class="flex items-center justify-between gap-2 text-sm">
-						Show medians
-						<input
-							type="checkbox"
-							bind:checked={showMedians}
-							disabled={!canToggleMedians(showBands, showMedians, showSolutions)}
-						/>
-					</label>
-					<label
-						class="text-muted-foreground flex items-center justify-between gap-2 text-sm"
-						title="Individual solutions require a separate visualization"
-					>
-						Show individual solutions
-						<input type="checkbox" bind:checked={showSolutions} disabled />
-					</label>
-					<div class="text-muted-foreground text-xs">
-						Bands are recalculated from a new evolutionary population at every zoom.
-					</div>
-				</section>
-
-				<section class="space-y-3 rounded-lg border p-4">
-					<h2 class="font-semibold">Optimization setup</h2>
-					<label class="block text-sm">
-						Evolutionary algorithm
-						<select class="mt-1 w-full rounded border p-2" bind:value={algorithm} disabled={busy}>
-							<option value="nsga3">NSGA-III</option>
-							<option value="rvea">RVEA</option>
-						</select>
-					</label>
-					<label class="flex items-center justify-between gap-2 text-sm">
-						Optimize initial population
-						<input
-							type="checkbox"
-							bind:checked={initialOptimization}
-							disabled={busy || problem?.discrete_representation == null}
-						/>
-					</label>
-					<label class="block text-sm">
-						Number of initial clusters
-						<input
-							class="mt-1 w-full rounded border p-2"
-							type="number"
-							min="2"
-							max="20"
-							bind:value={numClusters}
-							disabled={busy}
-						/>
-					</label>
-					<label class="block text-sm">
-						Distance parameter
-						<input
-							class="mt-1 w-full rounded border p-2"
-							type="number"
-							step="0.01"
-							min="0"
-							max="1"
-							bind:value={distanceParameter}
-							disabled={busy}
-						/>
-					</label>
-					{#if problem?.discrete_representation == null}
-						<p class="text-muted-foreground text-xs">
-							No precomputed discrete front is available. Initialization automatically runs {algorithm.toUpperCase()}
-							without preferences to approximate the Pareto front. Selecting a band later guides the next
-							optimization run.
-						</p>
-					{:else}
-						<p class="text-muted-foreground text-xs">
-							Initialization uses the existing discrete solutions unless you enable evolutionary
-							optimization.
-						</p>
-					{/if}
-					<p class="text-muted-foreground text-xs">
-						Initial options apply when creating a new session; resume always uses stored states.
-					</p>
-				</section>
-
-				<section class="space-y-3 rounded-lg border p-4">
-					<h2 class="font-semibold">Visible bands</h2>
-					{#each visual.clusterIds as clusterId}
-						<label class="flex items-center justify-between gap-2 text-sm">
-							<span class="flex items-center gap-2">
-								<span
-									class="inline-block h-3 w-3 rounded"
-									style={`background-color:${colors[clusterId] || '#888'}`}
-								></span>
-								Band {clusterId}
-							</span>
-							<input type="checkbox" bind:checked={clusterVisibility[clusterId]} />
-						</label>
-					{/each}
-					{#if !visual.clusterIds.length}<p class="text-muted-foreground text-sm">
-							No bands generated.
-						</p>{/if}
-				</section>
-
-				<section class="space-y-2 rounded-lg border p-4">
-					<h2 class="font-semibold">Exploration history</h2>
-
-					<p class="text-muted-foreground text-xs">
-						Select any generation to view it. Exploring one of its bands creates a new branch.
-					</p>
-
-					{#each historyWithDepth as item (item.state_id)}
-						<button
-							class={`block rounded border p-2 text-left text-sm
-                ${
-									viewedStateId === item.state_id
-										? 'border-primary bg-primary/10 font-medium'
-										: 'hover:bg-muted'
-								}`}
-							style={`margin-left: ${item.depth * 16}px;
-                width: calc(100% - ${item.depth * 16}px);`}
-							disabled={busy}
-							onclick={() => navigateTo(item.state_id)}
-						>
-							{#if item.depth > 0}
-								↳
-							{/if}
-
-							{#if item.action === 'initialize'}
-								Initial bands
-							{:else}
-								Explored band {item.selected_cluster_id}
-							{/if}
-
-							<span class="text-muted-foreground text-xs">
-								(State {item.state_id})
-							</span>
-
-							{#if viewedStateId === item.state_id}
-								<span class="text-xs font-semibold"> · Viewing </span>
-							{/if}
-						</button>
-					{/each}
-
-					{#if history.length > 1}
-						<div class="flex flex-wrap gap-2 pt-2">
-							<Button
-								variant="outline"
-								disabled={busy || parentViewedStateId === null}
-								onclick={() => {
-									if (parentViewedStateId !== null) {
-										navigateTo(parentViewedStateId);
-									}
-								}}
-							>
-								Back
-							</Button>
-
-							<Button
-								variant="outline"
-								disabled={busy || initialGenerationStateId === null}
-								onclick={() => {
-									if (initialGenerationStateId !== null) {
-										navigateTo(initialGenerationStateId);
-									}
-								}}
-							>
-								All bands
-							</Button>
-						</div>
-					{/if}
-				</section>
-			</aside>
-
-			<main class="min-w-0 space-y-4">
-				<div class="rounded-lg border p-3">
-					{#if scoreBandsResult}
-						<div class="h-[520px]">
-							<ScoreBands
-								data={visual.data}
-								axisNames={visual.axisNames}
-								axisPositions={visual.axisPositions}
-								axisSigns={visual.axisSigns}
-								groups={visual.clusterIds}
-								{options}
-								bands={visual.bands}
-								medians={visual.medians}
-								scales={visual.scales}
-								{clusterVisibility}
-								clusterColors={colors}
-								{axisOptions}
-								axisOrder={[]}
-								onBandSelect={(id: number | null) => (selectedBand = id)}
-								onAxisSelect={(id: number | null) => (selectedAxis = id)}
-								{selectedBand}
-								{selectedAxis}
-							/>
-						</div>
-					{:else}
-						<p class="py-20 text-center text-sm">
-							No SCORE Bands result yet. Check the error above or create a new session.
-						</p>
-					{/if}
-				</div>
-			</main>
-
-			<aside class="space-y-4">
-				<section class="space-y-3 rounded-lg border p-4">
-					<h2 class="font-semibold">Selected band</h2>
-					{#if selectedBand !== null}
-						<p class="text-sm font-medium">Band {selectedBand}</p>
-						<p class="text-muted-foreground text-xs">
-							Objective preferences for the next evolutionary iteration:
-						</p>
-						{#if selectedRanges}
-							<div class="space-y-1">
-								{#each Object.entries(selectedRanges) as [name, bounds]}
-									<div class="flex justify-between gap-3 text-xs">
-										<span>{name}</span>
-										<span class="text-right"
-											>{bounds[0].toPrecision(4)} – {bounds[1].toPrecision(4)}</span
-										>
-									</div>
-								{/each}
-							</div>
-						{/if}
-						<Button class="w-full" onclick={iterateSelectedBand} disabled={busy}>
-							{busy ? 'Working...' : 'Explore band with evolutionary optimization'}
-						</Button>
-						<Button class="w-full" variant="outline" onclick={toggleSavedBand} disabled={busy}>
-							{isSaved ? 'Remove saved band' : 'Save band'}
-						</Button>
-					{:else}
-						<p class="text-muted-foreground text-sm">
-							Click a band in the visualization to see its objective ranges and explore it.
-						</p>
-					{/if}
-				</section>
-
-				<section class="space-y-3 rounded-lg border p-4">
-					<h2 class="font-semibold">Saved bands ({savedBands.length})</h2>
-					{#each savedBands as band}
-						<div class="rounded border p-2 text-sm">
-							<div class="font-medium">{band.name ?? `Band ${band.cluster_id}`}</div>
-							<div class="text-muted-foreground text-xs">
-								From state {band.source_state_id}, band {band.cluster_id}
-							</div>
-							<button
-								class="mt-1 text-xs underline disabled:opacity-50"
-								disabled={busy}
-								onclick={() => removeSavedBand(band)}>Remove saved band</button
-							>
-							<div class="mt-1 space-y-1">
-								{#each Object.entries(band.preferred_ranges) as [symbol, interval]}
-									<div class="flex justify-between gap-2 text-xs">
-										<span>{symbol}</span><span
-											>{interval[0].toPrecision(4)} – {interval[1].toPrecision(4)}</span
-										>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/each}
-					{#if savedBands.length === 0}
-						<p class="text-muted-foreground text-sm">No bands saved in this session.</p>
-					{/if}
-				</section>
-			</aside>
+	<!-- BOTTOM CENTER: BRANCHING HISTORY GRAPH -->
+	{#snippet bottomPanel()}
+		<div class="h-full min-h-0 w-full">
+			<ScoreBandsHistoryGraph {history} {viewedStateId} onSelect={navigateTo} />
 		</div>
-	{/if}
-</div>
+	{/snippet}
+
+	<!-- RIGHT SIDEBAR: READ-ONLY INFORMATION -->
+	{#snippet rightSidebar()}
+		<div class="h-full min-h-0 space-y-5 overflow-y-auto p-4">
+			<div>
+				<h2 class="text-lg font-semibold">Details</h2>
+				<p class="text-muted-foreground text-xs">Details of the current iteration.</p>
+			</div>
+			<!-- Selected band ranges -->
+			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">Selected band information</h3>
+
+				{#if selectedBand !== null && selectedRanges}
+					<p class="text-sm font-medium">
+						Band {selectedBand} ({scoreBandsResult?.cardinalities?.[String(selectedBand)] ?? 0} solutions)
+					</p>
+					<p class="text-muted-foreground text-xs">Objective ranges.</p>
+
+					<div class="space-y-2">
+						{#each Object.entries(selectedRanges) as [name, bounds]}
+							<div class="flex justify-between gap-3 text-sm">
+								<span>{name}</span>
+								<span class="text-right font-mono text-xs">
+									{bounds[0].toPrecision(4)} –
+									{bounds[1].toPrecision(4)}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-muted-foreground text-sm">
+						Select a band to inspect its objective ranges.
+					</p>
+				{/if}
+			</section>
+
+			<!-- Band visibility and solution counts -->
+			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">Visible bands</h3>
+
+				<p class="text-muted-foreground text-xs">
+					Show or hide bands in the visualization. The number in parentheses indicates how many
+					solutions belong to each band.
+				</p>
+
+				{#each visual.clusterIds as clusterId}
+					<label class="flex cursor-pointer items-center justify-between gap-2 text-sm">
+						<span class="flex items-center gap-2">
+							<span
+								class="h-3 w-3 shrink-0 rounded"
+								style={`background-color: ${colors[clusterId] || '#888'}`}
+							></span>
+
+							<span>
+								Band {clusterId}
+								<span class="text-muted-foreground">
+									({scoreBandsResult?.cardinalities?.[String(clusterId)] ?? 0})
+								</span>
+							</span>
+						</span>
+
+						<input
+							type="checkbox"
+							bind:checked={clusterVisibility[clusterId]}
+							class="h-4 w-4 cursor-pointer"
+						/>
+					</label>
+				{/each}
+
+				{#if visual.clusterIds.length === 0}
+					<p class="text-muted-foreground text-sm">No bands available.</p>
+				{/if}
+			</section>
+
+			<!-- Visualization controls -->
+			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">Visualization options</h3>
+
+				<label class="flex items-center justify-between text-sm">
+					Show bands
+					<input
+						type="checkbox"
+						bind:checked={showBands}
+						disabled={!canToggleBands(showBands, showMedians, showSolutions)}
+					/>
+				</label>
+
+				<label class="flex items-center justify-between text-sm">
+					Show medians
+					<input
+						type="checkbox"
+						bind:checked={showMedians}
+						disabled={!canToggleMedians(showBands, showMedians, showSolutions)}
+					/>
+				</label>
+			</section>
+
+			<!-- Read-only saved bands -->
+			<!-- 			<section class="space-y-3 rounded-lg border p-3">
+				<h3 class="font-semibold">
+					Saved bands ({savedBands.length})
+				</h3>
+
+				{#each savedBands as band}
+					<div class="space-y-1 rounded border p-2 text-sm">
+						<p class="font-medium">
+							{band.name ?? `Band ${band.cluster_id}`}
+						</p>
+
+						<p class="text-muted-foreground text-xs">
+							State {band.source_state_id}
+							· Band {band.cluster_id}
+						</p>
+
+						{#each Object.entries(band.preferred_ranges) as [name, bounds]}
+							<div class="flex justify-between gap-2 text-xs">
+								<span>{name}</span>
+								<span>
+									{bounds[0].toPrecision(4)} –
+									{bounds[1].toPrecision(4)}
+								</span>
+							</div>
+						{/each}
+					</div>
+				{/each}
+
+				{#if savedBands.length === 0}
+					<p class="text-muted-foreground text-sm">No saved bands in this session.</p>
+				{/if}
+			</section> -->
+		</div>
+	{/snippet}
+</ScoreBandsLayout>
