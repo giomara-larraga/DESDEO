@@ -65,6 +65,10 @@
 
 	let latestGenerationId = $derived(history.at(-1)?.state_id ?? null);
 
+	let showPreferenceRanges = $state(true);
+
+	let previousPreferenceRanges = $derived(viewedGeneration?.preferred_ranges ?? null);
+
 	let visual = $derived.by(() => {
 		if (!scoreBandsResult) {
 			return {
@@ -710,10 +714,12 @@
 					clusterColors={colors}
 					{axisOptions}
 					axisOrder={[]}
-					onBandSelect={(id: number | null) => (selectedBand = id)}
-					onAxisSelect={(id: number | null) => (selectedAxis = id)}
 					{selectedBand}
 					{selectedAxis}
+					onBandSelect={(id: number | null) => (selectedBand = id)}
+					onAxisSelect={(id: number | null) => (selectedAxis = id)}
+					preferenceRanges={previousPreferenceRanges}
+					{showPreferenceRanges}
 				/>
 			{:else}
 				<div class="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -822,6 +828,16 @@
 						type="checkbox"
 						bind:checked={showMedians}
 						disabled={!canToggleMedians(showBands, showMedians, showSolutions)}
+					/>
+				</label>
+
+				<label class="flex items-center justify-between gap-2 text-sm">
+					<span>Show previous preference ranges</span>
+
+					<input
+						type="checkbox"
+						bind:checked={showPreferenceRanges}
+						disabled={previousPreferenceRanges === null}
 					/>
 				</label>
 

@@ -155,6 +155,7 @@ def _all_history(
                 parent_state_id=parent_id,
                 action=state.action,
                 selected_cluster_id=state.selected_cluster_id,
+                preferred_ranges=state.preferred_ranges,
                 result=state.result,
                 optimized=bool(
                     (state.optimization_options or {}).get("optimize", False)

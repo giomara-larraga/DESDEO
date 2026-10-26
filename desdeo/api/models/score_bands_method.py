@@ -73,6 +73,8 @@ class SCOREBandsMethodHistoryItem(SQLModel):
     parent_state_id: int | None = None
     action: Literal["initialize", "iterate"]
     selected_cluster_id: int | None = None
+    preferred_ranges: dict[str, list[float]] | None = None
+
     result: SCOREBandsResult
     optimized: bool = False
 

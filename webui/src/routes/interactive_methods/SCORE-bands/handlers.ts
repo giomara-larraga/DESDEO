@@ -21,6 +21,7 @@ export type ScoreBandsHistoryItem = {
     parent_state_id: number | null;
     action: 'initialize' | 'iterate';
     selected_cluster_id: number | null;
+    preferred_ranges: Record<string, [number, number]> | null;
     result: SCOREBandsResult;
     optimized: boolean;
 };

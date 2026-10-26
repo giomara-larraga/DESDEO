@@ -67,6 +67,10 @@
 	export let selectedBand: number | null = null;
 	export let selectedAxis: number | null = null;
 
+	export let preferenceRanges: Record<string, [number, number]> | null = null;
+
+	export let showPreferenceRanges = true;
+
 	// Pre-calculated bands and medians from SCORE API (when raw data is not available)
 	// bands = { "clusterId": { "axisName": [minValue, maxValue] } } - quantile-based band limits per cluster per axis
 	export let bands: Record<string, Record<string, [number, number]>> = {};
@@ -293,6 +297,71 @@
 				.attr('stroke-dasharray', isSelected ? 'none' : axisStyle.strokeDasharray)
 				.style('cursor', 'pointer');
 
+			// -----------------------------------------------------
+			// Previous preference range on this objective axis
+			// -----------------------------------------------------
+
+			const symbol = sortedAxisNames[sortedIndex];
+
+			const bounds = preferenceRanges?.[symbol];
+
+			if (showPreferenceRanges && bounds) {
+				const [lower, upper] = bounds;
+
+				if (Number.isFinite(lower) && Number.isFinite(upper)) {
+					const scale = yScales[sortedIndex];
+
+					// Convert raw objective values to SVG coordinates.
+					const y1 = scale(lower);
+					const y2 = scale(upper);
+
+					const top = Math.min(y1, y2);
+					const bottom = Math.max(y1, y2);
+
+					const color = '#7c3aed';
+
+					// Thick highlighted portion of the axis.
+					svg
+						.append('line')
+						.attr('x1', x)
+						.attr('x2', x)
+						.attr('y1', top)
+						.attr('y2', bottom)
+						.attr('stroke', color)
+						.attr('stroke-width', 9)
+						.attr('stroke-opacity', 0.8)
+						.attr('stroke-linecap', 'round')
+						.style('pointer-events', 'none');
+
+					// Mark the exact boundaries.
+					[top, bottom].forEach((y) => {
+						svg
+							.append('line')
+							.attr('x1', x - 9)
+							.attr('x2', x + 9)
+							.attr('y1', y)
+							.attr('y2', y)
+							.attr('stroke', '#5b21b6')
+							.attr('stroke-width', 3)
+							.style('pointer-events', 'none');
+					});
+
+					// Tooltip with the exact preferred values.
+					svg
+						.append('rect')
+						.attr('x', x - 10)
+						.attr('y', top)
+						.attr('width', 20)
+						.attr('height', Math.max(bottom - top, 2))
+						.attr('fill', 'transparent')
+						.append('title')
+						.text(
+							`Previous preferences for ${symbol}: ` +
+								`${lower.toPrecision(4)} – ${upper.toPrecision(4)}`
+						);
+				}
+			}
+
 			// Add click handler for axis selection
 			if (onAxisSelect) {
 				axisLine.on('click', (event) => {
@@ -403,6 +472,8 @@
 		selectedBand,
 		selectedAxis,
 		axisOptions,
+		preferenceRanges,
+		showPreferenceRanges,
 		drawChart());
 </script>
 
