@@ -54,6 +54,7 @@ class GDMSCOREBandsConsensusPreference(BaseGroupInfoContainer):
     user_confirms: list[int] = Field(
         default_factory=list,
     )
+    minimum_votes: int = Field(default=1, ge=1)
 
 
 class GDMSCOREBandsDecisionPreference(BaseGroupInfoContainer):
@@ -208,3 +209,8 @@ class GDMSCOREBandsLearningExploreRequest(SQLModel):
     parent_state_id: int | None = None
 
     scorebands_options: SCOREBandsConfig | None = None
+
+
+class UpdateMinimumVotesRequest(SQLModel):
+    group_session_id: int
+    minimum_votes: int = Field(ge=1)

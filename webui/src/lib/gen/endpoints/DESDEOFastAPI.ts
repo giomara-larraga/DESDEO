@@ -2551,6 +2551,12 @@ export interface Tokens {
 	token_type: string;
 }
 
+export interface UpdateMinimumVotesRequest {
+	group_session_id: number;
+	/** @minimum 1 */
+	minimum_votes: number;
+}
+
 /**
  * Request to update the solution description metadata for a problem.
  */
@@ -7864,6 +7870,51 @@ export const continueConsensusGdmScoreBandsConsensusContinuePost = async (
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...options?.headers },
 			body: JSON.stringify(gDMSCOREBandsDecisionAdvanceRequest)
+		}
+	);
+};
+
+export type updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse200 = {
+	data: unknown;
+	status: 200;
+};
+
+export type updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponseSuccess =
+	updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse200 & {
+		headers: Headers;
+	};
+export type updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponseError =
+	updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse422 & {
+		headers: Headers;
+	};
+
+export type updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse =
+	| updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponseSuccess
+	| updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponseError;
+
+export const getUpdateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostUrl = () => {
+	return `http://localhost:8000/gdm-score-bands/consensus/update-minimum-votes`;
+};
+
+/**
+ * @summary Update Minimum Votes
+ */
+export const updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPost = async (
+	updateMinimumVotesRequest: UpdateMinimumVotesRequest,
+	options?: RequestInit
+): Promise<updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse> => {
+	return customFetch<updateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse>(
+		getUpdateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(updateMinimumVotesRequest)
 		}
 	);
 };

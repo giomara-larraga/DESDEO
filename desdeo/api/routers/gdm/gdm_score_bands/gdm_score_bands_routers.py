@@ -17,6 +17,7 @@ from desdeo.api.models.gdm.gdm_score_bands import (
     GDMSCOREBandsLearningExploreRequest,
     GDMSCOREBandsLearningPreference,
     GDMSCOREBandsRestartRequest,
+    UpdateMinimumVotesRequest,
 )
 from desdeo.api.models.generic_states import StateDB
 from desdeo.api.models.state import (
@@ -560,6 +561,11 @@ def get_votes_and_confirms(
                 "last_warning_message",
                 None,
             ),
+            "minimum_votes": getattr(
+                info,
+                "minimum_votes",
+                None,
+            ),
         }
     )
 
@@ -825,6 +831,60 @@ async def continue_consensus(
         ) from exc
 
     return {"message": "Consensus phase continued."}
+
+
+@router.post("/consensus/update-minimum-votes")
+async def update_minimum_votes(
+    request: UpdateMinimumVotesRequest,
+    user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+    session: Annotated[
+        Session,
+        Depends(get_session),
+    ],
+):
+    group_session, group = get_score_bands_context(
+        request.group_session_id,
+        user,
+        session,
+    )
+
+    check_group_owner(
+        user,
+        group,
+    )
+
+    group_mgr: GDMScoreBandsManager = await manager.get_group_manager(
+        group_session_id=group_session.id,
+        method="gdm-score-bands",
+        db_session=session,
+    )
+
+    try:
+        await group_mgr.update_minimum_votes(
+            user=user,
+            group_session=group_session,
+            minimum_votes=request.minimum_votes,
+            session=session,
+        )
+
+    except ManagerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        logger.exception("Failed to update minimum votes.")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+    return {"message": "Minimum votes updated."}
 
 
 @router.post("/consensus/advance")

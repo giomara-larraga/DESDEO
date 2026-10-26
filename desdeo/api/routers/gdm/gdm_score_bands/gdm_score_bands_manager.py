@@ -607,7 +607,7 @@ class GDMScoreBandsManager(GroupManager):
 
             winners = consensus_rule(
                 votes,
-                current_config.minimum_votes,
+                preferences.minimum_votes,
             )
 
             relevant_ids = current_result.relevant_ids
@@ -1183,7 +1183,7 @@ class GDMScoreBandsManager(GroupManager):
 
             winners = consensus_rule(
                 preferences.user_votes,
-                current_config.minimum_votes,
+                preferences.minimum_votes,
             )
 
             relevant_ids = current_result.relevant_ids
@@ -1611,3 +1611,69 @@ class GDMScoreBandsManager(GroupManager):
             session.refresh(group_session)
 
             await self.broadcast("UPDATE: SCORE Bands was reset to " f"{target_phase}.")
+
+    async def update_minimum_votes(
+        self,
+        user: User,
+        group_session: GroupSessionDB,
+        minimum_votes: int,
+        session: Session,
+    ) -> None:
+        async with self.lock:
+            group = self._get_group(group_session, session)
+            self._check_owner(user, group)
+
+            iteration = self._get_head_iteration(
+                group_session,
+                session,
+            )
+
+            preferences = copy.deepcopy(iteration.info_container)
+
+            if not isinstance(
+                preferences,
+                GDMSCOREBandsConsensusPreference,
+            ):
+                raise ManagerError(
+                    "Minimum votes can only be changed during Consensus."
+                )
+
+            member_ids = sorted(self._get_member_ids(group))
+            confirmed_ids = sorted(preferences.user_confirms)
+
+            if confirmed_ids != member_ids:
+                raise ManagerError(
+                    "All decision makers must confirm before "
+                    "the moderator can change minimum votes."
+                )
+
+            if minimum_votes < 1:
+                raise ManagerError("Minimum votes must be at least 1.")
+
+            if minimum_votes > len(member_ids):
+                raise ManagerError(
+                    "Minimum votes cannot exceed the number " "of decision makers."
+                )
+
+            vote_counts: dict[int, int] = {}
+
+            for vote in preferences.user_votes.values():
+                vote_counts[vote] = vote_counts.get(vote, 0) + 1
+
+            maximum_votes = max(vote_counts.values(), default=0)
+
+            if minimum_votes > maximum_votes:
+                raise ManagerError(
+                    "Minimum votes cannot exceed the highest "
+                    "number of votes received by a band."
+                )
+
+            preferences.minimum_votes = minimum_votes
+
+            iteration.info_container = preferences
+
+            session.add(iteration)
+            session.commit()
+            session.refresh(iteration)
+
+            await self.broadcast("UPDATE: The consensus voting threshold has changed.")

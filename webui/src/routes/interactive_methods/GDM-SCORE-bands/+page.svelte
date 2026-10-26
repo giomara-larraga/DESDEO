@@ -144,7 +144,10 @@
 	let learningNowMs = $state(Date.now());
 	let learningClockTimer: ReturnType<typeof setInterval> | null = null;
 
-	let minimumVotes: number | undefined = $state(1);
+	let minimumVotes = $state(1);
+	let selectedMinimumVotes = $state(1);
+	let isUpdatingMinimumVotes = $state(false);
+	let minimumVotesIterationId = $state<number | null>(null);
 
 	let decisionNotice = $state<string | null>(null);
 
@@ -249,6 +252,7 @@
 		confirms: [] as number[],
 		votes: {} as Record<string, number>,
 		phase: 'learning' as GdmPhase,
+		minimum_votes: null as number | null,
 
 		completed_user_ids: [] as number[],
 		started_at: null as string | null,
@@ -306,6 +310,10 @@
 
 		return counts;
 	});
+
+	let maximumBandVotes = $derived(
+		Math.max(0, ...Object.values(votes_per_cluster))
+	);
 
 	// Per-decision-maker voting status, used by the owner to monitor progress.
 	type VoterStatus = {
@@ -1236,7 +1244,6 @@
 				{
 					group_session_id: data.groupSession.id,
 					score_bands_config: scoreBandsConfig,
-					minimum_votes: minimumVotes,
 					from_iteration: latestIteration
 				}
 			);
@@ -1510,6 +1517,51 @@
 		}
 	}
 
+	async function updateMinimumVotes() {
+		if (
+			isUpdatingMinimumVotes ||
+			!isOwner ||
+			!isConsensusPhase ||
+			!have_all_confirmed
+		) {
+			return;
+		}
+
+		if (
+			!Number.isInteger(selectedMinimumVotes) ||
+			selectedMinimumVotes < 1 ||
+			selectedMinimumVotes > maximumBandVotes
+		) {
+			errorMessage.set('Invalid minimum-votes threshold.');
+			return;
+		}
+
+		isUpdatingMinimumVotes = true;
+
+		try {
+			const result = await callGSCOREBandsAPI(
+				'consensus/minimum-votes',
+				{
+					group_session_id: data.groupSession.id,
+					minimum_votes: selectedMinimumVotes
+				}
+			);
+
+			if (!result.success) {
+				throw new Error(
+					result.error ?? 'Failed to update minimum votes.'
+				);
+			}
+
+			minimumVotes = selectedMinimumVotes;
+			await fetch_votes_and_confirms();
+		} catch (error) {
+			console.error('Error updating minimum votes:', error);
+			errorMessage.set(String(error));
+		} finally {
+			isUpdatingMinimumVotes = false;
+		}
+	}
 	/**
 	 * Confirms user's current vote to proceed to next phase
 	 */
@@ -1567,6 +1619,20 @@
 
 			if (result.success && result.data) {
 				votes_and_confirms = result.data;
+				if (
+					result.data.phase === 'consensus' &&
+					typeof result.data.minimum_votes === 'number'
+				) {
+					const savedValue = result.data.minimum_votes;
+					const iterationChanged =
+						minimumVotesIterationId !== groupIterationId;
+
+					if (iterationChanged || minimumVotes !== savedValue) {
+						minimumVotes = savedValue;
+						selectedMinimumVotes = savedValue;
+						minimumVotesIterationId = groupIterationId;
+					}
+				}
 				if (userId != null) {
 					vote_confirmed = votes_and_confirms.confirms.map(Number).includes(Number(userId));
 				} else {
@@ -1770,7 +1836,6 @@
 			});
 
 			if (configureResult.success) {
-				minimumVotes = config.minimum_votes;
 				await fetch_score_bands();
 				await fetch_votes_and_confirms(true);
 				//clusters_to_visible();
@@ -2283,7 +2348,15 @@
 						onVote: voteForSelectedBand,
 						onConfirmVote: confirm_vote,
 						onContinueConsensus: continue_consensus,
-						onAdvanceToDecision: advance_to_decision
+						onAdvanceToDecision: advance_to_decision,
+						minimumVotes: selectedMinimumVotes,
+						savedMinimumVotes: minimumVotes,
+						maximumBandVotes,
+						isUpdatingMinimumVotes,
+						onMinimumVotesChange: (value: number) => {
+							selectedMinimumVotes = value;
+						},
+						onUpdateMinimumVotes: updateMinimumVotes,
 					}}
 				/>
 			</div>

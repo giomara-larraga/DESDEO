@@ -10395,6 +10395,17 @@ export const ContinueConsensusGdmScoreBandsConsensusContinuePostBody = zod
 export const ContinueConsensusGdmScoreBandsConsensusContinuePostResponse = zod.unknown();
 
 /**
+ * @summary Update Minimum Votes
+ */
+
+export const UpdateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostBody = zod.object({
+	group_session_id: zod.number(),
+	minimum_votes: zod.number().min(1)
+});
+
+export const UpdateMinimumVotesGdmScoreBandsConsensusUpdateMinimumVotesPostResponse = zod.unknown();
+
+/**
  * @summary Advance Consensus To Decision
  */
 export const AdvanceConsensusToDecisionGdmScoreBandsConsensusAdvancePostBody = zod

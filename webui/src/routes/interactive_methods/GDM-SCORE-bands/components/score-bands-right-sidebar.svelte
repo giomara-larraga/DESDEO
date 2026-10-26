@@ -76,6 +76,14 @@
 		getConsensusLabel: (axisName: string) => string;
 		getConsensusClasses: (axisName: string) => string;
 		axisAgreement: Record<string, string>;
+
+		minimumVotes: number;
+		savedMinimumVotes: number;
+		maximumBandVotes: number;
+		isUpdatingMinimumVotes: boolean;
+
+		onMinimumVotesChange: (value: number) => void;
+		onUpdateMinimumVotes: () => void | Promise<void>;
 	};
 
 	type DecisionVoterStatus = {
@@ -401,12 +409,61 @@
 								</p>
 							{/if}
 
+							{#if consensus.haveAllConfirmed}
+    <div class="space-y-2 rounded-md border p-3">
+        <label
+            for="minimum-votes"
+            class="text-sm font-medium"
+        >
+            Minimum votes to retain a band
+        </label>
+
+        <select
+            id="minimum-votes"
+            class="bg-background w-full rounded-md border px-3 py-2 text-sm"
+            value={consensus.minimumVotes}
+            disabled={consensus.isUpdatingMinimumVotes ||
+                consensus.isContinuingConsensus ||
+                consensus.isAdvancingToDecision}
+            onchange={(event) =>
+                consensus.onMinimumVotesChange(
+                    Number(event.currentTarget.value)
+                )}
+        >
+            {#each Array.from(
+                { length: consensus.maximumBandVotes },
+                (_, index) => index + 1
+            ) as count}
+                <option value={count}>{count}</option>
+            {/each}
+        </select>
+
+        <p class="text-muted-foreground text-xs">
+            Bands receiving at least this many votes will be retained.
+        </p>
+
+        <Button
+            class="w-full"
+            variant="outline"
+            onclick={consensus.onUpdateMinimumVotes}
+            disabled={consensus.isUpdatingMinimumVotes ||
+                consensus.minimumVotes === consensus.savedMinimumVotes ||
+                consensus.maximumBandVotes < 1}
+        >
+            {consensus.isUpdatingMinimumVotes
+                ? 'Saving...'
+                : 'Save minimum votes'}
+        </Button>
+    </div>
+{/if}
+
 							<Button
 								class="w-full"
 								onclick={consensus.onContinueConsensus}
 								disabled={!consensus.haveAllConfirmed ||
 									consensus.isContinuingConsensus ||
-									consensus.isAdvancingToDecision}
+									consensus.isAdvancingToDecision || consensus.minimumVotes !== consensus.savedMinimumVotes ||
+									consensus.isUpdatingMinimumVotes}
 							>
 								{consensus.isContinuingConsensus ? 'Continuing consensus...' : 'Continue consensus'}
 							</Button>
@@ -417,7 +474,8 @@
 								onclick={consensus.onAdvanceToDecision}
 								disabled={!consensus.haveAllConfirmed ||
 									consensus.isContinuingConsensus ||
-									consensus.isAdvancingToDecision}
+									consensus.isAdvancingToDecision || consensus.minimumVotes !== consensus.savedMinimumVotes ||
+									consensus.isUpdatingMinimumVotes}
 							>
 								{consensus.isAdvancingToDecision
 									? 'Starting decision phase...'

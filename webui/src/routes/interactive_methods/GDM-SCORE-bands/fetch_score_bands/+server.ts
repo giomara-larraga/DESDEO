@@ -24,7 +24,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			group_session_id,
 			score_bands_config,
 			from_iteration,
-			minimum_votes
 		} = requestData;
 
 		if (typeof group_session_id !== 'number') {
@@ -47,10 +46,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 									? from_iteration
 									: null,
 							score_bands_config,
-							minimum_votes:
-								typeof minimum_votes === 'number'
-									? minimum_votes
-									: 1
 						}
 					: null
 			};
