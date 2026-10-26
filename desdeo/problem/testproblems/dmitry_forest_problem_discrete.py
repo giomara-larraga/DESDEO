@@ -64,8 +64,9 @@ def dmitry_forest_problem_disc() -> Problem:
 
     objectives = [
         Objective(
-            name=full_name,
+            name=obj_name,
             symbol=obj_name,
+            description=full_name,
             unit=unit,
             objective_type=ObjectiveTypeEnum.data_based,
             ideal=data[obj_name].max(),

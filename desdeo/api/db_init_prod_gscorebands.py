@@ -52,8 +52,27 @@ extra_problems = [
     ),
 ]
 
-predefined_experiment = True
+predefined_experiment = True  # for the prepilot
+create_pilot_experiment = True  # for the pilot
+create_experiment = True  # for the experiment
+
 predefined_names = ["jpajamas", "bsaini", "glarraga", "bafsar"]
+pilot_names = [
+    "pilot_moderator",
+    "pilot_dm1",
+    "pilot_dm2",
+    "pilot_dm3",
+    "pilot_dm4",
+    "pilot_dm5",
+]
+experiment_names = [
+    "exp_moderator",
+    "exp_dm1",
+    "exp_dm2",
+    "exp_dm3",
+    "exp_dm4",
+    "exp_dm5",
+]
 extra_usernames = [
     "juuso",
     "kaisa",
@@ -213,6 +232,138 @@ def seed_admin_user() -> None:
         )
 
 
+def seed_pilot_experiment() -> None:
+    with Session(engine) as session:
+        users: list[User] = []
+        for username in pilot_names:
+            existing = session.exec(
+                select(User).where(User.username == username)
+            ).first()
+
+            if existing:
+                print(f"[db-init] User '{username}' already exists — skipping.")
+                continue
+
+            role = UserRole.analyst if "moderator" in username else UserRole.dm
+            user = User(
+                username=username,
+                password_hash=get_password_hash("gdmdesdeo"),
+                role=role,
+                group="pilot",
+            )
+            session.add(user)
+            users.append(user)
+            print(f"[db-init] Created user '{username}' (role={role}, group=pilot).")
+
+        session.commit()
+
+        for user in users:
+            session.refresh(user)
+
+        problem_db = ProblemDB.from_problem(
+            problems[0],
+            users[0],
+        )
+        session.add(problem_db)
+        session.commit()
+        session.refresh(problem_db)
+
+        dms = users[1:]
+
+        group = Group(
+            name="pilot_group",
+            owner_id=users[0].id,
+            users=dms,
+        )
+
+        session.add(group)
+        session.commit()
+        session.refresh(group)
+
+        group_session = GroupSessionDB(
+            group_id=group.id,
+            problem_id=problem_db.id,
+            method="gdm-score-bands",
+            head_iteration_id=None,
+        )
+
+        session.add(group_session)
+        session.commit()
+        session.refresh(group_session)
+
+        print(
+            f"[db-init] Created SCORE Bands pilot group session "
+            f"{group_session.id} for group {group.id}"
+        )
+
+
+def seed_experiment() -> None:
+    with Session(engine) as session:
+        users: list[User] = []
+        for username in experiment_names:
+            existing = session.exec(
+                select(User).where(User.username == username)
+            ).first()
+
+            if existing:
+                print(f"[db-init] User '{username}' already exists — skipping.")
+                continue
+
+            role = UserRole.analyst if "moderator" in username else UserRole.dm
+            user = User(
+                username=username,
+                password_hash=get_password_hash("gdmdesdeo"),
+                role=role,
+                group="experiment",
+            )
+            session.add(user)
+            users.append(user)
+            print(
+                f"[db-init] Created user '{username}' (role={role}, group=experiment)."
+            )
+
+        session.commit()
+
+        for user in users:
+            session.refresh(user)
+
+        problem_db = ProblemDB.from_problem(
+            problems[0],
+            users[0],
+        )
+        session.add(problem_db)
+        session.commit()
+        session.refresh(problem_db)
+
+        dms = users[1:]
+
+        group = Group(
+            name="experiment_group",
+            owner_id=users[0].id,
+            users=dms,
+        )
+
+        session.add(group)
+        session.commit()
+        session.refresh(group)
+
+        group_session = GroupSessionDB(
+            group_id=group.id,
+            problem_id=problem_db.id,
+            method="gdm-score-bands",
+            head_iteration_id=None,
+        )
+
+        session.add(group_session)
+        session.commit()
+        session.refresh(group_session)
+
+        print(
+            f"[db-init] Created SCORE Bands experiment group session "
+            f"{group_session.id} for group {group.id}"
+        )
+
+
 def main() -> None:
     _reset_database = True
     database_url = "postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -229,6 +380,8 @@ def main() -> None:
     create_tables()
     seed_admin_user()
     seed_extra_users()
+    seed_pilot_experiment()
+    seed_experiment()
     print("[db-init] Done.")
 
 

@@ -1540,7 +1540,7 @@
 
 		try {
 			const result = await callGSCOREBandsAPI(
-				'consensus/minimum-votes',
+				'consensus/minimum_votes',
 				{
 					group_session_id: data.groupSession.id,
 					minimum_votes: selectedMinimumVotes
