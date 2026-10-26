@@ -14,8 +14,7 @@ class SCOREBandsGDMConfig(BaseModel):
 
     score_bands_config: SCOREBandsConfig = Field(default_factory=SCOREBandsConfig)
     """Configuration for the SCORE bands method."""
-    minimum_votes: int = Field(default=1, gt=0)
-    """Minimum number of votes required to select a cluster."""
+
     from_iteration: int | None
     """The iteration number from which to consider the clusters. Set to None if method is initializing."""
 
@@ -42,6 +41,7 @@ def score_bands_gdm(
     config: SCOREBandsGDMConfig,
     state: list[SCOREBandsGDMResult],
     votes: dict[str, int] | None = None,
+    minimum_votes: int = 1,
 ) -> list[SCOREBandsGDMResult]:
     """Run the SCORE bands based interactive GDM.
 
@@ -49,6 +49,7 @@ def score_bands_gdm(
         data (pl.DataFrame): The data to run the GDM on.
         config (SCOREBandsGDMConfig): Configuration for the GDM.
         state (list[SCOREBandsGDMResult]): List of previous state of the GDM. Empty list if first iteration.
+        minimum_votes (int, optional): Minimum number of votes required to select a cluster. Defaults to 1.
         votes (dict[str, int] | None, optional): Votes from the decision makers. Defaults to None.
 
     Raises:
@@ -77,7 +78,10 @@ def score_bands_gdm(
             "from_iteration must be set in the config for subsequent iterations."
         )
 
-    winning_clusters = consensus_rule(votes, config.minimum_votes)
+    if minimum_votes < 1:
+        raise ValueError("minimum_votes must be at least 1.")
+
+    winning_clusters = consensus_rule(votes, minimum_votes)
 
     index_column_name = "index"
     if index_column_name in data.columns:

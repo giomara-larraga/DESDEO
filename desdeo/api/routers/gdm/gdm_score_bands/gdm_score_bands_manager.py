@@ -689,6 +689,7 @@ class GDMScoreBandsManager(GroupManager):
                     config=next_config,
                     state=result_history,
                     votes=votes,
+                    minimum_votes=preferences.minimum_votes,
                 )
 
                 if not next_results:
