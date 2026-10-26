@@ -28,8 +28,13 @@ def dmitry_forest_problem_disc() -> Problem:
     )
 
     obj_names = ["Rev", "HA", "Carb", "DW"]
-    full_names = ["Harvest Revenue", "Habitat Availability", "Carbon Storage", "Deadwood Volume"]
-    units = ["million €", "(unitless)", "thousand Mg C", "thousand m³"]
+    full_names = [
+        "Harvest Revenue",
+        "Habitat Availability",
+        "Carbon Storage",
+        "Deadwood Volume",
+    ]
+    units = ["M€", "", "k Mg C", "k m³"]
 
     var_name = "index"
 
