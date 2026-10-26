@@ -2029,12 +2029,7 @@
 				<main class="space-y-4">
 					<div class="bg-card rounded-lg border shadow-sm">
 						<div class="flex items-center justify-between border-b px-4 py-3">
-							<div
-								class="
-		flex items-center justify-between
-		border-b px-4 py-3
-	"
-							>
+							
 								<div>
 									{#if personalExplorationStack.length > 0}
 										{@const currentExploration =
@@ -2064,7 +2059,7 @@
 										</p>
 									{/if}
 								</div>
-							</div>
+							
 						</div>
 
 						<div class="h-[520px] p-4">
