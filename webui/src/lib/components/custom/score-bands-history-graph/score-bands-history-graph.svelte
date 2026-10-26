@@ -18,6 +18,7 @@
 		parent_state_id: number | null;
 		action: 'initialize' | 'iterate';
 		selected_cluster_id: number | null;
+		optimized: boolean;
 	};
 
 	type Props = {
@@ -131,6 +132,11 @@
 
 			const iterationLabel = iterationLabels.get(item.state_id);
 
+			const operationLabel = item.optimized ? 'Optimization' : 'Reclustering';
+
+			const sourceLabel =
+				item.selected_cluster_id === null ? 'All solutions' : `Band ${item.selected_cluster_id}`;
+
 			graph.setNode(id, {
 				width: NODE_WIDTH,
 				height: NODE_HEIGHT
@@ -150,7 +156,7 @@
 				data: {
 					label: isRoot
 						? 'Initial SCORE Bands\nLevel 0'
-						: `Iteration ${iterationLabel}\nExplore Band ${item.selected_cluster_id}`
+						: `Iteration ${iterationLabel}\n${operationLabel}: ${sourceLabel}`
 				},
 
 				style: `

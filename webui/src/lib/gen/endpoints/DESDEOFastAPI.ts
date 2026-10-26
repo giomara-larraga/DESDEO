@@ -1346,6 +1346,8 @@ export interface SCOREBandsConfig {
 	 * If not provided, the min and max will be calculated from the data.
 	 */
 	scales?: SCOREBandsConfigScales;
+	/** Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions. */
+	correlation_matrix?: (number | null)[][] | null;
 }
 
 /**
@@ -1419,6 +1421,8 @@ export interface SCOREBandsResult {
 	medians: SCOREBandsResultMedians;
 	/** Dictionary mapping cluster IDs to the number of solutions in each cluster. */
 	cardinalities: SCOREBandsResultCardinalities;
+	/** Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions. */
+	correlation_matrix?: (number | null)[][] | null;
 }
 
 /**
@@ -2079,34 +2083,6 @@ export interface ObjectiveDB {
 }
 
 /**
- * The optimization algorithm to use. If not provided, the default algorithm will be used.
- */
-export type OptimizationOptionsAlgorithm =
-	(typeof OptimizationOptionsAlgorithm)[keyof typeof OptimizationOptionsAlgorithm] | null;
-
-export const OptimizationOptionsAlgorithm = {
-	nsga3: 'nsga3',
-	rvea: 'rvea'
-} as const;
-
-/**
- * Additional options for the optimization algorithm. This can be used to specify parameters such as population size, number of generations, etc.
- */
-export type OptimizationOptionsAlgorithmOptions = { [key: string]: unknown } | null;
-
-/**
- * Options to indicate if SCORE bands will perform optimization or not.
- */
-export interface OptimizationOptions {
-	/** Indicates if SCORE bands will perform optimization or not. */
-	optimize?: boolean;
-	/** The optimization algorithm to use. If not provided, the default algorithm will be used. */
-	algorithm?: OptimizationOptionsAlgorithm;
-	/** Additional options for the optimization algorithm. This can be used to specify parameters such as population size, number of generations, etc. */
-	algorithm_options?: OptimizationOptionsAlgorithmOptions;
-}
-
-/**
  * An enumerator for the possible variable type domains of a problem.
  */
 export type VariableDomainTypeEnum =
@@ -2398,30 +2374,135 @@ export interface RepresentativeSolutionSetBase {
 }
 
 /**
- * Calculate and persist SCORE Bands for a discrete problem.
+ * Preference expressed by selecting an existing band's objective intervals.
  */
+export interface SCOREBandsBandPreference {
+	preference_type?: 'score_bands.band';
+	cluster_id: number;
+}
+
+export type SCOREBandsMethodHistoryItemAction =
+	(typeof SCOREBandsMethodHistoryItemAction)[keyof typeof SCOREBandsMethodHistoryItemAction];
+
+export const SCOREBandsMethodHistoryItemAction = {
+	initialize: 'initialize',
+	iterate: 'iterate'
+} as const;
+
+export interface SCOREBandsMethodHistoryItem {
+	state_id: number;
+	parent_state_id?: number | null;
+	action: SCOREBandsMethodHistoryItemAction;
+	selected_cluster_id?: number | null;
+	result: SCOREBandsResult;
+	optimized?: boolean;
+}
+
+export type SCOREBandsSavedBandPreferredRanges = { [key: string]: [number, number] };
+
+/**
+ * A reference to a saved band; source_state_id makes it stable across iterations.
+ */
+export interface SCOREBandsSavedBand {
+	source_state_id: number;
+	cluster_id: number;
+	name?: string | null;
+	preferred_ranges?: SCOREBandsSavedBandPreferredRanges;
+}
+
+export interface SCOREBandsMethodHistoryResponse {
+	response_type?: 'score_bands.history';
+	session_id: number;
+	state_id?: number | null;
+	saved_bands?: SCOREBandsSavedBand[];
+	history?: SCOREBandsMethodHistoryItem[];
+}
+
+export type SCOREBandsOptimizationOptionsAlgorithm =
+	(typeof SCOREBandsOptimizationOptionsAlgorithm)[keyof typeof SCOREBandsOptimizationOptionsAlgorithm];
+
+export const SCOREBandsOptimizationOptionsAlgorithm = {
+	nsga3: 'nsga3',
+	rvea: 'rvea'
+} as const;
+
+export type SCOREBandsOptimizationOptionsAlgorithmOptions = { [key: string]: number };
+
+export interface SCOREBandsOptimizationOptions {
+	optimize?: boolean;
+	algorithm?: SCOREBandsOptimizationOptionsAlgorithm;
+	algorithm_options?: SCOREBandsOptimizationOptionsAlgorithmOptions;
+}
+
 export interface SCOREBandsMethodInitializeRequest {
 	problem_id: number;
 	session_id?: number | null;
 	parent_state_id?: number | null;
 	scorebands_options?: SCOREBandsConfig;
-	optimization_options?: OptimizationOptions;
+	optimization_options?: SCOREBandsOptimizationOptions;
 }
 
-/**
- * Persisted SCORE Bands result.
- */
+export type SCOREBandsMethodInitializeResponseResponseType =
+	(typeof SCOREBandsMethodInitializeResponseResponseType)[keyof typeof SCOREBandsMethodInitializeResponseResponseType];
+
+export const SCOREBandsMethodInitializeResponseResponseType = {
+	score_bandsinitialize: 'score_bands.initialize',
+	score_bandsiterate: 'score_bands.iterate'
+} as const;
+
 export interface SCOREBandsMethodInitializeResponse {
+	response_type?: SCOREBandsMethodInitializeResponseResponseType;
 	state_id: number;
+	session_id?: number | null;
 	result: SCOREBandsResult;
+	saved_bands?: SCOREBandsSavedBand[];
+	history?: SCOREBandsMethodHistoryItem[];
 }
 
 export interface SCOREBandsMethodIterationRequest {
 	problem_id: number;
 	session_id?: number | null;
-	parent_state_id: number;
-	selected_cluster_id: number;
-	optimization_options?: OptimizationOptions;
+	parent_state_id?: number | null;
+	preference?: SCOREBandsBandPreference | null;
+	scorebands_options?: SCOREBandsConfig | null;
+	optimization_options?: SCOREBandsOptimizationOptions;
+}
+
+export type SCOREBandsMethodResponseResponseType =
+	(typeof SCOREBandsMethodResponseResponseType)[keyof typeof SCOREBandsMethodResponseResponseType];
+
+export const SCOREBandsMethodResponseResponseType = {
+	score_bandsinitialize: 'score_bands.initialize',
+	score_bandsiterate: 'score_bands.iterate'
+} as const;
+
+/**
+ * Common result for initialization, resuming, and optimization.
+ */
+export interface SCOREBandsMethodResponse {
+	response_type?: SCOREBandsMethodResponseResponseType;
+	state_id: number;
+	session_id?: number | null;
+	result: SCOREBandsResult;
+	saved_bands?: SCOREBandsSavedBand[];
+	history?: SCOREBandsMethodHistoryItem[];
+}
+
+export interface SCOREBandsMethodSaveRequest {
+	problem_id: number;
+	session_id?: number | null;
+	parent_state_id?: number | null;
+	preference: SCOREBandsBandPreference;
+	save?: boolean;
+	source_state_id?: number | null;
+	name?: string | null;
+}
+
+export interface SCOREBandsMethodSaveResponse {
+	response_type?: 'score_bands.save';
+	state_id: number;
+	session_id: number;
+	saved_bands?: SCOREBandsSavedBand[];
 }
 
 /**
@@ -2826,12 +2907,10 @@ export type UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataPo
 	problem_id?: number | null;
 };
 
-export type InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostParams = {
-	problem_id?: number | null;
-};
-
-export type ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams = {
-	problem_id?: number | null;
+export type ScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetParams = {
+	problem_id: number;
+	session_id?: number | null;
+	head_state_id?: number | null;
 };
 
 export type getDmUsersUsersDmsGetResponse200 = {
@@ -8411,7 +8490,7 @@ export const updateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataP
 };
 
 export type initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponse200 = {
-	data: SCOREBandsMethodInitializeResponse;
+	data: SCOREBandsMethodResponse;
 	status: 200;
 };
 
@@ -8433,35 +8512,19 @@ export type initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostR
 	| initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseSuccess
 	| initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseError;
 
-export const getInitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostUrl = (
-	params?: InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostParams
-) => {
-	const normalizedParams = new URLSearchParams();
-
-	Object.entries(params || {}).forEach(([key, value]) => {
-		if (value !== undefined) {
-			normalizedParams.append(key, value === null ? 'null' : String(value));
-		}
-	});
-
-	const stringifiedParams = normalizedParams.toString();
-
-	return stringifiedParams.length > 0
-		? `http://localhost:8000/method/score_bands_method/initialize?${stringifiedParams}`
-		: `http://localhost:8000/method/score_bands_method/initialize`;
+export const getInitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostUrl = () => {
+	return `http://localhost:8000/method/score_bands_method/initialize`;
 };
 
 /**
- * Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists.
  * @summary Initialize Or Get Score Bands Method
  */
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost = async (
 	sCOREBandsMethodInitializeRequest: SCOREBandsMethodInitializeRequest,
-	params?: InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostParams,
 	options?: RequestInit
 ): Promise<initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponse> => {
 	return customFetch<initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponse>(
-		getInitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostUrl(params),
+		getInitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostUrl(),
 		{
 			...options,
 			method: 'POST',
@@ -8471,31 +8534,121 @@ export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 	);
 };
 
-export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse200 = {
-	data: SCOREBandsMethodInitializeResponse;
+export type iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse200 = {
+	data: SCOREBandsMethodResponse;
 	status: 200;
 };
 
-export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse422 = {
+export type iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse422 = {
 	data: HTTPValidationError;
 	status: 422;
 };
 
-export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseSuccess =
-	scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse200 & {
+export type iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseSuccess =
+	iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse200 & {
 		headers: Headers;
 	};
-export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseError =
-	scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse422 & {
+export type iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseError =
+	iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse422 & {
 		headers: Headers;
 	};
 
-export type scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse =
-	| scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseSuccess
-	| scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseError;
+export type iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse =
+	| iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseSuccess
+	| iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseError;
 
-export const getScoreBandsMethodIterationMethodScoreBandsMethodIteratePostUrl = (
-	params?: ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams
+export const getIterateScoreBandsMethodMethodScoreBandsMethodIteratePostUrl = () => {
+	return `http://localhost:8000/method/score_bands_method/iterate`;
+};
+
+/**
+ * @summary Iterate Score Bands Method
+ */
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePost = async (
+	sCOREBandsMethodIterationRequest: SCOREBandsMethodIterationRequest,
+	options?: RequestInit
+): Promise<iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse> => {
+	return customFetch<iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse>(
+		getIterateScoreBandsMethodMethodScoreBandsMethodIteratePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(sCOREBandsMethodIterationRequest)
+		}
+	);
+};
+
+export type saveScoreBandMethodScoreBandsMethodSavePostResponse200 = {
+	data: SCOREBandsMethodSaveResponse;
+	status: 200;
+};
+
+export type saveScoreBandMethodScoreBandsMethodSavePostResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type saveScoreBandMethodScoreBandsMethodSavePostResponseSuccess =
+	saveScoreBandMethodScoreBandsMethodSavePostResponse200 & {
+		headers: Headers;
+	};
+export type saveScoreBandMethodScoreBandsMethodSavePostResponseError =
+	saveScoreBandMethodScoreBandsMethodSavePostResponse422 & {
+		headers: Headers;
+	};
+
+export type saveScoreBandMethodScoreBandsMethodSavePostResponse =
+	| saveScoreBandMethodScoreBandsMethodSavePostResponseSuccess
+	| saveScoreBandMethodScoreBandsMethodSavePostResponseError;
+
+export const getSaveScoreBandMethodScoreBandsMethodSavePostUrl = () => {
+	return `http://localhost:8000/method/score_bands_method/save`;
+};
+
+/**
+ * @summary Save Score Band
+ */
+export const saveScoreBandMethodScoreBandsMethodSavePost = async (
+	sCOREBandsMethodSaveRequest: SCOREBandsMethodSaveRequest,
+	options?: RequestInit
+): Promise<saveScoreBandMethodScoreBandsMethodSavePostResponse> => {
+	return customFetch<saveScoreBandMethodScoreBandsMethodSavePostResponse>(
+		getSaveScoreBandMethodScoreBandsMethodSavePostUrl(),
+		{
+			...options,
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', ...options?.headers },
+			body: JSON.stringify(sCOREBandsMethodSaveRequest)
+		}
+	);
+};
+
+export type scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse200 = {
+	data: SCOREBandsMethodHistoryResponse;
+	status: 200;
+};
+
+export type scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse422 = {
+	data: HTTPValidationError;
+	status: 422;
+};
+
+export type scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseSuccess =
+	scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse200 & {
+		headers: Headers;
+	};
+export type scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseError =
+	scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse422 & {
+		headers: Headers;
+	};
+
+export type scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse =
+	| scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseSuccess
+	| scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseError;
+
+export const getScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetUrl = (
+	params: ScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetParams
 ) => {
 	const normalizedParams = new URLSearchParams();
 
@@ -8508,26 +8661,22 @@ export const getScoreBandsMethodIterationMethodScoreBandsMethodIteratePostUrl = 
 	const stringifiedParams = normalizedParams.toString();
 
 	return stringifiedParams.length > 0
-		? `http://localhost:8000/method/score_bands_method/iterate?${stringifiedParams}`
-		: `http://localhost:8000/method/score_bands_method/iterate`;
+		? `http://localhost:8000/method/score_bands_method/history?${stringifiedParams}`
+		: `http://localhost:8000/method/score_bands_method/history`;
 };
 
 /**
- * Run a new evolutionary search using a selected SCORE band.
- * @summary Score Bands Method Iteration
+ * @summary Score Bands Method History
  */
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePost = async (
-	sCOREBandsMethodIterationRequest: SCOREBandsMethodIterationRequest,
-	params?: ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostParams,
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGet = async (
+	params: ScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetParams,
 	options?: RequestInit
-): Promise<scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse> => {
-	return customFetch<scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse>(
-		getScoreBandsMethodIterationMethodScoreBandsMethodIteratePostUrl(params),
+): Promise<scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse> => {
+	return customFetch<scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse>(
+		getScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetUrl(params),
 		{
 			...options,
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', ...options?.headers },
-			body: JSON.stringify(sCOREBandsMethodIterationRequest)
+			method: 'GET'
 		}
 	);
 };

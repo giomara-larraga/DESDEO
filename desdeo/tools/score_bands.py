@@ -167,6 +167,13 @@ class SCOREBandsConfig(BaseModel):
     """Optional dictionary specifying the min and max values for each objective. The keys should be the
         objective names (i.e., column names in the data), and the values should be tuples of (min, max).
         If not provided, the min and max will be calculated from the data."""
+    correlation_matrix: list[list[float | None]] | None = Field(
+    default=None,
+    description=(
+        "Pearson correlation matrix of the dimensions, "
+        "ordered according to ordered_dimensions."
+    ),
+)
 
 
 class SCOREBandsResult(BaseModel):
@@ -197,6 +204,13 @@ class SCOREBandsResult(BaseModel):
     """Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values."""
     cardinalities: dict[int, int]
     """Dictionary mapping cluster IDs to the number of solutions in each cluster."""
+    correlation_matrix: list[list[float | None]] | None = Field(
+        default=None,
+        description=(
+            "Pearson correlation matrix of the dimensions, "
+            "ordered according to ordered_dimensions."
+        ),
+    )
 
 
 def _gaussianmixtureclusteringwithBIC(data: pl.DataFrame) -> np.ndarray:  # noqa: N802
@@ -450,10 +464,14 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
         options.dimensions = data.columns
     data_copy = data.select([pl.col(col) for col in options.dimensions])
 
+    # Calculate the Pearson correlation matrix.
+    # This is also used for automatic axis ordering.
+    corr, dimension_order = order_dimensions(
+        data_copy,
+        use_absolute_corr=options.use_absolute_correlations,
+    )
+
     if options.axis_positions is None:
-        corr, dimension_order = order_dimensions(
-            data_copy, use_absolute_corr=options.use_absolute_correlations
-        )
 
         axis_dist = calculate_axes_positions(
             dimension_order,
@@ -462,13 +480,46 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
             distance_formula=options.distance_formula,
         )
 
-        ordered_dimension_names = [data_copy.columns[i] for i in dimension_order]
+        ordered_dimension_names = [
+            data_copy.columns[i]
+            for i in dimension_order
+        ]
+
         axis_positions = {
-            name: axis_dist[i] for i, name in enumerate(ordered_dimension_names)
+            name: float(axis_dist[i])
+            for i, name in enumerate(ordered_dimension_names)
         }
+
     else:
+
         axis_positions = options.axis_positions
-        ordered_dimension_names = sorted(axis_positions.keys(), key=axis_positions.get)
+
+        ordered_dimension_names = sorted(
+            axis_positions.keys(),
+            key=axis_positions.get,
+        )
+
+
+    # Reorder the correlation matrix to match the dimensions
+    # displayed in SCORE Bands.
+    ordered_indices = [
+        data_copy.columns.index(name)
+        for name in ordered_dimension_names
+    ]
+
+    ordered_corr = corr[
+        np.ix_(ordered_indices, ordered_indices)
+    ]
+
+    # Convert NumPy values into JSON-compatible values.
+    # Undefined correlations are represented as None.
+    correlation_matrix = [
+        [
+            float(value) if np.isfinite(value) else None
+            for value in row
+        ]
+        for row in ordered_corr
+    ]
 
     clusters = cluster(data_copy, options.clustering_algorithm)
 
@@ -538,6 +589,7 @@ def score_json(data: pl.DataFrame, options: SCOREBandsConfig) -> SCOREBandsResul
         bands=bands_dict,
         medians=medians_dict,
         cardinalities=frequencies_dict,
+        correlation_matrix=correlation_matrix,
     )
 
 

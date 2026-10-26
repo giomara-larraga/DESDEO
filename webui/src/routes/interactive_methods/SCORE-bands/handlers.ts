@@ -22,6 +22,7 @@ export type ScoreBandsHistoryItem = {
     action: 'initialize' | 'iterate';
     selected_cluster_id: number | null;
     result: SCOREBandsResult;
+    optimized: boolean;
 };
 export type ScoreBandsResponse = {
     response_type: 'score_bands.initialize' | 'score_bands.iterate';
@@ -56,7 +57,7 @@ export type ScoreBandsIterationRequest = {
     preference: {
         preference_type: 'score_bands.band';
         cluster_id: number;
-    };
+    } | null;
     optimization_options: ScoreBandsOptimizationOptions;
     scorebands_options?: SCOREBandsConfig | null;
 };

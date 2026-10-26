@@ -1188,6 +1188,11 @@ class SCOREBandsMethodState(SQLModel, table=True):
         ),
     )
 
+    correlation_matrix: list[list[float | None]] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
+
     @property
     def num_solutions(self) -> int:
         """Number of solutions represented by the cluster assignments."""
@@ -1239,6 +1244,7 @@ class SCOREBandsMethodState(SQLModel, table=True):
             bands=result.bands,
             medians=result.medians,
             cardinalities=result.cardinalities,
+            correlation_matrix=result.correlation_matrix,
         )
 
     @property
@@ -1272,6 +1278,7 @@ class SCOREBandsMethodState(SQLModel, table=True):
             bands=self.bands,
             medians=self.medians,
             cardinalities=self.cardinalities,
+            correlation_matrix=self.correlation_matrix,
         )
 class GDMSCOREBandsLearningState(ResultInterface, SQLModel, table=True):
     """SCORE Bands data available during the learning phase."""

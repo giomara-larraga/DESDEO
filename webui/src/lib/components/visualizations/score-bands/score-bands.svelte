@@ -43,6 +43,7 @@
 	// --- Props ---
 	export let data: number[][] = []; // not used, kept in case future happens
 	export let axisNames: string[] = [];
+	export let axisLabels: string[] = [];
 	export let axisPositions: number[] = [];
 	export let axisSigns: number[] = [];
 	export let axisDirections: ('min' | 'max')[] = [];
@@ -87,6 +88,7 @@
 
 	// Sort axis-related arrays according to axisOrder
 	$: sortedAxisNames = effectiveAxisOrder.map((i) => axisNames[i]);
+	$: sortedAxisLabels = effectiveAxisOrder.map((i) => axisLabels[i] ?? axisNames[i]);
 	$: sortedAxisPositions = effectiveAxisOrder.map((i) => axisPositions[i]);
 	$: sortedAxisSigns = effectiveAxisOrder.map((i) => axisSigns[i]);
 	$: sortedAxisDirections = effectiveAxisOrder.map((i) => axisDirections[i]);
@@ -310,7 +312,7 @@
 				.attr('font-weight', isSelected ? 'bold' : 'bold')
 				.attr('fill', isSelected ? '#e15759' : axisStyle.color)
 				.text(
-					sortedAxisNames[sortedIndex] +
+					sortedAxisLabels[sortedIndex] +
 						(sortedUnits[sortedIndex] ? ' (' + sortedUnits[sortedIndex] + ')' : '') +
 						(sortedAxisDirections[sortedIndex] == 'min' ? ' ▼' : ' ▲')
 				)

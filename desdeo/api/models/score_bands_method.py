@@ -44,10 +44,18 @@ class SCOREBandsMethodIterationRequest(SQLModel):
     problem_id: int
     session_id: int | None = None
     parent_state_id: int | None = None
-    preference: SCOREBandsBandPreference
-    scorebands_options: SCOREBandsConfig | None = None  # None = inherit parent
+
+    # None means operate on the full current iteration.
+    preference: SCOREBandsBandPreference | None = None
+
+    # None means inherit the parent's SCORE Bands configuration.
+    scorebands_options: SCOREBandsConfig | None = None
+
     optimization_options: SCOREBandsOptimizationOptions = Field(
-        default_factory=lambda: SCOREBandsOptimizationOptions(optimize=True)
+        default_factory=lambda: SCOREBandsOptimizationOptions(
+            optimize=True,
+            algorithm="nsga3",
+        )
     )
 
 class SCOREBandsMethodSaveRequest(SQLModel):
@@ -66,6 +74,8 @@ class SCOREBandsMethodHistoryItem(SQLModel):
     action: Literal["initialize", "iterate"]
     selected_cluster_id: int | None = None
     result: SCOREBandsResult
+    optimized: bool = False
+
 
 
 class SCOREBandsMethodResponse(SQLModel):

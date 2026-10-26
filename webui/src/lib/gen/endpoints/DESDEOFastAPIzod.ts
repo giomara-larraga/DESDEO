@@ -9926,6 +9926,12 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostBody = zod
 									.optional()
 									.describe(
 										'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+									),
+								correlation_matrix: zod
+									.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+									.optional()
+									.describe(
+										'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 									)
 							})
 							.optional()
@@ -10186,6 +10192,15 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 											.optional()
 											.describe(
 												'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+											),
+										correlation_matrix: zod
+											.union([
+												zod.array(zod.array(zod.union([zod.number(), zod.null()]))),
+												zod.null()
+											])
+											.optional()
+											.describe(
+												'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 											)
 									})
 									.describe('Configuration options used to generate the SCORE bands.'),
@@ -10233,6 +10248,12 @@ export const GetOrInitializeGdmScoreBandsGetOrInitializePostResponse = zod
 									.record(zod.string(), zod.number())
 									.describe(
 										'Dictionary mapping cluster IDs to the number of solutions in each cluster.'
+									),
+								correlation_matrix: zod
+									.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+									.optional()
+									.describe(
+										'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 									)
 							})
 							.describe('The results of the score bands procedure.')
@@ -10645,6 +10666,12 @@ export const ConfigureGdmGdmScoreBandsConfigurePostBody = zod
 					.optional()
 					.describe(
 						'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+					),
+				correlation_matrix: zod
+					.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+					.optional()
+					.describe(
+						'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 					)
 			})
 			.optional()
@@ -10896,6 +10923,12 @@ export const ExploreLearningBandGdmScoreBandsLearningExplorePostBody = zod.objec
 						.optional()
 						.describe(
 							'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+						),
+					correlation_matrix: zod
+						.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+						.optional()
+						.describe(
+							'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 						)
 				})
 				.describe('Configuration options for SCORE bands visualization.'),
@@ -10904,6 +10937,7 @@ export const ExploreLearningBandGdmScoreBandsLearningExplorePostBody = zod.objec
 		.optional()
 });
 
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResponseTypeDefault = `score_bands.initialize`;
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
@@ -10921,246 +10955,557 @@ export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOp
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeSolutionsDefault = false;
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeMediansDefault = false;
 export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIntervalSizeDefault = 0.95;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' as const };
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsDistanceFormulaDefault = 1;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsDistanceParameterDefault = 0.05;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIncludeSolutionsDefault = false;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIncludeMediansDefault = false;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIntervalSizeDefault = 0.95;
+export const exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemOptimizedDefault = false;
 
-export const ExploreLearningBandGdmScoreBandsLearningExplorePostResponse = zod
-	.object({
-		state_id: zod.number(),
-		result: zod
-			.object({
-				options: zod
+export const ExploreLearningBandGdmScoreBandsLearningExplorePostResponse = zod.object({
+	response_type: zod
+		.enum(['score_bands.initialize', 'score_bands.iterate'])
+		.default(exploreLearningBandGdmScoreBandsLearningExplorePostResponseResponseTypeDefault),
+	state_id: zod.number(),
+	session_id: zod.union([zod.number(), zod.null()]).optional(),
+	result: zod
+		.object({
+			options: zod
+				.object({
+					dimensions: zod
+						.union([zod.array(zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+						),
+					descriptive_names: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+						),
+					units: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+						),
+					axis_positions: zod
+						.union([zod.record(zod.string(), zod.number()), zod.null()])
+						.optional()
+						.describe(
+							'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+						),
+					axis_colours: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+						),
+					highlight_cluster: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe(
+							'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+						),
+					clustering_algorithm: zod
+						.union([
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneNameDefault
+										)
+										.describe('Gaussian Mixture Model clustering algorithm.'),
+									scoring_method: zod
+										.enum(['BIC', 'silhouette'])
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault
+										)
+										.describe(
+											'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+										)
+								})
+								.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmTwoNameDefault
+										)
+										.describe('DBSCAN clustering algorithm.')
+								})
+								.describe('Options for DBSCAN clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmThreeNameDefault
+										)
+										.describe('KMeans clustering algorithm.'),
+									n_clusters: zod
+										.number()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault
+										)
+										.describe('Number of clusters to use. Defaults to 5.')
+								})
+								.describe('Options for KMeans clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourNameDefault
+										)
+										.describe('Clustering by one of the dimensions.'),
+									dimension_name: zod.string().describe('Dimension to use for clustering.'),
+									n_clusters: zod
+										.number()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault
+										)
+										.describe('Number of clusters to use. Defaults to 5.'),
+									kind: zod
+										.enum(['EqualWidth', 'EqualFrequency'])
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourKindDefault
+										)
+										.describe(
+											'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+										)
+								})
+								.describe('Options for clustering by one of the objectives\/decision variables.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFiveNameDefault
+										)
+										.describe('Custom user-provided clusters.'),
+									clusters: zod
+										.array(zod.number())
+										.describe(
+											'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+										)
+								})
+								.describe('Options for custom clustering provided by the user.')
+						])
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmDefault
+						)
+						.describe(
+							'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+						),
+					distance_formula: zod
+						.union([zod.literal(1), zod.literal(2)])
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsDistanceFormulaDefault
+						)
+						.describe(
+							'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+						),
+					distance_parameter: zod
+						.number()
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsDistanceParameterDefault
+						)
+						.describe(
+							'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+						),
+					use_absolute_correlations: zod
+						.boolean()
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsUseAbsoluteCorrelationsDefault
+						)
+						.describe(
+							'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+						),
+					include_solutions: zod
+						.boolean()
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeSolutionsDefault
+						)
+						.describe(
+							'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+						),
+					include_medians: zod
+						.boolean()
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeMediansDefault
+						)
+						.describe(
+							'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+						),
+					interval_size: zod
+						.number()
+						.default(
+							exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIntervalSizeDefault
+						)
+						.describe(
+							'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+						),
+					scales: zod
+						.union([zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+						),
+					correlation_matrix: zod
+						.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+						.optional()
+						.describe(
+							'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+						)
+				})
+				.describe('Configuration options used to generate the SCORE bands.'),
+			ordered_dimensions: zod
+				.array(zod.string())
+				.describe(
+					'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
+				),
+			clusters: zod
+				.array(zod.number())
+				.describe(
+					'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+				),
+			cluster_names: zod
+				.union([zod.record(zod.string(), zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+				),
+			cluster_hover_info: zod
+				.union([zod.record(zod.string(), zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
+				),
+			axis_positions: zod
+				.record(zod.string(), zod.number())
+				.describe(
+					'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
+				),
+			bands: zod
+				.record(zod.string(), zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])))
+				.describe(
+					'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
+				),
+			medians: zod
+				.record(zod.string(), zod.record(zod.string(), zod.number()))
+				.describe(
+					'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
+				),
+			cardinalities: zod
+				.record(zod.string(), zod.number())
+				.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.'),
+			correlation_matrix: zod
+				.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+				.optional()
+				.describe(
+					'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+				)
+		})
+		.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+	saved_bands: zod
+		.array(
+			zod
+				.object({
+					source_state_id: zod.number(),
+					cluster_id: zod.number(),
+					name: zod.union([zod.string(), zod.null()]).optional(),
+					preferred_ranges: zod
+						.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+						.optional()
+				})
+				.describe('A reference to a saved band; source_state_id makes it stable across iterations.')
+		)
+		.optional(),
+	history: zod
+		.array(
+			zod.object({
+				state_id: zod.number(),
+				parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+				action: zod.enum(['initialize', 'iterate']),
+				selected_cluster_id: zod.union([zod.number(), zod.null()]).optional(),
+				result: zod
 					.object({
-						dimensions: zod
-							.union([zod.array(zod.string()), zod.null()])
-							.optional()
+						options: zod
+							.object({
+								dimensions: zod
+									.union([zod.array(zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+									),
+								descriptive_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+									),
+								units: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+									),
+								axis_positions: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
+									.describe(
+										'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+									),
+								axis_colours: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+									),
+								highlight_cluster: zod
+									.union([zod.number(), zod.null()])
+									.optional()
+									.describe(
+										'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+									),
+								clustering_algorithm: zod
+									.union([
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault
+													)
+													.describe('Gaussian Mixture Model clustering algorithm.'),
+												scoring_method: zod
+													.enum(['BIC', 'silhouette'])
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault
+													)
+													.describe(
+														'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+													)
+											})
+											.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault
+													)
+													.describe('DBSCAN clustering algorithm.')
+											})
+											.describe('Options for DBSCAN clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault
+													)
+													.describe('KMeans clustering algorithm.'),
+												n_clusters: zod
+													.number()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.')
+											})
+											.describe('Options for KMeans clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault
+													)
+													.describe('Clustering by one of the dimensions.'),
+												dimension_name: zod.string().describe('Dimension to use for clustering.'),
+												n_clusters: zod
+													.number()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.'),
+												kind: zod
+													.enum(['EqualWidth', 'EqualFrequency'])
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault
+													)
+													.describe(
+														'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+													)
+											})
+											.describe(
+												'Options for clustering by one of the objectives\/decision variables.'
+											),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault
+													)
+													.describe('Custom user-provided clusters.'),
+												clusters: zod
+													.array(zod.number())
+													.describe(
+														'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+													)
+											})
+											.describe('Options for custom clustering provided by the user.')
+									])
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault
+									)
+									.describe(
+										'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+									),
+								distance_formula: zod
+									.union([zod.literal(1), zod.literal(2)])
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsDistanceFormulaDefault
+									)
+									.describe(
+										'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+									),
+								distance_parameter: zod
+									.number()
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsDistanceParameterDefault
+									)
+									.describe(
+										'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+									),
+								use_absolute_correlations: zod
+									.boolean()
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault
+									)
+									.describe(
+										'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+									),
+								include_solutions: zod
+									.boolean()
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIncludeSolutionsDefault
+									)
+									.describe(
+										'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+									),
+								include_medians: zod
+									.boolean()
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIncludeMediansDefault
+									)
+									.describe(
+										'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+									),
+								interval_size: zod
+									.number()
+									.default(
+										exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemResultOptionsIntervalSizeDefault
+									)
+									.describe(
+										'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+									),
+								scales: zod
+									.union([
+										zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+										zod.null()
+									])
+									.optional()
+									.describe(
+										'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+									),
+								correlation_matrix: zod
+									.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+									.optional()
+									.describe(
+										'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+									)
+							})
+							.describe('Configuration options used to generate the SCORE bands.'),
+						ordered_dimensions: zod
+							.array(zod.string())
 							.describe(
-								'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+								'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
 							),
-						descriptive_names: zod
+						clusters: zod
+							.array(zod.number())
+							.describe(
+								'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+							),
+						cluster_names: zod
 							.union([zod.record(zod.string(), zod.string()), zod.null()])
 							.optional()
 							.describe(
-								'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+								'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
 							),
-						units: zod
+						cluster_hover_info: zod
 							.union([zod.record(zod.string(), zod.string()), zod.null()])
 							.optional()
 							.describe(
-								'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+								'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
 							),
 						axis_positions: zod
-							.union([zod.record(zod.string(), zod.number()), zod.null()])
+							.record(zod.string(), zod.number())
+							.describe(
+								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
+							),
+						bands: zod
+							.record(
+								zod.string(),
+								zod.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+							)
+							.describe(
+								'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
+							),
+						medians: zod
+							.record(zod.string(), zod.record(zod.string(), zod.number()))
+							.describe(
+								'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
+							),
+						cardinalities: zod
+							.record(zod.string(), zod.number())
+							.describe(
+								'Dictionary mapping cluster IDs to the number of solutions in each cluster.'
+							),
+						correlation_matrix: zod
+							.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
 							.optional()
 							.describe(
-								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
-							),
-						axis_colours: zod
-							.union([zod.record(zod.string(), zod.string()), zod.null()])
-							.optional()
-							.describe(
-								"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
-							),
-						highlight_cluster: zod
-							.union([zod.number(), zod.null()])
-							.optional()
-							.describe(
-								'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
-							),
-						clustering_algorithm: zod
-							.union([
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneNameDefault
-											)
-											.describe('Gaussian Mixture Model clustering algorithm.'),
-										scoring_method: zod
-											.enum(['BIC', 'silhouette'])
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault
-											)
-											.describe(
-												'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
-											)
-									})
-									.describe('Options for Gaussian Mixture Model clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmTwoNameDefault
-											)
-											.describe('DBSCAN clustering algorithm.')
-									})
-									.describe('Options for DBSCAN clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmThreeNameDefault
-											)
-											.describe('KMeans clustering algorithm.'),
-										n_clusters: zod
-											.number()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault
-											)
-											.describe('Number of clusters to use. Defaults to 5.')
-									})
-									.describe('Options for KMeans clustering algorithm.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourNameDefault
-											)
-											.describe('Clustering by one of the dimensions.'),
-										dimension_name: zod.string().describe('Dimension to use for clustering.'),
-										n_clusters: zod
-											.number()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault
-											)
-											.describe('Number of clusters to use. Defaults to 5.'),
-										kind: zod
-											.enum(['EqualWidth', 'EqualFrequency'])
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFourKindDefault
-											)
-											.describe(
-												'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
-											)
-									})
-									.describe('Options for clustering by one of the objectives\/decision variables.'),
-								zod
-									.object({
-										name: zod
-											.string()
-											.default(
-												exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmFiveNameDefault
-											)
-											.describe('Custom user-provided clusters.'),
-										clusters: zod
-											.array(zod.number())
-											.describe(
-												'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
-											)
-									})
-									.describe('Options for custom clustering provided by the user.')
-							])
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsClusteringAlgorithmDefault
-							)
-							.describe(
-								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
-							),
-						distance_formula: zod
-							.union([zod.literal(1), zod.literal(2)])
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsDistanceFormulaDefault
-							)
-							.describe(
-								'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
-							),
-						distance_parameter: zod
-							.number()
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsDistanceParameterDefault
-							)
-							.describe(
-								'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
-							),
-						use_absolute_correlations: zod
-							.boolean()
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsUseAbsoluteCorrelationsDefault
-							)
-							.describe(
-								'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
-							),
-						include_solutions: zod
-							.boolean()
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeSolutionsDefault
-							)
-							.describe(
-								'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
-							),
-						include_medians: zod
-							.boolean()
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIncludeMediansDefault
-							)
-							.describe(
-								'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
-							),
-						interval_size: zod
-							.number()
-							.default(
-								exploreLearningBandGdmScoreBandsLearningExplorePostResponseResultOptionsIntervalSizeDefault
-							)
-							.describe(
-								'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
-							),
-						scales: zod
-							.union([
-								zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
-								zod.null()
-							])
-							.optional()
-							.describe(
-								'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+								'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 							)
 					})
-					.describe('Configuration options used to generate the SCORE bands.'),
-				ordered_dimensions: zod
-					.array(zod.string())
-					.describe(
-						'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
-					),
-				clusters: zod
-					.array(zod.number())
-					.describe(
-						'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
-					),
-				cluster_names: zod
-					.union([zod.record(zod.string(), zod.string()), zod.null()])
-					.optional()
-					.describe(
-						'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
-					),
-				cluster_hover_info: zod
-					.union([zod.record(zod.string(), zod.string()), zod.null()])
-					.optional()
-					.describe(
-						'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
-					),
-				axis_positions: zod
-					.record(zod.string(), zod.number())
-					.describe(
-						'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
-					),
-				bands: zod
-					.record(zod.string(), zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])))
-					.describe(
-						'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
-					),
-				medians: zod
-					.record(zod.string(), zod.record(zod.string(), zod.number()))
-					.describe(
-						'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
-					),
-				cardinalities: zod
-					.record(zod.string(), zod.number())
-					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.')
+					.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+				optimized: zod
+					.boolean()
+					.default(
+						exploreLearningBandGdmScoreBandsLearningExplorePostResponseHistoryItemOptimizedDefault
+					)
 			})
-			.describe('Pydantic\/JSON model for representing SCORE Bands.')
-	})
-	.describe('Persisted SCORE Bands result.');
+		)
+		.optional()
+});
 
 /**
  * Initialize NAUTILUS Navigator.
@@ -11372,14 +11717,8 @@ export const UpdateSolutionDescriptionMetadataSolutionDescriptionUpdateMetadataP
 	.describe('Metadata for generating a human-readable description of a solution.');
 
 /**
- * Get the latest SCOREBandsMethodState for a problem, or calculate and persist SCORE Bands if none exists.
  * @summary Initialize Or Get Score Bands Method
  */
-export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostQueryParams =
-	zod.object({
-		problem_id: zod.union([zod.number(), zod.null()]).optional()
-	});
-
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneNameDefault = `GMM`;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
@@ -11398,224 +11737,222 @@ export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIncludeMediansDefault = false;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIntervalSizeDefault = 0.95;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyOptimizationOptionsOptimizeDefault = false;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyOptimizationOptionsAlgorithmDefault = `nsga3`;
 
-export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBody = zod
-	.object({
-		problem_id: zod.number(),
-		session_id: zod.union([zod.number(), zod.null()]).optional(),
-		parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
-		scorebands_options: zod
-			.object({
-				dimensions: zod
-					.union([zod.array(zod.string()), zod.null()])
-					.optional()
-					.describe(
-						'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
-					),
-				descriptive_names: zod
-					.union([zod.record(zod.string(), zod.string()), zod.null()])
-					.optional()
-					.describe(
-						'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
-					),
-				units: zod
-					.union([zod.record(zod.string(), zod.string()), zod.null()])
-					.optional()
-					.describe(
-						'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
-					),
-				axis_positions: zod
-					.union([zod.record(zod.string(), zod.number()), zod.null()])
-					.optional()
-					.describe(
-						'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
-					),
-				axis_colours: zod
-					.union([zod.record(zod.string(), zod.string()), zod.null()])
-					.optional()
-					.describe(
-						"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
-					),
-				highlight_cluster: zod
-					.union([zod.number(), zod.null()])
-					.optional()
-					.describe(
-						'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
-					),
-				clustering_algorithm: zod
-					.union([
-						zod
-							.object({
-								name: zod
-									.string()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneNameDefault
-									)
-									.describe('Gaussian Mixture Model clustering algorithm.'),
-								scoring_method: zod
-									.enum(['BIC', 'silhouette'])
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneScoringMethodDefault
-									)
-									.describe(
-										'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
-									)
-							})
-							.describe('Options for Gaussian Mixture Model clustering algorithm.'),
-						zod
-							.object({
-								name: zod
-									.string()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmTwoNameDefault
-									)
-									.describe('DBSCAN clustering algorithm.')
-							})
-							.describe('Options for DBSCAN clustering algorithm.'),
-						zod
-							.object({
-								name: zod
-									.string()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmThreeNameDefault
-									)
-									.describe('KMeans clustering algorithm.'),
-								n_clusters: zod
-									.number()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmThreeNClustersDefault
-									)
-									.describe('Number of clusters to use. Defaults to 5.')
-							})
-							.describe('Options for KMeans clustering algorithm.'),
-						zod
-							.object({
-								name: zod
-									.string()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourNameDefault
-									)
-									.describe('Clustering by one of the dimensions.'),
-								dimension_name: zod.string().describe('Dimension to use for clustering.'),
-								n_clusters: zod
-									.number()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourNClustersDefault
-									)
-									.describe('Number of clusters to use. Defaults to 5.'),
-								kind: zod
-									.enum(['EqualWidth', 'EqualFrequency'])
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourKindDefault
-									)
-									.describe(
-										'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
-									)
-							})
-							.describe('Options for clustering by one of the objectives\/decision variables.'),
-						zod
-							.object({
-								name: zod
-									.string()
-									.default(
-										initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFiveNameDefault
-									)
-									.describe('Custom user-provided clusters.'),
-								clusters: zod
-									.array(zod.number())
-									.describe(
-										'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
-									)
-							})
-							.describe('Options for custom clustering provided by the user.')
-					])
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmDefault
-					)
-					.describe('Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'),
-				distance_formula: zod
-					.union([zod.literal(1), zod.literal(2)])
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsDistanceFormulaDefault
-					)
-					.describe(
-						'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
-					),
-				distance_parameter: zod
-					.number()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsDistanceParameterDefault
-					)
-					.describe(
-						'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
-					),
-				use_absolute_correlations: zod
-					.boolean()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsUseAbsoluteCorrelationsDefault
-					)
-					.describe(
-						'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
-					),
-				include_solutions: zod
-					.boolean()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIncludeSolutionsDefault
-					)
-					.describe(
-						'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
-					),
-				include_medians: zod
-					.boolean()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIncludeMediansDefault
-					)
-					.describe(
-						'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
-					),
-				interval_size: zod
-					.number()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIntervalSizeDefault
-					)
-					.describe(
-						'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
-					),
-				scales: zod
-					.union([zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])), zod.null()])
-					.optional()
-					.describe(
-						'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
-					)
-			})
-			.optional()
-			.describe('Configuration options for SCORE bands visualization.'),
-		optimization_options: zod
-			.object({
-				optimize: zod
-					.boolean()
-					.default(
-						initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyOptimizationOptionsOptimizeDefault
-					)
-					.describe('Indicates if SCORE bands will perform optimization or not.'),
-				algorithm: zod
-					.union([zod.enum(['nsga3', 'rvea']), zod.null()])
-					.optional()
-					.describe(
-						'The optimization algorithm to use. If not provided, the default algorithm will be used.'
-					),
-				algorithm_options: zod
-					.union([zod.record(zod.string(), zod.unknown()), zod.null()])
-					.optional()
-					.describe(
-						'Additional options for the optimization algorithm. This can be used to specify parameters such as population size, number of generations, etc.'
-					)
-			})
-			.optional()
-			.describe('Options to indicate if SCORE bands will perform optimization or not.')
-	})
-	.describe('Calculate and persist SCORE Bands for a discrete problem.');
+export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBody = zod.object({
+	problem_id: zod.number(),
+	session_id: zod.union([zod.number(), zod.null()]).optional(),
+	parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+	scorebands_options: zod
+		.object({
+			dimensions: zod
+				.union([zod.array(zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+				),
+			descriptive_names: zod
+				.union([zod.record(zod.string(), zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+				),
+			units: zod
+				.union([zod.record(zod.string(), zod.string()), zod.null()])
+				.optional()
+				.describe(
+					'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+				),
+			axis_positions: zod
+				.union([zod.record(zod.string(), zod.number()), zod.null()])
+				.optional()
+				.describe(
+					'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+				),
+			axis_colours: zod
+				.union([zod.record(zod.string(), zod.string()), zod.null()])
+				.optional()
+				.describe(
+					"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+				),
+			highlight_cluster: zod
+				.union([zod.number(), zod.null()])
+				.optional()
+				.describe(
+					'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+				),
+			clustering_algorithm: zod
+				.union([
+					zod
+						.object({
+							name: zod
+								.string()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneNameDefault
+								)
+								.describe('Gaussian Mixture Model clustering algorithm.'),
+							scoring_method: zod
+								.enum(['BIC', 'silhouette'])
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmOneScoringMethodDefault
+								)
+								.describe(
+									'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+								)
+						})
+						.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+					zod
+						.object({
+							name: zod
+								.string()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmTwoNameDefault
+								)
+								.describe('DBSCAN clustering algorithm.')
+						})
+						.describe('Options for DBSCAN clustering algorithm.'),
+					zod
+						.object({
+							name: zod
+								.string()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmThreeNameDefault
+								)
+								.describe('KMeans clustering algorithm.'),
+							n_clusters: zod
+								.number()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmThreeNClustersDefault
+								)
+								.describe('Number of clusters to use. Defaults to 5.')
+						})
+						.describe('Options for KMeans clustering algorithm.'),
+					zod
+						.object({
+							name: zod
+								.string()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourNameDefault
+								)
+								.describe('Clustering by one of the dimensions.'),
+							dimension_name: zod.string().describe('Dimension to use for clustering.'),
+							n_clusters: zod
+								.number()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourNClustersDefault
+								)
+								.describe('Number of clusters to use. Defaults to 5.'),
+							kind: zod
+								.enum(['EqualWidth', 'EqualFrequency'])
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFourKindDefault
+								)
+								.describe(
+									'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+								)
+						})
+						.describe('Options for clustering by one of the objectives\/decision variables.'),
+					zod
+						.object({
+							name: zod
+								.string()
+								.default(
+									initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmFiveNameDefault
+								)
+								.describe('Custom user-provided clusters.'),
+							clusters: zod
+								.array(zod.number())
+								.describe(
+									'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+								)
+						})
+						.describe('Options for custom clustering provided by the user.')
+				])
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsClusteringAlgorithmDefault
+				)
+				.describe('Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'),
+			distance_formula: zod
+				.union([zod.literal(1), zod.literal(2)])
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsDistanceFormulaDefault
+				)
+				.describe(
+					'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+				),
+			distance_parameter: zod
+				.number()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsDistanceParameterDefault
+				)
+				.describe(
+					'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+				),
+			use_absolute_correlations: zod
+				.boolean()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsUseAbsoluteCorrelationsDefault
+				)
+				.describe(
+					'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+				),
+			include_solutions: zod
+				.boolean()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIncludeSolutionsDefault
+				)
+				.describe(
+					'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+				),
+			include_medians: zod
+				.boolean()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIncludeMediansDefault
+				)
+				.describe(
+					'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+				),
+			interval_size: zod
+				.number()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyScorebandsOptionsIntervalSizeDefault
+				)
+				.describe(
+					'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+				),
+			scales: zod
+				.union([zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])), zod.null()])
+				.optional()
+				.describe(
+					'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+				),
+			correlation_matrix: zod
+				.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+				.optional()
+				.describe(
+					'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+				)
+		})
+		.optional()
+		.describe('Configuration options for SCORE bands visualization.'),
+	optimization_options: zod
+		.object({
+			optimize: zod
+				.boolean()
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyOptimizationOptionsOptimizeDefault
+				),
+			algorithm: zod
+				.enum(['nsga3', 'rvea'])
+				.default(
+					initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostBodyOptimizationOptionsAlgorithmDefault
+				),
+			algorithm_options: zod.record(zod.string(), zod.number()).optional()
+		})
+		.optional()
+});
 
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResponseTypeDefault = `score_bands.initialize`;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
@@ -11633,10 +11970,34 @@ export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsIncludeSolutionsDefault = false;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsIncludeMediansDefault = false;
 export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResultOptionsIntervalSizeDefault = 0.95;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' as const };
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsDistanceFormulaDefault = 1;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsDistanceParameterDefault = 0.05;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIncludeSolutionsDefault = false;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIncludeMediansDefault = false;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIntervalSizeDefault = 0.95;
+export const initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemOptimizedDefault = false;
 
 export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponse = zod
 	.object({
+		response_type: zod
+			.enum(['score_bands.initialize', 'score_bands.iterate'])
+			.default(
+				initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseResponseTypeDefault
+			),
 		state_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		result: zod
 			.object({
 				options: zod
@@ -11826,6 +12187,12 @@ export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 							.optional()
 							.describe(
 								'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+							),
+						correlation_matrix: zod
+							.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+							.optional()
+							.describe(
+								'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 							)
 					})
 					.describe('Configuration options used to generate the SCORE bands.'),
@@ -11868,73 +12235,607 @@ export const InitializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePost
 					),
 				cardinalities: zod
 					.record(zod.string(), zod.number())
-					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.')
+					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.'),
+				correlation_matrix: zod
+					.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+					.optional()
+					.describe(
+						'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+					)
 			})
-			.describe('Pydantic\/JSON model for representing SCORE Bands.')
+			.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+		saved_bands: zod
+			.array(
+				zod
+					.object({
+						source_state_id: zod.number(),
+						cluster_id: zod.number(),
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						preferred_ranges: zod
+							.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+							.optional()
+					})
+					.describe(
+						'A reference to a saved band; source_state_id makes it stable across iterations.'
+					)
+			)
+			.optional(),
+		history: zod
+			.array(
+				zod.object({
+					state_id: zod.number(),
+					parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+					action: zod.enum(['initialize', 'iterate']),
+					selected_cluster_id: zod.union([zod.number(), zod.null()]).optional(),
+					result: zod
+						.object({
+							options: zod
+								.object({
+									dimensions: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+										),
+									descriptive_names: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+										),
+									units: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+										),
+									axis_positions: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.optional()
+										.describe(
+											'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+										),
+									axis_colours: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+										),
+									highlight_cluster: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+										),
+									clustering_algorithm: zod
+										.union([
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault
+														)
+														.describe('Gaussian Mixture Model clustering algorithm.'),
+													scoring_method: zod
+														.enum(['BIC', 'silhouette'])
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault
+														)
+														.describe(
+															'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+														)
+												})
+												.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault
+														)
+														.describe('DBSCAN clustering algorithm.')
+												})
+												.describe('Options for DBSCAN clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault
+														)
+														.describe('KMeans clustering algorithm.'),
+													n_clusters: zod
+														.number()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault
+														)
+														.describe('Number of clusters to use. Defaults to 5.')
+												})
+												.describe('Options for KMeans clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault
+														)
+														.describe('Clustering by one of the dimensions.'),
+													dimension_name: zod.string().describe('Dimension to use for clustering.'),
+													n_clusters: zod
+														.number()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault
+														)
+														.describe('Number of clusters to use. Defaults to 5.'),
+													kind: zod
+														.enum(['EqualWidth', 'EqualFrequency'])
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault
+														)
+														.describe(
+															'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+														)
+												})
+												.describe(
+													'Options for clustering by one of the objectives\/decision variables.'
+												),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault
+														)
+														.describe('Custom user-provided clusters.'),
+													clusters: zod
+														.array(zod.number())
+														.describe(
+															'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+														)
+												})
+												.describe('Options for custom clustering provided by the user.')
+										])
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault
+										)
+										.describe(
+											'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+										),
+									distance_formula: zod
+										.union([zod.literal(1), zod.literal(2)])
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsDistanceFormulaDefault
+										)
+										.describe(
+											'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+										),
+									distance_parameter: zod
+										.number()
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsDistanceParameterDefault
+										)
+										.describe(
+											'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+										),
+									use_absolute_correlations: zod
+										.boolean()
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault
+										)
+										.describe(
+											'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+										),
+									include_solutions: zod
+										.boolean()
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIncludeSolutionsDefault
+										)
+										.describe(
+											'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+										),
+									include_medians: zod
+										.boolean()
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIncludeMediansDefault
+										)
+										.describe(
+											'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+										),
+									interval_size: zod
+										.number()
+										.default(
+											initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemResultOptionsIntervalSizeDefault
+										)
+										.describe(
+											'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+										),
+									scales: zod
+										.union([
+											zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+											zod.null()
+										])
+										.optional()
+										.describe(
+											'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+										),
+									correlation_matrix: zod
+										.union([
+											zod.array(zod.array(zod.union([zod.number(), zod.null()]))),
+											zod.null()
+										])
+										.optional()
+										.describe(
+											'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+										)
+								})
+								.describe('Configuration options used to generate the SCORE bands.'),
+							ordered_dimensions: zod
+								.array(zod.string())
+								.describe(
+									'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
+								),
+							clusters: zod
+								.array(zod.number())
+								.describe(
+									'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+								),
+							cluster_names: zod
+								.union([zod.record(zod.string(), zod.string()), zod.null()])
+								.optional()
+								.describe(
+									'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+								),
+							cluster_hover_info: zod
+								.union([zod.record(zod.string(), zod.string()), zod.null()])
+								.optional()
+								.describe(
+									'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
+								),
+							axis_positions: zod
+								.record(zod.string(), zod.number())
+								.describe(
+									'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
+								),
+							bands: zod
+								.record(
+									zod.string(),
+									zod.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+								)
+								.describe(
+									'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
+								),
+							medians: zod
+								.record(zod.string(), zod.record(zod.string(), zod.number()))
+								.describe(
+									'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
+								),
+							cardinalities: zod
+								.record(zod.string(), zod.number())
+								.describe(
+									'Dictionary mapping cluster IDs to the number of solutions in each cluster.'
+								),
+							correlation_matrix: zod
+								.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+								.optional()
+								.describe(
+									'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+								)
+						})
+						.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+					optimized: zod
+						.boolean()
+						.default(
+							initializeOrGetScoreBandsMethodMethodScoreBandsMethodInitializePostResponseHistoryItemOptimizedDefault
+						)
+				})
+			)
+			.optional()
 	})
-	.describe('Persisted SCORE Bands result.');
+	.describe('Common result for initialization, resuming, and optimization.');
 
 /**
- * Run a new evolutionary search using a selected SCORE band.
- * @summary Score Bands Method Iteration
+ * @summary Iterate Score Bands Method
  */
-export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostQueryParams = zod.object({
-	problem_id: zod.union([zod.number(), zod.null()]).optional()
-});
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyPreferenceOnePreferenceTypeDefault = `score_bands.band`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmOneNameDefault = `GMM`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmThreeNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFiveNameDefault = `Custom`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' as const };
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneDistanceFormulaDefault = 1;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneDistanceParameterDefault = 0.05;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneUseAbsoluteCorrelationsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIncludeSolutionsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIncludeMediansDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIntervalSizeDefault = 0.95;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyOptimizationOptionsOptimizeDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyOptimizationOptionsAlgorithmDefault = `nsga3`;
 
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostBodyOptimizationOptionsOptimizeDefault = false;
-
-export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostBody = zod.object({
+export const IterateScoreBandsMethodMethodScoreBandsMethodIteratePostBody = zod.object({
 	problem_id: zod.number(),
 	session_id: zod.union([zod.number(), zod.null()]).optional(),
-	parent_state_id: zod.number(),
-	selected_cluster_id: zod.number(),
+	parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+	preference: zod
+		.union([
+			zod
+				.object({
+					preference_type: zod
+						.literal('score_bands.band')
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyPreferenceOnePreferenceTypeDefault
+						),
+					cluster_id: zod.number()
+				})
+				.describe("Preference expressed by selecting an existing band's objective intervals."),
+			zod.null()
+		])
+		.optional(),
+	scorebands_options: zod
+		.union([
+			zod
+				.object({
+					dimensions: zod
+						.union([zod.array(zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+						),
+					descriptive_names: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+						),
+					units: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+						),
+					axis_positions: zod
+						.union([zod.record(zod.string(), zod.number()), zod.null()])
+						.optional()
+						.describe(
+							'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+						),
+					axis_colours: zod
+						.union([zod.record(zod.string(), zod.string()), zod.null()])
+						.optional()
+						.describe(
+							"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+						),
+					highlight_cluster: zod
+						.union([zod.number(), zod.null()])
+						.optional()
+						.describe(
+							'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+						),
+					clustering_algorithm: zod
+						.union([
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmOneNameDefault
+										)
+										.describe('Gaussian Mixture Model clustering algorithm.'),
+									scoring_method: zod
+										.enum(['BIC', 'silhouette'])
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmOneScoringMethodDefault
+										)
+										.describe(
+											'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+										)
+								})
+								.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmTwoNameDefault
+										)
+										.describe('DBSCAN clustering algorithm.')
+								})
+								.describe('Options for DBSCAN clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmThreeNameDefault
+										)
+										.describe('KMeans clustering algorithm.'),
+									n_clusters: zod
+										.number()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmThreeNClustersDefault
+										)
+										.describe('Number of clusters to use. Defaults to 5.')
+								})
+								.describe('Options for KMeans clustering algorithm.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourNameDefault
+										)
+										.describe('Clustering by one of the dimensions.'),
+									dimension_name: zod.string().describe('Dimension to use for clustering.'),
+									n_clusters: zod
+										.number()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourNClustersDefault
+										)
+										.describe('Number of clusters to use. Defaults to 5.'),
+									kind: zod
+										.enum(['EqualWidth', 'EqualFrequency'])
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFourKindDefault
+										)
+										.describe(
+											'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+										)
+								})
+								.describe('Options for clustering by one of the objectives\/decision variables.'),
+							zod
+								.object({
+									name: zod
+										.string()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmFiveNameDefault
+										)
+										.describe('Custom user-provided clusters.'),
+									clusters: zod
+										.array(zod.number())
+										.describe(
+											'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+										)
+								})
+								.describe('Options for custom clustering provided by the user.')
+						])
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneClusteringAlgorithmDefault
+						)
+						.describe(
+							'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+						),
+					distance_formula: zod
+						.union([zod.literal(1), zod.literal(2)])
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneDistanceFormulaDefault
+						)
+						.describe(
+							'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+						),
+					distance_parameter: zod
+						.number()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneDistanceParameterDefault
+						)
+						.describe(
+							'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+						),
+					use_absolute_correlations: zod
+						.boolean()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneUseAbsoluteCorrelationsDefault
+						)
+						.describe(
+							'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+						),
+					include_solutions: zod
+						.boolean()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIncludeSolutionsDefault
+						)
+						.describe(
+							'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+						),
+					include_medians: zod
+						.boolean()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIncludeMediansDefault
+						)
+						.describe(
+							'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+						),
+					interval_size: zod
+						.number()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyScorebandsOptionsOneIntervalSizeDefault
+						)
+						.describe(
+							'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+						),
+					scales: zod
+						.union([zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])), zod.null()])
+						.optional()
+						.describe(
+							'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+						),
+					correlation_matrix: zod
+						.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+						.optional()
+						.describe(
+							'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+						)
+				})
+				.describe('Configuration options for SCORE bands visualization.'),
+			zod.null()
+		])
+		.optional(),
 	optimization_options: zod
 		.object({
 			optimize: zod
 				.boolean()
 				.default(
-					scoreBandsMethodIterationMethodScoreBandsMethodIteratePostBodyOptimizationOptionsOptimizeDefault
-				)
-				.describe('Indicates if SCORE bands will perform optimization or not.'),
-			algorithm: zod
-				.union([zod.enum(['nsga3', 'rvea']), zod.null()])
-				.optional()
-				.describe(
-					'The optimization algorithm to use. If not provided, the default algorithm will be used.'
+					iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyOptimizationOptionsOptimizeDefault
 				),
-			algorithm_options: zod
-				.union([zod.record(zod.string(), zod.unknown()), zod.null()])
-				.optional()
-				.describe(
-					'Additional options for the optimization algorithm. This can be used to specify parameters such as population size, number of generations, etc.'
-				)
+			algorithm: zod
+				.enum(['nsga3', 'rvea'])
+				.default(
+					iterateScoreBandsMethodMethodScoreBandsMethodIteratePostBodyOptimizationOptionsAlgorithmDefault
+				),
+			algorithm_options: zod.record(zod.string(), zod.number()).optional()
 		})
 		.optional()
-		.describe('Options to indicate if SCORE bands will perform optimization or not.')
 });
 
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmDefault =
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResponseTypeDefault = `score_bands.initialize`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmDefault =
 	{ name: 'DBSCAN' as const };
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceFormulaDefault = 1;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceParameterDefault = 0.05;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsUseAbsoluteCorrelationsDefault = false;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeSolutionsDefault = false;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeMediansDefault = false;
-export const scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIntervalSizeDefault = 0.95;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceFormulaDefault = 1;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceParameterDefault = 0.05;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeSolutionsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeMediansDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIntervalSizeDefault = 0.95;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' as const };
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsDistanceFormulaDefault = 1;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsDistanceParameterDefault = 0.05;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIncludeSolutionsDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIncludeMediansDefault = false;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIntervalSizeDefault = 0.95;
+export const iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemOptimizedDefault = false;
 
-export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse = zod
+export const IterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponse = zod
 	.object({
+		response_type: zod
+			.enum(['score_bands.initialize', 'score_bands.iterate'])
+			.default(iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResponseTypeDefault),
 		state_id: zod.number(),
+		session_id: zod.union([zod.number(), zod.null()]).optional(),
 		result: zod
 			.object({
 				options: zod
@@ -11982,13 +12883,13 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 										name: zod
 											.string()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneNameDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneNameDefault
 											)
 											.describe('Gaussian Mixture Model clustering algorithm.'),
 										scoring_method: zod
 											.enum(['BIC', 'silhouette'])
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmOneScoringMethodDefault
 											)
 											.describe(
 												'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
@@ -12000,7 +12901,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 										name: zod
 											.string()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmTwoNameDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmTwoNameDefault
 											)
 											.describe('DBSCAN clustering algorithm.')
 									})
@@ -12010,13 +12911,13 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 										name: zod
 											.string()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNameDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNameDefault
 											)
 											.describe('KMeans clustering algorithm.'),
 										n_clusters: zod
 											.number()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmThreeNClustersDefault
 											)
 											.describe('Number of clusters to use. Defaults to 5.')
 									})
@@ -12026,20 +12927,20 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 										name: zod
 											.string()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNameDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNameDefault
 											)
 											.describe('Clustering by one of the dimensions.'),
 										dimension_name: zod.string().describe('Dimension to use for clustering.'),
 										n_clusters: zod
 											.number()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourNClustersDefault
 											)
 											.describe('Number of clusters to use. Defaults to 5.'),
 										kind: zod
 											.enum(['EqualWidth', 'EqualFrequency'])
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourKindDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFourKindDefault
 											)
 											.describe(
 												'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
@@ -12051,7 +12952,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 										name: zod
 											.string()
 											.default(
-												scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFiveNameDefault
+												iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmFiveNameDefault
 											)
 											.describe('Custom user-provided clusters.'),
 										clusters: zod
@@ -12063,7 +12964,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 									.describe('Options for custom clustering provided by the user.')
 							])
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsClusteringAlgorithmDefault
 							)
 							.describe(
 								'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
@@ -12071,7 +12972,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						distance_formula: zod
 							.union([zod.literal(1), zod.literal(2)])
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceFormulaDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceFormulaDefault
 							)
 							.describe(
 								'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
@@ -12079,7 +12980,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						distance_parameter: zod
 							.number()
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceParameterDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsDistanceParameterDefault
 							)
 							.describe(
 								'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
@@ -12087,7 +12988,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						use_absolute_correlations: zod
 							.boolean()
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsUseAbsoluteCorrelationsDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsUseAbsoluteCorrelationsDefault
 							)
 							.describe(
 								'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
@@ -12095,7 +12996,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						include_solutions: zod
 							.boolean()
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeSolutionsDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeSolutionsDefault
 							)
 							.describe(
 								'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
@@ -12103,7 +13004,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						include_medians: zod
 							.boolean()
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeMediansDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIncludeMediansDefault
 							)
 							.describe(
 								'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
@@ -12111,7 +13012,7 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 						interval_size: zod
 							.number()
 							.default(
-								scoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponseResultOptionsIntervalSizeDefault
+								iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseResultOptionsIntervalSizeDefault
 							)
 							.describe(
 								'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
@@ -12124,6 +13025,12 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 							.optional()
 							.describe(
 								'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+							),
+						correlation_matrix: zod
+							.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+							.optional()
+							.describe(
+								'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
 							)
 					})
 					.describe('Configuration options used to generate the SCORE bands.'),
@@ -12166,11 +13073,670 @@ export const ScoreBandsMethodIterationMethodScoreBandsMethodIteratePostResponse 
 					),
 				cardinalities: zod
 					.record(zod.string(), zod.number())
-					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.')
+					.describe('Dictionary mapping cluster IDs to the number of solutions in each cluster.'),
+				correlation_matrix: zod
+					.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+					.optional()
+					.describe(
+						'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+					)
 			})
-			.describe('Pydantic\/JSON model for representing SCORE Bands.')
+			.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+		saved_bands: zod
+			.array(
+				zod
+					.object({
+						source_state_id: zod.number(),
+						cluster_id: zod.number(),
+						name: zod.union([zod.string(), zod.null()]).optional(),
+						preferred_ranges: zod
+							.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+							.optional()
+					})
+					.describe(
+						'A reference to a saved band; source_state_id makes it stable across iterations.'
+					)
+			)
+			.optional(),
+		history: zod
+			.array(
+				zod.object({
+					state_id: zod.number(),
+					parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+					action: zod.enum(['initialize', 'iterate']),
+					selected_cluster_id: zod.union([zod.number(), zod.null()]).optional(),
+					result: zod
+						.object({
+							options: zod
+								.object({
+									dimensions: zod
+										.union([zod.array(zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+										),
+									descriptive_names: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+										),
+									units: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+										),
+									axis_positions: zod
+										.union([zod.record(zod.string(), zod.number()), zod.null()])
+										.optional()
+										.describe(
+											'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+										),
+									axis_colours: zod
+										.union([zod.record(zod.string(), zod.string()), zod.null()])
+										.optional()
+										.describe(
+											"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+										),
+									highlight_cluster: zod
+										.union([zod.number(), zod.null()])
+										.optional()
+										.describe(
+											'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+										),
+									clustering_algorithm: zod
+										.union([
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault
+														)
+														.describe('Gaussian Mixture Model clustering algorithm.'),
+													scoring_method: zod
+														.enum(['BIC', 'silhouette'])
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault
+														)
+														.describe(
+															'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+														)
+												})
+												.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault
+														)
+														.describe('DBSCAN clustering algorithm.')
+												})
+												.describe('Options for DBSCAN clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault
+														)
+														.describe('KMeans clustering algorithm.'),
+													n_clusters: zod
+														.number()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault
+														)
+														.describe('Number of clusters to use. Defaults to 5.')
+												})
+												.describe('Options for KMeans clustering algorithm.'),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault
+														)
+														.describe('Clustering by one of the dimensions.'),
+													dimension_name: zod.string().describe('Dimension to use for clustering.'),
+													n_clusters: zod
+														.number()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault
+														)
+														.describe('Number of clusters to use. Defaults to 5.'),
+													kind: zod
+														.enum(['EqualWidth', 'EqualFrequency'])
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault
+														)
+														.describe(
+															'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+														)
+												})
+												.describe(
+													'Options for clustering by one of the objectives\/decision variables.'
+												),
+											zod
+												.object({
+													name: zod
+														.string()
+														.default(
+															iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault
+														)
+														.describe('Custom user-provided clusters.'),
+													clusters: zod
+														.array(zod.number())
+														.describe(
+															'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+														)
+												})
+												.describe('Options for custom clustering provided by the user.')
+										])
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsClusteringAlgorithmDefault
+										)
+										.describe(
+											'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+										),
+									distance_formula: zod
+										.union([zod.literal(1), zod.literal(2)])
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsDistanceFormulaDefault
+										)
+										.describe(
+											'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+										),
+									distance_parameter: zod
+										.number()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsDistanceParameterDefault
+										)
+										.describe(
+											'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+										),
+									use_absolute_correlations: zod
+										.boolean()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault
+										)
+										.describe(
+											'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+										),
+									include_solutions: zod
+										.boolean()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIncludeSolutionsDefault
+										)
+										.describe(
+											'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+										),
+									include_medians: zod
+										.boolean()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIncludeMediansDefault
+										)
+										.describe(
+											'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+										),
+									interval_size: zod
+										.number()
+										.default(
+											iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemResultOptionsIntervalSizeDefault
+										)
+										.describe(
+											'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+										),
+									scales: zod
+										.union([
+											zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+											zod.null()
+										])
+										.optional()
+										.describe(
+											'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+										),
+									correlation_matrix: zod
+										.union([
+											zod.array(zod.array(zod.union([zod.number(), zod.null()]))),
+											zod.null()
+										])
+										.optional()
+										.describe(
+											'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+										)
+								})
+								.describe('Configuration options used to generate the SCORE bands.'),
+							ordered_dimensions: zod
+								.array(zod.string())
+								.describe(
+									'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
+								),
+							clusters: zod
+								.array(zod.number())
+								.describe(
+									'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+								),
+							cluster_names: zod
+								.union([zod.record(zod.string(), zod.string()), zod.null()])
+								.optional()
+								.describe(
+									'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+								),
+							cluster_hover_info: zod
+								.union([zod.record(zod.string(), zod.string()), zod.null()])
+								.optional()
+								.describe(
+									'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
+								),
+							axis_positions: zod
+								.record(zod.string(), zod.number())
+								.describe(
+									'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
+								),
+							bands: zod
+								.record(
+									zod.string(),
+									zod.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+								)
+								.describe(
+									'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
+								),
+							medians: zod
+								.record(zod.string(), zod.record(zod.string(), zod.number()))
+								.describe(
+									'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
+								),
+							cardinalities: zod
+								.record(zod.string(), zod.number())
+								.describe(
+									'Dictionary mapping cluster IDs to the number of solutions in each cluster.'
+								),
+							correlation_matrix: zod
+								.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+								.optional()
+								.describe(
+									'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+								)
+						})
+						.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+					optimized: zod
+						.boolean()
+						.default(
+							iterateScoreBandsMethodMethodScoreBandsMethodIteratePostResponseHistoryItemOptimizedDefault
+						)
+				})
+			)
+			.optional()
 	})
-	.describe('Persisted SCORE Bands result.');
+	.describe('Common result for initialization, resuming, and optimization.');
+
+/**
+ * @summary Save Score Band
+ */
+export const saveScoreBandMethodScoreBandsMethodSavePostBodyPreferencePreferenceTypeDefault = `score_bands.band`;
+export const saveScoreBandMethodScoreBandsMethodSavePostBodySaveDefault = true;
+
+export const SaveScoreBandMethodScoreBandsMethodSavePostBody = zod.object({
+	problem_id: zod.number(),
+	session_id: zod.union([zod.number(), zod.null()]).optional(),
+	parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+	preference: zod
+		.object({
+			preference_type: zod
+				.literal('score_bands.band')
+				.default(saveScoreBandMethodScoreBandsMethodSavePostBodyPreferencePreferenceTypeDefault),
+			cluster_id: zod.number()
+		})
+		.describe("Preference expressed by selecting an existing band's objective intervals."),
+	save: zod.boolean().default(saveScoreBandMethodScoreBandsMethodSavePostBodySaveDefault),
+	source_state_id: zod.union([zod.number(), zod.null()]).optional(),
+	name: zod.union([zod.string(), zod.null()]).optional()
+});
+
+export const saveScoreBandMethodScoreBandsMethodSavePostResponseResponseTypeDefault = `score_bands.save`;
+
+export const SaveScoreBandMethodScoreBandsMethodSavePostResponse = zod.object({
+	response_type: zod
+		.literal('score_bands.save')
+		.default(saveScoreBandMethodScoreBandsMethodSavePostResponseResponseTypeDefault),
+	state_id: zod.number(),
+	session_id: zod.number(),
+	saved_bands: zod
+		.array(
+			zod
+				.object({
+					source_state_id: zod.number(),
+					cluster_id: zod.number(),
+					name: zod.union([zod.string(), zod.null()]).optional(),
+					preferred_ranges: zod
+						.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+						.optional()
+				})
+				.describe('A reference to a saved band; source_state_id makes it stable across iterations.')
+		)
+		.optional()
+});
+
+/**
+ * @summary Score Bands Method History
+ */
+export const ScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetQueryParams = zod.object({
+	problem_id: zod.number(),
+	session_id: zod.union([zod.number(), zod.null()]).optional(),
+	head_state_id: zod.union([zod.number(), zod.null()]).optional()
+});
+
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseResponseTypeDefault = `score_bands.history`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault = `GMM`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault = `silhouette`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault = `DBSCAN`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault = `KMeans`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault = 5;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault = `DimensionCluster`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault = 5;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault = `EqualWidth`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault = `Custom`;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmDefault =
+	{ name: 'DBSCAN' as const };
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsDistanceFormulaDefault = 1;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsDistanceParameterDefault = 0.05;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault = false;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIncludeSolutionsDefault = false;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIncludeMediansDefault = false;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIntervalSizeDefault = 0.95;
+export const scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemOptimizedDefault = false;
+
+export const ScoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponse = zod.object({
+	response_type: zod
+		.literal('score_bands.history')
+		.default(scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseResponseTypeDefault),
+	session_id: zod.number(),
+	state_id: zod.union([zod.number(), zod.null()]).optional(),
+	saved_bands: zod
+		.array(
+			zod
+				.object({
+					source_state_id: zod.number(),
+					cluster_id: zod.number(),
+					name: zod.union([zod.string(), zod.null()]).optional(),
+					preferred_ranges: zod
+						.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+						.optional()
+				})
+				.describe('A reference to a saved band; source_state_id makes it stable across iterations.')
+		)
+		.optional(),
+	history: zod
+		.array(
+			zod.object({
+				state_id: zod.number(),
+				parent_state_id: zod.union([zod.number(), zod.null()]).optional(),
+				action: zod.enum(['initialize', 'iterate']),
+				selected_cluster_id: zod.union([zod.number(), zod.null()]).optional(),
+				result: zod
+					.object({
+						options: zod
+							.object({
+								dimensions: zod
+									.union([zod.array(zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'List of variable\/objective names (i.e., column names in the data) to include in the visualization.\nIf None, all columns in the data are used. Defaults to None.'
+									),
+								descriptive_names: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to descriptive names for display in the visualization.\nIf None, the original dimension names are used. Defaults to None.'
+									),
+								units: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										'Optional dictionary mapping dimensions to their units for display in the visualization.\nIf None, no units are displayed. Defaults to None.'
+									),
+								axis_positions: zod
+									.union([zod.record(zod.string(), zod.number()), zod.null()])
+									.optional()
+									.describe(
+										'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0. Use this option if you want to\nmanually set the axis positions. If None, the axis positions are calculated automatically based on correlations.\nDefaults to None.'
+									),
+								axis_colours: zod
+									.union([zod.record(zod.string(), zod.string()), zod.null()])
+									.optional()
+									.describe(
+										"Optional dictionary to set the colour of the axes corresponding to each objective. The keys should be the\nsame as in the 'dimensions' field. The values should be a valid plotly color string. Defaults to None.\n\nValid plotly color strings include:\n    - A hex string (e.g. '#ff0000')\n    - An rgb\/rgba string (e.g. 'rgb(255,0,0)')\n    - An hsl\/hsla string (e.g. 'hsl(0,100%,50%)')\n    - An hsv\/hsva string (e.g. 'hsv(0,100%,100%)')\n    - A named CSS color: see https:\/\/plotly.com\/python\/css-colors\/ for a list"
+									),
+								highlight_cluster: zod
+									.union([zod.number(), zod.null()])
+									.optional()
+									.describe(
+										'Cluster ID to highlight in the visualization. If None, no cluster is highlighted. Defaults to None.\nIf a cluster ID is provided, the corresponding cluster is highlighted in the visualization by having a\npattern fill in the band.'
+									),
+								clustering_algorithm: zod
+									.union([
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmOneNameDefault
+													)
+													.describe('Gaussian Mixture Model clustering algorithm.'),
+												scoring_method: zod
+													.enum(['BIC', 'silhouette'])
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmOneScoringMethodDefault
+													)
+													.describe(
+														'Scoring method to use for GMM. Either \"BIC\" or \"silhouette\". Defaults to \"silhouette\".\nThis option determines how the number of clusters is chosen.'
+													)
+											})
+											.describe('Options for Gaussian Mixture Model clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmTwoNameDefault
+													)
+													.describe('DBSCAN clustering algorithm.')
+											})
+											.describe('Options for DBSCAN clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmThreeNameDefault
+													)
+													.describe('KMeans clustering algorithm.'),
+												n_clusters: zod
+													.number()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmThreeNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.')
+											})
+											.describe('Options for KMeans clustering algorithm.'),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourNameDefault
+													)
+													.describe('Clustering by one of the dimensions.'),
+												dimension_name: zod.string().describe('Dimension to use for clustering.'),
+												n_clusters: zod
+													.number()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourNClustersDefault
+													)
+													.describe('Number of clusters to use. Defaults to 5.'),
+												kind: zod
+													.enum(['EqualWidth', 'EqualFrequency'])
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFourKindDefault
+													)
+													.describe(
+														'Kind of clustering to use. Either \"EqualWidth\", which divides the dimension range into equal width intervals,\nor \"EqualFrequency\", which divides the dimension values into intervals with equal number of solutions.\nDefaults to \"EqualWidth\".'
+													)
+											})
+											.describe(
+												'Options for clustering by one of the objectives\/decision variables.'
+											),
+										zod
+											.object({
+												name: zod
+													.string()
+													.default(
+														scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmFiveNameDefault
+													)
+													.describe('Custom user-provided clusters.'),
+												clusters: zod
+													.array(zod.number())
+													.describe(
+														'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+													)
+											})
+											.describe('Options for custom clustering provided by the user.')
+									])
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsClusteringAlgorithmDefault
+									)
+									.describe(
+										'Clustering algorithm to use. Currently supports one of `ClusteringOptions`.'
+									),
+								distance_formula: zod
+									.union([zod.literal(1), zod.literal(2)])
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsDistanceFormulaDefault
+									)
+									.describe(
+										'Distance formula to use. The value should be 1 or 2. Check the paper for details. Defaults to 1.'
+									),
+								distance_parameter: zod
+									.number()
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsDistanceParameterDefault
+									)
+									.describe(
+										'Change the relative distances between the objective axes. Increase this value if objectives are placed too close\ntogether. Decrease this value if the objectives are equidistant in a problem with objective clusters. Defaults\nto 0.05.'
+									),
+								use_absolute_correlations: zod
+									.boolean()
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsUseAbsoluteCorrelationsDefault
+									)
+									.describe(
+										'Whether to use absolute value of the correlation to calculate the placement of axes. Defaults to False.'
+									),
+								include_solutions: zod
+									.boolean()
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIncludeSolutionsDefault
+									)
+									.describe(
+										'Whether to include individual solutions. Defaults to False. If True, the size of the resulting figure may be\nvery large for datasets with many solutions. Moreover, the individual traces are hidden by default, but can be\nviewed interactively in the figure.'
+									),
+								include_medians: zod
+									.boolean()
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIncludeMediansDefault
+									)
+									.describe(
+										'Whether to include cluster medians. Defaults to False. If True, the median traces are hidden by default, but\ncan be viewed interactively in the figure.'
+									),
+								interval_size: zod
+									.number()
+									.default(
+										scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemResultOptionsIntervalSizeDefault
+									)
+									.describe(
+										'The size (as a fraction) of the interval to use for the bands. Defaults to 0.95, meaning that 95% of the\nmiddle solutions in a cluster will be included in the band. The rest will be considered outliers.'
+									),
+								scales: zod
+									.union([
+										zod.record(zod.string(), zod.tuple([zod.number(), zod.number()])),
+										zod.null()
+									])
+									.optional()
+									.describe(
+										'Optional dictionary specifying the min and max values for each objective. The keys should be the\nobjective names (i.e., column names in the data), and the values should be tuples of (min, max).\nIf not provided, the min and max will be calculated from the data.'
+									),
+								correlation_matrix: zod
+									.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+									.optional()
+									.describe(
+										'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+									)
+							})
+							.describe('Configuration options used to generate the SCORE bands.'),
+						ordered_dimensions: zod
+							.array(zod.string())
+							.describe(
+								'List of variable\/objective names (i.e., column names in the data).\nOrdered according to their placement in the SCORE bands visualization.'
+							),
+						clusters: zod
+							.array(zod.number())
+							.describe(
+								'List of cluster IDs (one for each solution) indicating the cluster to which each solution belongs.'
+							),
+						cluster_names: zod
+							.union([zod.record(zod.string(), zod.string()), zod.null()])
+							.optional()
+							.describe(
+								'Optional dictionary mapping cluster IDs to descriptive names for display in the visualization.\nIf None, the cluster IDs themselves are used as names. Defaults to None.'
+							),
+						cluster_hover_info: zod
+							.union([zod.record(zod.string(), zod.string()), zod.null()])
+							.optional()
+							.describe(
+								'Optional dictionary mapping cluster IDs to hover information for display in the visualization.\nIf None, no additional hover information is displayed. Defaults to None.'
+							),
+						axis_positions: zod
+							.record(zod.string(), zod.number())
+							.describe(
+								'Dictionary mapping objective names to their positions on the axes in the SCORE bands visualization. The first\nobjective is at position 0.0, and the last objective is at position 1.0.'
+							),
+						bands: zod
+							.record(
+								zod.string(),
+								zod.record(zod.string(), zod.tuple([zod.number(), zod.number()]))
+							)
+							.describe(
+								'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding band\nextremes (min, max).'
+							),
+						medians: zod
+							.record(zod.string(), zod.record(zod.string(), zod.number()))
+							.describe(
+								'Dictionary mapping cluster IDs to dictionaries of objective names and their corresponding median values.'
+							),
+						cardinalities: zod
+							.record(zod.string(), zod.number())
+							.describe(
+								'Dictionary mapping cluster IDs to the number of solutions in each cluster.'
+							),
+						correlation_matrix: zod
+							.union([zod.array(zod.array(zod.union([zod.number(), zod.null()]))), zod.null()])
+							.optional()
+							.describe(
+								'Pearson correlation matrix of the dimensions, ordered according to ordered_dimensions.'
+							)
+					})
+					.describe('Pydantic\/JSON model for representing SCORE Bands.'),
+				optimized: zod
+					.boolean()
+					.default(
+						scoreBandsMethodHistoryMethodScoreBandsMethodHistoryGetResponseHistoryItemOptimizedDefault
+					)
+			})
+		)
+		.optional()
+});
 
 /**
  * @summary Health

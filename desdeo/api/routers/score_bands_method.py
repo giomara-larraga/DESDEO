@@ -156,6 +156,9 @@ def _all_history(
                 action=state.action,
                 selected_cluster_id=state.selected_cluster_id,
                 result=state.result,
+                optimized=bool(
+                    (state.optimization_options or {}).get("optimize", False)
+                ),
             )
         )
 
@@ -459,41 +462,222 @@ def initialize_or_get_score_bands_method(
     return _response(db, saved, interactive.id, initialized=True)
 
 
+
+def _stored_dataset(
+    state: SCOREBandsMethodState,
+    cluster_id: int | None = None,
+) -> tuple[pl.DataFrame, dict | None]:
+    """Recover stored solutions, optionally restricting them to one band."""
+
+    if not state.objective_values:
+        raise HTTPException(
+            status_code=422,
+            detail="This iteration has no stored objective values.",
+        )
+
+    data = pl.DataFrame(state.objective_values)
+
+    if data.height != len(state.clusters):
+        raise HTTPException(
+            status_code=500,
+            detail="Stored solutions and cluster assignments do not match.",
+        )
+
+    variables = state.variable_values
+
+    if cluster_id is None:
+        return data, variables
+
+    selected_indices = [
+        index
+        for index, assigned_cluster in enumerate(state.clusters)
+        if assigned_cluster == cluster_id
+    ]
+
+    if not selected_indices:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Band {cluster_id} contains no solutions.",
+        )
+
+    mask = pl.Series(
+        "selected",
+        [cluster == cluster_id for cluster in state.clusters],
+    )
+
+    filtered_data = data.filter(mask)
+
+    filtered_variables = None
+
+    if variables is not None:
+        if any(len(values) != data.height for values in variables.values()):
+            raise HTTPException(
+                status_code=500,
+                detail="Stored decision variables do not match the objective data.",
+            )
+
+        filtered_variables = {
+            symbol: [values[index] for index in selected_indices]
+            for symbol, values in variables.items()
+        }
+
+    return filtered_data, filtered_variables
+
 @router.post("/iterate")
 def iterate_score_bands_method(
     request: SCOREBandsMethodIterationRequest,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_session)],
 ) -> SCOREBandsMethodResponse:
+
     problem_db = _problem(user, db, request.problem_id)
-    interactive = _session(user, db, request.session_id, create=False)
+
+    interactive = _session(
+        user,
+        db,
+        request.session_id,
+        create=False,
+    )
+
     parent = (
-        _require_state(db, request.parent_state_id, problem_db.id, interactive.id)
+        _require_state(
+            db,
+            request.parent_state_id,
+            problem_db.id,
+            interactive.id,
+        )
         if request.parent_state_id is not None
         else _latest(db, problem_db.id, interactive.id)
     )
+
     if parent is None:
-        raise HTTPException(status_code=400, detail="Initialize SCORE Bands before iterating.")
+        raise HTTPException(
+            status_code=400,
+            detail="Initialize SCORE Bands before iterating.",
+        )
+
+    # If the latest state is a save operation, use its source generation.
+    source_id = _source_state_id(db, parent)
+
+    parent = _require_state(
+        db,
+        source_id,
+        problem_db.id,
+        interactive.id,
+    )
 
     parent_state = parent.state
-    band = parent_state.result.bands.get(request.preference.cluster_id)
-    if band is None:
-        raise HTTPException(status_code=422, detail="Selected band is not present in the parent state.")
-    ranges = {k: (float(v[0]), float(v[1])) for k, v in band.items()}
-    problem = Problem.from_problemdb(problem_db)
-    data, variables = _solve(problem, request.optimization_options, ranges)
-    state = _make_state(
-        problem, data, request.scorebands_options or parent_state.result.options,
-        action="iterate", selected_cluster_id=request.preference.cluster_id,
-        preferred_ranges=ranges, saved_bands=_session_saved_bands(db, problem_db.id, interactive.id),
-        optimization=request.optimization_options, variable_values=variables,
-    )
-    created = _persist(
-        db, problem_id=problem_db.id, session_id=interactive.id,
-        parent_id=parent.id, state=state, kind=StateKind.SCORE_BANDS_METHOD_ITERATE,
-    )
-    return _response(db, created, interactive.id, initialized=False)
 
+    selected_cluster_id = (
+        request.preference.cluster_id
+        if request.preference is not None
+        else None
+    )
+
+    # Extract the selected band's ranges if one was selected.
+    ranges = None
+
+    if selected_cluster_id is not None:
+        band = parent_state.result.bands.get(selected_cluster_id)
+
+        if band is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Selected band does not exist in the parent state.",
+            )
+
+        ranges = {
+            symbol: (float(bounds[0]), float(bounds[1]))
+            for symbol, bounds in band.items()
+        }
+
+    problem = Problem.from_problemdb(problem_db)
+
+    # --------------------------------------------
+    # STEP 1: Obtain the solutions to cluster
+    # --------------------------------------------
+
+    if request.optimization_options.optimize:
+        # Generate NEW solutions.
+        data, variables = _solve(
+            problem,
+            request.optimization_options,
+            ranges,
+            use_archive=(ranges is None),
+        )
+
+    else:
+        # Reuse EXISTING solutions.
+        data, variables = _stored_dataset(
+            parent_state,
+            cluster_id=selected_cluster_id,
+        )
+
+    # --------------------------------------------
+    # STEP 2: Apply clustering configuration
+    # --------------------------------------------
+
+    config = (
+        request.scorebands_options.model_copy(deep=True)
+        if request.scorebands_options is not None
+        else parent_state.result.options.model_copy(deep=True)
+    )
+
+    # Let SCORE Bands calculate data-appropriate scales.
+    # Remove this if the user explicitly needs fixed cross-iteration scales.
+    config.scales = None
+
+    # Validate dimension-based clustering.
+    if config.clustering_algorithm.name == "DimensionCluster":
+        dimension = config.clustering_algorithm.dimension_name
+
+        if dimension not in data.columns:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Clustering objective '{dimension}' is unavailable.",
+            )
+
+        if config.dimensions is not None and dimension not in config.dimensions:
+            raise HTTPException(
+                status_code=422,
+                detail="Clustering objective must be an included dimension.",
+            )
+
+    # --------------------------------------------
+    # STEP 3: Generate SCORE Bands and save state
+    # --------------------------------------------
+
+    state = _make_state(
+        problem,
+        data,
+        config,
+        action="iterate",
+        selected_cluster_id=selected_cluster_id,
+        preferred_ranges=ranges,
+        saved_bands=_session_saved_bands(
+            db,
+            problem_db.id,
+            interactive.id,
+        ),
+        optimization=request.optimization_options,
+        variable_values=variables,
+    )
+
+    created = _persist(
+        db,
+        problem_id=problem_db.id,
+        session_id=interactive.id,
+        parent_id=parent.id,
+        state=state,
+        kind=StateKind.SCORE_BANDS_METHOD_ITERATE,
+    )
+
+    return _response(
+        db,
+        created,
+        interactive.id,
+        initialized=False,
+    )
 
 @router.post("/save")
 def save_score_band(
